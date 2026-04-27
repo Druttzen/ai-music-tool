@@ -24,6 +24,9 @@
     "electron": "latest",
     "electron-builder": "latest"
   },
+  "overrides": {
+    "postcss": "^8.5.10"
+  },
   "build": {
     "appId": "com.djmad.aimusiccreator",
     "productName": "AI Music Creator",
