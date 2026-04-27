@@ -5,7 +5,7 @@ import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
 import { useClipboard } from "./hooks/use-clipboard";
 import { useStatusMessage } from "./hooks/use-status-message";
 import { buildSunoLikePrompt, validateSunoLikePrompt } from "./lib/suno-rules";
-import { sunoLanguageIndex } from "./lib/suno-language-index";
+import { collectGenreAnchors, sunoLanguageIndex } from "./lib/suno-language-index";
 import {
   APP_VERSION,
   AUTHOR,
@@ -296,41 +296,8 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
   };
 
   const applyGenreAnchors = () => {
-    const genreSet = new Set(selectedGenres.map((g) => g.toLowerCase()));
-    const anchorSounds = [];
-    const anchorRhythms = [];
-    const ruleAdditions = [];
-
-    if (genreSet.has("techno")) {
-      anchorSounds.push("Heavy sub bass", "Metallic percussion");
-      anchorRhythms.push("4/4", "Syncopated");
-      ruleAdditions.push("driving 4/4 kick with industrial texture");
-    }
-    if (genreSet.has("drum & bass") || genreSet.has("jungle")) {
-      anchorSounds.push("Distorted bass", "Dub delays");
-      anchorRhythms.push("Breakbeat", "Rolling");
-      ruleAdditions.push("rolling breakbeat momentum and reese-style bass behavior");
-    }
-    if (genreSet.has("ambient")) {
-      anchorSounds.push("Dark pads", "Noise atmosphere");
-      anchorRhythms.push("Minimal", "No drums");
-      ruleAdditions.push("slow evolving atmosphere with wide spatial depth");
-    }
-    if (genreSet.has("cinematic") || genreSet.has("orchestral")) {
-      anchorSounds.push("Orchestral strings", "Big drums");
-      anchorRhythms.push("Halftime");
-      ruleAdditions.push("cinematic dynamic arc with impact-driven transitions");
-    }
-    if (genreSet.has("trap")) {
-      anchorSounds.push("808 bass", "Glitch FX");
-      anchorRhythms.push("Halftime", "Swing");
-      ruleAdditions.push("tight low end with modern trap hat movement");
-    }
-    if (genreSet.has("pop")) {
-      anchorSounds.push("Bright leads", "Soft drums");
-      anchorRhythms.push("4/4");
-      ruleAdditions.push("hook-forward arrangement and clean vocal-forward mix");
-    }
+    const { sounds: anchorSounds, rhythms: anchorRhythms, rules: ruleAdditions } =
+      collectGenreAnchors(selectedGenres);
 
     if (!anchorSounds.length && !anchorRhythms.length && !ruleAdditions.length) {
       setStatusWithTime("No known genre anchors to apply");
