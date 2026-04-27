@@ -26,6 +26,7 @@ export const DEFAULT_STATE = {
   lyricStyle: "Dark poetic",
   lyricDensity: 55,
   promptFormat: "Balanced",
+  promptEngine: "Standard",
   coProducerOutput: "",
   generatedLyrics: "",
   generatedHooks: "",

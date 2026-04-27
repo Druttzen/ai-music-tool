@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
 import { useClipboard } from "./hooks/use-clipboard";
 import { useStatusMessage } from "./hooks/use-status-message";
+import { buildSunoLikePrompt, validateSunoLikePrompt } from "./lib/suno-rules";
 import {
   APP_VERSION,
   AUTHOR,
@@ -49,6 +50,7 @@ export default function Page() {
   const [lyricStyle, setLyricStyle] = useState(DEFAULT_STATE.lyricStyle);
   const [lyricDensity, setLyricDensity] = useState(DEFAULT_STATE.lyricDensity);
   const [promptFormat, setPromptFormat] = useState(DEFAULT_STATE.promptFormat);
+  const [promptEngine, setPromptEngine] = useState(DEFAULT_STATE.promptEngine ?? "Standard");
   const [coProducerOutput, setCoProducerOutput] = useState(DEFAULT_STATE.coProducerOutput);
   const [generatedLyrics, setGeneratedLyrics] = useState(DEFAULT_STATE.generatedLyrics);
   const [generatedHooks, setGeneratedHooks] = useState(DEFAULT_STATE.generatedHooks);
@@ -67,7 +69,7 @@ export default function Page() {
   const imagePreviewUrlRef = useRef(null);
   const lastAutosavePayloadRef = useRef("");
 
-  const currentState = useMemo(()=>({ idea, tempo, structure, selectedGenres, selectedRhythms, selectedSounds, vocal, mode, proMode, promptIntensity, variationCount, rules, notes, scores, mood, audioAnalysis, imageAnalysis, lyricTheme, lyricLanguage, lyricStructure, lyricStyle, lyricDensity, promptFormat, coProducerOutput, generatedLyrics, generatedHooks, lyricMode }), [idea,tempo,structure,selectedGenres,selectedRhythms,selectedSounds,vocal,mode,proMode,promptIntensity,variationCount,rules,notes,scores,mood,audioAnalysis,imageAnalysis,lyricTheme,lyricLanguage,lyricStructure,lyricStyle,lyricDensity,promptFormat,coProducerOutput,generatedLyrics,generatedHooks,lyricMode]);
+  const currentState = useMemo(()=>({ idea, tempo, structure, selectedGenres, selectedRhythms, selectedSounds, vocal, mode, proMode, promptIntensity, variationCount, rules, notes, scores, mood, audioAnalysis, imageAnalysis, lyricTheme, lyricLanguage, lyricStructure, lyricStyle, lyricDensity, promptFormat, promptEngine, coProducerOutput, generatedLyrics, generatedHooks, lyricMode }), [idea,tempo,structure,selectedGenres,selectedRhythms,selectedSounds,vocal,mode,proMode,promptIntensity,variationCount,rules,notes,scores,mood,audioAnalysis,imageAnalysis,lyricTheme,lyricLanguage,lyricStructure,lyricStyle,lyricDensity,promptFormat,promptEngine,coProducerOutput,generatedLyrics,generatedHooks,lyricMode]);
 
   const loadState=(data)=>{
     setIdea(data.idea ?? DEFAULT_STATE.idea);
@@ -93,6 +95,7 @@ export default function Page() {
     setLyricStyle(data.lyricStyle ?? DEFAULT_STATE.lyricStyle);
     setLyricDensity(data.lyricDensity ?? DEFAULT_STATE.lyricDensity);
     setPromptFormat(data.promptFormat ?? DEFAULT_STATE.promptFormat);
+    setPromptEngine(data.promptEngine ?? DEFAULT_STATE.promptEngine ?? "Standard");
     setCoProducerOutput(data.coProducerOutput ?? DEFAULT_STATE.coProducerOutput);
     setGeneratedLyrics(data.generatedLyrics ?? DEFAULT_STATE.generatedLyrics);
     setGeneratedHooks(data.generatedHooks ?? DEFAULT_STATE.generatedHooks);
@@ -215,6 +218,24 @@ ${notes || "No extra notes."}`;
   }, [selectedGenres, tempo, moodWords, selectedSounds, selectedRhythms, vocalText, structure, idea, vocal, lyricPrompt, rules, intensityText, mode, audioAnalysis, imageAnalysis, coProducerOutput, notes]);
 
   const prompt = useMemo(() => {
+    if (promptEngine === "Suno-like") {
+      return buildSunoLikePrompt({
+        selectedGenres,
+        tempo,
+        moodWords,
+        selectedSounds,
+        selectedRhythms,
+        vocalText,
+        structure,
+        idea,
+        lyricPrompt,
+        vocal,
+        rules,
+        intensityText,
+        mode,
+      });
+    }
+
     if (promptFormat === "Compressed") return compressedPrompt;
     if (promptFormat === "Detailed") return detailedPrompt;
 
@@ -238,7 +259,40 @@ ${rules}
 Intensity: ${intensityText} | Mode: ${mode}
 
 ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
-  }, [promptFormat, compressedPrompt, detailedPrompt, selectedGenres, tempo, moodWords, selectedSounds, selectedRhythms, vocalText, idea, vocal, lyricPrompt, rules, intensityText, mode, coProducerOutput]);
+  }, [promptEngine, promptFormat, compressedPrompt, detailedPrompt, selectedGenres, tempo, moodWords, selectedSounds, selectedRhythms, vocalText, idea, vocal, lyricPrompt, rules, intensityText, mode, coProducerOutput]);
+
+  const sunoWarnings = useMemo(
+    () =>
+      validateSunoLikePrompt({
+        selectedGenres,
+        selectedSounds,
+        selectedRhythms,
+        vocal,
+        rules,
+        structure,
+        idea,
+      }),
+    [selectedGenres, selectedSounds, selectedRhythms, vocal, rules, structure, idea]
+  );
+
+  const fixSunoWarnings = () => {
+    if (!selectedGenres.length) setSelectedGenres(["Techno"]);
+    if (!selectedSounds.length) setSelectedSounds(["Heavy sub bass", "Analog synths"]);
+    if (!selectedRhythms.length) setSelectedRhythms(["4/4"]);
+    if (!structure || structure.trim().length < 8) {
+      setStructure("intro → verse → pre-chorus → chorus → bridge → final chorus → outro");
+    }
+    if (!idea || idea.trim().length < 10) {
+      setIdea("high-impact track with clear identity, strong groove, and memorable emotional arc");
+    }
+    if (vocal === "Instrumental" && !rules.toLowerCase().includes("no vocal")) {
+      setRules((prev) => `${prev}${prev.trim() ? "\n" : ""}no vocals, no vocal chops, no mumbled speech`);
+    }
+    if (selectedGenres.length > 2) {
+      setSelectedGenres(selectedGenres.slice(0, 2));
+    }
+    setStatusWithTime("Applied Suno-like auto-fixes");
+  };
 
 
   const sourcePrompt = useMemo(() => {
@@ -898,6 +952,13 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                     {promptFormatOptions.map(x => <option key={x}>{x}</option>)}
                   </select>
                 </label>
+                <label>
+                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Prompt Engine</div>
+                  <select value={promptEngine} onChange={(e)=>setPromptEngine(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">
+                    <option>Standard</option>
+                    <option>Suno-like</option>
+                  </select>
+                </label>
               </div>
 
               {coProducerOutput && (
@@ -933,6 +994,31 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
           <aside className="space-y-4">
             <Panel title="Prompt Preview" hint="Copy this into Suno or another AI music tool."><pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">{prompt}</pre><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={copyPrompt} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">{copied?"Copied!":"Copy Prompt"}</button><button onClick={()=>addHistory("Manual snapshot")} className="rounded-2xl bg-white px-4 py-2 font-bold text-black hover:bg-cyan-100">Save Snapshot</button></div></Panel>
             <Panel title="Analyzer / Debug" hint="Find weak spots and apply fixes."><button onClick={analyze} className="mb-3 w-full rounded-2xl bg-purple-300 px-4 py-2 font-bold text-black hover:bg-purple-200">Analyze Prompt</button><select value={issue} onChange={(e)=>setIssue(e.target.value)} className="mb-3 w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">{Object.keys(fixes).map(x=><option key={x}>{x}</option>)}</select><div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-50">{fixes[issue]}</div><button onClick={applyFix} className="w-full rounded-2xl bg-amber-300 px-4 py-2 font-bold text-black hover:bg-amber-200">Apply Fix To Rules</button></Panel>
+            {promptEngine === "Suno-like" && (
+              <Panel title="Suno-like Validator" hint="Checks structured style/prompt constraints before copying.">
+                {sunoWarnings.length > 0 && (
+                  <button
+                    onClick={fixSunoWarnings}
+                    className="mb-3 w-full rounded-2xl bg-emerald-300 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-200"
+                  >
+                    Fix Suno Warnings
+                  </button>
+                )}
+                {sunoWarnings.length ? (
+                  <div className="space-y-2">
+                    {sunoWarnings.map((w, i) => (
+                      <div key={i} className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-50">
+                        {w}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs text-emerald-100">
+                    Prompt structure looks solid for Suno-like generation.
+                  </div>
+                )}
+              </Panel>
+            )}
             <Panel title="History / Compare" hint="Restore earlier prompt states."><button onClick={clearHistory} className="mb-3 w-full rounded-2xl border border-red-300/30 bg-red-300/10 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-300/20">Clear History</button>{history.length===0?<div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-white/45">No history yet. Copy a prompt, save a snapshot, or generate variations.</div>:<div className="space-y-2">{history.map(h=><div key={h.id} className={"rounded-2xl border p-3 "+(selectedHistoryId===h.id?"border-cyan-300/50 bg-cyan-300/10":"border-white/10 bg-black/25")}><div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-cyan-100">{h.label}</div><div className="text-[10px] text-white/40">{h.time} • score {h.avgScore}/5</div></div><button onClick={()=>restoreHistory(h)} className="rounded-xl bg-white px-2 py-1 text-xs font-bold text-black">Restore</button></div><pre className="mt-2 max-h-20 overflow-auto whitespace-pre-wrap text-[10px] text-white/45">{h.prompt}</pre></div>)}</div>}</Panel>
             <Panel title="Track Scoring" hint="Use after generation to compare outputs.">{Object.entries(scores).map(([key,value])=><div key={key} className="mb-3 rounded-2xl bg-black/25 p-3"><div className="mb-2 flex justify-between text-sm"><span className="capitalize text-white/70">{key}</span><span className="font-bold text-cyan-200">{value}/5</span></div><input type="range" min="1" max="5" value={value} onChange={(e)=>setScores({...scores,[key]:Number(e.target.value)})} className="w-full accent-cyan-300"/></div>)}</Panel>
           </aside>
