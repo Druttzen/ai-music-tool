@@ -1,15 +1,21 @@
 {
   "name": "ai-music-tool",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "AI Music Creator Visual Prompt Engine",
   "author": "DJ M@D",
   "private": true,
   "main": "main.js",
   "scripts": {
     "dev": "next dev",
+    "debug": "node --inspect=9241 node_modules/next/dist/bin/next dev",
+    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
+    "lint": "eslint . --max-warnings 0",
+    "check": "npm run lint && npm run build",
     "build": "next build",
     "electron": "electron .",
-    "dist": "npm run build && electron-builder"
+    "predist": "node scripts/prep-electron-dist.cjs",
+    "dist": "npm run build && npm run predist && electron-builder",
+    "dis": "npm run dist"
   },
   "dependencies": {
     "next": "16.2.4",
@@ -37,7 +43,8 @@
       "build/AI_Music_Creator_README.pdf"
     ],
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "electron-dist"
     },
     "win": {
       "target": "nsis",

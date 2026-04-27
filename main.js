@@ -1,12 +1,13 @@
 const { app, BrowserWindow, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const pkg = require("./package.json");
 
 let mainWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    title: "AI Music Creator",
+    title: `AI Music Creator v${pkg.version}`,
     width: 1400,
     height: 900,
     minWidth: 1100,

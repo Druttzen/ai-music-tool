@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# AI Music Creator — Prompt Control Room
 
-## Getting Started
+**Version 0.6.0**
 
-First, run the development server:
+A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional audio/image analyzers, and export blocks that respect **Style** / **Lyrics** field limits.
+
+## Highlights (v0.6.x)
+
+- **Guided Suno path** — Step-through workflow, Polish step, progressive style preview, **Style** capped at **1000 characters** with priority ordering on copy.
+- **Expanded English style vocabulary** — Large curated catalog including **world/regional styles paired with instruments**, sound-design FX, environment beds, orchestral and band instruments, moods, and fusion labels; English-only picker with dedupe.
+- **Analyzers** — Drag-drop audio DNA and image→style merges into compact **`AUDIO:` / `IMAGE:`** rule lines (metrics + groove retained first when trimming); merge respects guided caps on genres/sounds/rhythms.
+- **Live length readout** — Style box and lyrics direction character counts next to analyzers (same strings as the validator).
+- **Presets & history** — Factory and custom presets, project save/import, variation engine, Co‑Producer helpers, Suno language index and symbol guides.
+
+## Requirements
+
+- **Node.js** 18+ recommended  
+- **npm** (ships with Node)
+
+## Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Production build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+**Pre-ship check** (ESLint, zero warnings, then production build):
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run check
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`npm run lint` runs ESLint alone.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Static output is produced by Next.js (`out/` when configured for export, or standard App Router build — see `next.config.js`).
 
-## Deploy on Vercel
+## Desktop (Electron)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run dist
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Uses **electron-builder**; installer output under `electron-dist/` (see `package.json` `build` section).
+
+## Version source of truth
+
+The UI reads **`APP_VERSION`** from `package.json` via `NEXT_PUBLIC_APP_VERSION` in `next.config.js`. Bump **`package.json`** `version` for releases; the fallback in `app/lib/music-config.js` should match for dev without env.
+
+## Author
+
+**DJ M@D**
+
+---
+
+_Legacy Next.js starter sections were replaced with this project README as of v0.6.0._

@@ -20,6 +20,13 @@
 # production
 /build
 
+# Windows installer / local packaging output (rebuild with npm run dist)
+/dist/
+/electron-dist/
+
+# Accidental nested folder (not part of this app)
+/Druttzen/
+
 # misc
 .DS_Store
 *.pem

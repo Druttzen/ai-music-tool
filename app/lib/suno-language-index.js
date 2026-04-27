@@ -1,8 +1,31 @@
 // Community-derived, non-official prompt vocabulary index for Suno-style workflows.
 // Synthesized from public guides and community tutorials.
 
+export { referencePromptBlocks, stylePromptCatalog } from "./style-prompt-catalog";
+
+import {
+  formatPromptSymbolGuidePlain,
+  formatVocalArtifactGuidePlain,
+  promptSymbolExamples,
+  promptSymbolOverview,
+  promptSymbolUsageTips,
+  sunoVocalArtifactGuide,
+} from "./prompt-symbol-guide";
+
+import { SUNO_LIMITS_PRINCIPLE } from "./suno-limits";
+
+export {
+  formatPromptSymbolGuidePlain,
+  formatVocalArtifactGuidePlain,
+  promptSymbolExamples,
+  promptSymbolOverview,
+  promptSymbolUsageTips,
+  sunoVocalArtifactGuide,
+};
+
 export const sunoLanguageIndex = {
   principles: [
+    SUNO_LIMITS_PRINCIPLE,
     "Keep style prompt focused on sonic palette (genre, mood, instruments, vocal intent).",
     "Keep lyrics field focused on structure and lyrical content.",
     "Use clear section tags to reduce arrangement drift.",
@@ -16,6 +39,7 @@ export const sunoLanguageIndex = {
     "Verse 2",
     "Pre-Chorus",
     "Chorus",
+    "Final Chorus",
     "Bridge",
     "Instrumental",
     "Instrumental Break",
@@ -25,33 +49,57 @@ export const sunoLanguageIndex = {
     "Breakdown",
     "Hook",
     "Interlude",
+    "Spoken Word",
+    "Concert Intro",
+    "Vocal Drone",
     "Outro",
     "End",
     "Fade Out",
   ],
   vocalTags: [
     "female lead vocal",
+    "female group harmonies",
     "male baritone",
+    "male/female duet roles (label each line)",
+    "beatbox rhythmic vocal",
     "breathy soprano",
     "raspy lead vocal",
     "spoken word verse",
+    "spoken word alternating with instrumental breaks",
     "stacked harmonies",
+    "SATB choir stack (soprano alto tenor bass)",
+    "massive layered chorus",
+    "background vocal layers",
     "anthemic chorus",
     "whispered vocal",
     "choir textures",
+    "arena crowd chant bed",
+    "raw scream or shout (short, tagged)",
+    "vocal drone intro (wordless, dark)",
+    "emotion arc (fragile → angry → empowered — tag sections)",
     "autotuned delivery",
+    "soulful vocal samples",
+    "fictional language snippet (short, pronounceable)",
   ],
   productionTokens: [
     "compressed vocal",
     "dry close-mic vocal",
+    "Hi-Fi mastering clarity",
+    "Dolby Atmos spatial impression",
+    "three-dimensional stereo image",
     "spacious reverb",
     "wide stereo image",
     "tape warmth",
     "lo-fi texture",
     "studio-polished mix",
+    "warm vintage saturation",
+    "dark club mix depth",
     "analog saturation",
     "clean low end",
+    "sub-bass extension",
     "punchy transient drums",
+    "side-chain pump to kick",
+    "heavy transient compression",
   ],
   negativePrompting: [
     "no vocals",
@@ -77,17 +125,165 @@ export const sunoLanguageIndex = {
       "dark techno, industrial edge, 128 BPM, heavy sub bass, metallic percussion, analog synth stabs, instrumental only, clean club-ready mix, no vocals",
     lyricsField:
       "[Intro]\n[Instrumental, tension build]\n\n[Verse 1]\n(lyrics...)\n\n[Pre-Chorus]\n(lyrics...)\n\n[Chorus]\n(repeatable hook...)\n\n[Bridge]\n(contrast section...)\n\n[Final Chorus]\n(variation of hook...)\n\n[Outro]\n[Fade Out]\n[End]",
+    /** Paste into Suno Lyrics — meta on Intro line, curly braces for crowd FX, build/drop, SATB hint */
+    lyricsFieldAdvanced: `[Intro: stadium crowd ambience, big applause, cheering, distant chanting "HEY! HEY!", stage reverb]
+
+[Verse 1]
+(line…)
+(line…)
+
+[Pre-Chorus]
+(line…)
+
+[Chorus — SATB layers, huge harmonies]
+HOOK LINE IN ALL CAPS FOR EMPHASIS
+(call and response line)
+
+[Bridge]
+(contrast…)
+
+[Build]
+(risers, snare roll, tension — short cues)
+
+[Drop]
+(full beat — bass + drums hit)
+
+[Final Chorus]
+(variation…)
+
+[Outro]
+{crowd cheering}
+{big applause}
+{chanting fades out}`,
+
+    /** Alternate blocks — copy any fragment into your lyric sheet */
+    lyricSnippets: {
+      concertIntro:
+        "[Concert Intro: live crowd noise, applause, distant chant, stadium verb — high energy]",
+      vocalDrone:
+        "[Vocal Drone Intro: dark, haunted, wordless ah/oh layers, low mix]",
+      spokenSaxAlternation: `[Spoken]
+(one spoken line)
+
+[Instrumental Break — sax lead]
+(measurable gap / instrumental line)
+
+[Spoken]
+(back to speech)`,
+
+      screams: `[Pre-Chorus — intense]
+(SHOUT: ONE WORD)
+
+[Chorus]
+REGULAR LINE
+(raw scream — short)`,
+
+      duet: `[Verse 1 — Jane]
+(first voice line…)
+
+[Verse 1 — John]
+(second voice line…)
+
+[Chorus — both]
+(unison or harmony hook…)`,
+
+      fxAdlibs: `(BOOM) (CLAP) [FX: whip]\nBracket or parens for one-shot FX and ad-libs.`,
+      fictionalLang:
+        "[Bridge — Elvish-style nonsense phrase, 2–4 words, melodic]\n(pronunciation-friendly syllables only)",
+    },
+
     negativeBlock:
       "NO: vocals, vocal chops, mumbled speech, muddy mix, random genre switches",
   },
+
+  /**
+   * Grouped cookbook items for the UI (labels + copy text).
+   * Convention: Title Case inside brackets [Section], curly braces for stage/crowd FX.
+   */
+  advancedLyricCookbook: [
+    {
+      id: "meta-intro",
+      title: "Meta intro line (sonic staging in one tag)",
+      body: `[Intro: stadium crowd ambience, big applause, cheering, distant chanting "HEY! HEY!", stage reverb]`,
+    },
+    {
+      id: "curly-fx",
+      title: "Curly-brace crowd / stage FX",
+      body: `{crowd cheering}\n{big applause}\n{chanting fades out}`,
+    },
+    {
+      id: "build-drop",
+      title: "Build + Drop (EDM energy)",
+      body: `[Build]\n(risers, filter opens, snare roll)\n\n[Drop]\n(full drums and bass impact — short cue lines only)`,
+    },
+    {
+      id: "satb-choir",
+      title: "Massive chorus / SATB",
+      body: `[Chorus — SATB layers]\n(soprano / alto / tenor / bass — describe stack or call-and-response)\n\nOr: [Chorus — layered choir, doubled hook]`,
+    },
+    {
+      id: "uppercase-emphasis",
+      title: "Uppercase hook emphasis",
+      body: `Use ALL CAPS on key lines or words for intensity, e.g.\nWE RISE TOGETHER\nor single words: FOREVER / FREE`,
+    },
+    {
+      id: "emotion-acting",
+      title: "Emotion / acting tags on sections",
+      body: `[Verse 1 — fragile, intimate delivery]\n[Verse 2 — angry, clipped]\n[Chorus — empowered, open throat]`,
+    },
+    {
+      id: "scream-shout",
+      title: "Screams / shouts (keep short)",
+      body: `[Shout: NOW!]\n(raw scream — one breath)\n(SCREAM ad-lib at end of bar)`,
+    },
+    {
+      id: "spoken-alt-breaks",
+      title: "Spoken ↔ instrument alternation",
+      body: `[Spoken]\n(line…)\n\n[Instrumental Break — sax solo]\n(…)\n\n[Spoken]\n(line…)`,
+    },
+    {
+      id: "duet-roles",
+      title: "Duets (label roles)",
+      body: `[Verse — Female lead:]\nline…\n\n[Verse — Male lead:]\nline…\n\n[Chorus — duet harmony]\nhook…`,
+    },
+    {
+      id: "onomatopoeia",
+      title: "Onomatopoeia / FX ad-libs",
+      body: `(BOOM) (CLAP) [FX: stomp]\nKeep FX sparse so arrangement stays readable.`,
+    },
+    {
+      id: "fictional-lang",
+      title: "Fictional languages",
+      body: `2–6 syllable invented phrases only; melodic; avoid long exposition.\nExample: [Bridge — invented phrase]\n"aela ven korum"`,
+    },
+    {
+      id: "instrumental-break-pipes",
+      title: "DnB/Jungle-style break (block vocal-as-texture)",
+      body: `[Break | Instrumental Only | No Vocals | Do Not Use Lyrics as FX]`,
+    },
+  ],
+  promptSymbolOverview,
+  promptSymbolUsageTips,
+  promptSymbolExamples,
+  sunoVocalArtifactGuide,
   /** Short narrative anchors (display / docs only). */
   genreAnchors: {
     techno: ["driving 4/4 kick", "industrial textures", "dark warehouse mood"],
+    detroit: ["shuffle swing hats", "analog sequencer soul", "warehouse hypnosis"],
     dnb: ["rolling breakbeats", "reese bass", "high-energy tension"],
     ambient: ["evolving pads", "slow movement", "wide atmospheric space"],
     cinematic: ["orchestral swells", "impact drums", "epic dynamic arc"],
+    classical: ["sectional dynamics", "bowed strings and brass clarity", "controlled vibrato"],
+    worship: ["open harmonic cadences", "congregation-sized lift", "wide congregational verb"],
+    bluegrass: ["bright acoustic stack", "fast picking clarity", "high-and-lonesome harmony"],
     trap: ["808 sub bass", "tight hats", "modern vocal processing"],
+    drill: ["sliding 808 phrases", "urgent hi-hat rolls", "minimal melodic clutter"],
+    dubstep: ["half-time swing", "wobble or tear bass", "impact drops"],
+    trance: ["supersaw lift", "filter-sweep tension", "long euphoric plateau"],
     pop: ["hook-forward chorus", "clean arrangement", "radio-ready polish"],
+    chillwave: ["nostalgic cassette band", "soft pumping sidechain", "dreamy chorus guitars"],
+    metal: ["high-gain guitar layers", "double-kick drive when needed", "dense wall of guitars"],
+    world: ["regional percussion identity", "modal scales", "earthy acoustic layers"],
   },
 };
 
@@ -173,6 +369,90 @@ export const GENRE_ANCHOR_ENTRIES = [
     sounds: ["Heavy sub bass", "Bright leads"],
     rhythms: ["Rolling", "Syncopated"],
     rule: "wide supersaw chords with punchy subs and emotional lift",
+  },
+  {
+    keys: ["classical"],
+    sounds: ["Orchestral strings", "Piano"],
+    rhythms: ["4/4", "Minimal"],
+    rule: "controlled orchestral dynamics with clear melodic lines",
+  },
+  {
+    keys: ["folk", "americana", "country", "bluegrass"],
+    sounds: ["Guitar", "Soft drums", "Hand percussion"],
+    rhythms: ["Swing", "4/4"],
+    rule: "acoustic-forward storytelling mix with earthy transients",
+  },
+  {
+    keys: ["worship", "gospel"],
+    sounds: ["Piano", "Orchestral strings", "Choir texture"],
+    rhythms: ["4/4"],
+    rule: "wide uplifting harmonies and spacious reverberant vocals",
+  },
+  {
+    keys: ["metal", "folk metal"],
+    sounds: ["Distorted bass", "Guitar", "Metallic percussion"],
+    rhythms: ["4/4", "Double-time"],
+    rule: "high-gain layering with anthemic rhythmic drive",
+  },
+  {
+    keys: ["drill"],
+    sounds: ["808 bass", "Metallic percussion"],
+    rhythms: ["Drill groove", "Rolling"],
+    rule: "minimal chords, sliding bass, urgent hats",
+  },
+  {
+    keys: ["chillwave"],
+    sounds: ["Analog synths", "Dark pads", "Vinyl texture"],
+    rhythms: ["4/4", "Minimal"],
+    rule: "nostalgic lo-fi warmth with soft side-chain breathing",
+  },
+  {
+    keys: ["dubstep"],
+    sounds: ["Heavy sub bass", "Wobble bass", "Glitch FX"],
+    rhythms: ["Halftime", "Syncopated"],
+    rule: "half-time weight and dramatic bass-focused drops",
+  },
+  {
+    keys: ["trance"],
+    sounds: ["Bright leads", "Analog synths", "Pad synth"],
+    rhythms: ["4/4", "Rolling"],
+    rule: "arpeggiated momentum with euphoric sustained lift",
+  },
+  {
+    keys: ["breakcore"],
+    sounds: ["Glitch FX", "Distorted bass"],
+    rhythms: ["Breakbeat", "Off-grid"],
+    rule: "fragmented drum edits and violent transient cuts",
+  },
+  {
+    keys: ["reggae"],
+    sounds: ["Heavy sub bass", "Dub delays"],
+    rhythms: ["Off-grid", "Swing"],
+    rule: "deep one-drop pocket with spring reverb flavor",
+  },
+  {
+    keys: ["funk", "soul"],
+    sounds: ["Bright leads", "Analog synths", "Guitar"],
+    rhythms: ["Syncopated", "Swing"],
+    rule: "syncopated bass-guitar interplay and expressive leads",
+  },
+  {
+    keys: ["latin", "world"],
+    sounds: ["Orchestral strings", "Metallic percussion", "World strings"],
+    rhythms: ["Syncopated", "Tribal"],
+    rule: "clear regional percussion roles with airy top-end",
+  },
+  {
+    keys: ["game music"],
+    sounds: ["Bright leads", "Analog synths", "Hand percussion"],
+    rhythms: ["4/4", "Rolling"],
+    rule: "motif-led loops with immediate identifiable hooks",
+  },
+  {
+    keys: ["new wave"],
+    sounds: ["Bright leads", "Analog synths"],
+    rhythms: ["4/4", "Syncopated"],
+    rule: "chorused guitars and punchy synthetic drums",
   },
 ];
 

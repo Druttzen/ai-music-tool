@@ -54,9 +54,21 @@ export function buildLyricPrompt({
 
   const modeRules = {
     "Raw Prompt": "Create lyric direction only. Do not write full lyrics unless asked.",
-    "Structured Song": "Write singable lyrics using [INTRO], [VERSE 1], [PRE-CHORUS], [CHORUS], [VERSE 2], [BRIDGE], [FINAL CHORUS], [OUTRO].",
-    "Performance Ready": "Write final performance-ready lyrics. Use [SECTION] tags, short singable lines, repeated chorus, adlibs in parentheses, and no long prose.",
+    "Structured Song":
+      "Write singable lyrics using bracket tags: [Intro], [Verse 1], [Verse 2], [Pre-Chorus], [Chorus], [Bridge], [Final Chorus], [Outro].",
+    "Performance Ready":
+      "Write performance-ready lyrics with [Section] tags (Title Case inside brackets), short singable lines, repeatable chorus, ad-libs in parentheses.",
   };
+
+  const sunoLyricTechniques = `SUNO LYRIC FIELD — optional patterns (community workflows):
+- Section tags use Title Case inside brackets: [Intro], [Verse 1], [Chorus], [Build], [Drop], [Outro].
+- Scene in one line: [Intro: crowd ambience, applause, distant chant, stage reverb].
+- Crowd/stage cues: {crowd cheering}, {big applause}, {chanting fades}.
+- Choir: tag [Chorus — SATB layers] or [Chorus — massive harmonies].
+- Duets: [Female lead:] / [Male lead:] lines or named roles [Jane] / [John].
+- Energy: [Build] then [Drop]; hooks can use ALL CAPS; screams/shouts kept short.
+- Alternate spoken and instruments: [Spoken] vs [Instrumental Break — sax].
+- FX ad-libs: (BOOM) (CLAP); fictional words: very short invented phrases only.`;
 
   return `LYRIC STYLE:
 Language: ${lyricLanguage}
@@ -67,11 +79,13 @@ Structure: ${lyricStructure}
 Density: ${densityText}
 
 CRITICAL FORMAT RULES:
-- Use bracket section tags exactly like [VERSE], [CHORUS], [BRIDGE], [OUTRO].
+- Use bracket section tags like [Intro], [Verse 1], [Chorus], [Bridge], [Final Chorus], [Outro].
 - Keep lyric lines short and singable.
 - Do not write paragraphs.
 - Do not explain the lyrics inside the lyric output.
 - Chorus/hook must be repeatable and easy to remember.
 - Match ${selectedGenres.join(" + ") || "the genre"} and ${moodWords} mood.
-- ${modeRules[lyricMode]}`;
+- ${modeRules[lyricMode]}
+
+${sunoLyricTechniques}`;
 }

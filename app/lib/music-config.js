@@ -1,7 +1,11 @@
 export const STORAGE_KEY = "ai_music_creator_visual_tool_v3";
 export const PRESET_KEY = "ai_music_creator_custom_presets_v1";
 export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
-export const APP_VERSION = "0.5.1";
+/** Mirrors package.json version (injected at build via next.config.js `env`). */
+export const APP_VERSION =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION
+    ? process.env.NEXT_PUBLIC_APP_VERSION
+    : "0.6.0";
 export const AUTHOR = "DJ M@D";
 
 export const DEFAULT_STATE = {
@@ -31,12 +35,118 @@ export const DEFAULT_STATE = {
   generatedLyrics: "",
   generatedHooks: "",
   lyricMode: "Structured Song",
+  voiceRefFirstName: "",
+  voiceRefLastName: "",
+  voiceStyleLine: "",
+  /** Guided path: instrumental with vocal chops/textures (no lyrics). */
+  instrumentalVocalFx: false,
 };
 
-export const genreOptions = ["Techno","House","Drum & Bass","Jungle","Hip Hop","Trap","Pop","Ambient","Cinematic","Rock","Jazz","Experimental","Industrial","Synthwave","Future Bass","Orchestral"];
-export const rhythmOptions = ["4/4","Breakbeat","Halftime","Swing","Boom Bap","Rolling","Off-grid","Minimal","No drums","Syncopated"];
-export const soundOptions = ["Heavy sub bass","Distorted bass","808 bass","Metallic percussion","Analog synths","Bright leads","Dark pads","Piano","Guitar","Orchestral strings","Big drums","Soft drums","Vinyl texture","Noise atmosphere","Dub delays","Glitch FX","Choir texture"];
-export const vocalOptions = ["Instrumental","Female Lead","Male Lead","Robotic","Choir","Spoken Word","Vocal Chops","Rave Chant"];
+export const genreOptions = [
+  "Techno",
+  "House",
+  "Drum & Bass",
+  "Jungle",
+  "Hip Hop",
+  "Trap",
+  "Pop",
+  "Ambient",
+  "Cinematic",
+  "Rock",
+  "Jazz",
+  "Experimental",
+  "Industrial",
+  "Synthwave",
+  "Future Bass",
+  "Orchestral",
+  "Classical",
+  "Folk",
+  "Country",
+  "Latin",
+  "World",
+  "Worship",
+  "Gospel",
+  "Bluegrass",
+  "Metal",
+  "Drill",
+  "Chillwave",
+  "Dubstep",
+  "Reggae",
+  "Funk",
+  "Soul",
+  "Trance",
+  "Breakcore",
+  "New Wave",
+  "Americana",
+  "Folk Metal",
+  "Game Music",
+];
+export const rhythmOptions = [
+  "4/4",
+  "Breakbeat",
+  "Halftime",
+  "Swing",
+  "Boom Bap",
+  "Rolling",
+  "Off-grid",
+  "Minimal",
+  "No drums",
+  "Syncopated",
+  "Drill groove",
+  "Double-time",
+  "Tribal",
+  "Shuffle",
+];
+export const soundOptions = [
+  "Heavy sub bass",
+  "Distorted bass",
+  "808 bass",
+  "Metallic percussion",
+  "Analog synths",
+  "Bright leads",
+  "Dark pads",
+  "Piano",
+  "Guitar",
+  "Orchestral strings",
+  "Big drums",
+  "Soft drums",
+  "Vinyl texture",
+  "Noise atmosphere",
+  "Dub delays",
+  "Glitch FX",
+  "Choir texture",
+  "Pipe organ",
+  "Melodic violin",
+  "Subtle strings",
+  "Pad synth",
+  "Vocal samples",
+  "Beatbox texture",
+  "Didgeridoo",
+  "Bagpipes",
+  "Harp",
+  "Brass section",
+  "Arena crowd FX",
+  "DJ scratches",
+  "Hand percussion",
+  "Wobble bass",
+  "Side-chain pump",
+  "World strings",
+  "Dark saxophone",
+];
+export const vocalOptions = [
+  "Instrumental",
+  "Female Lead",
+  "Male Lead",
+  "Robotic",
+  "Choir",
+  "Spoken Word",
+  "Vocal Chops",
+  "Rave Chant",
+  "Background Vocals",
+  "Beatbox",
+  "Baritone Lead",
+  "Female Group",
+];
 
 export const lyricStyleOptions = [
   "Dark poetic",
