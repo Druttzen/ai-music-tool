@@ -295,6 +295,59 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
     setStatusWithTime("Applied Suno-like auto-fixes");
   };
 
+  const applyGenreAnchors = () => {
+    const genreSet = new Set(selectedGenres.map((g) => g.toLowerCase()));
+    const anchorSounds = [];
+    const anchorRhythms = [];
+    const ruleAdditions = [];
+
+    if (genreSet.has("techno")) {
+      anchorSounds.push("Heavy sub bass", "Metallic percussion");
+      anchorRhythms.push("4/4", "Syncopated");
+      ruleAdditions.push("driving 4/4 kick with industrial texture");
+    }
+    if (genreSet.has("drum & bass") || genreSet.has("jungle")) {
+      anchorSounds.push("Distorted bass", "Dub delays");
+      anchorRhythms.push("Breakbeat", "Rolling");
+      ruleAdditions.push("rolling breakbeat momentum and reese-style bass behavior");
+    }
+    if (genreSet.has("ambient")) {
+      anchorSounds.push("Dark pads", "Noise atmosphere");
+      anchorRhythms.push("Minimal", "No drums");
+      ruleAdditions.push("slow evolving atmosphere with wide spatial depth");
+    }
+    if (genreSet.has("cinematic") || genreSet.has("orchestral")) {
+      anchorSounds.push("Orchestral strings", "Big drums");
+      anchorRhythms.push("Halftime");
+      ruleAdditions.push("cinematic dynamic arc with impact-driven transitions");
+    }
+    if (genreSet.has("trap")) {
+      anchorSounds.push("808 bass", "Glitch FX");
+      anchorRhythms.push("Halftime", "Swing");
+      ruleAdditions.push("tight low end with modern trap hat movement");
+    }
+    if (genreSet.has("pop")) {
+      anchorSounds.push("Bright leads", "Soft drums");
+      anchorRhythms.push("4/4");
+      ruleAdditions.push("hook-forward arrangement and clean vocal-forward mix");
+    }
+
+    if (!anchorSounds.length && !anchorRhythms.length && !ruleAdditions.length) {
+      setStatusWithTime("No known genre anchors to apply");
+      return;
+    }
+
+    if (anchorSounds.length) setSelectedSounds((prev) => uniq([...prev, ...anchorSounds]));
+    if (anchorRhythms.length) setSelectedRhythms((prev) => uniq([...prev, ...anchorRhythms]));
+    if (ruleAdditions.length) {
+      setRules((prev) => {
+        const merged = uniq([...prev.split("\n").map((x) => x.trim()).filter(Boolean), ...ruleAdditions]);
+        return merged.join("\n");
+      });
+    }
+    setStatusWithTime("Applied genre anchors");
+  };
+
 
   const sourcePrompt = useMemo(() => {
     const parts = [];
@@ -1045,6 +1098,9 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                       Copy Lyrics Template
                     </button>
                   </div>
+                  <button onClick={applyGenreAnchors} className="w-full rounded-2xl bg-cyan-300 px-3 py-2 font-bold text-black hover:bg-cyan-200">
+                    Apply Genre Anchors
+                  </button>
                 </div>
               </Panel>
             )}
