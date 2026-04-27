@@ -5,6 +5,7 @@ import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
 import { useClipboard } from "./hooks/use-clipboard";
 import { useStatusMessage } from "./hooks/use-status-message";
 import { buildSunoLikePrompt, validateSunoLikePrompt } from "./lib/suno-rules";
+import { sunoLanguageIndex } from "./lib/suno-language-index";
 import {
   APP_VERSION,
   AUTHOR,
@@ -1017,6 +1018,34 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                     Prompt structure looks solid for Suno-like generation.
                   </div>
                 )}
+              </Panel>
+            )}
+            {promptEngine === "Suno-like" && (
+              <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
+                <div className="space-y-3 text-xs text-white/80">
+                  <div>
+                    <div className="mb-1 font-bold text-cyan-200">Core Principles</div>
+                    <ul className="space-y-1 text-white/70">
+                      {sunoLanguageIndex.principles.map((p, i) => (
+                        <li key={i}>- {p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="mb-1 font-bold text-cyan-200">Structure Tags</div>
+                    <div className="rounded-2xl border border-white/10 bg-black/30 p-2 text-white/70">
+                      {sunoLanguageIndex.structureTags.map((tag) => `[${tag}]`).join("  ")}
+                    </div>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <button onClick={() => copyToClipboard(sunoLanguageIndex.templates.styleField, "Suno style template copied")} className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 font-bold text-white hover:bg-white/20">
+                      Copy Style Template
+                    </button>
+                    <button onClick={() => copyToClipboard(sunoLanguageIndex.templates.lyricsField, "Suno lyrics template copied")} className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 font-bold text-white hover:bg-white/20">
+                      Copy Lyrics Template
+                    </button>
+                  </div>
+                </div>
               </Panel>
             )}
             <Panel title="History / Compare" hint="Restore earlier prompt states."><button onClick={clearHistory} className="mb-3 w-full rounded-2xl border border-red-300/30 bg-red-300/10 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-300/20">Clear History</button>{history.length===0?<div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-white/45">No history yet. Copy a prompt, save a snapshot, or generate variations.</div>:<div className="space-y-2">{history.map(h=><div key={h.id} className={"rounded-2xl border p-3 "+(selectedHistoryId===h.id?"border-cyan-300/50 bg-cyan-300/10":"border-white/10 bg-black/25")}><div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-cyan-100">{h.label}</div><div className="text-[10px] text-white/40">{h.time} • score {h.avgScore}/5</div></div><button onClick={()=>restoreHistory(h)} className="rounded-xl bg-white px-2 py-1 text-xs font-bold text-black">Restore</button></div><pre className="mt-2 max-h-20 overflow-auto whitespace-pre-wrap text-[10px] text-white/45">{h.prompt}</pre></div>)}</div>}</Panel>
