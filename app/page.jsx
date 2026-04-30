@@ -999,6 +999,11 @@ ${fixesToApply.length ? fixesToApply.join(", ") : "No extra sound modules needed
   };
 
   const generateHooks = () => {
+    if (vocal === "Instrumental") {
+      setGeneratedHooks("Instrumental mode is active. Switch vocal mode to generate lyric hooks.");
+      setStatusWithTime("Hooks skipped in instrumental mode");
+      return;
+    }
     const core = lyricTheme || idea;
     const energyWord = mood.energy > 70 ? "ignite" : "breathe";
     const darkWord = mood.darkness > 65 ? "night" : "light";
@@ -1047,12 +1052,12 @@ One more drop takes us higher`;
 
     if (lyricMode === "Raw Prompt") {
       lyrics = `[LYRIC DIRECTION]
-Language: ${lyricLanguage}
-Theme: ${lyricTheme}
-Style: ${lyricStyle}
-Mood: ${moodWords}
-Write short, singable lines with a strong repeated hook.
-Use [Verse], [Chorus], [Bridge], and [Outro] tags.`;
+[Language: ${lyricLanguage}]
+[Theme: ${lyricTheme}]
+[Style: ${lyricStyle}]
+[Mood: ${moodWords}]
+[Write short, singable lines with a strong repeated hook.]
+[Use [Verse], [Chorus], [Bridge], and [Outro] tags.]`;
     } else if (lyricMode === "Performance Ready") {
       lyrics = `[Intro]
 (${mood.darkness > 65 ? "dark atmosphere, distant vocal texture" : "wide atmosphere, soft vocal texture"})
