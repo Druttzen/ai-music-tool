@@ -118,7 +118,7 @@ export default function Page() {
   const [history,setHistory]=useState([]);
   const [variations,setVariations]=useState([]);
   const [selectedHistoryId,setSelectedHistoryId]=useState(null);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
 
   const [audioAnalysis,setAudioAnalysis]=useState(null);
   const [imageAnalysis,setImageAnalysis]=useState(null);
@@ -239,8 +239,27 @@ export default function Page() {
   const resetAll=()=>{ loadState(DEFAULT_STATE); setVariations([]); setAudioAnalysis(null); setImageAnalysis(null); setImagePreview(null); setGuidedStep(0); localStorage.removeItem(STORAGE_KEY); setStatusWithTime("Reset to default"); };
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 1800);
-    return () => clearTimeout(timer);
+    try {
+      if (sessionStorage.getItem("ai_music_splash_seen") === "1") return;
+    } catch {}
+    setShowSplash(true);
+    const hideSplash = () => {
+      setShowSplash(false);
+      try {
+        sessionStorage.setItem("ai_music_splash_seen", "1");
+      } catch {}
+    };
+    const timer = window.setTimeout(hideSplash, 1800);
+    // Failsafe for environments where timers are delayed/throttled.
+    const fallback = window.setTimeout(hideSplash, 3500);
+    window.addEventListener("pointerdown", hideSplash, { once: true });
+    window.addEventListener("keydown", hideSplash, { once: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(fallback);
+      window.removeEventListener("pointerdown", hideSplash);
+      window.removeEventListener("keydown", hideSplash);
+    };
   }, []);
 
   useEffect(() => {
@@ -1207,7 +1226,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
     <main className="min-h-screen overflow-hidden bg-[#0b0d10] p-4 text-white md:p-8">
       {showSplash && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b0d10]">
-          <div className="absolute inset-0 opacity-60" style={{background:"radial-gradient(circle at center, rgba(184,115,51,.28), transparent 35%), radial-gradient(circle at 65% 35%, rgba(34,211,238,.18), transparent 30%)"}} />
+          <div className="pointer-events-none absolute inset-0 opacity-60" style={{background:"radial-gradient(circle at center, rgba(184,115,51,.28), transparent 35%), radial-gradient(circle at 65% 35%, rgba(34,211,238,.18), transparent 30%)"}} />
           <div className="relative mx-6 max-w-xl rounded-[2rem] border border-orange-300/25 bg-black/60 p-8 text-center shadow-2xl backdrop-blur">
             {/* eslint-disable-next-line @next/next/no-img-element -- static asset; next/image optional for splash */}
             <img src="./bones-logo.png" alt="BONES VIBRATION logo" className="mx-auto mb-4 max-h-44 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]" />
