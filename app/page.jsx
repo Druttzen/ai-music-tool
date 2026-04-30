@@ -1272,7 +1272,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
             <Panel title="Step 1 — Idea Input" hint="Describe what you want in plain language."><input value={idea} onChange={(e)=>setIdea(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-cyan-300"/></Panel>
 
 
-            <Panel title="Lyric Style Generator" hint="Creates relevant lyric direction based on genre, vocal mode, mood, and theme.">
+            <Panel title="Lyric Style Generator" hint="Suno-only lyric prompt metadata. Every generated line uses [] so Suno reads it as prompt direction, not lyric text.">
               <div className="grid gap-3 md:grid-cols-2">
                 <label>
                   <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Theme</div>

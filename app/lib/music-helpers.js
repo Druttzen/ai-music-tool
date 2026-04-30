@@ -20,6 +20,18 @@ export function getVocalText(vocal) {
   return `${vocal}, clear delivery, consistent vocal role, genre-matched processing`;
 }
 
+function bracketizeSunoPromptBlock(text) {
+  return String(text || "")
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "";
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) return trimmed;
+      return `[${trimmed}]`;
+    })
+    .join("\n");
+}
+
 export function buildLyricPrompt({
   vocal,
   lyricDensity,
@@ -32,7 +44,7 @@ export function buildLyricPrompt({
   moodWords,
 }) {
   if (vocal === "Instrumental") {
-    return "Lyrics: instrumental only, no sung lyrics, no rap, no spoken words.";
+    return "[Lyrics: instrumental only, no sung lyrics, no rap, no spoken words.]";
   }
 
   const densityText = lyricDensity < 35
@@ -60,32 +72,30 @@ export function buildLyricPrompt({
       "Write performance-ready lyrics with [Section] tags (Title Case inside brackets), short singable lines, repeatable chorus, ad-libs in parentheses.",
   };
 
-  const sunoLyricTechniques = `SUNO LYRIC FIELD — optional patterns (community workflows):
-- Section tags use Title Case inside brackets: [Intro], [Verse 1], [Chorus], [Build], [Drop], [Outro].
-- Scene in one line: [Intro: crowd ambience, applause, distant chant, stage reverb].
-- Crowd/stage cues: {crowd cheering}, {big applause}, {chanting fades}.
-- Choir: tag [Chorus — SATB layers] or [Chorus — massive harmonies].
-- Duets: [Female lead:] / [Male lead:] lines or named roles [Jane] / [John].
-- Energy: [Build] then [Drop]; hooks can use ALL CAPS; screams/shouts kept short.
-- Alternate spoken and instruments: [Spoken] vs [Instrumental Break — sax].
-- FX ad-libs: (BOOM) (CLAP); fictional words: very short invented phrases only.`;
+  const sunoLyricTechniques = `SUNO LYRIC FIELD optional patterns (community workflows):
+Section tags use Title Case inside brackets: [Intro], [Verse 1], [Chorus], [Build], [Drop], [Outro].
+Scene in one line: [Intro: crowd ambience, applause, distant chant, stage reverb].
+Crowd and stage cues: {crowd cheering}, {big applause}, {chanting fades}.
+Choir tags: [Chorus — SATB layers] or [Chorus — massive harmonies].
+Duets: [Female lead:] / [Male lead:] lines or named roles [Jane] / [John].
+Energy map: [Build] then [Drop]; hooks can use ALL CAPS; screams and shouts stay short.
+Alternate spoken and instruments: [Spoken] vs [Instrumental Break — sax].
+FX ad-libs: (BOOM) (CLAP); fictional words stay very short.`;
 
-  return `LYRIC STYLE:
+  return bracketizeSunoPromptBlock(`LYRIC STYLE
 Language: ${lyricLanguage}
 Theme: ${lyricTheme}
 Style: ${lyricStyle} — ${styleMap[lyricStyle] || lyricStyle}
 Mode: ${lyricMode}
 Structure: ${lyricStructure}
 Density: ${densityText}
-
-CRITICAL FORMAT RULES:
-- Use bracket section tags like [Intro], [Verse 1], [Chorus], [Bridge], [Final Chorus], [Outro].
-- Keep lyric lines short and singable.
-- Do not write paragraphs.
-- Do not explain the lyrics inside the lyric output.
-- Chorus/hook must be repeatable and easy to remember.
-- Match ${selectedGenres.join(" + ") || "the genre"} and ${moodWords} mood.
-- ${modeRules[lyricMode]}
-
-${sunoLyricTechniques}`;
+SUNO LANGUAGE RULES ONLY
+Use bracket section tags like [Intro], [Verse 1], [Chorus], [Bridge], [Final Chorus], [Outro].
+Keep lyric lines short and singable.
+Do not write paragraphs.
+Do not explain lyrics inside the lyric output.
+Chorus or hook must be repeatable and easy to remember.
+Match ${selectedGenres.join(" + ") || "the genre"} and ${moodWords} mood.
+${modeRules[lyricMode]}
+${sunoLyricTechniques}`);
 }
