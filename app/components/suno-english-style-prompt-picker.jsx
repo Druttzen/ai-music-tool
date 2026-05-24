@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   buildEnglishSunoStylePromptSections,
   getEnglishSunoStylePromptStats,
@@ -27,13 +27,6 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(() => new Set());
 
-  useEffect(() => {
-    const sunoSection = sections.find((s) => s.sectionId === "cat-sunoV55GenreWheel");
-    // #region agent log
-    fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b92901" }, body: JSON.stringify({ sessionId: "b92901", runId: "pre-fix", hypothesisId: "D", location: "app/components/suno-english-style-prompt-picker.jsx:32", message: "Suno English style picker mounted", data: { sectionCount: sections.length, lineCount: stats.lineCount, hasSunoWheelSection: Boolean(sunoSection), sunoWheelCount: sunoSection?.items.length ?? 0 }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [sections, stats.lineCount]);
-
   const idToItem = useMemo(() => {
     const m = new Map();
     for (const sec of sections) {
@@ -57,12 +50,6 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
     }
     return out;
   }, [sections, sectionKey, query]);
-
-  useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b92901" }, body: JSON.stringify({ sessionId: "b92901", runId: "pre-fix", hypothesisId: "C", location: "app/components/suno-english-style-prompt-picker.jsx:63", message: "Suno English style picker visibility state", data: { open, sectionKey, query, visibleCount: visibleItems.length, sunoSectionVisible: sectionKey === "all" || sectionKey === "cat-sunoV55GenreWheel", firstVisibleSection: visibleItems[0]?.sectionTitle }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [open, query, sectionKey, visibleItems]);
 
   const toggle = useCallback((id) => {
     setSelected((prev) => {
