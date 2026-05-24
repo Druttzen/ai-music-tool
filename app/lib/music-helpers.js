@@ -20,15 +20,33 @@ export function getVocalText(vocal) {
   return `${vocal}, clear delivery, consistent vocal role, genre-matched processing`;
 }
 
-function bracketizeSunoPromptBlock(text) {
+/**
+ * Wrap one line for Suno metadata fields.
+ * Lines that already contain inner [Section] examples use [Meta: ...] to avoid nested tags.
+ */
+export function bracketizeSunoPromptLine(line) {
+  const trimmed = String(line || "").trim();
+  if (!trimmed) return "";
+
+  const isSimpleTag =
+    trimmed.startsWith("[") &&
+    trimmed.endsWith("]") &&
+    !trimmed.slice(1, -1).includes("[");
+
+  if (isSimpleTag) return trimmed;
+
+  if (/\[[^\]]+\]/.test(trimmed)) {
+    return `[Meta: ${trimmed}]`;
+  }
+
+  return `[${trimmed}]`;
+}
+
+export function bracketizeSunoPromptBlock(text) {
   return String(text || "")
     .split("\n")
-    .map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return "";
-      if (trimmed.startsWith("[") && trimmed.endsWith("]")) return trimmed;
-      return `[${trimmed}]`;
-    })
+    .map((line) => bracketizeSunoPromptLine(line))
+    .filter(Boolean)
     .join("\n");
 }
 

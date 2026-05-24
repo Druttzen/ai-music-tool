@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SunoGuidedPath } from "./components/suno-guided-path";
 import { SunoEnglishStylePromptPicker } from "./components/suno-english-style-prompt-picker";
 import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
@@ -62,7 +62,15 @@ import {
   stylePresets,
   vocalOptions,
 } from "./lib/music-config";
-import { buildLyricPrompt, clamp, getIntensityText, getVocalText, uniq } from "./lib/music-helpers";
+import {
+  bracketizeSunoPromptBlock,
+  bracketizeSunoPromptLine,
+  buildLyricPrompt,
+  clamp,
+  getIntensityText,
+  getVocalText,
+  uniq,
+} from "./lib/music-helpers";
 import {
   buildSunoVoiceStyleCompact,
   buildSunoVoiceStyleLine,
@@ -118,7 +126,14 @@ export default function Page() {
   const [history,setHistory]=useState([]);
   const [variations,setVariations]=useState([]);
   const [selectedHistoryId,setSelectedHistoryId]=useState(null);
-  const [showSplash, setShowSplash] = useState(false);
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem("ai_music_splash_seen") !== "1";
+    } catch {
+      return true;
+    }
+  });
 
   const [audioAnalysis,setAudioAnalysis]=useState(null);
   const [imageAnalysis,setImageAnalysis]=useState(null);
@@ -236,31 +251,42 @@ export default function Page() {
     setInstrumentalVocalFx(data.instrumentalVocalFx ?? DEFAULT_STATE.instrumentalVocalFx);
   };
 
-  const resetAll=()=>{ loadState(DEFAULT_STATE); setVariations([]); setAudioAnalysis(null); setImageAnalysis(null); setImagePreview(null); setGuidedStep(0); localStorage.removeItem(STORAGE_KEY); setStatusWithTime("Reset to default"); };
-
-  useEffect(() => {
+  const dismissSplash = useCallback(() => {
+    setShowSplash(false);
     try {
-      if (sessionStorage.getItem("ai_music_splash_seen") === "1") return;
+      sessionStorage.setItem("ai_music_splash_seen", "1");
+    } catch {}
+  }, []);
+
+  const resetAll=()=>{
+    loadState(DEFAULT_STATE);
+    setVariations([]);
+    setAudioAnalysis(null);
+    setImageAnalysis(null);
+    setImagePreview(null);
+    setGuidedStep(0);
+    localStorage.removeItem(STORAGE_KEY);
+    try {
+      sessionStorage.removeItem("ai_music_splash_seen");
     } catch {}
     setShowSplash(true);
-    const hideSplash = () => {
-      setShowSplash(false);
-      try {
-        sessionStorage.setItem("ai_music_splash_seen", "1");
-      } catch {}
-    };
-    const timer = window.setTimeout(hideSplash, 1800);
+    setStatusWithTime("Reset to default");
+  };
+
+  useEffect(() => {
+    if (!showSplash) return;
+    const timer = window.setTimeout(dismissSplash, 1800);
     // Failsafe for environments where timers are delayed/throttled.
-    const fallback = window.setTimeout(hideSplash, 3500);
-    window.addEventListener("pointerdown", hideSplash, { once: true });
-    window.addEventListener("keydown", hideSplash, { once: true });
+    const fallback = window.setTimeout(dismissSplash, 3500);
+    window.addEventListener("pointerdown", dismissSplash, { once: true });
+    window.addEventListener("keydown", dismissSplash, { once: true });
     return () => {
       window.clearTimeout(timer);
       window.clearTimeout(fallback);
-      window.removeEventListener("pointerdown", hideSplash);
-      window.removeEventListener("keydown", hideSplash);
+      window.removeEventListener("pointerdown", dismissSplash);
+      window.removeEventListener("keydown", dismissSplash);
     };
-  }, []);
+  }, [dismissSplash, showSplash]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1019,14 +1045,19 @@ ${fixesToApply.length ? fixesToApply.join(", ") : "No extra sound modules needed
 
   const generateHooks = () => {
     if (vocal === "Instrumental") {
-      setGeneratedHooks("Instrumental mode is active. Switch vocal mode to generate lyric hooks.");
+      setGeneratedHooks(
+        bracketizeSunoPromptLine(
+          "Instrumental mode is active. Switch vocal mode to generate lyric hooks.",
+        ),
+      );
       setStatusWithTime("Hooks skipped in instrumental mode");
       return;
     }
     const core = lyricTheme || idea;
     const energyWord = mood.energy > 70 ? "ignite" : "breathe";
     const darkWord = mood.darkness > 65 ? "night" : "light";
-    const hooks = `HOOK IDEAS
+    const hooks = `${bracketizeSunoPromptLine("HOOK IDEAS")}
+${bracketizeSunoPromptLine("Meta: Example hook sketches below — singable lines for the Lyrics field, not Style metadata.")}
 
 1.
 ${core}
@@ -1047,7 +1078,11 @@ One more drop takes us higher`;
 
   const generateExampleLyrics = () => {
     if (vocal === "Instrumental") {
-      setGeneratedLyrics("Instrumental mode is active. Switch vocal mode to generate lyrics.");
+      setGeneratedLyrics(
+        bracketizeSunoPromptLine(
+          "Instrumental mode is active. Switch vocal mode to generate lyrics.",
+        ),
+      );
       return;
     }
 
@@ -1070,13 +1105,13 @@ One more drop takes us higher`;
     let lyrics = "";
 
     if (lyricMode === "Raw Prompt") {
-      lyrics = `[LYRIC DIRECTION]
-[Language: ${lyricLanguage}]
-[Theme: ${lyricTheme}]
-[Style: ${lyricStyle}]
-[Mood: ${moodWords}]
-[Write short, singable lines with a strong repeated hook.]
-[Use [Verse], [Chorus], [Bridge], and [Outro] tags.]`;
+      lyrics = bracketizeSunoPromptBlock(`LYRIC DIRECTION
+Language: ${lyricLanguage}
+Theme: ${lyricTheme}
+Style: ${lyricStyle}
+Mood: ${moodWords}
+Write short, singable lines with a strong repeated hook.
+Use [Verse], [Chorus], [Bridge], and [Outro] tags.`);
     } else if (lyricMode === "Performance Ready") {
       lyrics = `[Intro]
 (${mood.darkness > 65 ? "dark atmosphere, distant vocal texture" : "wide atmosphere, soft vocal texture"})
@@ -1236,7 +1271,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
             <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/10">
               <div className="h-full w-2/3 animate-pulse rounded-full bg-orange-300" />
             </div>
-            <button onClick={() => setShowSplash(false)} className="mt-5 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white/70 hover:bg-white/20">
+            <button onClick={dismissSplash} className="mt-5 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white/70 hover:bg-white/20">
               Skip intro
             </button>
           </div>
@@ -1596,6 +1631,12 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
             <Panel title="Step 4 — Co‑Producer Buttons" hint="One-click creative direction."><div className="flex flex-wrap gap-2">{["Make darker","More aggressive","More minimal","More cinematic","More club"].map(x=><button key={x} onClick={()=>coProducer(x)} className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100">{x}</button>)}</div></Panel>
 
             <Panel title="Co‑Producer AI" hint="One-click assistant that tightens your style, fixes weak spots, and generates hooks/lyrics.">
+              <p className="mb-3 text-[11px] leading-relaxed text-white/50">
+                <strong className="text-white/65">Copy guide:</strong> Lyric Style Generator = bracketed Suno direction only.
+                Generate Lyrics with <strong className="text-white/65">Raw Prompt</strong> matches that format;{" "}
+                <strong className="text-white/65">Structured Song</strong> /{" "}
+                <strong className="text-white/65">Performance Ready</strong> output real [Verse]/[Chorus] lyric drafts.
+              </p>
               <div className="grid gap-2 md:grid-cols-3">
                 <button onClick={buildCoProducerAI} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">
                   Improve Prompt
