@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SunoGuidedPath } from "./components/suno-guided-path";
-import { SunoEnglishStylePromptPicker } from "./components/suno-english-style-prompt-picker";
+import { StylePromptPicker } from "./components/suno-english-style-prompt-picker";
 import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
 import { useClipboard } from "./hooks/use-clipboard";
 import { useStatusMessage } from "./hooks/use-status-message";
@@ -1279,7 +1279,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
       )}
 
       <canvas ref={canvasRef} className="hidden"/>
-      <div className="fixed inset-0 opacity-40" style={{background:"radial-gradient(circle at 18% 0%, rgba(184,115,51,.25), transparent 34%), radial-gradient(circle at 82% 12%, rgba(34,211,238,.16), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 35%)"}}/>
+      <div className="fixed inset-0 pointer-events-none opacity-40" style={{background:"radial-gradient(circle at 18% 0%, rgba(184,115,51,.25), transparent 34%), radial-gradient(circle at 82% 12%, rgba(34,211,238,.16), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 35%)"}}/>
       <div className="relative mx-auto max-w-7xl pb-12">
         <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div><div className="mb-2 inline-flex rounded-full border border-orange-300/25 bg-orange-300/10 px-3 py-1 text-xs font-black tracking-wider text-orange-200">BONES VIBRATION • AI MUSIC CREATOR</div><h1 className="bg-gradient-to-r from-white via-orange-200 to-cyan-200 bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-6xl">Prompt Control Room</h1><p className="mt-2 max-w-2xl text-white/55">Level 2 visual prompt engine with audio analysis, image-to-style, presets, variations, history, Pro Mode, and extracted source prompts.</p><div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-white/45"><span className="rounded-full border border-white/10 bg-black/25 px-3 py-1">v{APP_VERSION}</span><span className="rounded-full border border-orange-300/20 bg-orange-300/10 px-3 py-1 text-orange-200">DJ M@D</span><span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-cyan-200">Level 2 Analyzer</span></div></div>
@@ -1621,8 +1621,16 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               ["Darkness","bright","dark","darkness"],["Energy","calm","extreme","energy"],["Aggression","soft","brutal","aggression"],["Emotion","cold","emotional","emotion"],["Complexity","minimal","complex","complexity"],["Space","dry","wide","space"]
             ].map(([label,left,right,key])=><Slider key={key} label={label} value={mood[key]} left={left} right={right} setValue={(v)=>setMood({...mood,[key]:v})}/>)}</div></Panel>
 
-            <Panel title="Step 3 — Clickable Music Controls" hint="Select genre, rhythm, sound modules, and vocal mode.">
+            <Panel title="Step 3 — Clickable Music Controls" hint="Select genre, rhythm, sound modules, vocal mode, and style prompts from the library.">
               <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Genres</div><div className="flex flex-wrap gap-2">{genreOptions.map(x=><Pill key={x} active={selectedGenres.includes(x)} onClick={()=>toggle(x,selectedGenres,setSelectedGenres)}>{x}</Pill>)}</div></div>
+              <StylePromptPicker
+                selectedGenres={selectedGenres}
+                setSelectedGenres={setSelectedGenres}
+                rules={rules}
+                setRules={setRules}
+                setStatusWithTime={setStatusWithTime}
+                defaultOpen
+              />
               <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Rhythm</div><div className="flex flex-wrap gap-2">{rhythmOptions.map(x=><Pill key={x} active={selectedRhythms.includes(x)} onClick={()=>toggle(x,selectedRhythms,setSelectedRhythms)}>{x}</Pill>)}</div></div>
               <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Sound Modules</div><div className="flex flex-wrap gap-2">{soundOptions.map(x=><Pill key={x} active={selectedSounds.includes(x)} onClick={()=>toggle(x,selectedSounds,setSelectedSounds)}>{x}</Pill>)}</div></div>
               <div><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Vocals</div><div className="flex flex-wrap gap-2">{vocalOptions.map(x=><Pill key={x} active={vocal===x} onClick={()=>setVocal(x)}>{x}</Pill>)}</div></div>
@@ -1735,11 +1743,10 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
             )}
             <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
                 <div className="space-y-3 text-xs text-white/80">
-                  <SunoEnglishStylePromptPicker
-                    rules={rules}
-                    setRules={setRules}
-                    setStatusWithTime={setStatusWithTime}
-                  />
+                  <p className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3 text-[11px] text-white/55">
+                    Browse and add style prompts in <strong className="text-cyan-100">Step 3 → Style prompt library</strong>{" "}
+                    (section dropdown + multi-select → Add to Styles).
+                  </p>
                   <div>
                     <div className="mb-1 font-bold text-cyan-200">Core Principles</div>
                     <ul className="space-y-1 text-white/70">
@@ -1973,7 +1980,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                   </button>
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-bold text-cyan-200">Style prompt index</div>
+                      <div className="font-bold text-cyan-200">Style prompt index (copy only)</div>
                       <button
                         type="button"
                         onClick={() =>
@@ -1987,32 +1994,9 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                         Copy all sections
                       </button>
                     </div>
-                    <div className="max-h-[min(420px,50vh)] space-y-3 overflow-y-auto pr-1">
-                      {Object.entries(stylePromptCatalog).map(([sectionKey, lines]) => (
-                        <details
-                          key={sectionKey}
-                          className="group rounded-xl border border-white/10 bg-black/40 open:border-cyan-300/25"
-                        >
-                          <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-white/85 marker:text-cyan-300">
-                            {sectionKey.replace(/([A-Z])/g, " $1").trim()} ({lines.length})
-                          </summary>
-                          <pre className="max-h-36 overflow-auto whitespace-pre-wrap px-3 pb-3 text-[11px] leading-relaxed text-white/65">
-                            {lines.join("\n")}
-                          </pre>
-                          <div className="px-3 pb-3">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                copyToClipboard(lines.join("\n"), `${sectionKey} copied`)
-                              }
-                              className="rounded-xl bg-white/10 px-2 py-1 text-[11px] font-bold text-white hover:bg-white/20"
-                            >
-                              Copy section
-                            </button>
-                          </div>
-                        </details>
-                      ))}
-                    </div>
+                    <p className="text-[11px] text-white/45">
+                      To add prompts into your track identity, use Step 3 Style prompt library instead of copy-paste.
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
                     <div className="mb-2 font-bold text-cyan-200">Reference prompt blocks</div>
