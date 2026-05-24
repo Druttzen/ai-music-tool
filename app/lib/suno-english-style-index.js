@@ -37,6 +37,7 @@ const CATALOG_LABELS = {
   instrumentsTextures: "Catalog — Instruments & textures",
   moodDescriptors: "Catalog — Mood",
   fusionMashupLabels: "Catalog — Fusion / mashup labels",
+  sunoV55GenreWheel: "Catalog — Suno v5.5 genre wheel",
   worldStylesAfricaDiaspora: "Catalog — World: Africa & diaspora (style + instruments)",
   worldStylesMiddleEastMediterranean: "Catalog — World: Middle East & Mediterranean",
   worldStylesSouthAsia: "Catalog — World: South Asia",
@@ -99,6 +100,11 @@ export function buildEnglishSunoStylePromptSections() {
       const it = pushItem(sectionId, text, label);
       if (it) items.push(it);
     }
+    // #region agent log
+    if (typeof window !== "undefined" && sectionId === "cat-sunoV55GenreWheel") {
+      fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b92901" }, body: JSON.stringify({ sessionId: "b92901", runId: "pre-fix", hypothesisId: "B", location: "app/lib/suno-english-style-index.js:104", message: "Suno v5.5 genre wheel section built", data: { rawCount: Array.isArray(list) ? list.length : null, itemCount: items.length, title: sectionTitle, firstItem: items[0]?.text, lastItem: items.at(-1)?.text }, timestamp: Date.now() }) }).catch(() => {});
+    }
+    // #endregion
     if (items.length) sections.push({ sectionId, sectionTitle, items });
   }
 
