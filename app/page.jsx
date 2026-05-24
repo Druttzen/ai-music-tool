@@ -1733,8 +1733,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                 )}
               </Panel>
             )}
-            {promptEngine === "Suno-like" && (
-              <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
+            <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
                 <div className="space-y-3 text-xs text-white/80">
                   <SunoEnglishStylePromptPicker
                     rules={rules}
@@ -2049,7 +2048,6 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                   </div>
                 </div>
               </Panel>
-            )}
             <Panel title="History / Compare" hint="Restore earlier prompt states."><button onClick={clearHistory} className="mb-3 w-full rounded-2xl border border-red-300/30 bg-red-300/10 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-300/20">Clear History</button>{history.length===0?<div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-white/45">No history yet. Copy a prompt, save a snapshot, or generate variations.</div>:<div className="space-y-2">{history.map(h=><div key={h.id} className={"rounded-2xl border p-3 "+(selectedHistoryId===h.id?"border-cyan-300/50 bg-cyan-300/10":"border-white/10 bg-black/25")}><div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-cyan-100">{h.label}</div><div className="text-[10px] text-white/40">{h.time} • score {h.avgScore}/5</div></div><button onClick={()=>restoreHistory(h)} className="rounded-xl bg-white px-2 py-1 text-xs font-bold text-black">Restore</button></div><pre className="mt-2 max-h-20 overflow-auto whitespace-pre-wrap text-[10px] text-white/45">{h.prompt}</pre></div>)}</div>}</Panel>
             <Panel title="Track Scoring" hint="Use after generation to compare outputs.">{Object.entries(scores).map(([key,value])=><div key={key} className="mb-3 rounded-2xl bg-black/25 p-3"><div className="mb-2 flex justify-between text-sm"><span className="capitalize text-white/70">{key}</span><span className="font-bold text-cyan-200">{value}/5</span></div><input type="range" min="1" max="5" value={value} onChange={(e)=>setScores({...scores,[key]:Number(e.target.value)})} className="w-full accent-cyan-300"/></div>)}</Panel>
           </aside>

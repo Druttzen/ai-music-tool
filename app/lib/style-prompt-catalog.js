@@ -3,6 +3,8 @@
  * Deduped from user-supplied lists; used by the Suno Language Index UI and exports.
  */
 
+import { sunoV55GenreWheelStyles } from "./suno-v55-genre-wheel";
+
 export const stylePromptCatalog = {
   productionMixSpatial: [
     "clean broadcast-ready mix, polished master",
@@ -303,6 +305,9 @@ export const stylePromptCatalog = {
     "Dark J-pop trap-dance hybrid",
     "Hyper-egyptian dance",
   ],
+
+  /** Public Suno v5.5 labs genre wheel phrases, kept as a separate searchable bank. */
+  sunoV55GenreWheel: sunoV55GenreWheelStyles,
 
   /**
    * Regional styles worldwide — each line pairs genre/culture with typical instruments (English prompts).

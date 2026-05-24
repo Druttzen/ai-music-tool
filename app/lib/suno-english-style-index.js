@@ -37,6 +37,7 @@ const CATALOG_LABELS = {
   instrumentsTextures: "Catalog — Instruments & textures",
   moodDescriptors: "Catalog — Mood",
   fusionMashupLabels: "Catalog — Fusion / mashup labels",
+  sunoV55GenreWheel: "Catalog — Suno v5.5 genre wheel",
   worldStylesAfricaDiaspora: "Catalog — World: Africa & diaspora (style + instruments)",
   worldStylesMiddleEastMediterranean: "Catalog — World: Middle East & Mediterranean",
   worldStylesSouthAsia: "Catalog — World: South Asia",
