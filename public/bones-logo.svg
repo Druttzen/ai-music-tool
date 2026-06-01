@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">BONES VIBRATION logo</title>
+  <desc id="desc">Circular orange and cyan music pulse mark for AI Music Creator.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="58%">
+      <stop offset="0%" stop-color="#2d1a10"/>
+      <stop offset="58%" stop-color="#0b0d10"/>
+      <stop offset="100%" stop-color="#050608"/>
+    </radialGradient>
+    <linearGradient id="pulse" x1="96" x2="416" y1="116" y2="396" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="52%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="192" fill="none" stroke="#fb923c" stroke-opacity=".35" stroke-width="10"/>
+  <circle cx="256" cy="256" r="154" fill="none" stroke="#22d3ee" stroke-opacity=".22" stroke-width="4"/>
+  <g filter="url(#glow)">
+    <path
+      d="M104 278c34-70 72-70 112 0s78 70 116 0 52-70 76 0"
+      fill="none"
+      stroke="url(#pulse)"
+      stroke-linecap="round"
+      stroke-width="24"
+    />
+    <path
+      d="M130 226c24-38 52-38 84 0s62 38 92 0 52-38 76 0"
+      fill="none"
+      stroke="#fed7aa"
+      stroke-linecap="round"
+      stroke-opacity=".8"
+      stroke-width="10"
+    />
+  </g>
+  <g fill="#fff7ed" font-family="Arial, Helvetica, sans-serif" font-weight="900" text-anchor="middle">
+    <text x="256" y="352" font-size="42" letter-spacing="3">BONES</text>
+    <text x="256" y="389" fill="#67e8f9" font-size="22" letter-spacing="6">VIBRATION</text>
+  </g>
+</svg>

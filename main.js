@@ -6,20 +6,26 @@ const pkg = require("./package.json");
 let mainWindow = null;
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const iconPath = path.join(__dirname, "icon.ico");
+  const windowOptions = {
     title: `AI Music Creator v${pkg.version}`,
     width: 1400,
     height: 900,
     minWidth: 1100,
     minHeight: 700,
     backgroundColor: "#0b0d10",
-    icon: path.join(__dirname, "icon.ico"),
     show: false,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false
     }
-  });
+  };
+
+  if (fs.existsSync(iconPath)) {
+    windowOptions.icon = iconPath;
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
 
   mainWindow.loadFile(path.join(__dirname, "out", "index.html"));
 
