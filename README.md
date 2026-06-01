@@ -1,14 +1,16 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.6.1**
+**Version 0.7.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional audio/image analyzers, and export blocks that respect **Style** / **Lyrics** field limits.
 
-## Highlights (v0.6.x)
+## Highlights (v0.7.0)
 
 - **Guided Suno path** — Step-through workflow, Polish step, progressive style preview, **Style** capped at **1000 characters** with priority ordering on copy.
 - **Expanded English style vocabulary** — Large curated catalog including **world/regional styles paired with instruments**, sound-design FX, environment beds, orchestral and band instruments, moods, and fusion labels; English-only picker with dedupe.
 - **Analyzers** — Drag-drop audio DNA and image→style merges into compact **`AUDIO:` / `IMAGE:`** rule lines (metrics + groove retained first when trimming); merge respects guided caps on genres/sounds/rhythms.
+- **Refactored analyzer/UI shell** — Audio/image analyzer logic now lives in a dedicated hook, and splash/header rendering is split into reusable components for easier future maintenance.
+- **Packaged asset cleanup** — The BONES VIBRATION logo is now a checked-in static SVG, and Electron packaging no longer depends on missing icon/PDF assets.
 - **Live length readout** — Style box and lyrics direction character counts next to analyzers (same strings as the validator).
 - **Presets & history** — Factory and custom presets, project save/import, variation engine, Co‑Producer helpers, Suno language index and symbol guides.
 
