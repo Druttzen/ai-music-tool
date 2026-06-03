@@ -1,34 +1,41 @@
 {
   "name": "ai-music-tool",
-  "version": "0.6.1",
-  "description": "AI Music Creator Visual Prompt Engine",
+  "version": "0.7.6",
+  "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
   "main": "main.js",
   "scripts": {
     "dev": "next dev",
-    "debug": "node --inspect=9241 node_modules/next/dist/bin/next dev",
+    "debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/debug-dev.ps1",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
+    "cleanup:dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cleanup-locked-electron-dist.ps1",
     "lint": "eslint . --max-warnings 0",
-    "check": "npm run lint && npm run build",
+    "test": "vitest run",
+    "check": "npm run test && npm run lint && npm run build",
     "build": "next build",
     "electron": "electron .",
-    "predist": "node scripts/prep-electron-dist.cjs",
-    "dist": "npm run build && npm run predist && electron-builder",
+    "build:readme-pdf": "node scripts/generate-readme-pdf.cjs",
+    "prepare:electron-dist": "node scripts/prep-electron-dist.cjs",
+    "dist": "npm run build && npm run build:readme-pdf && npm run prepare:electron-dist && node scripts/run-electron-builder.cjs",
     "dis": "npm run dist"
   },
   "dependencies": {
-    "next": "16.2.4",
+    "electron-updater": "^6.8.3",
+    "lamejs": "^1.2.1",
+    "next": "16.2.7",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
+    "electron": "41.3.0",
+    "electron-builder": "26.8.1",
     "eslint": "latest",
     "eslint-config-next": "latest",
+    "pdfkit": "^0.18.0",
     "tailwindcss": "latest",
-    "electron": "latest",
-    "electron-builder": "latest"
+    "vitest": "^4.1.8"
   },
   "overrides": {
     "postcss": "^8.5.10"
@@ -38,8 +45,11 @@
     "productName": "AI Music Creator",
     "files": [
       "main.js",
+      "preload.js",
       "out/**/*",
-      "icon.ico",
+      "icon.ico"
+    ],
+    "extraResources": [
       "build/AI_Music_Creator_README.pdf"
     ],
     "directories": {
@@ -56,6 +66,13 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Druttzen",
+        "repo": "ai-music-tool"
+      }
+    ]
   }
 }

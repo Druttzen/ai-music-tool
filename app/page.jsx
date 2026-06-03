@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { SunoGuidedPath } from "./components/suno-guided-path";
-import { SunoEnglishStylePromptPicker } from "./components/suno-english-style-prompt-picker";
+import { StylePromptPicker } from "./components/suno-english-style-prompt-picker";
+import { AudioTrackEditor } from "./components/audio-track-editor";
 import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
+import { useAnalyzers } from "./hooks/use-analyzers";
 import { useClipboard } from "./hooks/use-clipboard";
+import { useSplashOverlay } from "./hooks/use-splash-seen";
 import { useStatusMessage } from "./hooks/use-status-message";
 import {
   buildSunoLikePrompt,
@@ -15,21 +19,18 @@ import {
 import {
   SUNO_LIMITS_NOTE,
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
+  SUNO_LYRICS_CHAR_WARN,
   SUNO_STYLE_CHAR_CAP,
   SUNO_STYLE_CHAR_WARN,
 } from "./lib/suno-limits";
 import {
-  applyMoodPatch,
-  compactAudioStyleRule,
-  compactImageStyleRule,
-  mergeAnalyzerRuleLine,
-  mergeGuidedGenres,
-  mergeGuidedRhythms,
-  mergeGuidedSounds,
-} from "./lib/analyzer-guided-merge";
+  buildSunoPastedLyricsField,
+  buildSunoPastedStyleLine,
+} from "./lib/suno-guided-workflow";
+import { IMAGE_ANALYZER_DISCLAIMER } from "./lib/analyzer-disclaimer";
+import { useUndoSnapshot } from "./hooks/use-undo-snapshot";
+import { VariationCompare } from "./components/variation-compare";
 import {
-  isSupportedAudioFile,
-  isSupportedImageFile,
   SUPPORTED_AUDIO_ACCEPT,
   SUPPORTED_AUDIO_LABEL,
   SUPPORTED_IMAGE_ACCEPT,
@@ -43,7 +44,13 @@ import {
   stylePromptCatalog,
   sunoLanguageIndex,
 } from "./lib/suno-language-index";
-import { getGuidedPolishStepIndex, getStepCount } from "./lib/suno-guided-workflow";
+import {
+  migrateImportedProject,
+  migratePersistedProject,
+  shouldHardResetProjectOnVersionChange,
+  slimStateForHistory,
+  slimStateForPersistence,
+} from "./lib/project-persistence";
 import {
   APP_VERSION,
   AUTHOR,
@@ -66,7 +73,6 @@ import {
   bracketizeSunoPromptBlock,
   bracketizeSunoPromptLine,
   buildLyricPrompt,
-  clamp,
   getIntensityText,
   getVocalText,
   uniq,
@@ -126,23 +132,46 @@ export default function Page() {
   const [history,setHistory]=useState([]);
   const [variations,setVariations]=useState([]);
   const [selectedHistoryId,setSelectedHistoryId]=useState(null);
-  const [showSplash, setShowSplash] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return sessionStorage.getItem("ai_music_splash_seen") !== "1";
-    } catch {
-      return true;
-    }
-  });
+  const { showSplash, dismissSplash, resetSplash } = useSplashOverlay();
 
-  const [audioAnalysis,setAudioAnalysis]=useState(null);
-  const [imageAnalysis,setImageAnalysis]=useState(null);
   const [guidedStep, setGuidedStep] = useState(0);
   const [instrumentalVocalFx, setInstrumentalVocalFx] = useState(DEFAULT_STATE.instrumentalVocalFx);
-  const [imagePreview,setImagePreview]=useState(null);
-  const canvasRef = useRef(null);
-  const imagePreviewUrlRef = useRef(null);
   const lastAutosavePayloadRef = useRef("");
+  const {
+    attachAudioFile,
+    analyzeAudioFile,
+    analyzeImageFile,
+    applyAudioToSunoStyle,
+    applyImageToSunoStyle,
+    audioAnalysis,
+    audioExportBusy,
+    audioExportProgress,
+    audioLoudness,
+    audioLoudnessBusy,
+    audioPreviewUrl,
+    exportEnhancedAudio,
+    canvasRef,
+    clearAudioAnalysis,
+    clearImageAnalysis,
+    imageAnalysis,
+    imagePreview,
+    resetAnalyzers,
+    setAudioAnalysis,
+    setImageAnalysis,
+    updateAudioAnalysis,
+  } = useAnalyzers({
+    promptEngine,
+    setGuidedStep,
+    setIdea,
+    setMood,
+    setNotes,
+    setRules,
+    setSelectedGenres,
+    setSelectedRhythms,
+    setSelectedSounds,
+    setStatusWithTime,
+    setTempo,
+  });
 
   const currentState = useMemo(
     () => ({
@@ -179,6 +208,10 @@ export default function Page() {
       voiceRefLastName,
       voiceStyleLine,
       instrumentalVocalFx,
+      guidedStep,
+      variations,
+      history,
+      selectedHistoryId,
     }),
     [
       idea,
@@ -213,10 +246,14 @@ export default function Page() {
       voiceRefLastName,
       voiceStyleLine,
       instrumentalVocalFx,
+      guidedStep,
+      variations,
+      history,
+      selectedHistoryId,
     ],
   );
 
-  const loadState=(data)=>{
+  const loadState=useCallback((data)=>{
     setIdea(data.idea ?? DEFAULT_STATE.idea);
     setTempo(data.tempo ?? DEFAULT_STATE.tempo);
     setStructure(data.structure ?? DEFAULT_STATE.structure);
@@ -232,8 +269,10 @@ export default function Page() {
     setNotes(data.notes ?? DEFAULT_STATE.notes);
     setScores(data.scores ?? DEFAULT_STATE.scores);
     setMood(data.mood ?? DEFAULT_STATE.mood);
-    if(data.audioAnalysis) setAudioAnalysis(data.audioAnalysis);
-    if(data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
+    if (data.audioAnalysis) setAudioAnalysis(data.audioAnalysis);
+    else clearAudioAnalysis();
+    if (data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
+    else clearImageAnalysis();
     setLyricTheme(data.lyricTheme ?? DEFAULT_STATE.lyricTheme);
     setLyricLanguage(data.lyricLanguage ?? DEFAULT_STATE.lyricLanguage);
     setLyricStructure(data.lyricStructure ?? DEFAULT_STATE.lyricStructure);
@@ -249,27 +288,28 @@ export default function Page() {
     setVoiceRefLastName(data.voiceRefLastName ?? DEFAULT_STATE.voiceRefLastName ?? "");
     setVoiceStyleLine(data.voiceStyleLine ?? DEFAULT_STATE.voiceStyleLine ?? "");
     setInstrumentalVocalFx(data.instrumentalVocalFx ?? DEFAULT_STATE.instrumentalVocalFx);
-  };
+    if (typeof data.guidedStep === "number" && !Number.isNaN(data.guidedStep)) {
+      setGuidedStep(Math.max(0, data.guidedStep));
+    }
+    setVariations(Array.isArray(data.variations) ? data.variations : []);
+    if (Array.isArray(data.history)) setHistory(data.history);
+    setSelectedHistoryId(data.selectedHistoryId ?? null);
+  }, [clearAudioAnalysis, clearImageAnalysis, setAudioAnalysis, setImageAnalysis]);
 
-  const dismissSplash = useCallback(() => {
-    setShowSplash(false);
-    try {
-      sessionStorage.setItem("ai_music_splash_seen", "1");
-    } catch {}
-  }, []);
+  const { captureSnapshot, revertSnapshot } = useUndoSnapshot(
+    () => currentState,
+    loadState,
+    setStatusWithTime,
+  );
 
   const resetAll=()=>{
+    captureSnapshot("before reset");
     loadState(DEFAULT_STATE);
     setVariations([]);
-    setAudioAnalysis(null);
-    setImageAnalysis(null);
-    setImagePreview(null);
+    resetAnalyzers();
     setGuidedStep(0);
     localStorage.removeItem(STORAGE_KEY);
-    try {
-      sessionStorage.removeItem("ai_music_splash_seen");
-    } catch {}
-    setShowSplash(true);
+    resetSplash();
     setStatusWithTime("Reset to default");
   };
 
@@ -295,8 +335,25 @@ export default function Page() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          loadState(JSON.parse(saved));
-          setStatusWithTime("Loaded saved project");
+          const parsed = JSON.parse(saved);
+          if (parsed?.appVersion !== APP_VERSION) {
+            if (shouldHardResetProjectOnVersionChange(parsed.appVersion, APP_VERSION)) {
+              localStorage.removeItem(STORAGE_KEY);
+              resetAnalyzers();
+              setVariations([]);
+              setGuidedStep(0);
+              lastAutosavePayloadRef.current = "";
+              setStatusWithTime(
+                `Major upgrade to v${APP_VERSION} — project cleared (presets and history kept)`,
+              );
+            } else {
+              loadState(migratePersistedProject(parsed, APP_VERSION));
+              setStatusWithTime(`Upgraded saved project to v${APP_VERSION}`);
+            }
+          } else {
+            loadState(parsed);
+            setStatusWithTime("Loaded saved project");
+          }
         }
         const presets = localStorage.getItem(PRESET_KEY);
         if (presets) setCustomPresets(JSON.parse(presets));
@@ -310,21 +367,12 @@ export default function Page() {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [setStatusWithTime]);
-
-  useEffect(() => {
-    return () => {
-      if (imagePreviewUrlRef.current) {
-        URL.revokeObjectURL(imagePreviewUrlRef.current);
-        imagePreviewUrlRef.current = null;
-      }
-    };
-  }, []);
+  }, [loadState, resetAnalyzers, setStatusWithTime]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
-        const payload = JSON.stringify(currentState);
+        const payload = JSON.stringify(slimStateForPersistence(currentState));
         if (payload === lastAutosavePayloadRef.current) return;
         localStorage.setItem(STORAGE_KEY, payload);
         lastAutosavePayloadRef.current = payload;
@@ -487,9 +535,27 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
       mode,
       voiceStyleReference: voiceStyleLine,
     };
+    const guided = {
+      ...p,
+      lyricTheme,
+      lyricLanguage,
+      lyricStructure,
+      lyricStyle,
+      lyricDensity,
+      lyricMode,
+      generatedLyrics,
+      lyricPrompt,
+      instrumentalVocalFx,
+    };
     return {
-      style: buildSunoStyleBoxPrompt(p),
-      lyrics: buildSunoLyricsBoxPrompt({ vocal, lyricPrompt }),
+      style:
+        promptEngine === "Suno-like"
+          ? buildSunoPastedStyleLine(guided)
+          : buildSunoStyleBoxPrompt(p),
+      lyrics:
+        promptEngine === "Suno-like"
+          ? buildSunoPastedLyricsField(guided)
+          : buildSunoLyricsBoxPrompt({ vocal, lyricPrompt }),
     };
   }, [
     selectedGenres,
@@ -506,6 +572,15 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
     mode,
     voiceStyleLine,
     lyricPrompt,
+    promptEngine,
+    lyricTheme,
+    lyricLanguage,
+    lyricStructure,
+    lyricStyle,
+    lyricDensity,
+    lyricMode,
+    generatedLyrics,
+    instrumentalVocalFx,
   ]);
 
   const sunoSlices = useMemo(
@@ -531,6 +606,12 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
         intensityText,
         mode,
         voiceStyleReference: voiceStyleLine,
+        ...(promptEngine === "Suno-like"
+          ? {
+              pastedStyleLen: sunoFieldSlices.style.length,
+              pastedLyricsLen: sunoFieldSlices.lyrics.length,
+            }
+          : {}),
       }),
     [
       selectedGenres,
@@ -548,6 +629,8 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
       intensityText,
       mode,
       voiceStyleLine,
+      promptEngine,
+      sunoFieldSlices,
     ],
   );
 
@@ -566,6 +649,13 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
       mode,
       voiceStyleLine,
       lyricPrompt,
+      lyricTheme,
+      lyricLanguage,
+      lyricStructure,
+      lyricStyle,
+      lyricDensity,
+      lyricMode,
+      generatedLyrics,
     }),
     [
       selectedGenres,
@@ -581,6 +671,13 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
       mode,
       voiceStyleLine,
       lyricPrompt,
+      lyricTheme,
+      lyricLanguage,
+      lyricStructure,
+      lyricStyle,
+      lyricDensity,
+      lyricMode,
+      generatedLyrics,
     ],
   );
 
@@ -688,13 +785,14 @@ Music direction:
   const { copyToClipboard } = useClipboard(setStatusWithTime);
 
   const saveProject=()=>{ 
-    const payload = JSON.stringify(currentState, null, 2);
+    const slim = slimStateForPersistence(currentState);
+    const payload = JSON.stringify(slim, null, 2);
     localStorage.setItem(STORAGE_KEY, payload);
-    lastAutosavePayloadRef.current = JSON.stringify(currentState);
+    lastAutosavePayloadRef.current = payload;
     setStatusWithTime("Saved"); 
   };
   const exportProject=()=>{ const blob=new Blob([JSON.stringify(currentState,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="ai-music-project.json"; a.click(); URL.revokeObjectURL(url); };
-  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ loadState(JSON.parse(String(reader.result))); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed"); } }; reader.readAsText(file); };
+  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ captureSnapshot("before import"); const raw=JSON.parse(String(reader.result)); loadState(migrateImportedProject(raw, APP_VERSION)); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed"); } }; reader.readAsText(file); };
 
   const saveCustomPreset=()=>{
     const name=presetName.trim(); if(!name){ setStatusWithTime("Preset name missing"); return; }
@@ -727,10 +825,10 @@ Music direction:
   };
 
   const deleteCustomPreset=(name)=>{ const next={...customPresets}; delete next[name]; setCustomPresets(next); localStorage.setItem(PRESET_KEY,JSON.stringify(next,null,2)); setStatusWithTime(`Deleted preset: ${name}`); };
-  const applyPreset=(name)=>loadPresetObject(name, stylePresets[name]);
+  const applyPreset=(name)=>{ captureSnapshot(`before preset ${name}`); loadPresetObject(name, stylePresets[name]); };
 
   const addHistory=(label,promptText=prompt,state=currentState)=>{
-    const item={id:Date.now(),label,time:new Date().toLocaleTimeString(),prompt:promptText,state,avgScore};
+    const item={id:Date.now(),label,time:new Date().toLocaleTimeString(),prompt:promptText,state:slimStateForHistory(state),avgScore};
     const next=[item,...history].slice(0,12); setHistory(next); localStorage.setItem(HISTORY_KEY,JSON.stringify(next,null,2));
   };
 
@@ -760,246 +858,6 @@ Music direction:
     if(!messages.length) messages.push("Prompt looks complete. Generate variations, score them, then refine the weakest area.");
     setNotes(messages.join("\n"));
   };
-
-  const analyzeAudioFile = async (file) => {
-    if (!isSupportedAudioFile(file)) {
-      setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} only for audio analysis`);
-      setNotes(`Audio analyzer accepts ${SUPPORTED_AUDIO_LABEL} (check file extension or MIME type).`);
-      return;
-    }
-    let audioContext = null;
-    try {
-      setStatusWithTime("Analyzing audio...");
-      const arrayBuffer = await file.arrayBuffer();
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-      const channel = buffer.getChannelData(0);
-      const duration = buffer.duration;
-
-      let sum = 0, peak = 0, zeroCrossings = 0;
-      const step = Math.max(1, Math.floor(channel.length / 60000));
-      let prev = channel[0];
-
-      for (let i = 0; i < channel.length; i += step) {
-        const v = channel[i];
-        sum += v * v;
-        peak = Math.max(peak, Math.abs(v));
-        if ((prev < 0 && v >= 0) || (prev >= 0 && v < 0)) zeroCrossings++;
-        prev = v;
-      }
-
-      const count = Math.ceil(channel.length / step);
-      const rms = Math.sqrt(sum / count);
-      const energy = clamp(Math.round(rms * 900));
-      const aggression = clamp(Math.round(peak * 100));
-      const brightness = clamp(Math.round((zeroCrossings / count) * 700));
-      const darkness = clamp(100 - brightness + Math.round(energy * 0.2));
-      const complexity = clamp(Math.round((zeroCrossings / count) * 1000 + energy * 0.4));
-      const estimatedBpm = duration < 20 ? "120 BPM" : `${Math.round(clamp(80 + energy * 0.7 + complexity * 0.25, 70, 180))} BPM`;
-
-      const suggestedSounds = [];
-      if (energy > 60) suggestedSounds.push("Heavy sub bass", "Big drums");
-      if (aggression > 65) suggestedSounds.push("Distorted bass", "Metallic percussion");
-      if (brightness > 55) suggestedSounds.push("Bright leads", "Glitch FX");
-      if (darkness > 60) suggestedSounds.push("Dark pads", "Noise atmosphere");
-
-      const suggestedRhythms = energy > 70 ? ["4/4", "Syncopated"] : complexity > 60 ? ["Breakbeat", "Off-grid"] : ["Minimal"];
-
-      const summary = `File: ${file.name}
-Duration: ${duration.toFixed(1)}s
-Detected energy: ${energy}/100
-Detected aggression: ${aggression}/100
-Detected brightness: ${brightness}/100
-Suggested tempo: ${estimatedBpm}
-Suggested rhythm: ${suggestedRhythms.join(", ")}
-Suggested sound: ${uniq(suggestedSounds).join(", ") || "balanced instruments and textures"}
-Interpretation: ${energy > 70 ? "high-impact and club-ready" : energy < 35 ? "calm and atmospheric" : "controlled and balanced"} sound source.`;
-
-      const moodSuggestion = { energy, aggression, darkness, complexity };
-      setAudioAnalysis({
-        fileName: file.name,
-        duration,
-        energy,
-        aggression,
-        brightness,
-        estimatedBpm,
-        suggestedSounds: uniq(suggestedSounds),
-        suggestedRhythms,
-        summary,
-        moodSuggestion,
-      });
-      setStatusWithTime("Audio ready — add to style below when you want it in Suno fields");
-    } catch (err) {
-      setStatusWithTime("Audio analysis failed");
-      setNotes(
-        `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL} in a format your browser can decode (try WAV or MP3).`,
-      );
-    } finally {
-      if (audioContext) {
-        try { await audioContext.close(); } catch {}
-      }
-    }
-  };
-
-  const applyAudioToSunoStyle = () => {
-    if (!audioAnalysis) {
-      setStatusWithTime("No audio analysis yet");
-      return;
-    }
-    setTempo(audioAnalysis.estimatedBpm);
-    setSelectedSounds((s) => mergeGuidedSounds(s, audioAnalysis.suggestedSounds));
-    setSelectedRhythms((r) => mergeGuidedRhythms(r, audioAnalysis.suggestedRhythms));
-    if (audioAnalysis.moodSuggestion) {
-      setMood((m) => applyMoodPatch(m, audioAnalysis.moodSuggestion));
-    }
-    setRules((prev) => mergeAnalyzerRuleLine(prev, "audio", compactAudioStyleRule(audioAnalysis)));
-    if (promptEngine === "Suno-like") {
-      setGuidedStep(() => {
-        const max = getStepCount() - 1;
-        const polish = getGuidedPolishStepIndex();
-        return Math.min(max, Math.max(0, polish));
-      });
-      setStatusWithTime("Audio DNA merged — guided path: Polish (analyzers)");
-    } else {
-      setStatusWithTime("Audio DNA merged into fields — switch to Suno-like to use the guided path");
-    }
-  };
-
-  const applyImageToSunoStyle = () => {
-    if (!imageAnalysis) {
-      setStatusWithTime("No image analysis yet");
-      return;
-    }
-    setSelectedGenres((g) => mergeGuidedGenres(g, imageAnalysis.suggestedGenres));
-    setSelectedSounds((s) => mergeGuidedSounds(s, imageAnalysis.suggestedSounds));
-    setSelectedRhythms((r) => mergeGuidedRhythms(r, imageAnalysis.suggestedRhythms));
-    if (imageAnalysis.moodSuggestion) {
-      setMood((m) => applyMoodPatch(m, imageAnalysis.moodSuggestion));
-    }
-    setRules((prev) => mergeAnalyzerRuleLine(prev, "image", compactImageStyleRule(imageAnalysis)));
-    setIdea((prev) => {
-      const p = (prev || "").trim();
-      const add = `Inspired by image: ${imageAnalysis.visualMood}`;
-      if (!p) return add;
-      if (p.toLowerCase().includes("inspired by image")) return p;
-      if (p.length < 10) return `${p}. ${add}`;
-      return p;
-    });
-    if (promptEngine === "Suno-like") {
-      setGuidedStep(() => {
-        const max = getStepCount() - 1;
-        const polish = getGuidedPolishStepIndex();
-        return Math.min(max, Math.max(0, polish));
-      });
-      setStatusWithTime("Image style merged — guided path: Polish (analyzers)");
-    } else {
-      setStatusWithTime("Image style merged into fields — switch to Suno-like to use the guided path");
-    }
-  };
-
-  const analyzeImageFile = async (file) => {
-    if (!isSupportedImageFile(file)) {
-      setStatusWithTime(`Use ${SUPPORTED_IMAGE_LABEL} only for image analysis`);
-      setNotes(`Image analyzer accepts ${SUPPORTED_IMAGE_LABEL} (check file extension or MIME type).`);
-      return;
-    }
-    try {
-      setStatusWithTime("Analyzing image...");
-      const url = URL.createObjectURL(file);
-      if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
-      imagePreviewUrlRef.current = url;
-      setImagePreview(url);
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current || document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const w = 160;
-        const h = Math.max(1, Math.round((img.height / img.width) * w));
-        canvas.width = w; canvas.height = h;
-        ctx.drawImage(img, 0, 0, w, h);
-        const data = ctx.getImageData(0,0,w,h).data;
-
-        let r=0,g=0,b=0, brightness=0, saturation=0, contrast=0;
-        const luminances = [];
-        const pixels = data.length / 4;
-
-        for(let i=0;i<data.length;i+=4){
-          const rr=data[i], gg=data[i+1], bb=data[i+2];
-          r+=rr; g+=gg; b+=bb;
-          const max=Math.max(rr,gg,bb), min=Math.min(rr,gg,bb);
-          const lum=(0.2126*rr+0.7152*gg+0.0722*bb);
-          brightness += lum;
-          saturation += max === 0 ? 0 : ((max-min)/max)*100;
-          luminances.push(lum);
-        }
-        r=Math.round(r/pixels); g=Math.round(g/pixels); b=Math.round(b/pixels);
-        brightness = brightness/pixels;
-        saturation = saturation/pixels;
-        const mean = brightness;
-        for(const lum of luminances) contrast += Math.abs(lum-mean);
-        contrast = contrast/luminances.length;
-
-        const warm = r > b + 15;
-        const cool = b > r + 15;
-        const dark = brightness < 95;
-        const bright = brightness > 165;
-        const vivid = saturation > 45;
-        const highContrast = contrast > 45;
-
-        const newMood = {
-          darkness: clamp(dark ? 82 : bright ? 25 : 55),
-          energy: clamp(vivid ? 78 : bright ? 62 : 45),
-          aggression: clamp(highContrast ? 72 : dark ? 55 : 35),
-          emotion: clamp(warm ? 70 : cool ? 45 : 55),
-          complexity: clamp(highContrast ? 78 : saturation > 30 ? 58 : 35),
-          space: clamp(bright ? 75 : cool ? 68 : 50)
-        };
-
-        const imgGenres = [];
-        const imgSounds = [];
-        const imgRhythms = [];
-
-        if (dark && highContrast) { imgGenres.push("Industrial", "Techno"); imgSounds.push("Metallic percussion", "Distorted bass", "Noise atmosphere"); imgRhythms.push("4/4", "Syncopated"); }
-        if (cool) { imgGenres.push("Ambient", "Cinematic"); imgSounds.push("Dark pads", "Dub delays"); imgRhythms.push("Minimal"); }
-        if (warm && vivid) { imgGenres.push("House", "Pop"); imgSounds.push("Bright leads", "Big drums"); imgRhythms.push("4/4"); }
-        if (bright && !vivid) { imgGenres.push("Ambient", "Orchestral"); imgSounds.push("Piano", "Orchestral strings", "Soft drums"); imgRhythms.push("Minimal"); }
-        if (vivid && highContrast) { imgGenres.push("Experimental"); imgSounds.push("Glitch FX", "Analog synths"); imgRhythms.push("Off-grid"); }
-
-        const visualMood = `${dark ? "dark" : bright ? "bright" : "balanced"}, ${vivid ? "vivid" : "muted"}, ${highContrast ? "high-contrast" : "soft-contrast"}, ${warm ? "warm" : cool ? "cool" : "neutral"}`;
-
-        const summary = `File: ${file.name}
-Average color: rgb(${r}, ${g}, ${b})
-Visual mood: ${visualMood}
-Brightness: ${Math.round(brightness)}/255
-Saturation: ${Math.round(saturation)}/100
-Contrast: ${Math.round(contrast)}/100
-Suggested genres: ${uniq(imgGenres).join(", ") || "Experimental"}
-Suggested sounds: ${uniq(imgSounds).join(", ") || "Analog synths, atmospheric textures"}
-Suggested rhythms: ${uniq(imgRhythms).join(", ") || "Minimal"}
-Interpretation: turn the image into a ${visualMood} music style with matching texture, space, and energy.`;
-
-        setImageAnalysis({
-          fileName: file.name,
-          avgColor: `rgb(${r}, ${g}, ${b})`,
-          brightness,
-          saturation,
-          contrast,
-          visualMood,
-          suggestedGenres: uniq(imgGenres),
-          suggestedSounds: uniq(imgSounds),
-          suggestedRhythms: uniq(imgRhythms),
-          summary,
-          moodSuggestion: newMood,
-        });
-        setStatusWithTime("Image ready — add to style below when you want it in Suno fields");
-      };
-      img.onerror = () => setStatusWithTime("Image analysis failed");
-      img.src = url;
-    } catch {
-      setStatusWithTime("Image analysis failed");
-    }
-  };
-
 
   const buildCoProducerAI = () => {
     const suggestions = [];
@@ -1201,6 +1059,7 @@ Let it pull you deep within
   };
 
   const generateVariations=()=>{
+    captureSnapshot("before variations");
     const extraSounds=["Distorted bass","Glitch FX","Dub delays","Noise atmosphere","Big drums","Vinyl texture","Bright leads"];
     const extraRhythms=["Breakbeat","Halftime","Rolling","Off-grid","Syncopated"];
     const modes=["Control","Hybrid","Chaos"];
@@ -1259,36 +1118,12 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0b0d10] p-4 text-white md:p-8">
-      {showSplash && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b0d10]">
-          <div className="pointer-events-none absolute inset-0 opacity-60" style={{background:"radial-gradient(circle at center, rgba(184,115,51,.28), transparent 35%), radial-gradient(circle at 65% 35%, rgba(34,211,238,.18), transparent 30%)"}} />
-          <div className="relative mx-6 max-w-xl rounded-[2rem] border border-orange-300/25 bg-black/60 p-8 text-center shadow-2xl backdrop-blur">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static asset; next/image optional for splash */}
-            <img src="./bones-logo.png" alt="BONES VIBRATION logo" className="mx-auto mb-4 max-h-44 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]" />
-            <div className="text-xs font-black uppercase tracking-[0.35em] text-orange-300">BONES VIBRATION</div>
-            <h1 className="mt-3 text-4xl font-black tracking-tight text-white">AI Music Creator</h1>
-            <p className="mt-3 text-sm text-white/55">Loading Prompt Control Room...</p>
-            <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-orange-300" />
-            </div>
-            <button onClick={dismissSplash} className="mt-5 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white/70 hover:bg-white/20">
-              Skip intro
-            </button>
-          </div>
-        </div>
-      )}
+      {showSplash && <SplashOverlay onDismiss={dismissSplash} />}
 
       <canvas ref={canvasRef} className="hidden"/>
-      <div className="fixed inset-0 opacity-40" style={{background:"radial-gradient(circle at 18% 0%, rgba(184,115,51,.25), transparent 34%), radial-gradient(circle at 82% 12%, rgba(34,211,238,.16), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 35%)"}}/>
+      <div className="fixed inset-0 pointer-events-none opacity-40" style={{background:"radial-gradient(circle at 18% 0%, rgba(184,115,51,.25), transparent 34%), radial-gradient(circle at 82% 12%, rgba(34,211,238,.16), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 35%)"}}/>
       <div className="relative mx-auto max-w-7xl pb-12">
-        <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div><div className="mb-2 inline-flex rounded-full border border-orange-300/25 bg-orange-300/10 px-3 py-1 text-xs font-black tracking-wider text-orange-200">BONES VIBRATION • AI MUSIC CREATOR</div><h1 className="bg-gradient-to-r from-white via-orange-200 to-cyan-200 bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-6xl">Prompt Control Room</h1><p className="mt-2 max-w-2xl text-white/55">Level 2 visual prompt engine with audio analysis, image-to-style, presets, variations, history, Pro Mode, and extracted source prompts.</p><div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-white/45"><span className="rounded-full border border-white/10 bg-black/25 px-3 py-1">v{APP_VERSION}</span><span className="rounded-full border border-orange-300/20 bg-orange-300/10 px-3 py-1 text-orange-200">DJ M@D</span><span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-cyan-200">Level 2 Analyzer</span></div></div>
-          <div className="hidden rounded-[2rem] border border-orange-300/15 bg-black/25 p-3 shadow-2xl md:flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static asset */}
-            <img src="./bones-logo.png" alt="BONES VIBRATION logo" className="max-h-48 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]" />
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4"><div className="text-xs text-white/50">Project status</div><div className="text-sm font-bold text-cyan-100">{saveStatus}</div><div className="mt-2 text-xs text-white/50">Average score</div><div className="text-3xl font-black text-cyan-200">{avgScore}/5</div></div>
-        </header>
+        <AppHeader appVersion={APP_VERSION} avgScore={avgScore} saveStatus={saveStatus} />
 
         <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
           <aside className="space-y-4">
@@ -1298,7 +1133,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               {Object.keys(customPresets).length>0 && <div className="mt-4 space-y-2"><div className="text-xs font-bold uppercase tracking-wider text-white/45">Custom Presets</div>{Object.entries(customPresets).map(([name,p])=><div key={name} className="rounded-2xl border border-white/10 bg-black/25 p-2"><button onClick={()=>loadPresetObject(name,p)} className="w-full text-left text-sm font-bold text-cyan-100">{name}</button><button onClick={()=>deleteCustomPreset(name)} className="mt-2 text-xs font-bold text-red-300 hover:text-red-200">Delete</button></div>)}</div>}
             </Panel>
 
-            <Panel title="Save / Load" hint="Keeps unfinished work safe."><div className="grid gap-2"><button onClick={saveProject} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">Save Progress</button><button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">Export JSON</button><label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">Import JSON<input type="file" accept="application/json" onChange={importProject} className="hidden"/></label><button onClick={resetAll} className="rounded-2xl bg-red-400 px-4 py-2 font-bold text-black hover:bg-red-300">Reset to Default</button></div></Panel>
+            <Panel title="Save / Load" hint="Keeps unfinished work safe. Undo restores guided step, variations, history, and slim audio (IndexedDB rehydrates playback when cached)."><div className="grid gap-2"><button onClick={saveProject} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">Save Progress</button><button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">Export JSON</button><label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">Import JSON<input type="file" accept="application/json" onChange={importProject} className="hidden"/></label><button onClick={revertSnapshot} className="rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-2 font-bold text-amber-100 hover:bg-amber-500/25">Revert to last snapshot</button><button onClick={resetAll} className="rounded-2xl bg-red-400 px-4 py-2 font-bold text-black hover:bg-red-300">Reset to Default</button></div></Panel>
             <Panel title="Mode" hint="Controls stability vs creativity."><div className="grid grid-cols-3 gap-2">{["Control","Hybrid","Chaos"].map(m=><Pill key={m} active={mode===m} onClick={()=>setMode(m)}>{m}</Pill>)}</div></Panel>
             <Panel title="Pro Mode" hint="Advanced controls and stronger prompt shaping."><button onClick={()=>setProMode(!proMode)} className={"w-full rounded-2xl px-4 py-2 font-bold "+(proMode?"bg-purple-300 text-black":"bg-black/40 text-white border border-white/10")}>{proMode?"Pro Mode ON":"Pro Mode OFF"}</button>{proMode && <div className="mt-3 space-y-3"><Slider label="Prompt Intensity" value={promptIntensity} left="safe" right="experimental" setValue={setPromptIntensity}/><Slider label="Variations" value={variationCount} left="1" right="8" min={1} max={8} setValue={setVariationCount}/><div className="rounded-2xl border border-purple-300/20 bg-purple-300/10 p-3 text-xs text-purple-100">{intensityText}</div></div>}</Panel>
           </aside>
@@ -1524,7 +1359,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               ) : null}
             </Panel>
 
-            <Panel title="Drag & Drop Analyzers" hint="Optional Polish-step tools — merge packs audio/image DNA into compact AUDIO:/IMAGE: lines (metrics + groove + textures first) sized for the Suno Style 1000-character cap; trim order drops texture tails last.">
+            <Panel title="Drag & Drop Analyzers" hint="Optional Polish-step tools — track report with waveform, LUFS/dBTP meter, studio WAV export (Streaming −14 LUFS), merge into Suno fields, Goal, and Notes. Image DNA uses compact AUDIO:/IMAGE: lines for the 1000-character Style cap.">
               <div
                 className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
                   sunoFieldSlices.style.length > SUNO_STYLE_CHAR_CAP
@@ -1542,8 +1377,16 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                     </span>
                   ) : null}
                 </span>
-                <span className="text-white/55">
-                  Lyrics dir: {sunoFieldSlices.lyrics.length}/~{SUNO_LYRICS_CHAR_TYPICAL_MAX}
+                <span
+                  className={
+                    sunoFieldSlices.lyrics.length > SUNO_LYRICS_CHAR_TYPICAL_MAX
+                      ? "text-red-200"
+                      : sunoFieldSlices.lyrics.length > SUNO_LYRICS_CHAR_WARN
+                        ? "text-amber-200"
+                        : "text-white/55"
+                  }
+                >
+                  Lyrics: {sunoFieldSlices.lyrics.length}/{SUNO_LYRICS_CHAR_TYPICAL_MAX}
                 </span>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
@@ -1554,20 +1397,22 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                   onFile={analyzeAudioFile}
                 >
                   {audioAnalysis ? (
-                    <div className="mt-3 text-left">
-                      <div className="rounded-2xl bg-black/30 p-3 text-xs text-white/70 whitespace-pre-wrap">{audioAnalysis.summary}</div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          applyAudioToSunoStyle();
-                        }}
-                        className="mt-2 w-full rounded-2xl border border-cyan-400/40 bg-cyan-500/20 py-2 text-xs font-bold text-cyan-50 hover:bg-cyan-500/30"
-                      >
-                        Add audio style to Suno (merge) → next step
-                      </button>
-                    </div>
+                    <AudioTrackEditor
+                      analysis={audioAnalysis}
+                      audioUrl={audioPreviewUrl}
+                      onChange={updateAudioAnalysis}
+                      onApply={() => {
+                        captureSnapshot("before audio merge");
+                        applyAudioToSunoStyle();
+                      }}
+                      onClear={clearAudioAnalysis}
+                      onAttachAudio={attachAudioFile}
+                      loudness={audioLoudness}
+                      loudnessBusy={audioLoudnessBusy}
+                      onExportEnhanced={exportEnhancedAudio}
+                      exportBusy={audioExportBusy}
+                      exportProgress={audioExportProgress}
+                    />
                   ) : null}
                 </DropBox>
                 <DropBox
@@ -1584,12 +1429,16 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                   )}
                   {imageAnalysis ? (
                     <div className="mt-3 text-left">
+                      <p className="mb-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">
+                        {IMAGE_ANALYZER_DISCLAIMER}
+                      </p>
                       <div className="rounded-2xl bg-black/30 p-3 text-xs text-white/70 whitespace-pre-wrap">{imageAnalysis.summary}</div>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          captureSnapshot("before image merge");
                           applyImageToSunoStyle();
                         }}
                         className="mt-2 w-full rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/20 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/30"
@@ -1621,8 +1470,16 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               ["Darkness","bright","dark","darkness"],["Energy","calm","extreme","energy"],["Aggression","soft","brutal","aggression"],["Emotion","cold","emotional","emotion"],["Complexity","minimal","complex","complexity"],["Space","dry","wide","space"]
             ].map(([label,left,right,key])=><Slider key={key} label={label} value={mood[key]} left={left} right={right} setValue={(v)=>setMood({...mood,[key]:v})}/>)}</div></Panel>
 
-            <Panel title="Step 3 — Clickable Music Controls" hint="Select genre, rhythm, sound modules, and vocal mode.">
+            <Panel title="Step 3 — Clickable Music Controls" hint="Select genre, rhythm, sound modules, vocal mode, and style prompts from the library.">
               <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Genres</div><div className="flex flex-wrap gap-2">{genreOptions.map(x=><Pill key={x} active={selectedGenres.includes(x)} onClick={()=>toggle(x,selectedGenres,setSelectedGenres)}>{x}</Pill>)}</div></div>
+              <StylePromptPicker
+                selectedGenres={selectedGenres}
+                setSelectedGenres={setSelectedGenres}
+                rules={rules}
+                setRules={setRules}
+                setStatusWithTime={setStatusWithTime}
+                defaultOpen
+              />
               <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Rhythm</div><div className="flex flex-wrap gap-2">{rhythmOptions.map(x=><Pill key={x} active={selectedRhythms.includes(x)} onClick={()=>toggle(x,selectedRhythms,setSelectedRhythms)}>{x}</Pill>)}</div></div>
               <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Sound Modules</div><div className="flex flex-wrap gap-2">{soundOptions.map(x=><Pill key={x} active={selectedSounds.includes(x)} onClick={()=>toggle(x,selectedSounds,setSelectedSounds)}>{x}</Pill>)}</div></div>
               <div><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Vocals</div><div className="flex flex-wrap gap-2">{vocalOptions.map(x=><Pill key={x} active={vocal===x} onClick={()=>setVocal(x)}>{x}</Pill>)}</div></div>
@@ -1690,7 +1547,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               </div>
             </Panel>
 
-            <Panel title="Variation Engine" hint="Auto-generate prompt versions while keeping your core identity."><button onClick={generateVariations} className="w-full rounded-2xl bg-fuchsia-300 px-4 py-2 font-bold text-black hover:bg-fuchsia-200">Generate {variationCount} Variations</button>{variations.length>0 && <div className="mt-3 space-y-3">{variations.map(v=><div key={v.id} className="rounded-2xl border border-white/10 bg-black/30 p-3"><div className="mb-2 font-bold text-fuchsia-200">{v.title}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs text-white/70">{v.prompt}</pre><button onClick={()=>copyToClipboard(v.prompt, `${v.title} copied`)} className="mt-2 rounded-xl bg-white px-3 py-1 text-xs font-bold text-black hover:bg-cyan-100">Copy Variation</button></div>)}</div>}</Panel>
+            <Panel title="Variation Engine" hint="Auto-generate prompt versions while keeping your core identity."><button onClick={generateVariations} className="w-full rounded-2xl bg-fuchsia-300 px-4 py-2 font-bold text-black hover:bg-fuchsia-200">Generate {variationCount} Variations</button>{variations.length>0 && <><VariationCompare key={variations.map((v) => v.id).join("-")} variations={variations} onCopy={copyToClipboard} onApplyWinner={(text)=>{ setNotes(text.slice(0,2000)); setStatusWithTime("Variation A seeded into Notes"); }} /><div className="mt-3 space-y-3">{variations.map(v=><div key={v.id} className="rounded-2xl border border-white/10 bg-black/30 p-3"><div className="mb-2 font-bold text-fuchsia-200">{v.title}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs text-white/70">{v.prompt}</pre><button onClick={()=>copyToClipboard(v.prompt, `${v.title} copied`)} className="mt-2 rounded-xl bg-white px-3 py-1 text-xs font-bold text-black hover:bg-cyan-100">Copy Variation</button></div>)}</div></>}</Panel>
 
             {proMode && <Panel title="Advanced Override" hint="Optional text editing for exact control."><div className="grid gap-3 md:grid-cols-2"><label><div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Tempo</div><input value={tempo} onChange={(e)=>setTempo(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"/></label><label><div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Structure</div><input value={structure} onChange={(e)=>setStructure(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"/></label></div><div className="mt-3 grid gap-3 md:grid-cols-2"><TextBox label="Rules" value={rules} setValue={setRules}/><TextBox label="Notes / Analyzer Output" value={notes} setValue={setNotes}/></div></Panel>}
           </section>
@@ -1702,7 +1559,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               <Panel title="Suno-like Validator" hint="Checks structured style/prompt constraints before copying.">
                 {sunoSlices ? (
                   <div className="mb-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[10px] leading-relaxed text-white/55">
-                    <div className="font-bold text-cyan-100/90">Suno field lengths (typical caps)</div>
+                    <div className="font-bold text-cyan-100/90">Suno field lengths (paste-ready)</div>
                     <div className="mt-1 font-mono text-white/75">
                       Style: {sunoSlices.style.length} / {SUNO_STYLE_CHAR_CAP} (cap) · Lyrics: {sunoSlices.lyrics.length} / ~
                       {SUNO_LYRICS_CHAR_TYPICAL_MAX}
@@ -1735,11 +1592,10 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
             )}
             <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
                 <div className="space-y-3 text-xs text-white/80">
-                  <SunoEnglishStylePromptPicker
-                    rules={rules}
-                    setRules={setRules}
-                    setStatusWithTime={setStatusWithTime}
-                  />
+                  <p className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3 text-[11px] text-white/55">
+                    Browse and add style prompts in <strong className="text-cyan-100">Step 3 → Style prompt library</strong>{" "}
+                    (section dropdown + multi-select → Add to Styles).
+                  </p>
                   <div>
                     <div className="mb-1 font-bold text-cyan-200">Core Principles</div>
                     <ul className="space-y-1 text-white/70">
@@ -1973,7 +1829,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                   </button>
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-bold text-cyan-200">Style prompt index</div>
+                      <div className="font-bold text-cyan-200">Style prompt index (copy only)</div>
                       <button
                         type="button"
                         onClick={() =>
@@ -1987,32 +1843,9 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                         Copy all sections
                       </button>
                     </div>
-                    <div className="max-h-[min(420px,50vh)] space-y-3 overflow-y-auto pr-1">
-                      {Object.entries(stylePromptCatalog).map(([sectionKey, lines]) => (
-                        <details
-                          key={sectionKey}
-                          className="group rounded-xl border border-white/10 bg-black/40 open:border-cyan-300/25"
-                        >
-                          <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-white/85 marker:text-cyan-300">
-                            {sectionKey.replace(/([A-Z])/g, " $1").trim()} ({lines.length})
-                          </summary>
-                          <pre className="max-h-36 overflow-auto whitespace-pre-wrap px-3 pb-3 text-[11px] leading-relaxed text-white/65">
-                            {lines.join("\n")}
-                          </pre>
-                          <div className="px-3 pb-3">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                copyToClipboard(lines.join("\n"), `${sectionKey} copied`)
-                              }
-                              className="rounded-xl bg-white/10 px-2 py-1 text-[11px] font-bold text-white hover:bg-white/20"
-                            >
-                              Copy section
-                            </button>
-                          </div>
-                        </details>
-                      ))}
-                    </div>
+                    <p className="text-[11px] text-white/45">
+                      To add prompts into your track identity, use Step 3 Style prompt library instead of copy-paste.
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
                     <div className="mb-2 font-bold text-cyan-200">Reference prompt blocks</div>

@@ -67,8 +67,8 @@ export const SUNO_GUIDED_STEPS = [
   {
     id: 6,
     name: "Polish",
-    line: "Polish before export — pick what you need: Voice Style, Genre Anchors, Co-Producer, variations. Audio/image analyzers are optional: skip them entirely or drop reference files only if you want that DNA.",
-    where: "Right column: Drag & Drop Analyzers (optional), Voice Style, Suno Language Index, Co-Producer, Variation Engine — none of this is required to finish.",
+    line: "Polish before export — Voice Style, Genre Anchors, Co-Producer, variations. Optional: drop a reference track (LUFS meter, studio WAV export, edit tags, drag highlight, merge into Suno).",
+    where: "Right column: Drag & Drop Analyzers (track report, LUFS, studio export, image→style), Voice Style, Suno Language Index, Co-Producer, Variation Engine — optional.",
     next: "When satisfied (with or without analyzers), open the final step and copy Style + Lyrics into Suno.",
     optimal: "You can press Next and go straight to the copy step without ever opening the analyzers — they’re extra tools, not a gate.",
   },
@@ -186,12 +186,45 @@ export function buildSunoPastedStyleLine(p) {
 }
 
 /**
- * **Final** Suno Lyrics field — directions + your lyric prompt; trimmed to a safe upper bound.
+ * **Final** Suno Lyrics field — priority-ordered (metadata first, lyric body last to drop).
+ * Vocal tags and section brackets survive trimming longer than prose tails.
  */
 export function buildSunoPastedLyricsField(p) {
-  const s = buildSunoLyricsBoxPrompt(p);
-  if (s.length <= SUNO_LYRICS_CHAR_TYPICAL_MAX) return s;
-  return s.slice(0, SUNO_LYRICS_CHAR_TYPICAL_MAX - 1) + "…";
+  const vocal = p.vocal || "Instrumental";
+  if (vocal === "Instrumental") {
+    return "Instrumental only. No lyrical content.";
+  }
+
+  const parts = [];
+  const theme = String(p.lyricTheme || "").replace(/\s+/g, " ").trim();
+  const lang = String(p.lyricLanguage || "").replace(/\s+/g, " ").trim();
+  const form = String(p.lyricStructure || "").replace(/\s+/g, " ").trim();
+  const style = String(p.lyricStyle || "").replace(/\s+/g, " ").trim();
+  const mode = String(p.lyricMode || "").replace(/\s+/g, " ").trim();
+  const density =
+    typeof p.lyricDensity === "number" && !Number.isNaN(p.lyricDensity)
+      ? `density ${p.lyricDensity}%`
+      : "";
+
+  if (theme) parts.push(`theme: ${theme.slice(0, 140)}`);
+  if (lang) parts.push(`language: ${lang.slice(0, 40)}`);
+  if (form) parts.push(`sections: ${form.slice(0, 120)}`);
+  if (style) parts.push(`lyric style: ${style.slice(0, 100)}`);
+  if (mode) parts.push(`mode: ${mode.slice(0, 60)}`);
+  if (density) parts.push(density);
+
+  const body =
+    String(p.generatedLyrics || "").trim() ||
+    String(p.lyricPrompt || "").trim() ||
+    buildSunoLyricsBoxPrompt({ vocal, lyricPrompt: p.lyricPrompt || "" });
+
+  if (body && body !== "(Add lyric lines or bracketed sections.)") {
+    parts.push(body);
+  } else {
+    parts.push("(Add lyric lines or bracketed sections.)");
+  }
+
+  return joinWithCap(parts, SUNO_LYRICS_CHAR_TYPICAL_MAX);
 }
 
 export function getStepCount() {

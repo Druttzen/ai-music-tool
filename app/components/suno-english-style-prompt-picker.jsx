@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   buildEnglishSunoStylePromptSections,
   getEnglishSunoStylePromptStats,
 } from "../lib/suno-english-style-index";
+import { Pill } from "./ui-blocks";
+
+const VISIBLE_CAP = 150;
+const SEARCH_MIN_ALL = 2;
 
 function previewLine(text, max = 100) {
   const t = text.replace(/\s+/g, " ").trim();
@@ -12,27 +16,45 @@ function previewLine(text, max = 100) {
   return `${t.slice(0, max)}…`;
 }
 
+function mergeUniqueStrings(prev, incoming) {
+  const out = [...prev];
+  const seen = new Set(prev.map((x) => x.toLowerCase()));
+  for (const raw of incoming) {
+    const t = raw.trim();
+    if (!t) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
 /**
+ * Unified style prompt picker — all catalog + index + genre wheel lines in one dropdown.
  * @param {object} props
- * @param {(msg: string) => void} props.setStatusWithTime
+ * @param {string[]} props.selectedGenres
+ * @param {React.Dispatch<React.SetStateAction<string[]>>} props.setSelectedGenres
  * @param {string} props.rules
  * @param {React.Dispatch<React.SetStateAction<string>>} props.setRules
+ * @param {(msg: string) => void} props.setStatusWithTime
+ * @param {boolean} [props.defaultOpen]
  */
-export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRules }) {
+export function StylePromptPicker({
+  selectedGenres,
+  setSelectedGenres,
+  rules,
+  setRules,
+  setStatusWithTime,
+  defaultOpen = false,
+}) {
   const sections = useMemo(() => buildEnglishSunoStylePromptSections(), []);
   const stats = useMemo(() => getEnglishSunoStylePromptStats(), []);
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [sectionKey, setSectionKey] = useState("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(() => new Set());
-
-  useEffect(() => {
-    const sunoSection = sections.find((s) => s.sectionId === "cat-sunoV55GenreWheel");
-    // #region agent log
-    fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b92901" }, body: JSON.stringify({ sessionId: "b92901", runId: "pre-fix", hypothesisId: "D", location: "app/components/suno-english-style-prompt-picker.jsx:32", message: "Suno English style picker mounted", data: { sectionCount: sections.length, lineCount: stats.lineCount, hasSunoWheelSection: Boolean(sunoSection), sunoWheelCount: sunoSection?.items.length ?? 0 }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [sections, stats.lineCount]);
 
   const idToItem = useMemo(() => {
     const m = new Map();
@@ -42,9 +64,11 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
     return m;
   }, [sections]);
 
-  const visibleItems = useMemo(() => {
+  const { visibleItems, visibleTotal, searchRequired } = useMemo(() => {
     const q = query.trim().toLowerCase();
     const out = [];
+    let total = 0;
+
     for (const sec of sections) {
       if (sectionKey !== "all" && sec.sectionId !== sectionKey) continue;
       for (const it of sec.items) {
@@ -52,17 +76,17 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
           const hay = `${it.text} ${it.label || ""} ${sec.sectionTitle}`.toLowerCase();
           if (!hay.includes(q)) continue;
         }
-        out.push({ ...it, sectionTitle: sec.sectionTitle });
+        total += 1;
+        if (out.length < VISIBLE_CAP) {
+          out.push({ ...it, sectionTitle: sec.sectionTitle });
+        }
       }
     }
-    return out;
-  }, [sections, sectionKey, query]);
 
-  useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b92901" }, body: JSON.stringify({ sessionId: "b92901", runId: "pre-fix", hypothesisId: "C", location: "app/components/suno-english-style-prompt-picker.jsx:63", message: "Suno English style picker visibility state", data: { open, sectionKey, query, visibleCount: visibleItems.length, sunoSectionVisible: sectionKey === "all" || sectionKey === "cat-sunoV55GenreWheel", firstVisibleSection: visibleItems[0]?.sectionTitle }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [open, query, sectionKey, visibleItems]);
+    const needsSearch = sectionKey === "all" && q.length < SEARCH_MIN_ALL;
+
+    return { visibleItems: needsSearch ? [] : out, visibleTotal: total, searchRequired: needsSearch };
+  }, [sections, sectionKey, query]);
 
   const toggle = useCallback((id) => {
     setSelected((prev) => {
@@ -83,25 +107,53 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
 
   const clearSelection = useCallback(() => setSelected(new Set()), []);
 
-  const addSelectedToRules = useCallback(() => {
-    if (selected.size === 0) {
-      setStatusWithTime("Check one or more lines to add to Rules");
-      return;
-    }
+  const textsFromSelection = useCallback(() => {
     const toAdd = [];
     for (const id of selected) {
       const it = idToItem.get(id);
-      if (it) toAdd.push(it.text);
+      if (it?.text) toAdd.push(it.text.trim());
     }
+    return toAdd;
+  }, [idToItem, selected]);
+
+  const addSelectedToStyles = useCallback(() => {
+    if (selected.size === 0) {
+      setStatusWithTime("Check one or more style prompts first");
+      return;
+    }
+    const toAdd = textsFromSelection();
+    setSelectedGenres((prev) => {
+      const merged = mergeUniqueStrings(prev, toAdd);
+      return merged;
+    });
+    setStatusWithTime(`Added ${toAdd.length} style prompt(s) to Styles`);
+    setSelected(new Set());
+  }, [selected, setSelectedGenres, setStatusWithTime, textsFromSelection]);
+
+  const replaceStylesWithSelected = useCallback(() => {
+    if (selected.size === 0) {
+      setStatusWithTime("Check one or more style prompts first");
+      return;
+    }
+    const next = textsFromSelection();
+    setSelectedGenres(next);
+    setStatusWithTime(`Replaced Styles with ${next.length} prompt(s)`);
+    setSelected(new Set());
+  }, [selected, setSelectedGenres, setStatusWithTime, textsFromSelection]);
+
+  const addSelectedToRules = useCallback(() => {
+    if (selected.size === 0) {
+      setStatusWithTime("Check one or more style prompts first");
+      return;
+    }
+    const toAdd = textsFromSelection();
     const prev = rules.trim();
     const low = prev.toLowerCase();
     const fresh = [];
     for (const chunk of toAdd) {
-      const c = chunk.trim();
-      if (!c) continue;
-      const head = c.slice(0, 64).toLowerCase();
+      const head = chunk.slice(0, 64).toLowerCase();
       if (low && low.includes(head)) continue;
-      fresh.push(c);
+      fresh.push(chunk);
     }
     if (fresh.length === 0) {
       setStatusWithTime("Selected lines are already present in Rules (or empty)");
@@ -111,24 +163,52 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
     setRules((r) => `${r.trim()}${sep}${fresh.join(", ")}`);
     setStatusWithTime(`Added ${fresh.length} line(s) to Rules`);
     setSelected(new Set());
-  }, [idToItem, rules, selected, setRules, setStatusWithTime]);
+  }, [rules, selected, setRules, setStatusWithTime, textsFromSelection]);
+
+  const catalogStylesInUse = useMemo(() => {
+    const pillSet = new Set();
+    return selectedGenres.filter((g) => {
+      const key = g.toLowerCase();
+      if (pillSet.has(key)) return false;
+      pillSet.add(key);
+      return true;
+    });
+  }, [selectedGenres]);
+
+  const removeStyle = useCallback(
+    (genre) => {
+      setSelectedGenres((prev) => prev.filter((g) => g !== genre));
+      setStatusWithTime(`Removed "${previewLine(genre, 40)}" from Styles`);
+    },
+    [setSelectedGenres, setStatusWithTime],
+  );
 
   return (
-    <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/5 p-3">
+    <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/5 p-3">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
         <div>
-          <div className="text-[11px] font-bold text-emerald-200">Add from English prompt index</div>
+          <div className="text-[11px] font-bold text-cyan-200">Style prompt library</div>
           <div className="text-[10px] text-white/45">
-            {stats.lineCount} English-only lines in {stats.sectionCount} groups (catalog + Suno index). Opens a
-            filterable checklist for <span className="text-white/60">Rules</span>.
+            {stats.lineCount} prompts in {stats.sectionCount} sections (catalog, genre wheel, Suno index). Pick one
+            or more → <span className="text-white/60">Add to Styles</span> (DNA / prompt identity).
           </div>
         </div>
-        <span className="text-sm text-emerald-200/90">{open ? "▲" : "▼"}</span>
+        <span className="text-sm text-cyan-200/90">{open ? "▲" : "▼"}</span>
       </button>
+
+      {catalogStylesInUse.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {catalogStylesInUse.map((g) => (
+            <Pill key={g} active onClick={() => removeStyle(g)} title={`Click to remove: ${g}`}>
+              {previewLine(g, 36)} ×
+            </Pill>
+          ))}
+        </div>
+      ) : null}
 
       {open ? (
         <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
@@ -149,7 +229,9 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
               </select>
             </label>
             <label className="block">
-              <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-white/45">Search</div>
+              <div className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-white/45">
+                Search
+              </div>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -158,12 +240,6 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
               />
             </label>
           </div>
-
-          <p className="text-[10px] leading-relaxed text-white/45">
-            Only lines written in English (Latin script) are listed. Excludes other scripts. Selected chunks append to{" "}
-            <strong className="text-white/60">Pro Mode → Rules</strong> (comma-separated). For huge reference blocks, trim
-            after if you near the Style cap.
-          </p>
 
           <div className="flex flex-wrap gap-2">
             <button
@@ -182,42 +258,71 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
             </button>
             <button
               type="button"
-              onClick={addSelectedToRules}
-              className="rounded-lg bg-emerald-300 px-2 py-1 text-[10px] font-bold text-black hover:bg-emerald-200"
+              onClick={addSelectedToStyles}
+              className="rounded-lg bg-cyan-300 px-2 py-1 text-[10px] font-bold text-black hover:bg-cyan-200"
             >
-              Add selected to Rules ({selected.size})
+              Add to Styles ({selected.size})
+            </button>
+            <button
+              type="button"
+              onClick={replaceStylesWithSelected}
+              className="rounded-lg border border-cyan-300/40 bg-cyan-400/15 px-2 py-1 text-[10px] font-bold text-cyan-100 hover:bg-cyan-400/25"
+            >
+              Replace Styles
+            </button>
+            <button
+              type="button"
+              onClick={addSelectedToRules}
+              className="rounded-lg border border-emerald-300/40 bg-emerald-400/15 px-2 py-1 text-[10px] font-bold text-emerald-100 hover:bg-emerald-400/25"
+            >
+              Add to Rules
             </button>
           </div>
 
           <div className="max-h-[min(48vh,420px)] space-y-1.5 overflow-y-auto rounded-xl border border-white/10 bg-black/35 p-2 pr-1">
-            {visibleItems.length === 0 ? (
+            {searchRequired ? (
+              <div className="py-6 text-center text-[11px] text-white/40">
+                Type at least {SEARCH_MIN_ALL} characters to search{" "}
+                {sectionKey === "all" ? "all sections" : "this section"}.
+              </div>
+            ) : visibleItems.length === 0 ? (
               <div className="py-6 text-center text-[11px] text-white/40">No matches. Change section or search.</div>
             ) : (
-              visibleItems.map((it) => (
-                <label
-                  key={it.id}
-                  className="flex cursor-pointer gap-2 rounded-lg border border-white/5 bg-black/25 p-1.5 hover:border-white/15"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.has(it.id)}
-                    onChange={() => toggle(it.id)}
-                    className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-white/30"
-                  />
-                  <span className="min-w-0">
-                    {it.label ? (
-                      <span className="block text-[10px] font-bold text-cyan-200/90">{it.label}</span>
-                    ) : null}
-                    <span
-                      className="block break-words font-mono text-[10px] leading-snug text-white/75"
-                      title={it.isLong ? it.text : undefined}
-                    >
-                      {it.isLong ? previewLine(it.text, 200) : it.text}
+              <>
+                {visibleTotal > VISIBLE_CAP ? (
+                  <p className="px-1 pb-1 text-[9px] text-white/40">
+                    Showing {VISIBLE_CAP} of {visibleTotal} matches — refine search to narrow.
+                  </p>
+                ) : null}
+                {visibleItems.map((it) => (
+                  <label
+                    key={it.id}
+                    className="flex cursor-pointer gap-2 rounded-lg border border-white/5 bg-black/25 p-1.5 hover:border-white/15"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(it.id)}
+                      onChange={() => toggle(it.id)}
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-white/30"
+                    />
+                    <span className="min-w-0">
+                      {it.label ? (
+                        <span className="block text-[10px] font-bold text-cyan-200/90">{it.label}</span>
+                      ) : null}
+                      <span
+                        className="block break-words font-mono text-[10px] leading-snug text-white/75"
+                        title={it.isLong ? it.text : undefined}
+                      >
+                        {it.isLong ? previewLine(it.text, 200) : it.text}
+                      </span>
+                      <span className="mt-0.5 block text-[9px] text-white/35">{it.sectionTitle}</span>
+                      {selectedGenres.some((g) => g.toLowerCase() === it.text.toLowerCase()) ? (
+                        <span className="text-[9px] font-bold text-cyan-300/90">· in Styles</span>
+                      ) : null}
                     </span>
-                    <span className="mt-0.5 block text-[9px] text-white/35">{it.sectionTitle}</span>
-                  </span>
-                </label>
-              ))
+                  </label>
+                ))}
+              </>
             )}
           </div>
         </div>
@@ -225,3 +330,6 @@ export function SunoEnglishStylePromptPicker({ setStatusWithTime, rules, setRule
     </div>
   );
 }
+
+/** @deprecated Use StylePromptPicker */
+export const SunoEnglishStylePromptPicker = StylePromptPicker;

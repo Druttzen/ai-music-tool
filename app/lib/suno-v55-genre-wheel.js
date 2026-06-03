@@ -943,9 +943,3 @@ export const sunoV55GenreWheelStyles = [
   "electro-jungle",
   "hindi southern rock"
 ];
-
-// #region agent log
-if (typeof window !== "undefined") {
-  fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "b92901" }, body: JSON.stringify({ sessionId: "b92901", runId: "pre-fix", hypothesisId: "A", location: "app/lib/suno-v55-genre-wheel.js:947", message: "Suno v5.5 genre wheel module loaded in browser", data: { count: sunoV55GenreWheelStyles.length, first: sunoV55GenreWheelStyles[0], last: sunoV55GenreWheelStyles.at(-1) }, timestamp: Date.now() }) }).catch(() => {});
-}
-// #endregion
