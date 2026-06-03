@@ -12,5 +12,5 @@ $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
 
 Write-Host "Registered scheduled task: $TaskName"
-Write-Host "On next reboot, SYSTEM will remove electron-dist, electron-dist-fresh, and electron-dist-v071 if unlocked."
+Write-Host "On next reboot, SYSTEM will remove all electron-dist* folders under the repo if unlocked."
 Write-Host "To remove the task after a successful cleanup: Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"
