@@ -13,8 +13,8 @@
     "check": "npm run lint && npm run build",
     "build": "next build",
     "electron": "electron .",
-    "predist": "node scripts/prep-electron-dist.cjs",
-    "dist": "npm run build && npm run predist && electron-builder",
+    "prepare:electron-dist": "node scripts/prep-electron-dist.cjs",
+    "dist": "npm run build && npm run prepare:electron-dist && electron-builder",
     "dis": "npm run dist"
   },
   "dependencies": {
