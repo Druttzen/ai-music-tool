@@ -1279,7 +1279,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               ) : null}
             </Panel>
 
-            <Panel title="Drag & Drop Analyzers" hint="Optional Polish-step tools — drop a track for a local report (waveform, draggable highlight, edit tags, merge into Suno fields, Goal, and Notes). Image DNA uses compact AUDIO:/IMAGE: lines sized for the 1000-character Style cap.">
+            <Panel title="Drag & Drop Analyzers" hint="Optional Polish-step tools — track report with waveform, LUFS/dBTP meter, studio WAV export (Streaming −14 LUFS), merge into Suno fields, Goal, and Notes. Image DNA uses compact AUDIO:/IMAGE: lines for the 1000-character Style cap.">
               <div
                 className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
                   sunoFieldSlices.style.length > SUNO_STYLE_CHAR_CAP

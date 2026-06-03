@@ -1,7 +1,7 @@
 {
   "name": "ai-music-tool",
-  "version": "0.7.0",
-  "description": "AI Music Creator — Suno-oriented prompt control room with local track/image analyzers and Electron packaging",
+  "version": "0.7.1",
+  "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
   "main": "main.js",

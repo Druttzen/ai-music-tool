@@ -49,8 +49,9 @@ export function AppHeader({ appVersion, avgScore, saveStatus }) {
           Prompt Control Room
         </h1>
         <p className="mt-2 max-w-2xl text-white/55">
-          Level 2 visual prompt engine with local track and image analyzers (waveforms, highlight
-          range, Suno merge), presets, variations, history, Pro Mode, and extracted source prompts.
+          Level 2 prompt engine: Suno guided path, local track and image analyzers (waveforms,
+          highlight, merge), EBU R128 loudness readout, studio WAV export, presets, variations,
+          history, and Pro Mode.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-white/45">
           <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1">
@@ -59,8 +60,8 @@ export function AppHeader({ appVersion, avgScore, saveStatus }) {
           <span className="rounded-full border border-orange-300/20 bg-orange-300/10 px-3 py-1 text-orange-200">
             DJ M@D
           </span>
-          <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-cyan-200">
-            Level 2 Analyzer
+          <span className="rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1 text-violet-200">
+            Studio export
           </span>
         </div>
       </div>

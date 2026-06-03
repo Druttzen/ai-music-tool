@@ -1,18 +1,20 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.7.0**
+**Version 0.7.1**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
 
-## Highlights (v0.7.0)
+## Highlights (v0.7.1)
 
 - **Guided Suno path** — Step-through workflow, Polish step, progressive style preview, **Style** capped at **1000 characters** with priority ordering on copy.
 - **Expanded English style vocabulary** — Large curated catalog including world/regional styles paired with instruments, sound-design FX, environment beds, orchestral and band instruments, moods, and fusion labels; English-only picker with dedupe.
 - **Track analyzer (local)** — Drop **WAV / MP3 / OGG / M4A** for a Sonoteller-style report: editable summary, genres, moods, instruments, BPM/key estimates, and a **highlight** section with full-track + zoomed **waveforms** (drag amber handles to set the range).
 - **Audio DNA → Suno** — **Merge into Suno fields** applies tempo, genres, sounds, rhythms, mood sliders, a compact **`AUDIO:`** rule line, and copies the track summary into **Goal** and **Notes** when present.
 - **Image analyzer** — Drop **JPG / PNG** for palette-driven genre/sound suggestions; merges into **`IMAGE:`** rule lines and guided fields.
-- **Waveform persistence** — Peak data is saved in the project JSON; audio files are cached in **IndexedDB** (with lookup keys) so waveforms and playback can be restored after reload. **Attach audio** reconnects a matching file if the cache is missing.
-- **Version-aware reset** — Bumping `package.json` version clears saved prompts/presets/history so upgrades do not carry stale style state.
+- **LUFS meter (EBU R128)** — After attach/analyze, shows **gated integrated LUFS** and **true peak (dBTP)** using a **BS.1770-4**-style engine (libebur128-aligned K-weighting and oversampling).
+- **Studio WAV export** — Three local mastering presets: **Streaming** (−14 LUFS integrated + −1 dBTP limit), **Wide spatial** (stereo width), **Punch** (low-end and dynamics). Exports 16-bit stereo WAV in the browser.
+- **Waveform persistence** — Autosave/history omit heavy peak arrays; **IndexedDB** caches audio for rehydrate. **Export JSON** keeps full `waveformPeaks`; **import** preserves them. **Attach audio** reconnects playback when the cache is missing.
+- **Version-aware reset** — A **major** `package.json` version bump clears the autosaved project and analyzer state; **presets and history are kept**. Patch/minor bumps migrate the saved project in place.
 - **Refactored UI** — Analyzer logic in `use-analyzers`, splash/header in `app-shell`, splash timing via `useSyncExternalStore` (no hydration mismatch in dev).
 - **Packaged assets** — `public/bones-logo.png`, root `icon.ico`, and `build/AI_Music_Creator_README.pdf` included for Electron builds.
 - **Live length readout** — Style box and lyrics direction character counts next to analyzers (same strings as the validator).
@@ -76,10 +78,16 @@ If `dist` fails because `electron-dist/win-unpacked` is locked, close any runnin
 
 | Storage | What |
 |--------|------|
-| `localStorage` | Autosaved project (`ai_music_creator_visual_tool_v3`), custom presets, prompt history |
+| `localStorage` | Autosaved project (`ai_music_creator_visual_tool_v3`), custom presets, prompt history (slim snapshots — no waveform peaks in history/autosave) |
 | `sessionStorage` | Splash intro seen flag |
 | **IndexedDB** (`ai-music-creator`) | Cached audio blobs for waveform rehydrate (not in exported JSON) |
-| **Export JSON** | Full project including `audioAnalysis.waveformPeaks`; re-import on another machine restores the timeline (use **Attach audio** for playback) |
+| **Export JSON** | Full project including `audioAnalysis.waveformPeaks`; re-import restores peaks and timeline (attach audio on another machine for playback if cache is empty) |
+
+## Studio export notes
+
+- Processing runs **locally** in the browser; long tracks can take time (max **10 minutes** per export).
+- **Streaming** targets **−14 LUFS** integrated loudness — common for Spotify/YouTube-style delivery, not a substitute for a certified broadcast meter or mastering engineer.
+- **Wide spatial** is **stereo enhancement**, not Dolby Atmos.
 
 ## Version source of truth
 
