@@ -8,7 +8,7 @@
 export function serializeAudioBuffer(buffer) {
   const channelData = [];
   for (let c = 0; c < buffer.numberOfChannels; c++) {
-    channelData.push(buffer.getChannelData(c));
+    channelData.push(new Float32Array(buffer.getChannelData(c)));
   }
   return {
     sampleRate: buffer.sampleRate,

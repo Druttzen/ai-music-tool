@@ -61,6 +61,7 @@ export function AudioTrackEditor({
   const audioRef = useRef(null);
   const [playhead, setPlayhead] = useState(null);
   const [exportFormat, setExportFormat] = useState("wav");
+  const [highlightPreset, setHighlightPreset] = useState("streaming");
   const rafRef = useRef(null);
 
   const seekAudio = useCallback(
@@ -251,7 +252,7 @@ export function AudioTrackEditor({
             {[
               ["wav", "WAV"],
               ["mp3", "MP3"],
-              ["flac", "Lossless WAV"],
+              ["flac", "WAV (lossless)"],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -300,17 +301,34 @@ export function AudioTrackEditor({
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            disabled={exportBusy}
-            onClick={(e) => {
-              e.preventDefault();
-              onExportEnhanced("streaming", { format: exportFormat, scope: "highlight" });
-            }}
-            className="w-full rounded-xl border border-amber-400/30 bg-amber-500/15 py-2 text-[10px] font-bold text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
-          >
-            Export highlight loop only (uses amber range)
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex flex-1 min-w-[140px] flex-col text-[10px] text-white/50">
+              Highlight preset
+              <select
+                value={highlightPreset}
+                disabled={exportBusy}
+                onChange={(e) => setHighlightPreset(e.target.value)}
+                className="mt-1 rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
+              >
+                {STUDIO_EXPORT_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={exportBusy}
+              onClick={(e) => {
+                e.preventDefault();
+                onExportEnhanced(highlightPreset, { format: exportFormat, scope: "highlight" });
+              }}
+              className="flex-1 min-w-[160px] rounded-xl border border-amber-400/30 bg-amber-500/15 py-2 text-[10px] font-bold text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
+            >
+              Export highlight loop (amber range)
+            </button>
+          </div>
         </section>
       ) : null}
 

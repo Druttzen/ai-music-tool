@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { slimStateForPersistence } from "../lib/project-persistence";
 
 const SESSION_KEY = "ai_music_creator_undo_snapshot_v1";
 
@@ -17,16 +18,20 @@ export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
     (label = "snapshot") => {
       try {
         const raw = getState();
-        const json = JSON.stringify(raw);
+        const slim = slimStateForPersistence(raw);
+        const json = JSON.stringify(slim);
         snapshotRef.current = { label, json, at: Date.now() };
         if (typeof sessionStorage !== "undefined") {
           sessionStorage.setItem(SESSION_KEY, json);
         }
-      } catch {
-        /* ignore circular refs */
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        if (msg.includes("quota") || msg.includes("too large")) {
+          setStatusWithTime("Snapshot too large — save JSON export instead");
+        }
       }
     },
-    [getState],
+    [getState, setStatusWithTime],
   );
 
   const revertSnapshot = useCallback(() => {
@@ -49,7 +54,10 @@ export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
   }, [applyState, setStatusWithTime]);
 
   const hasSnapshot = useCallback(() => {
-    return !!(snapshotRef.current?.json || (typeof sessionStorage !== "undefined" && sessionStorage.getItem(SESSION_KEY)));
+    return !!(
+      snapshotRef.current?.json ||
+      (typeof sessionStorage !== "undefined" && sessionStorage.getItem(SESSION_KEY))
+    );
   }, []);
 
   return { captureSnapshot, revertSnapshot, hasSnapshot };

@@ -123,6 +123,15 @@ export function validateSunoLikePrompt(params) {
     intensityText,
     mode,
     voiceStyleReference,
+    lyricTheme,
+    lyricLanguage,
+    lyricStructure,
+    lyricStyle,
+    lyricDensity,
+    lyricMode,
+    generatedLyrics,
+    pastedStyleLen,
+    pastedLyricsLen,
   } = params;
 
   const warnings = [];
@@ -142,29 +151,32 @@ export function validateSunoLikePrompt(params) {
     warnings.push("Too many genres may cause style drift; prefer 1-2 core genres.");
   }
 
-  const full = {
-    selectedGenres,
-    tempo,
-    moodWords,
-    selectedSounds,
-    selectedRhythms,
-    vocalText,
-    structure,
-    idea,
-    vocal,
-    rules,
-    intensityText,
-    mode,
-    voiceStyleReference: voiceStyleReference ?? "",
-    lyricPrompt,
-  };
-
-  warnings.push(
-    ...validateSunoFieldLengths(
-      buildSunoStyleBoxPrompt(full).length,
-      buildSunoLyricsBoxPrompt(full).length,
-    ),
-  );
+  if (typeof pastedStyleLen === "number" && typeof pastedLyricsLen === "number") {
+    warnings.push(...validateSunoFieldLengths(pastedStyleLen, pastedLyricsLen));
+  } else {
+    const full = {
+      selectedGenres,
+      tempo,
+      moodWords,
+      selectedSounds,
+      selectedRhythms,
+      vocalText,
+      structure,
+      idea,
+      vocal,
+      rules,
+      intensityText,
+      mode,
+      voiceStyleReference: voiceStyleReference ?? "",
+      lyricPrompt,
+    };
+    warnings.push(
+      ...validateSunoFieldLengths(
+        buildSunoStyleBoxPrompt(full).length,
+        buildSunoLyricsBoxPrompt(full).length,
+      ),
+    );
+  }
 
   return warnings;
 }

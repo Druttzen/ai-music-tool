@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -22,7 +22,7 @@
   "dependencies": {
     "electron-updater": "^6.8.3",
     "lamejs": "^1.2.1",
-    "next": "16.2.4",
+    "next": "16.2.7",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },

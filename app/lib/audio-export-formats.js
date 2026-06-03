@@ -34,8 +34,8 @@ export async function audioBufferToMp3Blob(buffer) {
   return new Blob(chunks, { type: "audio/mpeg" });
 }
 
-/** Lossless export — 16-bit stereo WAV packaged for FLAC slot (PCM in WAV container). */
-export function audioBufferToFlacBlob(buffer) {
+/** Lossless export — 16-bit stereo WAV (same as WAV preset). */
+export function audioBufferToLosslessWavBlob(buffer) {
   return audioBufferToWavBlob(buffer);
 }
 
@@ -59,7 +59,7 @@ export async function downloadAudioBufferAsFormat(buffer, format, baseFileName) 
     return;
   }
   if (format === "flac") {
-    downloadFormatBlob(audioBufferToFlacBlob(buffer), `${base}.flac`);
+    downloadFormatBlob(audioBufferToLosslessWavBlob(buffer), `${base}.wav`);
     return;
   }
   downloadFormatBlob(audioBufferToWavBlob(buffer), `${base}.wav`);

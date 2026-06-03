@@ -592,6 +592,12 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
         intensityText,
         mode,
         voiceStyleReference: voiceStyleLine,
+        ...(promptEngine === "Suno-like"
+          ? {
+              pastedStyleLen: sunoFieldSlices.style.length,
+              pastedLyricsLen: sunoFieldSlices.lyrics.length,
+            }
+          : {}),
       }),
     [
       selectedGenres,
@@ -609,6 +615,8 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
       intensityText,
       mode,
       voiceStyleLine,
+      promptEngine,
+      sunoFieldSlices,
     ],
   );
 
@@ -1525,7 +1533,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               </div>
             </Panel>
 
-            <Panel title="Variation Engine" hint="Auto-generate prompt versions while keeping your core identity."><button onClick={generateVariations} className="w-full rounded-2xl bg-fuchsia-300 px-4 py-2 font-bold text-black hover:bg-fuchsia-200">Generate {variationCount} Variations</button>{variations.length>0 && <><VariationCompare variations={variations} onCopy={copyToClipboard} onApplyWinner={(text)=>{ setNotes(text.slice(0,2000)); setStatusWithTime("Variation A seeded into Notes"); }} /><div className="mt-3 space-y-3">{variations.map(v=><div key={v.id} className="rounded-2xl border border-white/10 bg-black/30 p-3"><div className="mb-2 font-bold text-fuchsia-200">{v.title}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs text-white/70">{v.prompt}</pre><button onClick={()=>copyToClipboard(v.prompt, `${v.title} copied`)} className="mt-2 rounded-xl bg-white px-3 py-1 text-xs font-bold text-black hover:bg-cyan-100">Copy Variation</button></div>)}</div></>}</Panel>
+            <Panel title="Variation Engine" hint="Auto-generate prompt versions while keeping your core identity."><button onClick={generateVariations} className="w-full rounded-2xl bg-fuchsia-300 px-4 py-2 font-bold text-black hover:bg-fuchsia-200">Generate {variationCount} Variations</button>{variations.length>0 && <><VariationCompare key={variations.map((v) => v.id).join("-")} variations={variations} onCopy={copyToClipboard} onApplyWinner={(text)=>{ setNotes(text.slice(0,2000)); setStatusWithTime("Variation A seeded into Notes"); }} /><div className="mt-3 space-y-3">{variations.map(v=><div key={v.id} className="rounded-2xl border border-white/10 bg-black/30 p-3"><div className="mb-2 font-bold text-fuchsia-200">{v.title}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs text-white/70">{v.prompt}</pre><button onClick={()=>copyToClipboard(v.prompt, `${v.title} copied`)} className="mt-2 rounded-xl bg-white px-3 py-1 text-xs font-bold text-black hover:bg-cyan-100">Copy Variation</button></div>)}</div></>}</Panel>
 
             {proMode && <Panel title="Advanced Override" hint="Optional text editing for exact control."><div className="grid gap-3 md:grid-cols-2"><label><div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Tempo</div><input value={tempo} onChange={(e)=>setTempo(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"/></label><label><div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Structure</div><input value={structure} onChange={(e)=>setStructure(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"/></label></div><div className="mt-3 grid gap-3 md:grid-cols-2"><TextBox label="Rules" value={rules} setValue={setRules}/><TextBox label="Notes / Analyzer Output" value={notes} setValue={setNotes}/></div></Panel>}
           </section>
@@ -1537,7 +1545,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               <Panel title="Suno-like Validator" hint="Checks structured style/prompt constraints before copying.">
                 {sunoSlices ? (
                   <div className="mb-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[10px] leading-relaxed text-white/55">
-                    <div className="font-bold text-cyan-100/90">Suno field lengths (typical caps)</div>
+                    <div className="font-bold text-cyan-100/90">Suno field lengths (paste-ready)</div>
                     <div className="mt-1 font-mono text-white/75">
                       Style: {sunoSlices.style.length} / {SUNO_STYLE_CHAR_CAP} (cap) · Lyrics: {sunoSlices.lyrics.length} / ~
                       {SUNO_LYRICS_CHAR_TYPICAL_MAX}

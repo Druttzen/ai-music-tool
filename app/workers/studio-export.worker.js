@@ -4,7 +4,7 @@
 
 import { renderEnhancedAudioBuffer, audioBufferToWavBlob } from "../lib/audio-enhancer";
 import { deserializeAudioBuffer } from "../lib/audio-buffer-serialize";
-import { audioBufferToMp3Blob, audioBufferToFlacBlob } from "../lib/audio-export-formats";
+import { audioBufferToMp3Blob, audioBufferToLosslessWavBlob } from "../lib/audio-export-formats";
 import {
   measureIntegratedLoudness,
   STREAMING_TARGET_LUFS,
@@ -27,7 +27,7 @@ self.onmessage = async (ev) => {
     self.postMessage({ id, type: "progress", phase: "encoding", pct: 75 });
     let blob;
     if (format === "mp3") blob = await audioBufferToMp3Blob(enhanced);
-    else if (format === "flac") blob = audioBufferToFlacBlob(enhanced);
+    else if (format === "flac") blob = audioBufferToLosslessWavBlob(enhanced);
     else blob = audioBufferToWavBlob(enhanced);
 
     const arrayBuffer = await blob.arrayBuffer();

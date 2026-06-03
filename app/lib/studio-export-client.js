@@ -4,9 +4,9 @@
 
 import { serializeAudioBuffer } from "./audio-buffer-serialize";
 import { downloadFormatBlob } from "./audio-export-formats";
-import { measureIntegratedLoudness, STREAMING_TARGET_LUFS } from "./lufs-meter";
 
 let workerInstance = null;
+let exportInFlight = false;
 
 function getWorker() {
   if (typeof Worker === "undefined") return null;
@@ -20,6 +20,16 @@ function getWorker() {
 }
 
 /**
+ * @param {string} baseFileName — stem without extension (may already include -enhanced- or -highlight- suffix)
+ * @param {"wav"|"mp3"|"flac"} format
+ */
+export function buildExportFileName(baseFileName, format) {
+  const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
+  const ext = format === "mp3" ? "mp3" : "wav";
+  return `${base}.${ext}`;
+}
+
+/**
  * @param {AudioBuffer} sourceBuffer
  * @param {string} presetId
  * @param {string} baseFileName
@@ -27,6 +37,11 @@ function getWorker() {
  */
 export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opts = {}) {
   const format = opts.format || "wav";
+  if (exportInFlight) {
+    return Promise.reject(new Error("Another studio export is already running"));
+  }
+
+  const fileName = buildExportFileName(baseFileName, format);
   const worker = getWorker();
   if (!worker) {
     return exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, opts);
@@ -34,10 +49,8 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
 
   const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const payload = serializeAudioBuffer(sourceBuffer);
-  const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
-  const ext = format === "mp3" ? "mp3" : "wav";
-  const fileName = `${base}-enhanced-${presetId}.${ext}`;
 
+  exportInFlight = true;
   return new Promise((resolve, reject) => {
     const onMessage = (ev) => {
       const msg = ev.data;
@@ -48,11 +61,13 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
       }
       if (msg.type === "error") {
         worker.removeEventListener("message", onMessage);
+        exportInFlight = false;
         reject(new Error(msg.message || "Export failed"));
         return;
       }
       if (msg.type === "done") {
         worker.removeEventListener("message", onMessage);
+        exportInFlight = false;
         const blob = new Blob([msg.blobBuffer], { type: msg.mime });
         downloadFormatBlob(blob, msg.fileName || fileName);
         resolve({
@@ -70,23 +85,20 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
 }
 
 async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, opts) {
-  const { renderEnhancedAudioBuffer } = await import("./audio-enhancer");
-  const { downloadAudioBufferAsFormat } = await import("./audio-export-formats");
-  opts.onProgress?.({ phase: "mastering", pct: 40 });
-  const enhanced = await renderEnhancedAudioBuffer(sourceBuffer, presetId);
-  opts.onProgress?.({ phase: "encoding", pct: 85 });
-  const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
-  await downloadAudioBufferAsFormat(enhanced, opts.format || "wav", `${base}-enhanced-${presetId}`);
-  opts.onProgress?.({ phase: "done", pct: 100 });
-  return { format: opts.format || "wav" };
-}
-
-/**
- * @param {AudioBuffer} buffer
- * @param {string} presetId
- */
-export async function measureStreamingResult(buffer, presetId) {
-  if (presetId !== "streaming") return null;
-  const { integratedLUFS } = await measureIntegratedLoudness(buffer);
-  return { afterLufs: integratedLUFS, targetLufs: STREAMING_TARGET_LUFS };
+  if (exportInFlight) {
+    throw new Error("Another studio export is already running");
+  }
+  exportInFlight = true;
+  try {
+    const { renderEnhancedAudioBuffer } = await import("./audio-enhancer");
+    const { downloadAudioBufferAsFormat } = await import("./audio-export-formats");
+    opts.onProgress?.({ phase: "mastering", pct: 40 });
+    const enhanced = await renderEnhancedAudioBuffer(sourceBuffer, presetId);
+    opts.onProgress?.({ phase: "encoding", pct: 85 });
+    await downloadAudioBufferAsFormat(enhanced, opts.format || "wav", baseFileName);
+    opts.onProgress?.({ phase: "done", pct: 100 });
+    return { format: opts.format || "wav" };
+  } finally {
+    exportInFlight = false;
+  }
 }
