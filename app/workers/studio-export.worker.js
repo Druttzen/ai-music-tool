@@ -16,7 +16,9 @@ self.onmessage = async (ev) => {
   const format = normalizeStudioExportFormat(rawFormat);
   try {
     self.postMessage({ id, type: "progress", phase: "mastering", pct: 10 });
-    const ctx = new OfflineAudioContext(2, 1, payload.sampleRate);
+    const length = Math.max(1, Number(payload.length) || 1);
+    const sampleRate = Number(payload.sampleRate) || 44100;
+    const ctx = new OfflineAudioContext(2, length, sampleRate);
     const source = deserializeAudioBuffer(ctx, payload);
     self.postMessage({ id, type: "progress", phase: "mastering", pct: 35 });
     const enhanced = await renderEnhancedAudioBuffer(source, ev.data.presetId);
