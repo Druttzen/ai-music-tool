@@ -39,29 +39,40 @@ export function parseVersionMajor(version) {
   return m ? Number(m[1]) : 0;
 }
 
+function migrateProjectBase(raw, targetVersion) {
+  if (!raw || typeof raw !== "object") return { appVersion: targetVersion };
+  const next = { ...raw, appVersion: targetVersion };
+  if (raw.imageAnalysis && typeof raw.imageAnalysis === "object") {
+    next.imageAnalysis = { ...raw.imageAnalysis };
+  }
+  return next;
+}
+
 /**
- * Upgrade a saved/imported project blob to the current app version without wiping presets/history.
+ * Upgrade localStorage autosave on version bump (slim peaks; rehydrate from IndexedDB).
  * @param {object} raw
  * @param {string} targetVersion
  */
 export function migratePersistedProject(raw, targetVersion) {
-  if (!raw || typeof raw !== "object") return { appVersion: targetVersion };
-
-  const next = {
-    ...raw,
-    appVersion: targetVersion,
-  };
-
-  if (raw.audioAnalysis) {
+  const next = migrateProjectBase(raw, targetVersion);
+  if (raw?.audioAnalysis) {
     next.audioAnalysis = slimAudioAnalysisForStorage(
       normalizeAudioAnalysis(raw.audioAnalysis),
     );
   }
+  return next;
+}
 
-  if (raw.imageAnalysis && typeof raw.imageAnalysis === "object") {
-    next.imageAnalysis = { ...raw.imageAnalysis };
+/**
+ * Import / portable JSON — keep waveformPeaks when present in the file.
+ * @param {object} raw
+ * @param {string} targetVersion
+ */
+export function migrateImportedProject(raw, targetVersion) {
+  const next = migrateProjectBase(raw, targetVersion);
+  if (raw?.audioAnalysis) {
+    next.audioAnalysis = normalizeAudioAnalysis(raw.audioAnalysis);
   }
-
   return next;
 }
 

@@ -37,6 +37,7 @@ import {
   sunoLanguageIndex,
 } from "./lib/suno-language-index";
 import {
+  migrateImportedProject,
   migratePersistedProject,
   shouldHardResetProjectOnVersionChange,
   slimStateForHistory,
@@ -138,6 +139,7 @@ export default function Page() {
     audioPreviewUrl,
     canvasRef,
     clearAudioAnalysis,
+    clearImageAnalysis,
     imageAnalysis,
     imagePreview,
     resetAnalyzers,
@@ -246,8 +248,10 @@ export default function Page() {
     setNotes(data.notes ?? DEFAULT_STATE.notes);
     setScores(data.scores ?? DEFAULT_STATE.scores);
     setMood(data.mood ?? DEFAULT_STATE.mood);
-    if(data.audioAnalysis) setAudioAnalysis(data.audioAnalysis);
-    if(data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
+    if (data.audioAnalysis) setAudioAnalysis(data.audioAnalysis);
+    else clearAudioAnalysis();
+    if (data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
+    else clearImageAnalysis();
     setLyricTheme(data.lyricTheme ?? DEFAULT_STATE.lyricTheme);
     setLyricLanguage(data.lyricLanguage ?? DEFAULT_STATE.lyricLanguage);
     setLyricStructure(data.lyricStructure ?? DEFAULT_STATE.lyricStructure);
@@ -263,7 +267,7 @@ export default function Page() {
     setVoiceRefLastName(data.voiceRefLastName ?? DEFAULT_STATE.voiceRefLastName ?? "");
     setVoiceStyleLine(data.voiceStyleLine ?? DEFAULT_STATE.voiceStyleLine ?? "");
     setInstrumentalVocalFx(data.instrumentalVocalFx ?? DEFAULT_STATE.instrumentalVocalFx);
-  }, [setAudioAnalysis, setImageAnalysis]);
+  }, [clearAudioAnalysis, clearImageAnalysis, setAudioAnalysis, setImageAnalysis]);
 
   const resetAll=()=>{
     loadState(DEFAULT_STATE);
@@ -705,7 +709,7 @@ Music direction:
     setStatusWithTime("Saved"); 
   };
   const exportProject=()=>{ const blob=new Blob([JSON.stringify(currentState,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="ai-music-project.json"; a.click(); URL.revokeObjectURL(url); };
-  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const raw=JSON.parse(String(reader.result)); loadState(migratePersistedProject(raw, APP_VERSION)); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed"); } }; reader.readAsText(file); };
+  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const raw=JSON.parse(String(reader.result)); loadState(migrateImportedProject(raw, APP_VERSION)); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed"); } }; reader.readAsText(file); };
 
   const saveCustomPreset=()=>{
     const name=presetName.trim(); if(!name){ setStatusWithTime("Preset name missing"); return; }

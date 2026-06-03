@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export function Pill({ active, children, onClick }) {
   return (
@@ -66,9 +66,15 @@ export function TextBox({ label, value, setValue }) {
 
 export function DropBox({ title, hint, accept, onFile, children }) {
   const [drag, setDrag] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleFiles = (fileList) => {
+    const file = fileList?.[0];
+    if (file) onFile(file);
+  };
 
   return (
-    <label
+    <div
       onDragOver={(e) => {
         e.preventDefault();
         setDrag(true);
@@ -77,26 +83,33 @@ export function DropBox({ title, hint, accept, onFile, children }) {
       onDrop={(e) => {
         e.preventDefault();
         setDrag(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) onFile(file);
+        handleFiles(e.dataTransfer.files);
       }}
       className={
-        "block cursor-pointer rounded-3xl border-2 border-dashed p-4 text-center transition " +
-        (drag ? "border-orange-300 bg-orange-300/15" : "border-white/15 bg-black/25 hover:bg-white/10")
+        "rounded-3xl border-2 border-dashed p-4 transition " +
+        (drag ? "border-orange-300 bg-orange-300/15" : "border-white/15 bg-black/25")
       }
     >
-      <div className="text-sm font-black text-cyan-100">{title}</div>
-      <div className="mt-1 text-xs text-white/45">{hint}</div>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="w-full cursor-pointer rounded-2xl text-center transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+      >
+        <div className="text-sm font-black text-cyan-100">{title}</div>
+        <div className="mt-1 text-xs text-white/45">{hint}</div>
+        <div className="mt-2 text-[10px] font-semibold text-cyan-200/80">Click to browse or drop a file</div>
+      </button>
       <input
+        ref={inputRef}
         type="file"
         accept={accept}
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onFile(file);
+          handleFiles(e.target.files);
+          e.target.value = "";
         }}
-        className="hidden"
+        className="sr-only"
       />
-      {children}
-    </label>
+      {children ? <div className="mt-3 text-left">{children}</div> : null}
+    </div>
   );
 }

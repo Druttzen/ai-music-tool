@@ -118,6 +118,15 @@ export function useAnalyzers({
     }
   }, []);
 
+  const clearImageAnalysis = useCallback(() => {
+    setImageAnalysis(null);
+    setImagePreview(null);
+    if (imagePreviewUrlRef.current) {
+      URL.revokeObjectURL(imagePreviewUrlRef.current);
+      imagePreviewUrlRef.current = null;
+    }
+  }, []);
+
   const attachAudioFile = useCallback(
     async (file) => {
       if (!audioAnalysis) {
@@ -551,6 +560,7 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
     audioPreviewUrl,
     canvasRef,
     clearAudioAnalysis,
+    clearImageAnalysis,
     imageAnalysis,
     imagePreview,
     resetAnalyzers,
