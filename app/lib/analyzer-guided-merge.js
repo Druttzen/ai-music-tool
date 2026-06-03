@@ -116,6 +116,10 @@ export function compactAudioStyleRule(a) {
   if (dk != null) scores += `·D${dk}`;
   if (cx != null) scores += `·Cx${cx}`;
 
+  const genres = uniq(a.suggestedGenres || [])
+    .slice(0, GUIDED_MAX_GENRES)
+    .join("+");
+  const key = normalizeSpace(a.estimatedKey || "");
   const rhythms = uniq(a.suggestedRhythms || [])
     .slice(0, GUIDED_MAX_RHYTHMS)
     .join("+");
@@ -123,7 +127,15 @@ export function compactAudioStyleRule(a) {
     .slice(0, GUIDED_MAX_SOUNDS)
     .join(",");
 
-  const core = `${tempo} ${scores} │ ${rhythms || "groove"} │ ${sounds || "textures"}`;
+  const parts = [
+    `${tempo} ${scores}`,
+    genres ? `G:${genres}` : "",
+    key && key !== "Key unclear" ? key : "",
+    rhythms || "groove",
+    sounds || "textures",
+  ].filter(Boolean);
+
+  const core = parts.join(" │ ");
   return truncateAnalyzerRuleLine(`AUDIO: ${core}`);
 }
 

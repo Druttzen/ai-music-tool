@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { SunoGuidedPath } from "./components/suno-guided-path";
 import { StylePromptPicker } from "./components/suno-english-style-prompt-picker";
+import { AudioTrackEditor } from "./components/audio-track-editor";
 import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
 import { useAnalyzers } from "./hooks/use-analyzers";
 import { useClipboard } from "./hooks/use-clipboard";
@@ -128,17 +129,21 @@ export default function Page() {
   const [instrumentalVocalFx, setInstrumentalVocalFx] = useState(DEFAULT_STATE.instrumentalVocalFx);
   const lastAutosavePayloadRef = useRef("");
   const {
+    attachAudioFile,
     analyzeAudioFile,
     analyzeImageFile,
     applyAudioToSunoStyle,
     applyImageToSunoStyle,
     audioAnalysis,
+    audioPreviewUrl,
     canvasRef,
+    clearAudioAnalysis,
     imageAnalysis,
     imagePreview,
     resetAnalyzers,
     setAudioAnalysis,
     setImageAnalysis,
+    updateAudioAnalysis,
   } = useAnalyzers({
     promptEngine,
     setGuidedStep,
@@ -1272,7 +1277,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               ) : null}
             </Panel>
 
-            <Panel title="Drag & Drop Analyzers" hint="Optional Polish-step tools — merge packs audio/image DNA into compact AUDIO:/IMAGE: lines (metrics + groove + textures first) sized for the Suno Style 1000-character cap; trim order drops texture tails last.">
+            <Panel title="Drag & Drop Analyzers" hint="Optional Polish-step tools — drop a track for a local Sonoteller-style report (edit tags, then merge). Audio/image DNA becomes compact AUDIO:/IMAGE: lines for the Suno Style 1000-character cap.">
               <div
                 className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
                   sunoFieldSlices.style.length > SUNO_STYLE_CHAR_CAP
@@ -1302,20 +1307,14 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                   onFile={analyzeAudioFile}
                 >
                   {audioAnalysis ? (
-                    <div className="mt-3 text-left">
-                      <div className="rounded-2xl bg-black/30 p-3 text-xs text-white/70 whitespace-pre-wrap">{audioAnalysis.summary}</div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          applyAudioToSunoStyle();
-                        }}
-                        className="mt-2 w-full rounded-2xl border border-cyan-400/40 bg-cyan-500/20 py-2 text-xs font-bold text-cyan-50 hover:bg-cyan-500/30"
-                      >
-                        Add audio style to Suno (merge) → next step
-                      </button>
-                    </div>
+                    <AudioTrackEditor
+                      analysis={audioAnalysis}
+                      audioUrl={audioPreviewUrl}
+                      onChange={updateAudioAnalysis}
+                      onApply={applyAudioToSunoStyle}
+                      onClear={clearAudioAnalysis}
+                      onAttachAudio={attachAudioFile}
+                    />
                   ) : null}
                 </DropBox>
                 <DropBox

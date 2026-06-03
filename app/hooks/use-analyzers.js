@@ -16,8 +16,23 @@ import {
   SUPPORTED_AUDIO_LABEL,
   SUPPORTED_IMAGE_LABEL,
 } from "../lib/analyzer-file-types";
+import {
+  audioFileMatchesAnalysis,
+  deleteAudioCacheEntries,
+  getAudioCacheKeysForAnalysis,
+  makeAudioCacheKey,
+  putAudioCacheEntries,
+  resolveAudioCacheBlob,
+} from "../lib/audio-cache";
+import {
+  analysisNeedsWaveformPeaks,
+  analyzeAudioBuffer,
+  decodeWaveformPeaksFromBlob,
+  normalizeAudioAnalysis,
+  patchAudioAnalysis,
+  synthesizeWaveformPeaksFromAnalysis,
+} from "../lib/audio-analyzer";
 import { getGuidedPolishStepIndex, getStepCount } from "../lib/suno-guided-workflow";
-import { clamp, uniq } from "../lib/music-helpers";
 
 export function useAnalyzers({
   promptEngine,
@@ -33,10 +48,22 @@ export function useAnalyzers({
   setTempo,
 }) {
   const [audioAnalysis, setAudioAnalysis] = useState(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const canvasRef = useRef(null);
   const imagePreviewUrlRef = useRef(null);
+  const audioPreviewUrlRef = useRef(null);
+  const rehydrateGenRef = useRef(0);
+  const audioCacheKeyRef = useRef(null);
+  const audioCacheKeysRef = useRef([]);
+
+  const setAudioPreviewFromBlob = useCallback((blob) => {
+    if (audioPreviewUrlRef.current) URL.revokeObjectURL(audioPreviewUrlRef.current);
+    const previewUrl = URL.createObjectURL(blob);
+    audioPreviewUrlRef.current = previewUrl;
+    setAudioPreviewUrl(previewUrl);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -44,18 +71,107 @@ export function useAnalyzers({
         URL.revokeObjectURL(imagePreviewUrlRef.current);
         imagePreviewUrlRef.current = null;
       }
+      if (audioPreviewUrlRef.current) {
+        URL.revokeObjectURL(audioPreviewUrlRef.current);
+        audioPreviewUrlRef.current = null;
+      }
     };
   }, []);
 
+  const syncCacheKeysRef = useCallback((report) => {
+    audioCacheKeysRef.current = report ? getAudioCacheKeysForAnalysis(report) : [];
+    audioCacheKeyRef.current = report?.audioCacheKey || null;
+  }, []);
+
   const resetAnalyzers = useCallback(() => {
+    deleteAudioCacheEntries(audioCacheKeysRef.current);
+    audioCacheKeysRef.current = [];
+    audioCacheKeyRef.current = null;
     setAudioAnalysis(null);
+    setAudioPreviewUrl(null);
     setImageAnalysis(null);
     setImagePreview(null);
     if (imagePreviewUrlRef.current) {
       URL.revokeObjectURL(imagePreviewUrlRef.current);
       imagePreviewUrlRef.current = null;
     }
+    if (audioPreviewUrlRef.current) {
+      URL.revokeObjectURL(audioPreviewUrlRef.current);
+      audioPreviewUrlRef.current = null;
+    }
   }, []);
+
+  const updateAudioAnalysis = useCallback((patch) => {
+    setAudioAnalysis((prev) => patchAudioAnalysis(prev, patch));
+  }, []);
+
+  const clearAudioAnalysis = useCallback(() => {
+    deleteAudioCacheEntries(audioCacheKeysRef.current);
+    audioCacheKeysRef.current = [];
+    audioCacheKeyRef.current = null;
+    setAudioAnalysis(null);
+    setAudioPreviewUrl(null);
+    if (audioPreviewUrlRef.current) {
+      URL.revokeObjectURL(audioPreviewUrlRef.current);
+      audioPreviewUrlRef.current = null;
+    }
+  }, []);
+
+  const attachAudioFile = useCallback(
+    async (file) => {
+      if (!audioAnalysis) {
+        setStatusWithTime("No track report to attach audio to");
+        return;
+      }
+      if (!isSupportedAudioFile(file)) {
+        setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} only`);
+        return;
+      }
+
+      let audioContext = null;
+      try {
+        setStatusWithTime("Attaching audio...");
+        const arrayBuffer = await file.arrayBuffer();
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+        if (!audioFileMatchesAnalysis(file, audioAnalysis, buffer.duration)) {
+          setStatusWithTime("File name/duration does not match this report — drop as new analysis instead");
+          return;
+        }
+
+        const cacheKey = makeAudioCacheKey(file);
+        const keys = await putAudioCacheEntries(file, cacheKey, buffer.duration);
+        const peaks = await decodeWaveformPeaksFromBlob(file);
+
+        setAudioPreviewFromBlob(file);
+        setAudioAnalysis((prev) =>
+          patchAudioAnalysis(prev, {
+            audioCacheKey: keys.audioCacheKey,
+            audioLookupKey: keys.audioLookupKey,
+            waveformPeaks: peaks,
+            waveformSource: "sample",
+            duration: buffer.duration,
+          }),
+        );
+        syncCacheKeysRef({
+          ...audioAnalysis,
+          audioCacheKey: keys.audioCacheKey,
+          audioLookupKey: keys.audioLookupKey,
+        });
+        setStatusWithTime("Audio attached — sample-accurate waveform and playback restored");
+      } catch {
+        setStatusWithTime("Could not attach audio file");
+      } finally {
+        if (audioContext) {
+          try {
+            await audioContext.close();
+          } catch {}
+        }
+      }
+    },
+    [audioAnalysis, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
+  );
 
   const analyzeAudioFile = useCallback(
     async (file) => {
@@ -71,68 +187,20 @@ export function useAnalyzers({
         const arrayBuffer = await file.arrayBuffer();
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-        const channel = buffer.getChannelData(0);
-        const duration = buffer.duration;
-
-        let sum = 0;
-        let peak = 0;
-        let zeroCrossings = 0;
-        const step = Math.max(1, Math.floor(channel.length / 60000));
-        let prev = channel[0];
-
-        for (let i = 0; i < channel.length; i += step) {
-          const v = channel[i];
-          sum += v * v;
-          peak = Math.max(peak, Math.abs(v));
-          if ((prev < 0 && v >= 0) || (prev >= 0 && v < 0)) zeroCrossings++;
-          prev = v;
+        const cacheKey = makeAudioCacheKey(file);
+        const report = analyzeAudioBuffer(buffer, file.name);
+        try {
+          const keys = await putAudioCacheEntries(file, cacheKey, buffer.duration);
+          report.audioCacheKey = keys.audioCacheKey;
+          report.audioLookupKey = keys.audioLookupKey;
+        } catch {
+          report.audioCacheKey = cacheKey;
         }
+        syncCacheKeysRef(report);
 
-        const count = Math.ceil(channel.length / step);
-        const rms = Math.sqrt(sum / count);
-        const energy = clamp(Math.round(rms * 900));
-        const aggression = clamp(Math.round(peak * 100));
-        const brightness = clamp(Math.round((zeroCrossings / count) * 700));
-        const darkness = clamp(100 - brightness + Math.round(energy * 0.2));
-        const complexity = clamp(Math.round((zeroCrossings / count) * 1000 + energy * 0.4));
-        const estimatedBpm =
-          duration < 20
-            ? "120 BPM"
-            : `${Math.round(clamp(80 + energy * 0.7 + complexity * 0.25, 70, 180))} BPM`;
-
-        const suggestedSounds = [];
-        if (energy > 60) suggestedSounds.push("Heavy sub bass", "Big drums");
-        if (aggression > 65) suggestedSounds.push("Distorted bass", "Metallic percussion");
-        if (brightness > 55) suggestedSounds.push("Bright leads", "Glitch FX");
-        if (darkness > 60) suggestedSounds.push("Dark pads", "Noise atmosphere");
-
-        const suggestedRhythms =
-          energy > 70 ? ["4/4", "Syncopated"] : complexity > 60 ? ["Breakbeat", "Off-grid"] : ["Minimal"];
-
-        const summary = `File: ${file.name}
-Duration: ${duration.toFixed(1)}s
-Detected energy: ${energy}/100
-Detected aggression: ${aggression}/100
-Detected brightness: ${brightness}/100
-Suggested tempo: ${estimatedBpm}
-Suggested rhythm: ${suggestedRhythms.join(", ")}
-Suggested sound: ${uniq(suggestedSounds).join(", ") || "balanced instruments and textures"}
-Interpretation: ${energy > 70 ? "high-impact and club-ready" : energy < 35 ? "calm and atmospheric" : "controlled and balanced"} sound source.`;
-
-        const moodSuggestion = { energy, aggression, darkness, complexity };
-        setAudioAnalysis({
-          fileName: file.name,
-          duration,
-          energy,
-          aggression,
-          brightness,
-          estimatedBpm,
-          suggestedSounds: uniq(suggestedSounds),
-          suggestedRhythms,
-          summary,
-          moodSuggestion,
-        });
-        setStatusWithTime("Audio ready — add to style below when you want it in Suno fields");
+        setAudioPreviewFromBlob(file);
+        setAudioAnalysis(report);
+        setStatusWithTime("Track report ready — edit tags, then merge into Suno fields");
       } catch {
         setStatusWithTime("Audio analysis failed");
         setNotes(
@@ -146,8 +214,64 @@ Interpretation: ${energy > 70 ? "high-impact and club-ready" : energy < 35 ? "ca
         }
       }
     },
-    [setNotes, setStatusWithTime],
+    [setAudioPreviewFromBlob, setNotes, setStatusWithTime, syncCacheKeysRef],
   );
+
+  useEffect(() => {
+    if (!audioAnalysis) return undefined;
+
+    const needsPeaks = analysisNeedsWaveformPeaks(audioAnalysis);
+    const needsPreview = !audioPreviewUrlRef.current;
+    if (!needsPeaks && !needsPreview) return undefined;
+
+    const gen = ++rehydrateGenRef.current;
+    let cancelled = false;
+
+    (async () => {
+      const resolved = await resolveAudioCacheBlob(audioAnalysis);
+      if (cancelled || gen !== rehydrateGenRef.current) return;
+
+      if (resolved?.blob) {
+        try {
+          if (needsPreview) setAudioPreviewFromBlob(resolved.blob);
+          if (needsPeaks) {
+            const peaks = await decodeWaveformPeaksFromBlob(resolved.blob);
+            if (cancelled || gen !== rehydrateGenRef.current) return;
+            setAudioAnalysis((prev) =>
+              patchAudioAnalysis(prev, {
+                waveformPeaks: peaks,
+                waveformSource: "cached",
+                audioCacheKey: prev?.audioCacheKey || resolved.matchedKey,
+              }),
+            );
+          }
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+
+      if (!needsPeaks) return;
+
+      const peaks = synthesizeWaveformPeaksFromAnalysis(audioAnalysis);
+      if (cancelled || gen !== rehydrateGenRef.current) return;
+      setAudioAnalysis((prev) =>
+        patchAudioAnalysis(prev, { waveformPeaks: peaks, waveformSource: "estimated" }),
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    audioAnalysis,
+    audioAnalysis?.audioCacheKey,
+    audioAnalysis?.audioLookupKey,
+    audioAnalysis?.duration,
+    audioAnalysis?.fileName,
+    audioAnalysis?.waveformPeaks,
+    setAudioPreviewFromBlob,
+  ]);
 
   const applyAudioToSunoStyle = useCallback(() => {
     if (!audioAnalysis) {
@@ -155,6 +279,9 @@ Interpretation: ${energy > 70 ? "high-impact and club-ready" : energy < 35 ? "ca
       return;
     }
     setTempo(audioAnalysis.estimatedBpm);
+    if (audioAnalysis.suggestedGenres?.length) {
+      setSelectedGenres((g) => mergeGuidedGenres(g, audioAnalysis.suggestedGenres));
+    }
     setSelectedSounds((s) => mergeGuidedSounds(s, audioAnalysis.suggestedSounds));
     setSelectedRhythms((r) => mergeGuidedRhythms(r, audioAnalysis.suggestedRhythms));
     if (audioAnalysis.moodSuggestion) {
@@ -178,6 +305,7 @@ Interpretation: ${energy > 70 ? "high-impact and club-ready" : energy < 35 ? "ca
     setMood,
     setRules,
     setSelectedRhythms,
+    setSelectedGenres,
     setSelectedSounds,
     setStatusWithTime,
     setTempo,
@@ -365,17 +493,32 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
     [setNotes, setStatusWithTime],
   );
 
+  const setAudioAnalysisNormalized = useCallback((value) => {
+    if (!value) {
+      syncCacheKeysRef(null);
+      setAudioAnalysis(null);
+      return;
+    }
+    const normalized = normalizeAudioAnalysis(value);
+    syncCacheKeysRef(normalized);
+    setAudioAnalysis(normalized);
+  }, [syncCacheKeysRef]);
+
   return {
+    attachAudioFile,
     analyzeAudioFile,
     analyzeImageFile,
     applyAudioToSunoStyle,
     applyImageToSunoStyle,
     audioAnalysis,
+    audioPreviewUrl,
     canvasRef,
+    clearAudioAnalysis,
     imageAnalysis,
     imagePreview,
     resetAnalyzers,
-    setAudioAnalysis,
+    setAudioAnalysis: setAudioAnalysisNormalized,
     setImageAnalysis,
+    updateAudioAnalysis,
   };
 }
