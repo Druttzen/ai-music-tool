@@ -1,8 +1,18 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.7.1**
+**Version 0.7.2**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+
+## Highlights (v0.7.2)
+
+- **Analyzer honesty** — In-app banners clarify that track/image scans are local heuristics, not ML classification.
+- **Lyrics priority trim** — Suno Lyrics paste matches Style: theme/language/sections first, long bodies trim from the end (≤5000).
+- **Studio export** — Background worker with progress bar; WAV / MP3 / lossless WAV; highlight-loop export.
+- **Undo snapshot** — Revert to last snapshot before preset load, import, merge, or variations.
+- **Variation A/B** — Side-by-side compare with changed-line summary.
+- **CI** — GitHub Actions runs `npm test` + `npm run check` on push/PR.
+- **Electron auto-update** — Checks GitHub releases when running a packaged build.
 
 ## Highlights (v0.7.1)
 

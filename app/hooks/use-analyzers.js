@@ -33,8 +33,9 @@ import {
   patchAudioAnalysis,
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
-import { exportEnhancedWav } from "../lib/audio-enhancer";
+import { sliceAudioBuffer } from "../lib/audio-buffer-serialize";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
+import { exportEnhancedInWorker } from "../lib/studio-export-client";
 import { getGuidedPolishStepIndex, getStepCount } from "../lib/suno-guided-workflow";
 
 export function useAnalyzers({
@@ -53,6 +54,7 @@ export function useAnalyzers({
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
   const [audioExportBusy, setAudioExportBusy] = useState(false);
+  const [audioExportProgress, setAudioExportProgress] = useState(null);
   const [audioLoudness, setAudioLoudness] = useState(null);
   const [audioLoudnessBusy, setAudioLoudnessBusy] = useState(false);
   const loudnessGenRef = useRef(0);
@@ -592,15 +594,19 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
   );
 
   const exportEnhancedAudio = useCallback(
-    async (presetId) => {
+    async (presetId, opts = {}) => {
       if (!audioAnalysis) {
         setStatusWithTime("No track loaded to export");
         return;
       }
       if (audioExportBusy) return;
 
+      const format = opts.format === "mp3" || opts.format === "flac" ? opts.format : "wav";
+      const scope = opts.scope === "highlight" ? "highlight" : "full";
+
       setAudioExportBusy(true);
-      setStatusWithTime("Rendering enhanced WAV…");
+      setAudioExportProgress({ phase: "preparing", pct: 0 });
+      setStatusWithTime("Studio export started…");
 
       let audioContext = null;
       try {
@@ -617,24 +623,44 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
 
         const arrayBuffer = await blob.arrayBuffer();
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const sourceBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-        const result = await exportEnhancedWav(
-          sourceBuffer,
-          presetId,
-          audioAnalysis.fileName,
-        );
+        let sourceBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+        if (scope === "highlight") {
+          const start = Number(audioAnalysis.highlightStart) || 0;
+          const end =
+            Number(audioAnalysis.highlightEnd) ||
+            sourceBuffer.duration ||
+            start + 1;
+          sourceBuffer = sliceAudioBuffer(sourceBuffer, start, Math.max(start + 0.5, end));
+        }
+
+        const baseName = String(audioAnalysis.fileName || "track").replace(/\.[^.]+$/, "");
+        const suffix =
+          scope === "highlight" ? `-highlight-${presetId}` : `-enhanced-${presetId}`;
+
+        const result = await exportEnhancedInWorker(sourceBuffer, presetId, `${baseName}${suffix}`, {
+          format,
+          onProgress: (p) => setAudioExportProgress(p),
+        });
+
+        const fmtLabel = format.toUpperCase();
         if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
           setStatusWithTime(
-            `WAV downloaded · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
+            `${fmtLabel} downloaded · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
           );
         } else {
-          setStatusWithTime("Enhanced WAV downloaded");
+          setStatusWithTime(
+            scope === "highlight"
+              ? `Highlight ${fmtLabel} downloaded`
+              : `Enhanced ${fmtLabel} downloaded`,
+          );
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";
         setStatusWithTime(msg ? msg.slice(0, 80) : "Studio export failed");
       } finally {
         setAudioExportBusy(false);
+        setAudioExportProgress(null);
         if (audioContext) {
           try {
             await audioContext.close();
@@ -664,6 +690,7 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
     applyImageToSunoStyle,
     audioAnalysis,
     audioExportBusy,
+    audioExportProgress,
     audioLoudness,
     audioLoudnessBusy,
     audioPreviewUrl,

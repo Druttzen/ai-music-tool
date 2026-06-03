@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const pkg = require("./package.json");
@@ -17,8 +17,8 @@ function createWindow() {
     show: false,
     webPreferences: {
       contextIsolation: true,
-      nodeIntegration: false
-    }
+      nodeIntegration: false,
+    },
   };
 
   if (fs.existsSync(iconPath)) {
@@ -36,6 +36,54 @@ function createWindow() {
   openReadmeOnce();
 }
 
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+
+  try {
+    const { autoUpdater } = require("electron-updater");
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on("update-available", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("app-update-status", { status: "available" });
+      }
+    });
+
+    autoUpdater.on("update-downloaded", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("app-update-status", {
+          status: "downloaded",
+          message: "Update ready — will install on quit, or restart now.",
+        });
+      }
+    });
+
+    autoUpdater.on("error", (err) => {
+      console.warn("autoUpdater:", err?.message || err);
+    });
+
+    ipcMain.handle("app-check-for-updates", async () => {
+      try {
+        const result = await autoUpdater.checkForUpdates();
+        return { ok: true, version: result?.updateInfo?.version ?? null };
+      } catch (e) {
+        return { ok: false, error: e?.message || "check failed" };
+      }
+    });
+
+    ipcMain.handle("app-quit-and-install", () => {
+      autoUpdater.quitAndInstall(false, true);
+    });
+
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+    }, 8000);
+  } catch (e) {
+    console.warn("electron-updater not available:", e?.message || e);
+  }
+}
+
 function openReadmeOnce() {
   const flagPath = path.join(app.getPath("userData"), "readme-opened.flag");
   if (fs.existsSync(flagPath)) return;
@@ -44,7 +92,7 @@ function openReadmeOnce() {
     path.join(process.resourcesPath, "AI_Music_Creator_README.pdf"),
     path.join(process.resourcesPath, "build", "AI_Music_Creator_README.pdf"),
     path.join(__dirname, "build", "AI_Music_Creator_README.pdf"),
-    path.join(__dirname, "AI_Music_Creator_README.pdf")
+    path.join(__dirname, "AI_Music_Creator_README.pdf"),
   ];
 
   const readmePath = possiblePaths.find((p) => fs.existsSync(p));
@@ -56,7 +104,10 @@ function openReadmeOnce() {
   }, 1500);
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  setupAutoUpdater();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

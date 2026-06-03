@@ -186,12 +186,45 @@ export function buildSunoPastedStyleLine(p) {
 }
 
 /**
- * **Final** Suno Lyrics field — directions + your lyric prompt; trimmed to a safe upper bound.
+ * **Final** Suno Lyrics field — priority-ordered (metadata first, lyric body last to drop).
+ * Vocal tags and section brackets survive trimming longer than prose tails.
  */
 export function buildSunoPastedLyricsField(p) {
-  const s = buildSunoLyricsBoxPrompt(p);
-  if (s.length <= SUNO_LYRICS_CHAR_TYPICAL_MAX) return s;
-  return s.slice(0, SUNO_LYRICS_CHAR_TYPICAL_MAX - 1) + "…";
+  const vocal = p.vocal || "Instrumental";
+  if (vocal === "Instrumental") {
+    return "Instrumental only. No lyrical content.";
+  }
+
+  const parts = [];
+  const theme = String(p.lyricTheme || "").replace(/\s+/g, " ").trim();
+  const lang = String(p.lyricLanguage || "").replace(/\s+/g, " ").trim();
+  const form = String(p.lyricStructure || "").replace(/\s+/g, " ").trim();
+  const style = String(p.lyricStyle || "").replace(/\s+/g, " ").trim();
+  const mode = String(p.lyricMode || "").replace(/\s+/g, " ").trim();
+  const density =
+    typeof p.lyricDensity === "number" && !Number.isNaN(p.lyricDensity)
+      ? `density ${p.lyricDensity}%`
+      : "";
+
+  if (theme) parts.push(`theme: ${theme.slice(0, 140)}`);
+  if (lang) parts.push(`language: ${lang.slice(0, 40)}`);
+  if (form) parts.push(`sections: ${form.slice(0, 120)}`);
+  if (style) parts.push(`lyric style: ${style.slice(0, 100)}`);
+  if (mode) parts.push(`mode: ${mode.slice(0, 60)}`);
+  if (density) parts.push(density);
+
+  const body =
+    String(p.generatedLyrics || "").trim() ||
+    String(p.lyricPrompt || "").trim() ||
+    buildSunoLyricsBoxPrompt({ vocal, lyricPrompt: p.lyricPrompt || "" });
+
+  if (body && body !== "(Add lyric lines or bracketed sections.)") {
+    parts.push(body);
+  } else {
+    parts.push("(Add lyric lines or bracketed sections.)");
+  }
+
+  return joinWithCap(parts, SUNO_LYRICS_CHAR_TYPICAL_MAX);
 }
 
 export function getStepCount() {

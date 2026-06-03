@@ -1,0 +1,56 @@
+"use client";
+
+import { useCallback, useRef } from "react";
+
+const SESSION_KEY = "ai_music_creator_undo_snapshot_v1";
+
+/**
+ * One-level undo: capture before destructive edits, revert from memory or sessionStorage.
+ * @param {() => object} getState
+ * @param {(state: object) => void} applyState
+ * @param {(msg: string) => void} setStatusWithTime
+ */
+export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
+  const snapshotRef = useRef(null);
+
+  const captureSnapshot = useCallback(
+    (label = "snapshot") => {
+      try {
+        const raw = getState();
+        const json = JSON.stringify(raw);
+        snapshotRef.current = { label, json, at: Date.now() };
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.setItem(SESSION_KEY, json);
+        }
+      } catch {
+        /* ignore circular refs */
+      }
+    },
+    [getState],
+  );
+
+  const revertSnapshot = useCallback(() => {
+    let json = snapshotRef.current?.json;
+    if (!json && typeof sessionStorage !== "undefined") {
+      json = sessionStorage.getItem(SESSION_KEY);
+    }
+    if (!json) {
+      setStatusWithTime("No snapshot — capture runs before preset load, merge, import, or variations");
+      return false;
+    }
+    try {
+      applyState(JSON.parse(json));
+      setStatusWithTime("Reverted to last snapshot");
+      return true;
+    } catch {
+      setStatusWithTime("Snapshot restore failed");
+      return false;
+    }
+  }, [applyState, setStatusWithTime]);
+
+  const hasSnapshot = useCallback(() => {
+    return !!(snapshotRef.current?.json || (typeof sessionStorage !== "undefined" && sessionStorage.getItem(SESSION_KEY)));
+  }, []);
+
+  return { captureSnapshot, revertSnapshot, hasSnapshot };
+}

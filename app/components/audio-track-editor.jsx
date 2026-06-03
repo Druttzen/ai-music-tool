@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { formatTime } from "../lib/audio-analyzer";
+import { AUDIO_ANALYZER_DISCLAIMER } from "../lib/analyzer-disclaimer";
 import { STUDIO_EXPORT_PRESETS } from "../lib/audio-enhancer";
 import {
   formatLufs,
@@ -42,7 +43,7 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onExportEnhanced?: (presetId: string) => void, exportBusy?: boolean }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
 export function AudioTrackEditor({
   analysis,
@@ -55,9 +56,11 @@ export function AudioTrackEditor({
   onAttachAudio,
   onExportEnhanced,
   exportBusy = false,
+  exportProgress = null,
 }) {
   const audioRef = useRef(null);
   const [playhead, setPlayhead] = useState(null);
+  const [exportFormat, setExportFormat] = useState("wav");
   const rafRef = useRef(null);
 
   const seekAudio = useCallback(
@@ -159,6 +162,10 @@ export function AudioTrackEditor({
         </div>
       </div>
 
+      <p className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">
+        {AUDIO_ANALYZER_DISCLAIMER}
+      </p>
+
       <section className="rounded-2xl border border-amber-400/20 bg-black/30 p-3 space-y-2">
         <div className="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Highlight</div>
         <p className="text-xs text-white/75">{analysis.highlightLabel}</p>
@@ -236,9 +243,46 @@ export function AudioTrackEditor({
             )}
           </div>
           <p className="text-[10px] leading-relaxed text-white/45">
-            Local mastering → 16-bit WAV. Streaming export normalizes to {STREAMING_TARGET_LUFS} LUFS
-            (gated integrated) with −1 dBTP true-peak limit.
+            Mastering runs in a background worker with progress. Streaming normalizes to{" "}
+            {STREAMING_TARGET_LUFS} LUFS (gated integrated) with −1 dBTP limit.
           </p>
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-white/50">
+            <span>Format</span>
+            {[
+              ["wav", "WAV"],
+              ["mp3", "MP3"],
+              ["flac", "Lossless WAV"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                disabled={exportBusy}
+                onClick={() => setExportFormat(id)}
+                className={
+                  "rounded-lg px-2 py-0.5 font-bold " +
+                  (exportFormat === id
+                    ? "bg-violet-400 text-black"
+                    : "border border-white/15 text-white/60")
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {exportBusy && exportProgress ? (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-white/45">
+                <span className="capitalize">{exportProgress.phase}</span>
+                <span>{Math.round(exportProgress.pct)}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
+                <div
+                  className="h-full bg-violet-400 transition-all duration-300"
+                  style={{ width: `${Math.min(100, exportProgress.pct)}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-2 sm:grid-cols-3">
             {STUDIO_EXPORT_PRESETS.map((preset) => (
               <button
@@ -247,7 +291,7 @@ export function AudioTrackEditor({
                 disabled={exportBusy}
                 onClick={(e) => {
                   e.preventDefault();
-                  onExportEnhanced(preset.id);
+                  onExportEnhanced(preset.id, { format: exportFormat, scope: "full" });
                 }}
                 className="rounded-2xl border border-violet-400/35 bg-violet-500/20 px-2 py-2 text-left transition hover:bg-violet-500/30 disabled:cursor-wait disabled:opacity-50"
               >
@@ -256,6 +300,17 @@ export function AudioTrackEditor({
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            disabled={exportBusy}
+            onClick={(e) => {
+              e.preventDefault();
+              onExportEnhanced("streaming", { format: exportFormat, scope: "highlight" });
+            }}
+            className="w-full rounded-xl border border-amber-400/30 bg-amber-500/15 py-2 text-[10px] font-bold text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
+          >
+            Export highlight loop only (uses amber range)
+          </button>
         </section>
       ) : null}
 

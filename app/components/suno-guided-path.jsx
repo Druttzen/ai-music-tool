@@ -13,7 +13,12 @@ import {
   SUNO_GUIDED_STEPS,
 } from "../lib/suno-guided-workflow";
 import { stylePresets } from "../lib/music-config";
-import { SUNO_LIMITS_NOTE, SUNO_LYRICS_CHAR_TYPICAL_MAX, SUNO_STYLE_CHAR_CAP } from "../lib/suno-limits";
+import {
+  SUNO_LIMITS_NOTE,
+  SUNO_LYRICS_CHAR_TYPICAL_MAX,
+  SUNO_LYRICS_CHAR_WARN,
+  SUNO_STYLE_CHAR_CAP,
+} from "../lib/suno-limits";
 
 export function SunoGuidedPath({
   promptEngine,
@@ -338,10 +343,22 @@ export function SunoGuidedPath({
           <div>
             <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
               <div className="text-xs font-bold text-fuchsia-200">2) Suno “Lyrics” — paste this</div>
-              <div className="text-[10px] font-mono text-white/45">
-                {finalLyrics.length} / up to ~{SUNO_LYRICS_CHAR_TYPICAL_MAX}
+              <div
+                className={
+                  "text-[10px] font-mono " +
+                  (finalLyrics.length > SUNO_LYRICS_CHAR_TYPICAL_MAX
+                    ? "text-red-300"
+                    : finalLyrics.length > SUNO_LYRICS_CHAR_WARN
+                      ? "text-amber-200"
+                      : "text-white/45")
+                }
+              >
+                {finalLyrics.length} / {SUNO_LYRICS_CHAR_TYPICAL_MAX} (priority-trimmed)
               </div>
             </div>
+            <p className="mb-1 text-[10px] text-white/40">
+              Theme, language, and section tags stay first; long lyric bodies trim from the end.
+            </p>
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-2xl border border-fuchsia-400/25 bg-black/50 p-3 text-[11px] leading-relaxed text-fuchsia-50/95">
               {finalLyrics}
             </pre>
