@@ -252,7 +252,6 @@ export function AudioTrackEditor({
             {[
               ["wav", "WAV"],
               ["mp3", "MP3"],
-              ["flac", "WAV (lossless)"],
             ].map(([id, label]) => (
               <button
                 key={id}

@@ -22,7 +22,14 @@ function main() {
   const output = resolveOutputDir();
   console.log(`electron-builder output: ${output}`);
 
-  execSync(`npx electron-builder --config.directories.output=${output}`, {
+  const publishIdx = process.argv.indexOf("--publish");
+  const publish =
+    publishIdx >= 0 ? process.argv[publishIdx + 1] || "always" : null;
+
+  const args = [`--config.directories.output=${output}`];
+  if (publish) args.push(`--publish=${publish}`);
+
+  execSync(`npx electron-builder ${args.join(" ")}`, {
     cwd: ROOT,
     stdio: "inherit",
     env: { ...process.env },

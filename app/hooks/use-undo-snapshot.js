@@ -18,7 +18,7 @@ export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
     (label = "snapshot") => {
       try {
         const raw = getState();
-        const slim = slimStateForPersistence(raw);
+        const slim = slimStateForUndo(raw);
         const json = JSON.stringify(slim);
         snapshotRef.current = { label, json, at: Date.now() };
         if (typeof sessionStorage !== "undefined") {

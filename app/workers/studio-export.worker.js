@@ -4,7 +4,7 @@
 
 import { renderEnhancedAudioBuffer, audioBufferToWavBlob } from "../lib/audio-enhancer";
 import { deserializeAudioBuffer } from "../lib/audio-buffer-serialize";
-import { audioBufferToMp3Blob, audioBufferToLosslessWavBlob } from "../lib/audio-export-formats";
+import { audioBufferToMp3Blob, normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import {
   measureIntegratedLoudness,
   STREAMING_TARGET_LUFS,
@@ -12,7 +12,8 @@ import {
 
 /** @param {MessageEvent} ev */
 self.onmessage = async (ev) => {
-  const { id, payload, format } = ev.data;
+  const { id, payload, format: rawFormat } = ev.data;
+  const format = normalizeStudioExportFormat(rawFormat);
   try {
     self.postMessage({ id, type: "progress", phase: "mastering", pct: 10 });
     const ctx = new OfflineAudioContext(2, 1, payload.sampleRate);
@@ -30,7 +31,6 @@ self.onmessage = async (ev) => {
     let fileName = ev.data.fileName;
     try {
       if (format === "mp3") blob = await audioBufferToMp3Blob(enhanced);
-      else if (format === "flac") blob = audioBufferToLosslessWavBlob(enhanced);
       else blob = audioBufferToWavBlob(enhanced);
     } catch (encodeErr) {
       if (format === "mp3") {

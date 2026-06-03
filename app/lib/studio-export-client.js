@@ -3,7 +3,7 @@
  */
 
 import { serializeAudioBuffer } from "./audio-buffer-serialize";
-import { downloadFormatBlob } from "./audio-export-formats";
+import { downloadFormatBlob, normalizeStudioExportFormat } from "./audio-export-formats";
 
 let workerInstance = null;
 let exportInFlight = false;
@@ -21,11 +21,12 @@ function getWorker() {
 
 /**
  * @param {string} baseFileName — stem without extension (may already include -enhanced- or -highlight- suffix)
- * @param {"wav"|"mp3"|"flac"} format
+ * @param {"wav"|"mp3"} format
  */
 export function buildExportFileName(baseFileName, format) {
+  const normalized = normalizeStudioExportFormat(format);
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
-  const ext = format === "mp3" ? "mp3" : "wav";
+  const ext = normalized === "mp3" ? "mp3" : "wav";
   return `${base}.${ext}`;
 }
 
@@ -33,10 +34,10 @@ export function buildExportFileName(baseFileName, format) {
  * @param {AudioBuffer} sourceBuffer
  * @param {string} presetId
  * @param {string} baseFileName
- * @param {{ format?: "wav"|"mp3"|"flac", onProgress?: (p: { phase: string, pct: number }) => void }} [opts]
+ * @param {{ format?: string, onProgress?: (p: { phase: string, pct: number }) => void }} [opts]
  */
 export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opts = {}) {
-  const format = opts.format || "wav";
+  const format = normalizeStudioExportFormat(opts.format);
   if (exportInFlight) {
     return Promise.reject(new Error("Another studio export is already running"));
   }
@@ -96,7 +97,7 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
     opts.onProgress?.({ phase: "mastering", pct: 40 });
     const enhanced = await renderEnhancedAudioBuffer(sourceBuffer, presetId);
     opts.onProgress?.({ phase: "encoding", pct: 85 });
-    const format = opts.format || "wav";
+    const format = normalizeStudioExportFormat(opts.format);
     try {
       await downloadAudioBufferAsFormat(enhanced, format, baseFileName);
       opts.onProgress?.({ phase: "done", pct: 100 });

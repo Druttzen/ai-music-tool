@@ -16,6 +16,12 @@ $targets = @(
   "electron-dist-v071.old"
 )
 
+$dynamic = Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -like "electron-dist*" -and $_.Name -notlike "*.old" } |
+  ForEach-Object { $_.Name }
+
+$targets = @($targets + $dynamic | Select-Object -Unique)
+
 Write-Host "Stopping AI Music Creator..."
 taskkill /F /IM "AI Music Creator.exe" 2>$null | Out-Null
 Start-Sleep -Seconds 2
@@ -38,7 +44,7 @@ $logPath = Join-Path $logDir "electron-dist-cleanup.log"
 $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 if ($remaining.Count -eq 0) {
-  "$stamp OK — removed stale electron-dist folders." | Out-File -FilePath $logPath -Encoding utf8
+  "$stamp OK - removed stale electron-dist folders." | Out-File -FilePath $logPath -Encoding utf8
   Write-Host "All stale electron-dist folders removed."
   exit 0
 }
@@ -49,5 +55,5 @@ $remaining | ForEach-Object { Write-Host "  - $_" }
 Write-Host ""
 Write-Host "Close Cursor and any Explorer window under F:\ai-music-tool, then run this script again."
 Write-Host "Or reboot and run it once before opening the project."
-"$stamp FAILED — still locked: $($remaining -join ', ')" | Out-File -FilePath $logPath -Encoding utf8
+"$stamp FAILED - still locked: $($remaining -join ', ')" | Out-File -FilePath $logPath -Encoding utf8
 exit 1

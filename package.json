@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -35,7 +35,7 @@
     "eslint-config-next": "latest",
     "pdfkit": "^0.18.0",
     "tailwindcss": "latest",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.8"
   },
   "overrides": {
     "postcss": "^8.5.10"

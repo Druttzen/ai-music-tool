@@ -4,6 +4,24 @@
 
 import { audioBufferToWavBlob, downloadAudioBlob } from "./audio-enhancer";
 
+/** @typedef {"wav"|"mp3"} StudioExportFormat */
+
+/** @type {StudioExportFormat[]} */
+export const STUDIO_EXPORT_FORMATS = ["wav", "mp3"];
+
+/**
+ * Normalize legacy/alias format ids to supported studio export formats.
+ * @param {string|undefined|null} format
+ * @returns {StudioExportFormat}
+ */
+export function normalizeStudioExportFormat(format) {
+  const f = String(format || "wav").toLowerCase();
+  if (f === "mp3") return "mp3";
+  // Legacy UI stored "flac" but output was always 16-bit WAV.
+  if (f === "flac" || f === "wav-lossless" || f === "lossless") return "wav";
+  return "wav";
+}
+
 /**
  * @param {AudioBuffer} buffer
  * @returns {Promise<Blob>}
@@ -34,11 +52,6 @@ export async function audioBufferToMp3Blob(buffer) {
   return new Blob(chunks, { type: "audio/mpeg" });
 }
 
-/** Lossless export — 16-bit stereo WAV (same as WAV preset). */
-export function audioBufferToLosslessWavBlob(buffer) {
-  return audioBufferToWavBlob(buffer);
-}
-
 /**
  * @param {Blob} blob
  * @param {string} fileName
@@ -49,17 +62,14 @@ export function downloadFormatBlob(blob, fileName) {
 
 /**
  * @param {AudioBuffer} buffer
- * @param {"wav"|"mp3"|"flac"} format
+ * @param {string} format
  * @param {string} baseFileName
  */
 export async function downloadAudioBufferAsFormat(buffer, format, baseFileName) {
+  const normalized = normalizeStudioExportFormat(format);
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
-  if (format === "mp3") {
+  if (normalized === "mp3") {
     downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
-    return;
-  }
-  if (format === "flac") {
-    downloadFormatBlob(audioBufferToLosslessWavBlob(buffer), `${base}.wav`);
     return;
   }
   downloadFormatBlob(audioBufferToWavBlob(buffer), `${base}.wav`);

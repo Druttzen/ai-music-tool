@@ -36,6 +36,7 @@ import {
 import { sliceAudioBuffer } from "../lib/audio-buffer-serialize";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { exportEnhancedInWorker } from "../lib/studio-export-client";
+import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import { getGuidedPolishStepIndex, getStepCount } from "../lib/suno-guided-workflow";
 
 export function useAnalyzers({
@@ -601,7 +602,7 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
       }
       if (audioExportBusy) return;
 
-      const format = opts.format === "mp3" || opts.format === "flac" ? opts.format : "wav";
+      const format = normalizeStudioExportFormat(opts.format);
       const scope = opts.scope === "highlight" ? "highlight" : "full";
 
       setAudioExportBusy(true);
