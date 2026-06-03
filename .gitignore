@@ -25,6 +25,7 @@
 # Windows installer / local packaging output (rebuild with npm run dist)
 /dist/
 /electron-dist/
+/verify-dist/
 
 # Accidental nested folder (not part of this app)
 /Druttzen/

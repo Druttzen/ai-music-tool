@@ -39,7 +39,9 @@
     "files": [
       "main.js",
       "out/**/*",
-      "icon.ico",
+      "icon.ico"
+    ],
+    "extraResources": [
       "build/AI_Music_Creator_README.pdf"
     ],
     "directories": {
