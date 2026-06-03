@@ -88,11 +88,20 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
   exportInFlight = true;
   return new Promise((resolve, reject) => {
     let settled = false;
+    let timeoutId = null;
+
+    const armWorkerStartupTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        fallbackMainThread("Studio export timed out — retrying on main thread");
+      }, WORKER_REPLY_TIMEOUT_MS);
+    };
 
     const cleanup = () => {
       worker.removeEventListener("message", onMessage);
       worker.removeEventListener("error", onWorkerError);
       if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = null;
     };
 
     const settle = (fn, value) => {
@@ -121,10 +130,6 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
         );
     };
 
-    const timeoutId = setTimeout(() => {
-      fallbackMainThread("Studio export timed out — retrying on main thread");
-    }, WORKER_REPLY_TIMEOUT_MS);
-
     const onWorkerError = () => {
       fallbackMainThread("Studio worker failed — using main thread");
     };
@@ -133,6 +138,10 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
       const msg = ev.data;
       if (!msg || msg.id !== id) return;
       if (msg.type === "progress") {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         opts.onProgress?.({ phase: msg.phase, pct: msg.pct });
         return;
       }
@@ -159,6 +168,7 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
     try {
       const transfers = payload.channelData.map((ch) => ch.buffer);
       worker.postMessage({ id, presetId, payload, format, fileName }, transfers);
+      armWorkerStartupTimeout();
     } catch (err) {
       fallbackMainThread(
         err instanceof Error ? err.message : "Could not start studio worker",
