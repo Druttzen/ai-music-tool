@@ -150,6 +150,7 @@ export function AudioTrackEditor({ analysis, audioUrl, onChange, onApply, onClea
           audioUrl={audioUrl}
           playhead={playhead}
           onSeek={audioUrl ? seekAudio : undefined}
+          onHighlightChange={(range) => onChange(range)}
         />
       </section>
 

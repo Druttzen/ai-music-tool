@@ -28,6 +28,7 @@ import {
   analysisNeedsWaveformPeaks,
   analyzeAudioBuffer,
   decodeWaveformPeaksFromBlob,
+  formatTime,
   normalizeAudioAnalysis,
   patchAudioAnalysis,
   synthesizeWaveformPeaksFromAnalysis,
@@ -288,6 +289,30 @@ export function useAnalyzers({
       setMood((m) => applyMoodPatch(m, audioAnalysis.moodSuggestion));
     }
     setRules((prev) => mergeAnalyzerRuleLine(prev, "audio", compactAudioStyleRule(audioAnalysis)));
+
+    const summary = (audioAnalysis.trackSummary || "").trim();
+    const hiLabel = audioAnalysis.highlightLabel || "section";
+    const hiRange = `${formatTime(audioAnalysis.highlightStart)}–${formatTime(audioAnalysis.highlightEnd)}`;
+
+    if (summary) {
+      setIdea((prev) => {
+        const p = (prev || "").trim();
+        const add = `Reference track (highlight ${hiRange}): ${summary}`;
+        if (!p) return add;
+        if (/reference track/i.test(p)) return p;
+        if (p.length < 140) return `${p}. ${add}`;
+        return p;
+      });
+
+      setNotes((prev) => {
+        const block = `Audio highlight (${hiRange}, ${hiLabel}):\n${summary}`;
+        const p = (prev || "").trim();
+        if (!p) return block;
+        if (p.includes("Audio highlight (")) return p;
+        return `${p}\n\n${block}`;
+      });
+    }
+
     if (promptEngine === "Suno-like") {
       setGuidedStep(() => {
         const max = getStepCount() - 1;
@@ -302,7 +327,9 @@ export function useAnalyzers({
     audioAnalysis,
     promptEngine,
     setGuidedStep,
+    setIdea,
     setMood,
+    setNotes,
     setRules,
     setSelectedRhythms,
     setSelectedGenres,

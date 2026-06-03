@@ -240,6 +240,25 @@ export function formatTime(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+/**
+ * @param {number} duration
+ * @param {number} start
+ * @param {number} end
+ * @param {number} [minSpanSec]
+ */
+export function normalizeHighlightRange(duration, start, end, minSpanSec = 2) {
+  const dur = Math.max(0.001, Number(duration) || 0);
+  const minSpan = Math.min(minSpanSec, dur * 0.5);
+  let s = clamp(Number(start) || 0, 0, dur);
+  let e = clamp(Number(end) || dur, 0, dur);
+  if (e < s) [s, e] = [e, s];
+  if (e - s < minSpan) {
+    e = Math.min(dur, s + minSpan);
+    s = Math.max(0, e - minSpan);
+  }
+  return { highlightStart: s, highlightEnd: e };
+}
+
 /** Default bar count for editor waveforms (kept small for localStorage). */
 export const WAVEFORM_BAR_COUNT = 240;
 
@@ -435,6 +454,16 @@ export function patchAudioAnalysis(prev, patch) {
   if (patch.suggestedSounds) next.suggestedSounds = uniq(patch.suggestedSounds);
   if (patch.suggestedRhythms) next.suggestedRhythms = uniq(patch.suggestedRhythms);
   if (typeof patch.bpm === "number") next.estimatedBpm = formatBpmLabel(patch.bpm);
+  if ("highlightStart" in patch || "highlightEnd" in patch) {
+    const norm = normalizeHighlightRange(
+      next.duration,
+      next.highlightStart,
+      next.highlightEnd,
+    );
+    next.highlightStart = norm.highlightStart;
+    next.highlightEnd = norm.highlightEnd;
+    if (!patch.highlightLabel) next.highlightLabel = "Custom highlight section";
+  }
   next.summary = buildAudioAnalysisSummary(next);
   return next;
 }
