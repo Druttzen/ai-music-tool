@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { formatTime } from "../lib/audio-analyzer";
 import { AUDIO_ANALYZER_DISCLAIMER } from "../lib/analyzer-disclaimer";
+import { isLikelyInstrumentalTrack } from "../lib/instrumental-lyrics-from-track";
 import { STUDIO_EXPORT_PRESETS } from "../lib/audio-enhancer";
 import {
   formatLufs,
@@ -43,7 +44,7 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
 export function AudioTrackEditor({
   analysis,
@@ -54,6 +55,7 @@ export function AudioTrackEditor({
   onApply,
   onClear,
   onAttachAudio,
+  onAddLyricsForTrack,
   onExportEnhanced,
   exportBusy = false,
   exportProgress = null,
@@ -223,6 +225,28 @@ export function AudioTrackEditor({
           onChange={(v) => setTags("suggestedRhythms", v)}
         />
       </section>
+
+      {onAddLyricsForTrack && isLikelyInstrumentalTrack(analysis) ? (
+        <section className="rounded-2xl border border-fuchsia-400/25 bg-fuchsia-500/10 p-3 space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-200/90">
+            Add lyrics to this instrumental
+          </div>
+          <p className="text-[10px] leading-relaxed text-white/55">
+            Builds a timed [Verse]/[Chorus] scaffold locked to this track&apos;s BPM, duration, and
+            highlight — switches vocal mode from Instrumental and fills the Suno Lyrics field.
+          </p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onAddLyricsForTrack();
+            }}
+            className="w-full rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/25 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/35"
+          >
+            Add lyrics timed to this track →
+          </button>
+        </section>
+      ) : null}
 
       {onExportEnhanced ? (
         <section className="rounded-2xl border border-violet-400/25 bg-violet-500/10 p-3 space-y-2">

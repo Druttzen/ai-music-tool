@@ -28,6 +28,15 @@ import {
   buildSunoPastedStyleLine,
 } from "./lib/suno-guided-workflow";
 import { IMAGE_ANALYZER_DISCLAIMER } from "./lib/analyzer-disclaimer";
+import {
+  buildInstrumentalLyricsScaffold,
+  buildLyricThemeFromAnalysis,
+  getGuidedLyricsStepIndex,
+  inferStructureFromTrack,
+  stripInstrumentalOnlyRules,
+  suggestLyricStyleFromAnalysis,
+  suggestVocalRoleFromAnalysis,
+} from "./lib/instrumental-lyrics-from-track";
 import { useUndoSnapshot } from "./hooks/use-undo-snapshot";
 import { VariationCompare } from "./components/variation-compare";
 import {
@@ -301,6 +310,44 @@ export default function Page() {
     loadState,
     setStatusWithTime,
   );
+
+  const addLyricsFromInstrumentalTrack = useCallback(() => {
+    if (!audioAnalysis) {
+      setStatusWithTime("Upload an instrumental track first");
+      return;
+    }
+    captureSnapshot("before add lyrics to track");
+    applyAudioToSunoStyle();
+
+    const theme = buildLyricThemeFromAnalysis(audioAnalysis);
+    const structure = inferStructureFromTrack(audioAnalysis);
+    const lyrics = buildInstrumentalLyricsScaffold(audioAnalysis, { theme });
+
+    setInstrumentalVocalFx(false);
+    setVocal(suggestVocalRoleFromAnalysis(audioAnalysis));
+    setLyricTheme(theme);
+    setLyricStyle(suggestLyricStyleFromAnalysis(audioAnalysis));
+    setLyricMode("Structured Song");
+    setLyricStructure(structure);
+    setStructure(structure);
+    setGeneratedLyrics(lyrics);
+    setRules((prev) => stripInstrumentalOnlyRules(prev));
+
+    if (promptEngine !== "Suno-like") {
+      setPromptEngine("Suno-like");
+    }
+    setGuidedStep(getGuidedLyricsStepIndex());
+    setStatusWithTime(
+      "Lyrics scaffold added — timed to your track. Edit the draft, then copy the Lyrics field.",
+    );
+  }, [
+    audioAnalysis,
+    applyAudioToSunoStyle,
+    captureSnapshot,
+    promptEngine,
+    setGuidedStep,
+    setStatusWithTime,
+  ]);
 
   const resetAll=()=>{
     captureSnapshot("before reset");
@@ -1407,6 +1454,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                       }}
                       onClear={clearAudioAnalysis}
                       onAttachAudio={attachAudioFile}
+                      onAddLyricsForTrack={addLyricsFromInstrumentalTrack}
                       loudness={audioLoudness}
                       loudnessBusy={audioLoudnessBusy}
                       onExportEnhanced={exportEnhancedAudio}
