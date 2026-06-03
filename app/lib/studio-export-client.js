@@ -26,8 +26,9 @@ function getWorker() {
 export function buildExportFileName(baseFileName, format) {
   const normalized = normalizeStudioExportFormat(format);
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
-  const ext = normalized === "mp3" ? "mp3" : "wav";
-  return `${base}.${ext}`;
+  if (normalized === "mp3") return `${base}.mp3`;
+  if (normalized === "wav24") return `${base}-24bit.wav`;
+  return `${base}.wav`;
 }
 
 /**

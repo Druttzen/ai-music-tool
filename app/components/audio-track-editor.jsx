@@ -250,7 +250,8 @@ export function AudioTrackEditor({
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-white/50">
             <span>Format</span>
             {[
-              ["wav", "WAV"],
+              ["wav", "WAV 16-bit"],
+              ["wav24", "WAV 24-bit"],
               ["mp3", "MP3"],
             ].map(([id, label]) => (
               <button

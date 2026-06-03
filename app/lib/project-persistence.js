@@ -4,6 +4,9 @@
 
 import { normalizeAudioAnalysis } from "./audio-analyzer";
 
+/** Max waveform peaks kept in undo snapshots (larger arrays stay IndexedDB-only). */
+export const MAX_UNDO_WAVEFORM_PEAKS = 4096;
+
 /**
  * Drop heavy waveform arrays from saved JSON; peaks rehydrate from IndexedDB or estimates.
  * @param {object|null} analysis
@@ -12,6 +15,23 @@ export function slimAudioAnalysisForStorage(analysis) {
   if (!analysis || typeof analysis !== "object") return analysis;
   const { waveformPeaks: _peaks, ...rest } = analysis;
   return rest;
+}
+
+/**
+ * Undo snapshots keep compact peak arrays so waveforms restore without re-attach.
+ * @param {object|null} analysis
+ */
+export function slimAudioAnalysisForUndo(analysis) {
+  if (!analysis || typeof analysis !== "object") return analysis;
+  const peaks = analysis.waveformPeaks;
+  if (
+    Array.isArray(peaks) &&
+    peaks.length > 0 &&
+    peaks.length <= MAX_UNDO_WAVEFORM_PEAKS
+  ) {
+    return analysis;
+  }
+  return slimAudioAnalysisForStorage(analysis);
 }
 
 /**
@@ -38,8 +58,12 @@ export function slimStateForHistory(state) {
 export function slimStateForUndo(state) {
   if (!state || typeof state !== "object") return state;
   const slim = slimStateForPersistence(state);
+  const audioAnalysis = state.audioAnalysis
+    ? slimAudioAnalysisForUndo(state.audioAnalysis)
+    : slim.audioAnalysis;
   return {
     ...slim,
+    audioAnalysis,
     guidedStep: typeof state.guidedStep === "number" ? state.guidedStep : 0,
     variations: Array.isArray(state.variations) ? state.variations : [],
     history: Array.isArray(state.history) ? state.history : [],

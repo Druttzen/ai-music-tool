@@ -2,12 +2,16 @@
  * Encode mastered buffers to download formats (browser).
  */
 
-import { audioBufferToWavBlob, downloadAudioBlob } from "./audio-enhancer";
+import {
+  audioBufferToWavBlob,
+  audioBufferToWav24Blob,
+  downloadAudioBlob,
+} from "./audio-enhancer";
 
-/** @typedef {"wav"|"mp3"} StudioExportFormat */
+/** @typedef {"wav"|"wav24"|"mp3"} StudioExportFormat */
 
 /** @type {StudioExportFormat[]} */
-export const STUDIO_EXPORT_FORMATS = ["wav", "mp3"];
+export const STUDIO_EXPORT_FORMATS = ["wav", "wav24", "mp3"];
 
 /**
  * Normalize legacy/alias format ids to supported studio export formats.
@@ -17,6 +21,7 @@ export const STUDIO_EXPORT_FORMATS = ["wav", "mp3"];
 export function normalizeStudioExportFormat(format) {
   const f = String(format || "wav").toLowerCase();
   if (f === "mp3") return "mp3";
+  if (f === "wav24" || f === "24bit" || f === "wav-24") return "wav24";
   // Legacy UI stored "flac" but output was always 16-bit WAV.
   if (f === "flac" || f === "wav-lossless" || f === "lossless") return "wav";
   return "wav";
@@ -70,6 +75,10 @@ export async function downloadAudioBufferAsFormat(buffer, format, baseFileName) 
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
   if (normalized === "mp3") {
     downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
+    return;
+  }
+  if (normalized === "wav24") {
+    downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
     return;
   }
   downloadFormatBlob(audioBufferToWavBlob(buffer), `${base}.wav`);

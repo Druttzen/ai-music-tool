@@ -13,6 +13,11 @@ describe("normalizeStudioExportFormat", () => {
     expect(normalizeStudioExportFormat("lossless")).toBe("wav");
   });
 
+  it("accepts wav24", () => {
+    expect(normalizeStudioExportFormat("wav24")).toBe("wav24");
+    expect(normalizeStudioExportFormat("24bit")).toBe("wav24");
+  });
+
   it("defaults unknown values to wav", () => {
     expect(normalizeStudioExportFormat(undefined)).toBe("wav");
     expect(normalizeStudioExportFormat("ogg")).toBe("wav");

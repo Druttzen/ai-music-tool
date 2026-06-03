@@ -2,7 +2,7 @@
  * Studio mastering in a worker (OfflineAudioContext) so the UI thread stays responsive.
  */
 
-import { renderEnhancedAudioBuffer, audioBufferToWavBlob } from "../lib/audio-enhancer";
+import { renderEnhancedAudioBuffer, audioBufferToWavBlob, audioBufferToWav24Blob } from "../lib/audio-enhancer";
 import { deserializeAudioBuffer } from "../lib/audio-buffer-serialize";
 import { audioBufferToMp3Blob, normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import {
@@ -31,6 +31,7 @@ self.onmessage = async (ev) => {
     let fileName = ev.data.fileName;
     try {
       if (format === "mp3") blob = await audioBufferToMp3Blob(enhanced);
+      else if (format === "wav24") blob = audioBufferToWav24Blob(enhanced);
       else blob = audioBufferToWavBlob(enhanced);
     } catch (encodeErr) {
       if (format === "mp3") {

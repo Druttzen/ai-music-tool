@@ -1,5 +1,7 @@
 "use client";
 
+import { ElectronUpdateControls } from "./electron-update-controls";
+
 const LOGO_SRC = "./bones-logo.png";
 
 export function SplashOverlay({ onDismiss }) {
@@ -78,6 +80,7 @@ export function AppHeader({ appVersion, avgScore, saveStatus }) {
         <div className="text-sm font-bold text-cyan-100">{saveStatus}</div>
         <div className="mt-2 text-xs text-white/50">Average score</div>
         <div className="text-3xl font-black text-cyan-200">{avgScore}/5</div>
+        <ElectronUpdateControls />
       </div>
     </header>
   );
