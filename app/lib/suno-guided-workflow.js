@@ -67,8 +67,8 @@ export const SUNO_GUIDED_STEPS = [
   {
     id: 6,
     name: "Polish",
-    line: "Polish before export — pick what you need: Voice Style, Genre Anchors, Co-Producer, variations. Audio/image analyzers are optional: skip them entirely or drop reference files only if you want that DNA.",
-    where: "Right column: Drag & Drop Analyzers (optional), Voice Style, Suno Language Index, Co-Producer, Variation Engine — none of this is required to finish.",
+    line: "Polish before export — pick what you need: Voice Style, Genre Anchors, Co-Producer, variations. Optional: drop a reference track for the local analyzer (edit tags, drag highlight on the waveform, then merge into Suno).",
+    where: "Right column: Drag & Drop Analyzers (optional track report + image→style), Voice Style, Suno Language Index, Co-Producer, Variation Engine — none of this is required to finish.",
     next: "When satisfied (with or without analyzers), open the final step and copy Style + Lyrics into Suno.",
     optimal: "You can press Next and go straight to the copy step without ever opening the analyzers — they’re extra tools, not a gate.",
   },

@@ -49,8 +49,8 @@ export function AppHeader({ appVersion, avgScore, saveStatus }) {
           Prompt Control Room
         </h1>
         <p className="mt-2 max-w-2xl text-white/55">
-          Level 2 visual prompt engine with audio analysis, image-to-style, presets, variations,
-          history, Pro Mode, and extracted source prompts.
+          Level 2 visual prompt engine with local track and image analyzers (waveforms, highlight
+          range, Suno merge), presets, variations, history, Pro Mode, and extracted source prompts.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-white/45">
           <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1">
