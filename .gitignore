@@ -25,7 +25,11 @@
 # Windows installer / local packaging output (rebuild with npm run dist)
 /dist/
 /electron-dist/
+/electron-dist-fresh/
 /verify-dist/
+
+# Duplicate logo at repo root (canonical copy is public/bones-logo.png)
+/bones-logo.png
 
 # Accidental nested folder (not part of this app)
 /Druttzen/
