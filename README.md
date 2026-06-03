@@ -1,8 +1,16 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.7.3**
+**Version 0.7.4**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+
+## Highlights (v0.7.4)
+
+- **Turbopack root** — `turbopack.root` in `next.config.js` fixes dev crashes when Next mis-detects `app/` as the workspace.
+- **Dev debug** — `npm run debug` uses a single inspector on port **9241** (`scripts/debug-dev.ps1`); `npm run stop` also clears stray Next `node` processes.
+- **Undo** — Snapshot restores **guided step**, **variations**, and **prompt history**; audio rehydrates from IndexedDB when cached.
+- **MP3 fallback** — If MP3 encode fails in the worker, export falls back to WAV with a status message.
+- **`npm run cleanup:dist`** — Removes locked `electron-dist*` folders when Windows/Cursor releases them.
 
 ## Highlights (v0.7.2)
 
@@ -50,13 +58,23 @@ Open [http://localhost:3000](http://localhost:3000).
 npm run debug
 ```
 
-Starts dev with `--inspect=9241`. In VS Code / Cursor, use **Run and Debug → “Attach to Node (Next main — 9241)”** or launch **“Next.js: debug (npm run debug)”** (see `.vscode/launch.json`).
+Starts `next dev --inspect=9241` (one inspector port). In VS Code / Cursor, attach to **9241** (see `.vscode/launch.json`).
 
 Stop stuck dev/debug ports on Windows:
 
 ```bash
 npm run stop
 ```
+
+Remove stale packaging folders (when not locked):
+
+```bash
+npm run cleanup:dist
+```
+
+### Electron auto-update
+
+Packaged builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startup. Updates require a published release with `latest.yml` from `electron-builder --publish` (or manual upload). Dev/`npm run electron` skips update checks.
 
 ## Production build
 

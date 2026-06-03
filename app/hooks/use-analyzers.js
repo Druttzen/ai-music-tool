@@ -643,16 +643,17 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
           onProgress: (p) => setAudioExportProgress(p),
         });
 
-        const fmtLabel = format.toUpperCase();
+        const fmtLabel = (result?.format || format).toUpperCase();
+        const fallbackNote = result?.formatFallback ? " (MP3 unavailable — saved as WAV)" : "";
         if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
           setStatusWithTime(
-            `${fmtLabel} downloaded · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
+            `${fmtLabel} downloaded${fallbackNote} · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
           );
         } else {
           setStatusWithTime(
             scope === "highlight"
-              ? `Highlight ${fmtLabel} downloaded`
-              : `Enhanced ${fmtLabel} downloaded`,
+              ? `Highlight ${fmtLabel} downloaded${fallbackNote}`
+              : `Enhanced ${fmtLabel} downloaded${fallbackNote}`,
           );
         }
       } catch (err) {

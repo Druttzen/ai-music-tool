@@ -1,14 +1,15 @@
 {
   "name": "ai-music-tool",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
   "main": "main.js",
   "scripts": {
     "dev": "next dev",
-    "debug": "node --inspect=9241 node_modules/next/dist/bin/next dev",
+    "debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/debug-dev.ps1",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
+    "cleanup:dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cleanup-locked-electron-dist.ps1",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "check": "npm run test && npm run lint && npm run build",

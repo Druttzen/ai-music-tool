@@ -26,9 +26,22 @@ self.onmessage = async (ev) => {
     }
     self.postMessage({ id, type: "progress", phase: "encoding", pct: 75 });
     let blob;
-    if (format === "mp3") blob = await audioBufferToMp3Blob(enhanced);
-    else if (format === "flac") blob = audioBufferToLosslessWavBlob(enhanced);
-    else blob = audioBufferToWavBlob(enhanced);
+    let outFormat = format;
+    let fileName = ev.data.fileName;
+    try {
+      if (format === "mp3") blob = await audioBufferToMp3Blob(enhanced);
+      else if (format === "flac") blob = audioBufferToLosslessWavBlob(enhanced);
+      else blob = audioBufferToWavBlob(enhanced);
+    } catch (encodeErr) {
+      if (format === "mp3") {
+        blob = audioBufferToWavBlob(enhanced);
+        outFormat = "wav";
+        const base = String(fileName || "track.wav").replace(/\.[^.]+$/, "");
+        fileName = `${base}.wav`;
+      } else {
+        throw encodeErr;
+      }
+    }
 
     const arrayBuffer = await blob.arrayBuffer();
     self.postMessage(
@@ -37,7 +50,9 @@ self.onmessage = async (ev) => {
         type: "done",
         blobBuffer: arrayBuffer,
         mime: blob.type,
-        fileName: ev.data.fileName,
+        fileName,
+        outFormat,
+        formatFallback: outFormat !== format,
         pct: 100,
         afterLufs,
         targetLufs: ev.data.presetId === "streaming" ? STREAMING_TARGET_LUFS : undefined,

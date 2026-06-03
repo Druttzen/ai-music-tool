@@ -32,6 +32,22 @@ export function slimStateForHistory(state) {
 }
 
 /**
+ * Undo snapshot: slim audio peaks + include guided step, variations, and prompt history.
+ * @param {object} state
+ */
+export function slimStateForUndo(state) {
+  if (!state || typeof state !== "object") return state;
+  const slim = slimStateForPersistence(state);
+  return {
+    ...slim,
+    guidedStep: typeof state.guidedStep === "number" ? state.guidedStep : 0,
+    variations: Array.isArray(state.variations) ? state.variations : [],
+    history: Array.isArray(state.history) ? state.history : [],
+    selectedHistoryId: state.selectedHistoryId ?? null,
+  };
+}
+
+/**
  * @param {string|undefined} version
  */
 export function parseVersionMajor(version) {

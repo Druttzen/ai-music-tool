@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { slimStateForPersistence } from "../lib/project-persistence";
+import { slimStateForUndo } from "../lib/project-persistence";
 
 const SESSION_KEY = "ai_music_creator_undo_snapshot_v1";
 
@@ -44,8 +44,17 @@ export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
       return false;
     }
     try {
-      applyState(JSON.parse(json));
-      setStatusWithTime("Reverted to last snapshot");
+      const restored = JSON.parse(json);
+      applyState(restored);
+      const needsAudio =
+        restored.audioAnalysis &&
+        (!restored.audioAnalysis.waveformPeaks?.length ||
+          !restored.audioAnalysis.audioCacheKey);
+      setStatusWithTime(
+        needsAudio
+          ? "Reverted — audio cache will rehydrate; attach the same file if playback is missing"
+          : "Reverted to last snapshot (guided step, variations, and history restored)",
+      );
       return true;
     } catch {
       setStatusWithTime("Snapshot restore failed");

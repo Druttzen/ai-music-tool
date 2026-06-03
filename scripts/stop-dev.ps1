@@ -1,4 +1,4 @@
-# Stops Next.js dev / npm run debug by killing processes bound to app and Node inspector ports.
+# Stops Next.js dev / npm run debug by killing processes on app and inspector ports.
 # Windows PowerShell. Do not use $pid as a loop variable (reserved).
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -20,6 +20,27 @@ foreach ($port in $ports) {
     }
   }
 }
+
+$root = (Split-Path -Parent $PSScriptRoot) -replace '\\', '/'
+Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+  Where-Object {
+    $cmd = $_.CommandLine
+    $cmd -and (
+      $cmd -match 'next(\.js|\\)|next/dist' -or
+      $cmd -match [regex]::Escape($root)
+    )
+  } |
+  ForEach-Object {
+    $procId = $_.ProcessId
+    if ($procId -le 0 -or $seen.ContainsKey($procId)) { return }
+    $seen[$procId] = $true
+    try {
+      Stop-Process -Id $procId -Force
+      Write-Host "Stopped Node PID $procId (next dev)"
+    } catch {
+      Write-Warning "Could not stop Node PID $procId : $_"
+    }
+  }
 
 if ($seen.Count -eq 0) {
   Write-Host "No processes were listening on ports: $($ports -join ', ')"

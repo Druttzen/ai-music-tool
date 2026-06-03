@@ -71,7 +71,8 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
         const blob = new Blob([msg.blobBuffer], { type: msg.mime });
         downloadFormatBlob(blob, msg.fileName || fileName);
         resolve({
-          format,
+          format: msg.outFormat || format,
+          formatFallback: !!msg.formatFallback,
           afterLufs: msg.afterLufs,
           targetLufs: msg.targetLufs,
         });
@@ -95,9 +96,17 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
     opts.onProgress?.({ phase: "mastering", pct: 40 });
     const enhanced = await renderEnhancedAudioBuffer(sourceBuffer, presetId);
     opts.onProgress?.({ phase: "encoding", pct: 85 });
-    await downloadAudioBufferAsFormat(enhanced, opts.format || "wav", baseFileName);
-    opts.onProgress?.({ phase: "done", pct: 100 });
-    return { format: opts.format || "wav" };
+    const format = opts.format || "wav";
+    try {
+      await downloadAudioBufferAsFormat(enhanced, format, baseFileName);
+      opts.onProgress?.({ phase: "done", pct: 100 });
+      return { format, formatFallback: false };
+    } catch (encodeErr) {
+      if (format !== "mp3") throw encodeErr;
+      await downloadAudioBufferAsFormat(enhanced, "wav", baseFileName);
+      opts.onProgress?.({ phase: "done", pct: 100 });
+      return { format: "wav", formatFallback: true };
+    }
   } finally {
     exportInFlight = false;
   }
