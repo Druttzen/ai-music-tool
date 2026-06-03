@@ -1,6 +1,6 @@
 "use client";
 
-const LOGO_SRC = "./bones-logo.svg";
+const LOGO_SRC = "./bones-logo.png";
 
 export function SplashOverlay({ onDismiss }) {
   return (
