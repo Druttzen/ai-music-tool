@@ -78,7 +78,7 @@ Regenerate the PDF alone:
 npm run build:readme-pdf
 ```
 
-If `dist` fails because `electron-dist/win-unpacked` is locked, close any running **AI Music Creator** instance and Explorer windows in that folder, or run `npm run stop` and retry.
+If `electron-dist/win-unpacked` is locked, `prepare:electron-dist` automatically falls back to `electron-dist-fresh`, `electron-dist-v{version}` (e.g. `electron-dist-v071`), or a timestamped `electron-dist-build-*` folder. Close any running **AI Music Creator** instance and Explorer windows in old output folders if you want the default `electron-dist/` path back.
 
 ## Saved data
 
