@@ -302,7 +302,21 @@ export default function Page() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          loadState(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          if (parsed?.appVersion !== APP_VERSION) {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(PRESET_KEY);
+            localStorage.removeItem(HISTORY_KEY);
+            setCustomPresets({});
+            setHistory([]);
+            setVariations([]);
+            resetAnalyzers();
+            setGuidedStep(0);
+            lastAutosavePayloadRef.current = "";
+            setStatusWithTime(`Reset styles and prompts for v${APP_VERSION}`);
+            return;
+          }
+          loadState(parsed);
           setStatusWithTime("Loaded saved project");
         }
         const presets = localStorage.getItem(PRESET_KEY);
@@ -317,7 +331,7 @@ export default function Page() {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [loadState, setStatusWithTime]);
+  }, [loadState, resetAnalyzers, setStatusWithTime]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
