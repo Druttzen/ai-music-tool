@@ -37,6 +37,12 @@ import {
   sunoLanguageIndex,
 } from "./lib/suno-language-index";
 import {
+  migratePersistedProject,
+  shouldHardResetProjectOnVersionChange,
+  slimStateForHistory,
+  slimStateForPersistence,
+} from "./lib/project-persistence";
+import {
   APP_VERSION,
   AUTHOR,
   DEFAULT_STATE,
@@ -293,20 +299,23 @@ export default function Page() {
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed?.appVersion !== APP_VERSION) {
-            localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(PRESET_KEY);
-            localStorage.removeItem(HISTORY_KEY);
-            setCustomPresets({});
-            setHistory([]);
-            setVariations([]);
-            resetAnalyzers();
-            setGuidedStep(0);
-            lastAutosavePayloadRef.current = "";
-            setStatusWithTime(`Reset styles and prompts for v${APP_VERSION}`);
-            return;
+            if (shouldHardResetProjectOnVersionChange(parsed.appVersion, APP_VERSION)) {
+              localStorage.removeItem(STORAGE_KEY);
+              resetAnalyzers();
+              setVariations([]);
+              setGuidedStep(0);
+              lastAutosavePayloadRef.current = "";
+              setStatusWithTime(
+                `Major upgrade to v${APP_VERSION} — project cleared (presets and history kept)`,
+              );
+            } else {
+              loadState(migratePersistedProject(parsed, APP_VERSION));
+              setStatusWithTime(`Upgraded saved project to v${APP_VERSION}`);
+            }
+          } else {
+            loadState(parsed);
+            setStatusWithTime("Loaded saved project");
           }
-          loadState(parsed);
-          setStatusWithTime("Loaded saved project");
         }
         const presets = localStorage.getItem(PRESET_KEY);
         if (presets) setCustomPresets(JSON.parse(presets));
@@ -325,7 +334,7 @@ export default function Page() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
-        const payload = JSON.stringify(currentState);
+        const payload = JSON.stringify(slimStateForPersistence(currentState));
         if (payload === lastAutosavePayloadRef.current) return;
         localStorage.setItem(STORAGE_KEY, payload);
         lastAutosavePayloadRef.current = payload;
@@ -689,13 +698,14 @@ Music direction:
   const { copyToClipboard } = useClipboard(setStatusWithTime);
 
   const saveProject=()=>{ 
-    const payload = JSON.stringify(currentState, null, 2);
+    const slim = slimStateForPersistence(currentState);
+    const payload = JSON.stringify(slim, null, 2);
     localStorage.setItem(STORAGE_KEY, payload);
-    lastAutosavePayloadRef.current = JSON.stringify(currentState);
+    lastAutosavePayloadRef.current = payload;
     setStatusWithTime("Saved"); 
   };
   const exportProject=()=>{ const blob=new Blob([JSON.stringify(currentState,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="ai-music-project.json"; a.click(); URL.revokeObjectURL(url); };
-  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ loadState(JSON.parse(String(reader.result))); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed"); } }; reader.readAsText(file); };
+  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const raw=JSON.parse(String(reader.result)); loadState(migratePersistedProject(raw, APP_VERSION)); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed"); } }; reader.readAsText(file); };
 
   const saveCustomPreset=()=>{
     const name=presetName.trim(); if(!name){ setStatusWithTime("Preset name missing"); return; }
@@ -731,7 +741,7 @@ Music direction:
   const applyPreset=(name)=>loadPresetObject(name, stylePresets[name]);
 
   const addHistory=(label,promptText=prompt,state=currentState)=>{
-    const item={id:Date.now(),label,time:new Date().toLocaleTimeString(),prompt:promptText,state,avgScore};
+    const item={id:Date.now(),label,time:new Date().toLocaleTimeString(),prompt:promptText,state:slimStateForHistory(state),avgScore};
     const next=[item,...history].slice(0,12); setHistory(next); localStorage.setItem(HISTORY_KEY,JSON.stringify(next,null,2));
   };
 

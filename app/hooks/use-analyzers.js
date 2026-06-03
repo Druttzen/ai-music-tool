@@ -280,10 +280,20 @@ export function useAnalyzers({
       return;
     }
     setTempo(audioAnalysis.estimatedBpm);
-    if (audioAnalysis.suggestedGenres?.length) {
-      setSelectedGenres((g) => mergeGuidedGenres(g, audioAnalysis.suggestedGenres));
+
+    const genreTags = [
+      ...(audioAnalysis.suggestedGenres || []),
+      ...(audioAnalysis.suggestedSubgenres || []),
+    ];
+    if (genreTags.length) {
+      setSelectedGenres((g) => mergeGuidedGenres(g, genreTags));
     }
-    setSelectedSounds((s) => mergeGuidedSounds(s, audioAnalysis.suggestedSounds));
+
+    const soundTags = [
+      ...(audioAnalysis.suggestedSounds || []),
+      ...(audioAnalysis.suggestedInstruments || []),
+    ];
+    setSelectedSounds((s) => mergeGuidedSounds(s, soundTags));
     setSelectedRhythms((r) => mergeGuidedRhythms(r, audioAnalysis.suggestedRhythms));
     if (audioAnalysis.moodSuggestion) {
       setMood((m) => applyMoodPatch(m, audioAnalysis.moodSuggestion));
