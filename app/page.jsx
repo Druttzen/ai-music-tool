@@ -8,6 +8,7 @@ import { AudioTrackEditor } from "./components/audio-track-editor";
 import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
 import { useAnalyzers } from "./hooks/use-analyzers";
 import { useClipboard } from "./hooks/use-clipboard";
+import { useSplashOverlay } from "./hooks/use-splash-seen";
 import { useStatusMessage } from "./hooks/use-status-message";
 import {
   buildSunoLikePrompt,
@@ -116,14 +117,7 @@ export default function Page() {
   const [history,setHistory]=useState([]);
   const [variations,setVariations]=useState([]);
   const [selectedHistoryId,setSelectedHistoryId]=useState(null);
-  const [showSplash, setShowSplash] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return sessionStorage.getItem("ai_music_splash_seen") !== "1";
-    } catch {
-      return true;
-    }
-  });
+  const { showSplash, dismissSplash, resetSplash } = useSplashOverlay();
 
   const [guidedStep, setGuidedStep] = useState(0);
   const [instrumentalVocalFx, setInstrumentalVocalFx] = useState(DEFAULT_STATE.instrumentalVocalFx);
@@ -265,23 +259,13 @@ export default function Page() {
     setInstrumentalVocalFx(data.instrumentalVocalFx ?? DEFAULT_STATE.instrumentalVocalFx);
   }, [setAudioAnalysis, setImageAnalysis]);
 
-  const dismissSplash = useCallback(() => {
-    setShowSplash(false);
-    try {
-      sessionStorage.setItem("ai_music_splash_seen", "1");
-    } catch {}
-  }, []);
-
   const resetAll=()=>{
     loadState(DEFAULT_STATE);
     setVariations([]);
     resetAnalyzers();
     setGuidedStep(0);
     localStorage.removeItem(STORAGE_KEY);
-    try {
-      sessionStorage.removeItem("ai_music_splash_seen");
-    } catch {}
-    setShowSplash(true);
+    resetSplash();
     setStatusWithTime("Reset to default");
   };
 
