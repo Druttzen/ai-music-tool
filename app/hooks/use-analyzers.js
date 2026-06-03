@@ -33,6 +33,8 @@ import {
   patchAudioAnalysis,
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
+import { exportEnhancedWav } from "../lib/audio-enhancer";
+import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { getGuidedPolishStepIndex, getStepCount } from "../lib/suno-guided-workflow";
 
 export function useAnalyzers({
@@ -50,6 +52,10 @@ export function useAnalyzers({
 }) {
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
+  const [audioExportBusy, setAudioExportBusy] = useState(false);
+  const [audioLoudness, setAudioLoudness] = useState(null);
+  const [audioLoudnessBusy, setAudioLoudnessBusy] = useState(false);
+  const loudnessGenRef = useRef(0);
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const canvasRef = useRef(null);
@@ -90,6 +96,7 @@ export function useAnalyzers({
     audioCacheKeyRef.current = null;
     setAudioAnalysis(null);
     setAudioPreviewUrl(null);
+    setAudioLoudness(null);
     setImageAnalysis(null);
     setImagePreview(null);
     if (imagePreviewUrlRef.current) {
@@ -112,6 +119,7 @@ export function useAnalyzers({
     audioCacheKeyRef.current = null;
     setAudioAnalysis(null);
     setAudioPreviewUrl(null);
+    setAudioLoudness(null);
     if (audioPreviewUrlRef.current) {
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
@@ -281,6 +289,50 @@ export function useAnalyzers({
     audioAnalysis?.fileName,
     audioAnalysis?.waveformPeaks,
     setAudioPreviewFromBlob,
+  ]);
+
+  useEffect(() => {
+    if (!audioAnalysis) return undefined;
+
+    const gen = ++loudnessGenRef.current;
+    let cancelled = false;
+
+    (async () => {
+      setAudioLoudnessBusy(true);
+      try {
+        const resolved = await resolveAudioCacheBlob(audioAnalysis);
+        let blob = resolved?.blob;
+        if (!blob && audioPreviewUrlRef.current) {
+          const res = await fetch(audioPreviewUrlRef.current);
+          blob = await res.blob();
+        }
+        if (!blob || cancelled || gen !== loudnessGenRef.current) return;
+
+        const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const buffer = await decodeCtx.decodeAudioData((await blob.arrayBuffer()).slice(0));
+        try {
+          await decodeCtx.close();
+        } catch {}
+
+        const stats = await measureIntegratedLoudness(buffer);
+        if (!cancelled && gen === loudnessGenRef.current) {
+          setAudioLoudness(stats);
+        }
+      } catch {
+        if (!cancelled && gen === loudnessGenRef.current) setAudioLoudness(null);
+      } finally {
+        if (!cancelled && gen === loudnessGenRef.current) setAudioLoudnessBusy(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    audioAnalysis,
+    audioAnalysis?.audioCacheKey,
+    audioAnalysis?.audioLookupKey,
+    audioPreviewUrl,
   ]);
 
   const applyAudioToSunoStyle = useCallback(() => {
@@ -539,6 +591,60 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
     [setNotes, setStatusWithTime],
   );
 
+  const exportEnhancedAudio = useCallback(
+    async (presetId) => {
+      if (!audioAnalysis) {
+        setStatusWithTime("No track loaded to export");
+        return;
+      }
+      if (audioExportBusy) return;
+
+      setAudioExportBusy(true);
+      setStatusWithTime("Rendering enhanced WAV…");
+
+      let audioContext = null;
+      try {
+        const resolved = await resolveAudioCacheBlob(audioAnalysis);
+        let blob = resolved?.blob;
+        if (!blob && audioPreviewUrlRef.current) {
+          const res = await fetch(audioPreviewUrlRef.current);
+          blob = await res.blob();
+        }
+        if (!blob) {
+          setStatusWithTime("Attach the audio file before studio export");
+          return;
+        }
+
+        const arrayBuffer = await blob.arrayBuffer();
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const sourceBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+        const result = await exportEnhancedWav(
+          sourceBuffer,
+          presetId,
+          audioAnalysis.fileName,
+        );
+        if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
+          setStatusWithTime(
+            `WAV downloaded · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
+          );
+        } else {
+          setStatusWithTime("Enhanced WAV downloaded");
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        setStatusWithTime(msg ? msg.slice(0, 80) : "Studio export failed");
+      } finally {
+        setAudioExportBusy(false);
+        if (audioContext) {
+          try {
+            await audioContext.close();
+          } catch {}
+        }
+      }
+    },
+    [audioAnalysis, audioExportBusy, setStatusWithTime],
+  );
+
   const setAudioAnalysisNormalized = useCallback((value) => {
     if (!value) {
       syncCacheKeysRef(null);
@@ -557,8 +663,12 @@ Interpretation: turn the image into a ${visualMood} music style with matching te
     applyAudioToSunoStyle,
     applyImageToSunoStyle,
     audioAnalysis,
+    audioExportBusy,
+    audioLoudness,
+    audioLoudnessBusy,
     audioPreviewUrl,
     canvasRef,
+    exportEnhancedAudio,
     clearAudioAnalysis,
     clearImageAnalysis,
     imageAnalysis,

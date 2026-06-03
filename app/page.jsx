@@ -136,7 +136,11 @@ export default function Page() {
     applyAudioToSunoStyle,
     applyImageToSunoStyle,
     audioAnalysis,
+    audioExportBusy,
+    audioLoudness,
+    audioLoudnessBusy,
     audioPreviewUrl,
+    exportEnhancedAudio,
     canvasRef,
     clearAudioAnalysis,
     clearImageAnalysis,
@@ -1312,6 +1316,10 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                       onApply={applyAudioToSunoStyle}
                       onClear={clearAudioAnalysis}
                       onAttachAudio={attachAudioFile}
+                      loudness={audioLoudness}
+                      loudnessBusy={audioLoudnessBusy}
+                      onExportEnhanced={exportEnhancedAudio}
+                      exportBusy={audioExportBusy}
                     />
                   ) : null}
                 </DropBox>

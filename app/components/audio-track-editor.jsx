@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { formatTime } from "../lib/audio-analyzer";
+import { STUDIO_EXPORT_PRESETS } from "../lib/audio-enhancer";
+import {
+  formatLufs,
+  formatTruePeak,
+  STREAMING_TARGET_LUFS,
+} from "../lib/lufs-meter";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 
 function TagField({ label, hint, value, onChange, placeholder }) {
@@ -36,9 +42,20 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onExportEnhanced?: (presetId: string) => void, exportBusy?: boolean }} props
  */
-export function AudioTrackEditor({ analysis, audioUrl, onChange, onApply, onClear, onAttachAudio }) {
+export function AudioTrackEditor({
+  analysis,
+  audioUrl,
+  loudness = null,
+  loudnessBusy = false,
+  onChange,
+  onApply,
+  onClear,
+  onAttachAudio,
+  onExportEnhanced,
+  exportBusy = false,
+}) {
   const audioRef = useRef(null);
   const [playhead, setPlayhead] = useState(null);
   const rafRef = useRef(null);
@@ -198,6 +215,49 @@ export function AudioTrackEditor({ analysis, audioUrl, onChange, onApply, onClea
           onChange={(v) => setTags("suggestedRhythms", v)}
         />
       </section>
+
+      {onExportEnhanced ? (
+        <section className="rounded-2xl border border-violet-400/25 bg-violet-500/10 p-3 space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-violet-200/90">
+            Studio export
+          </div>
+          <div className="rounded-xl border border-violet-400/20 bg-black/25 px-3 py-2 font-mono text-[11px] text-violet-100/90">
+            {loudnessBusy ? (
+              <span className="text-white/45">Measuring LUFS…</span>
+            ) : loudness ? (
+              <span>
+                Source: {formatLufs(loudness.integratedLUFS)} · {formatTruePeak(loudness.truePeakDbTP)} · BS.1770-4
+                / EBU R128
+              </span>
+            ) : (
+              <span className="text-white/40">
+                Attach audio to measure gated integrated LUFS (EBU R128)
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] leading-relaxed text-white/45">
+            Local mastering → 16-bit WAV. Streaming export normalizes to {STREAMING_TARGET_LUFS} LUFS
+            (gated integrated) with −1 dBTP true-peak limit.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {STUDIO_EXPORT_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                disabled={exportBusy}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onExportEnhanced(preset.id);
+                }}
+                className="rounded-2xl border border-violet-400/35 bg-violet-500/20 px-2 py-2 text-left transition hover:bg-violet-500/30 disabled:cursor-wait disabled:opacity-50"
+              >
+                <div className="text-xs font-bold text-violet-50">{preset.label}</div>
+                <div className="mt-0.5 text-[10px] text-white/40">{preset.hint}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-emerald-400/20 bg-black/30 p-3 space-y-2">
         <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-200/90">Technical</div>
