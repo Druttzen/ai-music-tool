@@ -70,7 +70,13 @@ Static export output is written to `out/` (see `next.config.js` — `assetPrefix
 npm run dist
 ```
 
-Runs `npm run build`, prepares `out/` for Electron (`npm run prepare:electron-dist`), then **electron-builder**. Installer output under `electron-dist/` (see `package.json` `build` section). Packaged README PDF is opened once on first launch (`main.js`).
+Runs `npm run build`, regenerates **`build/AI_Music_Creator_README.pdf`** from this README (`npm run build:readme-pdf`), prepares `out/` for Electron (`npm run prepare:electron-dist`), then **electron-builder**. Installer output under `electron-dist/` (see `package.json` `build` section). The PDF opens once on first launch (`main.js`).
+
+Regenerate the PDF alone:
+
+```bash
+npm run build:readme-pdf
+```
 
 If `dist` fails because `electron-dist/win-unpacked` is locked, close any running **AI Music Creator** instance and Explorer windows in that folder, or run `npm run stop` and retry.
 

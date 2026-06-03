@@ -13,8 +13,9 @@
     "check": "npm run lint && npm run build",
     "build": "next build",
     "electron": "electron .",
+    "build:readme-pdf": "node scripts/generate-readme-pdf.cjs",
     "prepare:electron-dist": "node scripts/prep-electron-dist.cjs",
-    "dist": "npm run build && npm run prepare:electron-dist && electron-builder",
+    "dist": "npm run build && npm run build:readme-pdf && npm run prepare:electron-dist && electron-builder",
     "dis": "npm run dist"
   },
   "dependencies": {
@@ -24,11 +25,12 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
-    "tailwindcss": "latest",
-    "electron": "latest",
-    "electron-builder": "latest"
+    "pdfkit": "^0.18.0",
+    "tailwindcss": "latest"
   },
   "overrides": {
     "postcss": "^8.5.10"
