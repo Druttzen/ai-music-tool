@@ -18,7 +18,9 @@
 /out/
 
 # production
-/build
+/build/*
+!/build/
+!/build/AI_Music_Creator_README.pdf
 
 # Windows installer / local packaging output (rebuild with npm run dist)
 /dist/

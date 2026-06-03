@@ -38,13 +38,17 @@
     "productName": "AI Music Creator",
     "files": [
       "main.js",
-      "out/**/*"
+      "out/**/*",
+      "icon.ico",
+      "build/AI_Music_Creator_README.pdf"
     ],
     "directories": {
+      "buildResources": "build",
       "output": "electron-dist"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "icon.ico"
     },
     "nsis": {
       "oneClick": false,
