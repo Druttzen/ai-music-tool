@@ -71,7 +71,8 @@
       {
         "provider": "github",
         "owner": "Druttzen",
-        "repo": "ai-music-tool"
+        "repo": "ai-music-tool",
+        "releaseType": "release"
       }
     ]
   }
