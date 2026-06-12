@@ -60,7 +60,7 @@ export const SUNO_GUIDED_STEPS = [
     id: 5,
     name: "Lyric direction",
     line: "Lyric direction: set theme, style, and mode so the app builds your Suno ‘Lyrics’ field coherently with bracket rules.",
-    where: "Lyric Style Generator; Co-Producer ‘Generate Lyrics’ is optional. Prompt Engine = Suno-like (already on for this path).",
+    where: "Lyric Style Generator — pick Lyric Style, then Co-Producer · Generate Lyrics for a draft matched to that style prompt.",
     next: "Suno Voice Style (first/last) or famous presets, then voice style line — audio/image analyzers come later and are optional.",
     optimal: "Use [Verse] / [Chorus] in generated content so Suno can section correctly; keep Style box for sound only.",
   },

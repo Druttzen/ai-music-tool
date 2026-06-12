@@ -1,8 +1,16 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.7.9**
+**Version 0.8.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+
+## Highlights (v0.8.0)
+
+- **Co-Producer Generate Lyrics** — after picking **Lyric Style**, generate editable lyric drafts matched to that style prompt (Another take, stale-style warning, char budget).
+- **Style-aware hooks** — hook sketches tied to the same Lyric Style presets.
+- **Instrumental → lyrics** — timed scaffold plus Co-Producer singable draft and hooks in one step.
+- **Optional LLM backend** — OpenAI-compatible API (key stored locally); falls back to built-in templates.
+- **Swedish / mixed language** phrase pools per style.
 
 ## Highlights (v0.7.9)
 

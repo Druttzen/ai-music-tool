@@ -5,7 +5,7 @@ export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
 export const APP_VERSION =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION
     ? process.env.NEXT_PUBLIC_APP_VERSION
-    : "0.7.9";
+    : "0.8.0";
 export const AUTHOR = "DJ M@D";
 
 export const DEFAULT_STATE = {
@@ -33,7 +33,10 @@ export const DEFAULT_STATE = {
   promptEngine: "Standard",
   coProducerOutput: "",
   generatedLyrics: "",
+  generatedLyricsStyle: "",
   generatedHooks: "",
+  generatedHooksStyle: "",
+  lyricVariantSeed: 0,
   lyricMode: "Structured Song",
   voiceRefFirstName: "",
   voiceRefLastName: "",

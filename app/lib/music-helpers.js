@@ -1,3 +1,5 @@
+import { getLyricStyleDirection } from "./lyric-generator";
+
 export function uniq(arr) {
   return Array.from(new Set(arr));
 }
@@ -71,17 +73,6 @@ export function buildLyricPrompt({
     ? "balanced lines, memorable phrases, clear hook"
     : "dense lyrical flow, internal rhyme, high detail";
 
-  const styleMap = {
-    "Dark poetic": "shadowy imagery, metaphor, night city atmosphere, serious tone",
-    "Club chant": "short repeatable phrases, crowd energy, hook-first writing, simple words",
-    "Street raw": "direct language, gritty confidence, grounded emotion, strong rhythm",
-    "Emotional cinematic": "dramatic imagery, rising emotion, wide atmosphere, story feeling",
-    "Minimal mantra": "few words repeated with hypnotic variation, simple and iconic",
-    "Robotic cyber": "synthetic phrasing, digital metaphors, machine-like repetition",
-    "Aggressive hype": "commanding lines, high pressure, bold hooks, performance energy",
-    "Dreamlike abstract": "surreal images, strange symbols, floating emotion, loose logic",
-  };
-
   const modeRules = {
     "Raw Prompt": "Create lyric direction only. Do not write full lyrics unless asked.",
     "Structured Song":
@@ -103,7 +94,7 @@ FX ad-libs: (BOOM) (CLAP); fictional words stay very short.`;
   return bracketizeSunoPromptBlock(`LYRIC STYLE
 Language: ${lyricLanguage}
 Theme: ${lyricTheme}
-Style: ${lyricStyle} — ${styleMap[lyricStyle] || lyricStyle}
+Style: ${lyricStyle} — ${getLyricStyleDirection(lyricStyle)}
 Mode: ${lyricMode}
 Structure: ${lyricStructure}
 Density: ${densityText}

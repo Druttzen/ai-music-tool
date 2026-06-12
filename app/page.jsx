@@ -40,6 +40,11 @@ import {
 import { useUndoSnapshot } from "./hooks/use-undo-snapshot";
 import { VariationCompare } from "./components/variation-compare";
 import {
+  CoProducerHooksBlock,
+  CoProducerLlmSettings,
+  CoProducerLyricsBlock,
+} from "./components/co-producer-lyrics-block";
+import {
   SUPPORTED_AUDIO_ACCEPT,
   SUPPORTED_AUDIO_LABEL,
   SUPPORTED_IMAGE_ACCEPT,
@@ -86,6 +91,14 @@ import {
   getVocalText,
   uniq,
 } from "./lib/music-helpers";
+import { generateCoProducerLyrics, generateCoProducerHooks, getLyricStyleDirection, mergeInstrumentalScaffoldWithStyleLyrics } from "./lib/lyric-generator";
+import {
+  DEFAULT_LLM_SETTINGS,
+  generateLyricsWithLlm,
+  isCoProducerLlmReady,
+  loadCoProducerLlmSettings,
+  saveCoProducerLlmSettings,
+} from "./lib/co-producer-llm";
 import {
   buildSunoVoiceStyleCompact,
   buildSunoVoiceStyleLine,
@@ -127,7 +140,18 @@ export default function Page() {
   const [promptEngine, setPromptEngine] = useState(DEFAULT_STATE.promptEngine ?? "Standard");
   const [coProducerOutput, setCoProducerOutput] = useState(DEFAULT_STATE.coProducerOutput);
   const [generatedLyrics, setGeneratedLyrics] = useState(DEFAULT_STATE.generatedLyrics);
+  const [generatedLyricsStyle, setGeneratedLyricsStyle] = useState(
+    DEFAULT_STATE.generatedLyricsStyle ?? "",
+  );
   const [generatedHooks, setGeneratedHooks] = useState(DEFAULT_STATE.generatedHooks);
+  const [generatedHooksStyle, setGeneratedHooksStyle] = useState(
+    DEFAULT_STATE.generatedHooksStyle ?? "",
+  );
+  const [lyricVariantSeed, setLyricVariantSeed] = useState(DEFAULT_STATE.lyricVariantSeed ?? 0);
+  const [lyricsGenerateBusy, setLyricsGenerateBusy] = useState(false);
+  const [coProducerLlmSettings, setCoProducerLlmSettings] = useState(() =>
+    typeof window !== "undefined" ? loadCoProducerLlmSettings() : DEFAULT_LLM_SETTINGS,
+  );
   const [lyricMode, setLyricMode] = useState(DEFAULT_STATE.lyricMode);
   const [voiceRefFirstName, setVoiceRefFirstName] = useState(
     DEFAULT_STATE.voiceRefFirstName ?? "",
@@ -211,7 +235,10 @@ export default function Page() {
       promptEngine,
       coProducerOutput,
       generatedLyrics,
+      generatedLyricsStyle,
       generatedHooks,
+      generatedHooksStyle,
+      lyricVariantSeed,
       lyricMode,
       voiceRefFirstName,
       voiceRefLastName,
@@ -249,7 +276,10 @@ export default function Page() {
       promptEngine,
       coProducerOutput,
       generatedLyrics,
+      generatedLyricsStyle,
       generatedHooks,
+      generatedHooksStyle,
+      lyricVariantSeed,
       lyricMode,
       voiceRefFirstName,
       voiceRefLastName,
@@ -291,7 +321,10 @@ export default function Page() {
     setPromptEngine(data.promptEngine ?? DEFAULT_STATE.promptEngine ?? "Standard");
     setCoProducerOutput(data.coProducerOutput ?? DEFAULT_STATE.coProducerOutput);
     setGeneratedLyrics(data.generatedLyrics ?? DEFAULT_STATE.generatedLyrics);
+    setGeneratedLyricsStyle(data.generatedLyricsStyle ?? DEFAULT_STATE.generatedLyricsStyle ?? "");
     setGeneratedHooks(data.generatedHooks ?? DEFAULT_STATE.generatedHooks);
+    setGeneratedHooksStyle(data.generatedHooksStyle ?? DEFAULT_STATE.generatedHooksStyle ?? "");
+    setLyricVariantSeed(data.lyricVariantSeed ?? DEFAULT_STATE.lyricVariantSeed ?? 0);
     setLyricMode(data.lyricMode ?? DEFAULT_STATE.lyricMode);
     setVoiceRefFirstName(data.voiceRefFirstName ?? DEFAULT_STATE.voiceRefFirstName ?? "");
     setVoiceRefLastName(data.voiceRefLastName ?? DEFAULT_STATE.voiceRefLastName ?? "");
@@ -321,16 +354,47 @@ export default function Page() {
 
     const theme = buildLyricThemeFromAnalysis(audioAnalysis);
     const structure = inferStructureFromTrack(audioAnalysis);
-    const lyrics = buildInstrumentalLyricsScaffold(audioAnalysis, { theme });
+    const suggestedStyle = suggestLyricStyleFromAnalysis(audioAnalysis);
+    const vocalRole = suggestVocalRoleFromAnalysis(audioAnalysis);
+    const scaffold = buildInstrumentalLyricsScaffold(audioAnalysis, { theme });
+    const moodWordsLocal = [
+      mood.darkness > 65 ? "dark" : null,
+      mood.energy > 70 ? "high-energy" : null,
+      mood.emotion > 60 ? "emotional" : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || "balanced";
+
+    const coInput = {
+      vocal: vocalRole,
+      lyricStyle: suggestedStyle,
+      lyricTheme: theme,
+      lyricMode: "Structured Song",
+      lyricLanguage,
+      lyricStructure: structure,
+      lyricDensity,
+      mood,
+      moodWords: moodWordsLocal,
+      selectedGenres,
+      idea,
+      variantSeed: 0,
+    };
+    const coProd = generateCoProducerLyrics(coInput);
+    const hookResult = generateCoProducerHooks(coInput);
+    const merged = mergeInstrumentalScaffoldWithStyleLyrics(scaffold, coProd);
 
     setInstrumentalVocalFx(false);
-    setVocal(suggestVocalRoleFromAnalysis(audioAnalysis));
+    setVocal(vocalRole);
     setLyricTheme(theme);
-    setLyricStyle(suggestLyricStyleFromAnalysis(audioAnalysis));
+    setLyricStyle(suggestedStyle);
     setLyricMode("Structured Song");
     setLyricStructure(structure);
     setStructure(structure);
-    setGeneratedLyrics(lyrics);
+    setGeneratedLyrics(merged);
+    setGeneratedLyricsStyle(suggestedStyle);
+    setGeneratedHooks(hookResult.hooks);
+    setGeneratedHooksStyle(suggestedStyle);
+    setLyricVariantSeed(0);
     setRules((prev) => stripInstrumentalOnlyRules(prev));
 
     if (promptEngine !== "Suno-like") {
@@ -338,13 +402,18 @@ export default function Page() {
     }
     setGuidedStep(getGuidedLyricsStepIndex());
     setStatusWithTime(
-      "Lyrics scaffold added — timed to your track. Edit the draft, then copy the Lyrics field.",
+      `Lyrics + ${suggestedStyle} singable draft added — timed to your track. Edit, then copy Lyrics.`,
     );
   }, [
     audioAnalysis,
     applyAudioToSunoStyle,
     captureSnapshot,
+    idea,
+    lyricDensity,
+    lyricLanguage,
+    mood,
     promptEngine,
+    selectedGenres,
     setGuidedStep,
     setStatusWithTime,
   ]);
@@ -948,162 +1017,83 @@ ${fixesToApply.length ? fixesToApply.join(", ") : "No extra sound modules needed
     setStatusWithTime("Co-Producer AI updated prompt");
   };
 
-  const generateHooks = () => {
+  const generateHooks = (bumpVariant = false) => {
+    const nextSeed = bumpVariant ? lyricVariantSeed + 1 : lyricVariantSeed;
+    if (bumpVariant) setLyricVariantSeed(nextSeed);
+    const result = generateCoProducerHooks({
+      vocal,
+      lyricStyle,
+      lyricTheme,
+      lyricLanguage,
+      mood,
+      idea,
+      variantSeed: nextSeed,
+    });
+    setGeneratedHooks(result.hooks);
+    setGeneratedHooksStyle(result.styleLabel);
     if (vocal === "Instrumental") {
-      setGeneratedHooks(
-        bracketizeSunoPromptLine(
-          "Instrumental mode is active. Switch vocal mode to generate lyric hooks.",
-        ),
-      );
       setStatusWithTime("Hooks skipped in instrumental mode");
       return;
     }
-    const core = lyricTheme || idea;
-    const energyWord = mood.energy > 70 ? "ignite" : "breathe";
-    const darkWord = mood.darkness > 65 ? "night" : "light";
-    const hooks = `${bracketizeSunoPromptLine("HOOK IDEAS")}
-${bracketizeSunoPromptLine("Meta: Example hook sketches below — singable lines for the Lyrics field, not Style metadata.")}
-
-1.
-${core}
-Feel the bass in the ${darkWord}
-We don't stop, we ${energyWord}
-
-2.
-Under pressure, under sound
-We rise where the lights go down
-
-3.
-Move like thunder, breathe like fire
-One more drop takes us higher`;
-
-    setGeneratedHooks(hooks);
-    setStatusWithTime("Generated hook ideas");
+    setStatusWithTime(`Generated ${result.styleLabel} hook ideas`);
   };
 
-  const generateExampleLyrics = () => {
+  const runGenerateLyrics = async (bumpVariant = false) => {
+    const nextSeed = bumpVariant ? lyricVariantSeed + 1 : lyricVariantSeed;
+    if (bumpVariant) setLyricVariantSeed(nextSeed);
+
+    const input = {
+      vocal,
+      lyricStyle,
+      lyricTheme,
+      lyricMode,
+      lyricLanguage,
+      lyricStructure,
+      lyricDensity,
+      mood,
+      moodWords,
+      selectedGenres,
+      idea,
+      variantSeed: nextSeed,
+    };
+
     if (vocal === "Instrumental") {
-      setGeneratedLyrics(
-        bracketizeSunoPromptLine(
-          "Instrumental mode is active. Switch vocal mode to generate lyrics.",
-        ),
-      );
+      const result = generateCoProducerLyrics(input);
+      setGeneratedLyrics(result.lyrics);
+      setGeneratedLyricsStyle("");
+      setStatusWithTime("Lyrics skipped in instrumental mode");
       return;
     }
 
-    const hookLine = mood.darkness > 65
-      ? "In the dark we come alive"
-      : "In the light we rise again";
-
-    const energyLine = mood.energy > 70
-      ? "Feel the pressure, feel the sound"
-      : "Slow motion, drifting down";
-
-    const styleLine =
-      lyricStyle === "Robotic cyber" ? "Metal heart, electric mind" :
-      lyricStyle === "Club chant" ? "Hands up, bass down, move now" :
-      lyricStyle === "Aggressive hype" ? "Break the floor, shake the walls" :
-      lyricStyle === "Minimal mantra" ? "One pulse, one breath, one flame" :
-      lyricStyle === "Dreamlike abstract" ? "Silver shadows melt in rain" :
-      "Shadows move under my skin";
-
-    let lyrics = "";
-
-    if (lyricMode === "Raw Prompt") {
-      lyrics = bracketizeSunoPromptBlock(`LYRIC DIRECTION
-Language: ${lyricLanguage}
-Theme: ${lyricTheme}
-Style: ${lyricStyle}
-Mood: ${moodWords}
-Write short, singable lines with a strong repeated hook.
-Use [Verse], [Chorus], [Bridge], and [Outro] tags.`);
-    } else if (lyricMode === "Performance Ready") {
-      lyrics = `[Intro]
-(${mood.darkness > 65 ? "dark atmosphere, distant vocal texture" : "wide atmosphere, soft vocal texture"})
-
-[Verse 1]
-${lyricTheme}
-${styleLine}
-Every heartbeat locks in time
-Bass is crawling up my spine
-
-[Pre-Chorus]
-${energyLine}
-Take control, don't slow it down
-Feel the signal underground
-We are rising through the sound
-
-[Chorus]
-${hookLine}
-Feel the bass beneath your skin
-Let it pull you deep within
-No surrender, no rewind
-We evolve inside the sound
-
-[Verse 2]
-Same fire, new direction
-Built from pressure and connection
-Every shadow knows my name
-Every rhythm feeds the flame
-
-[Bridge]
-Break it down
-Strip it bare
-Only bass left in the air
-Hold the silence
-Shape the wave
-Bring it back and let it cave
-
-[Final Chorus]
-${hookLine}
-Feel the bass beneath your skin
-Let it pull you deep within
-No surrender, no rewind
-We evolve inside the sound
-
-[Outro]
-(fading vocal echo)
-Feel the bass
-Evolve the sound`;
-    } else {
-      lyrics = `[Intro]
-(ambient atmosphere, no lead vocal yet)
-
-[Verse 1]
-${lyricTheme}
-${styleLine}
-Every pulse is locked in time
-Every echo bends the line
-
-[Pre-Chorus]
-${energyLine}
-Take control, don't slow it down
-
-[Chorus]
-${hookLine}
-Feel the bass beneath your skin
-Let it pull you deep within
-
-[Verse 2]
-Same rhythm, new direction
-Built on sound and tension
-
-[Bridge]
-Break it down, remove the weight
-Silence bending into shape
-
-[Chorus]
-${hookLine}
-Feel the bass beneath your skin
-Let it pull you deep within
-
-[Outro]
-(fading energy, minimal vocal tail)`;
+    setLyricsGenerateBusy(true);
+    try {
+      let result;
+      if (isCoProducerLlmReady(coProducerLlmSettings)) {
+        try {
+          result = await generateLyricsWithLlm(input, coProducerLlmSettings);
+          setStatusWithTime(`LLM lyrics for ${result.styleLabel}`);
+        } catch {
+          result = generateCoProducerLyrics(input);
+          setStatusWithTime(`LLM unavailable — built-in ${result.styleLabel} draft`);
+        }
+      } else {
+        result = generateCoProducerLyrics(input);
+        setStatusWithTime(
+          bumpVariant
+            ? `Another take · ${result.styleLabel} (${lyricMode})`
+            : `Co-Producer generated ${lyricMode} lyrics for ${result.styleLabel}`,
+        );
+      }
+      setGeneratedLyrics(result.lyrics);
+      setGeneratedLyricsStyle(result.styleLabel);
+      addHistory(`Lyrics · ${result.styleLabel}`, result.lyrics.slice(0, 500), currentState);
+    } finally {
+      setLyricsGenerateBusy(false);
     }
-
-    setGeneratedLyrics(lyrics);
-    setStatusWithTime("Generated structured singable lyrics");
   };
+
+  const generateExampleLyrics = () => runGenerateLyrics(false);
+  const shuffleExampleLyrics = () => runGenerateLyrics(true);
 
   const generateVariations=()=>{
     captureSnapshot("before variations");
@@ -1258,6 +1248,26 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
 
                 <Slider label="Lyric Density" value={lyricDensity} left="minimal" right="dense" setValue={setLyricDensity}/>
               </div>
+
+              <CoProducerLyricsBlock
+                lyricStyle={lyricStyle}
+                generatedLyrics={generatedLyrics}
+                generatedLyricsStyle={generatedLyricsStyle}
+                onLyricsChange={setGeneratedLyrics}
+                onGenerate={generateExampleLyrics}
+                onAnotherTake={shuffleExampleLyrics}
+                generateBusy={lyricsGenerateBusy}
+              />
+
+              {generatedLyrics && (
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(generatedLyrics, "Generated lyrics copied")}
+                  className="mt-2 w-full rounded-2xl border border-orange-300/30 bg-black/30 px-4 py-2 text-sm font-bold text-orange-100 hover:bg-black/50"
+                >
+                  Copy Generated Lyrics
+                </button>
+              )}
 
               <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50">
                 {lyricPrompt}
@@ -1535,24 +1545,33 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
 
             <Panel title="Step 4 — Co‑Producer Buttons" hint="One-click creative direction."><div className="flex flex-wrap gap-2">{["Make darker","More aggressive","More minimal","More cinematic","More club"].map(x=><button key={x} onClick={()=>coProducer(x)} className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100">{x}</button>)}</div></Panel>
 
-            <Panel title="Co‑Producer AI" hint="One-click assistant that tightens your style, fixes weak spots, and generates hooks/lyrics.">
+            <Panel title="Co‑Producer AI" hint="One-click assistant that tightens your style, fixes weak spots, and generates hooks/lyrics tied to your Lyric Style.">
               <p className="mb-3 text-[11px] leading-relaxed text-white/50">
                 <strong className="text-white/65">Copy guide:</strong> Lyric Style Generator = bracketed Suno direction only.
-                Generate Lyrics with <strong className="text-white/65">Raw Prompt</strong> matches that format;{" "}
-                <strong className="text-white/65">Structured Song</strong> /{" "}
-                <strong className="text-white/65">Performance Ready</strong> output real [Verse]/[Chorus] lyric drafts.
+                <strong className="text-white/65"> Generate Lyrics</strong> writes draft lyric text matched to{" "}
+                <strong className="text-white/65">{lyricStyle}</strong> ({getLyricStyleDirection(lyricStyle)}).
+                Raw Prompt = bracketed direction; Structured Song / Performance Ready = [Verse]/[Chorus] drafts.
               </p>
               <div className="grid gap-2 md:grid-cols-3">
                 <button onClick={buildCoProducerAI} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">
                   Improve Prompt
                 </button>
-                <button onClick={generateHooks} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">
+                <button onClick={() => generateHooks()} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">
                   Generate Hooks
                 </button>
-                <button onClick={generateExampleLyrics} className="rounded-2xl bg-orange-300 px-4 py-2 font-bold text-black hover:bg-orange-200">
-                  Generate Lyrics
+                <button onClick={() => generateHooks(true)} className="rounded-2xl border border-cyan-300/40 bg-black/30 px-4 py-2 font-bold text-cyan-100 hover:bg-black/50">
+                  Another hook take
                 </button>
               </div>
+
+              <CoProducerLlmSettings
+                settings={coProducerLlmSettings}
+                onChange={setCoProducerLlmSettings}
+                onSave={() => {
+                  saveCoProducerLlmSettings(coProducerLlmSettings);
+                  setStatusWithTime("LLM settings saved locally");
+                }}
+              />
 
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <label>
@@ -1576,17 +1595,23 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                 </pre>
               )}
 
-              {generatedHooks && (
-                <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
-                  {generatedHooks}
-                </pre>
-              )}
+              <CoProducerHooksBlock
+                lyricStyle={lyricStyle}
+                generatedHooks={generatedHooks}
+                generatedHooksStyle={generatedHooksStyle}
+              />
 
-              {generatedLyrics && (
-                <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50">
-                  {generatedLyrics}
-                </pre>
-              )}
+              <CoProducerLyricsBlock
+                className="mt-3"
+                lyricStyle={lyricStyle}
+                generatedLyrics={generatedLyrics}
+                generatedLyricsStyle={generatedLyricsStyle}
+                onLyricsChange={setGeneratedLyrics}
+                onGenerate={generateExampleLyrics}
+                onAnotherTake={shuffleExampleLyrics}
+                generateBusy={lyricsGenerateBusy}
+                showStyleHint={false}
+              />
 
               <div className="mt-3 grid gap-2 md:grid-cols-3">
                 <button onClick={() => copyToClipboard(coProducerOutput || "", "Report copied")} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20">Copy Report</button>
