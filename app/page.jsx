@@ -68,6 +68,7 @@ import {
 import {
   APP_VERSION,
   AUTHOR,
+  BLANK_STATE,
   DEFAULT_STATE,
   fixes,
   genreOptions,
@@ -420,13 +421,16 @@ export default function Page() {
 
   const resetAll=()=>{
     captureSnapshot("before reset");
-    loadState(DEFAULT_STATE);
+    loadState(BLANK_STATE);
     setVariations([]);
+    setHistory([]);
+    setSelectedHistoryId(null);
     resetAnalyzers();
     setGuidedStep(0);
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(HISTORY_KEY);
     resetSplash();
-    setStatusWithTime("Reset to default");
+    setStatusWithTime("Reset — blank slate on guided step 1; pick each prompt yourself");
   };
 
   useEffect(() => {
@@ -1170,7 +1174,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               {Object.keys(customPresets).length>0 && <div className="mt-4 space-y-2"><div className="text-xs font-bold uppercase tracking-wider text-white/45">Custom Presets</div>{Object.entries(customPresets).map(([name,p])=><div key={name} className="rounded-2xl border border-white/10 bg-black/25 p-2"><button onClick={()=>loadPresetObject(name,p)} className="w-full text-left text-sm font-bold text-cyan-100">{name}</button><button onClick={()=>deleteCustomPreset(name)} className="mt-2 text-xs font-bold text-red-300 hover:text-red-200">Delete</button></div>)}</div>}
             </Panel>
 
-            <Panel title="Save / Load" hint="Keeps unfinished work safe. Undo restores guided step, variations, history, and slim audio (IndexedDB rehydrates playback when cached)."><div className="grid gap-2"><button onClick={saveProject} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">Save Progress</button><button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">Export JSON</button><label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">Import JSON<input type="file" accept="application/json" onChange={importProject} className="hidden"/></label><button onClick={revertSnapshot} className="rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-2 font-bold text-amber-100 hover:bg-amber-500/25">Revert to last snapshot</button><button onClick={resetAll} className="rounded-2xl bg-red-400 px-4 py-2 font-bold text-black hover:bg-red-300">Reset to Default</button></div></Panel>
+            <Panel title="Save / Load" hint="Keeps unfinished work safe. Reset to Default clears all preselected genres, sounds, rules, and lyrics so you can build step by step from guided step 1."><div className="grid gap-2"><button onClick={saveProject} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">Save Progress</button><button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">Export JSON</button><label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">Import JSON<input type="file" accept="application/json" onChange={importProject} className="hidden"/></label><button onClick={revertSnapshot} className="rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-2 font-bold text-amber-100 hover:bg-amber-500/25">Revert to last snapshot</button><button onClick={resetAll} className="rounded-2xl bg-red-400 px-4 py-2 font-bold text-black hover:bg-red-300" title="Clears all preselected style, prompts, analyzers, and history">Reset to Default</button></div></Panel>
             <Panel title="Mode" hint="Controls stability vs creativity."><div className="grid grid-cols-3 gap-2">{["Control","Hybrid","Chaos"].map(m=><Pill key={m} active={mode===m} onClick={()=>setMode(m)}>{m}</Pill>)}</div></Panel>
             <Panel title="Pro Mode" hint="Advanced controls and stronger prompt shaping."><button onClick={()=>setProMode(!proMode)} className={"w-full rounded-2xl px-4 py-2 font-bold "+(proMode?"bg-purple-300 text-black":"bg-black/40 text-white border border-white/10")}>{proMode?"Pro Mode ON":"Pro Mode OFF"}</button>{proMode && <div className="mt-3 space-y-3"><Slider label="Prompt Intensity" value={promptIntensity} left="safe" right="experimental" setValue={setPromptIntensity}/><Slider label="Variations" value={variationCount} left="1" right="8" min={1} max={8} setValue={setVariationCount}/><div className="rounded-2xl border border-purple-300/20 bg-purple-300/10 p-3 text-xs text-purple-100">{intensityText}</div></div>}</Panel>
           </aside>

@@ -15,6 +15,7 @@ export function getIntensityText(promptIntensity) {
 }
 
 export function getVocalText(vocal) {
+  if (!vocal) return "vocal role not selected yet — pick a vocal mode when you reach that step";
   if (vocal === "Instrumental") return "instrumental only, no vocals, no vocal chops, no mumbled speech textures, do not use lyrics as FX";
   if (vocal === "Robotic") return "robotic voice persona, synthetic tone, processed delivery, rhythmic phrases, consistent voice identity";
   if (vocal === "Vocal Chops") return "short rhythmic vocal chops only, no lead singing, no mumbled background speech";
