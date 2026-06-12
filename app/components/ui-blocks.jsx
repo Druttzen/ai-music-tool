@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 export function Pill({ active, children, onClick }) {
   return (
@@ -13,6 +13,80 @@ export function Pill({ active, children, onClick }) {
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * Searchable multi-select pill grid for large Suno style/instrument lists.
+ * @param {object} props
+ * @param {string} props.label
+ * @param {string[]} props.options
+ * @param {{ label: string, items: { label: string }[] }[]} [props.groups]
+ * @param {string[]} props.selected
+ * @param {(value: string) => void} props.onToggle
+ * @param {string} [props.hint]
+ */
+export function SearchablePillGrid({ label, options, groups, selected, onToggle, hint }) {
+  const [query, setQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
+  const filtered = useMemo(() => {
+    let pool = options;
+    if (groups && groupFilter !== "all") {
+      const g = groups.find((x) => x.label === groupFilter);
+      pool = g ? g.items.map((i) => i.label) : options;
+    }
+    const q = query.trim().toLowerCase();
+    if (!q) return pool;
+    return pool.filter((x) => x.toLowerCase().includes(q));
+  }, [options, groups, groupFilter, query]);
+
+  return (
+    <div className="mb-4">
+      <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-white/45">{label}</div>
+          {hint && <p className="mt-0.5 text-[10px] text-white/35">{hint}</p>}
+        </div>
+        <span className="text-[10px] text-white/35">
+          {selected.length} selected · {filtered.length} shown
+        </span>
+      </div>
+      <div className="mb-2 flex flex-wrap gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${label.toLowerCase()}…`}
+          className="min-w-[140px] flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-cyan-300"
+        />
+        {groups?.length ? (
+          <select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none"
+          >
+            <option value="all">All groups</option>
+            {groups.map((g) => (
+              <option key={g.label} value={g.label}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+      <div className="max-h-44 overflow-y-auto rounded-2xl border border-white/5 bg-black/10 p-2">
+        <div className="flex flex-wrap gap-2">
+          {filtered.map((x) => (
+            <Pill key={x} active={selected.includes(x)} onClick={() => onToggle(x)}>
+              {x}
+            </Pill>
+          ))}
+          {!filtered.length && (
+            <span className="px-2 py-1 text-xs text-white/40">No matches — try another search.</span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

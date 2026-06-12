@@ -13,5 +13,5 @@ test("Co-Producer Generate Lyrics produces style-tagged draft", async ({ page })
   const lyricsBox = page.locator("textarea").first();
   await expect(lyricsBox).toBeVisible({ timeout: 15000 });
   await expect(lyricsBox).toHaveValue(/\[Style:/, { timeout: 5000 });
-  await expect(lyricsBox).toHaveValue(/\[Verse 1\]/);
+  await expect(lyricsBox).toHaveValue(/\[Verse 1/, { timeout: 5000 });
 });

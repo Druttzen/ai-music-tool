@@ -454,6 +454,66 @@ export const GENRE_ANCHOR_ENTRIES = [
     rhythms: ["4/4", "Syncopated"],
     rule: "chorused guitars and punchy synthetic drums",
   },
+  {
+    keys: ["r&b", "neo-soul", "contemporary r&b"],
+    sounds: ["Rhodes electric piano", "Soft drums", "808 bass"],
+    rhythms: ["Swing", "Syncopated"],
+    rule: "smooth groove with warm keys and intimate vocal-forward mix",
+  },
+  {
+    keys: ["reggaeton", "dembow", "latin"],
+    sounds: ["808 bass", "Hand percussion", "Metallic percussion"],
+    rhythms: ["Dembow bounce", "Syncopated"],
+    rule: "dembow kick pattern with tight reggaeton hat rolls",
+  },
+  {
+    keys: ["phonk", "cloud rap"],
+    sounds: ["808 bass", "Vinyl texture", "Distorted bass"],
+    rhythms: ["Halftime", "Drill groove"],
+    rule: "memphis-style sampled darkness with crushed low end",
+  },
+  {
+    keys: ["afrobeats", "afrobeat", "highlife"],
+    sounds: ["Hand percussion", "Bright leads", "Guitar"],
+    rhythms: ["Syncopated", "Tribal"],
+    rule: "polyrhythmic percussion pocket with melodic hook lift",
+  },
+  {
+    keys: ["k-pop", "j-pop", "hyperpop"],
+    sounds: ["Bright leads", "Supersaw chords", "Soft drums"],
+    rhythms: ["4/4", "Rolling"],
+    rule: "hook-dense arrangement with polished pop production",
+  },
+  {
+    keys: ["hardstyle", "gabber", "hardcore"],
+    sounds: ["Distorted bass", "Metallic percussion", "Side-chain pump"],
+    rhythms: ["4/4", "Double-time"],
+    rule: "distorted kick drive with relentless four-on-the-floor energy",
+  },
+  {
+    keys: ["blues", "chicago blues"],
+    sounds: ["Guitar", "Piano", "Dark saxophone"],
+    rhythms: ["Shuffle", "Swing"],
+    rule: "12-bar feel with expressive guitar and vocal call-and-response",
+  },
+  {
+    keys: ["bossa nova", "samba", "latin jazz"],
+    sounds: ["Nylon classical guitar", "Soft drums", "Dark saxophone"],
+    rhythms: ["Bossa groove", "Samba groove"],
+    rule: "syncopated nylon guitar with light brush percussion",
+  },
+  {
+    keys: ["bollywood", "indian classical"],
+    sounds: ["Sitar", "Tabla", "Orchestral strings"],
+    rhythms: ["Tribal", "Syncopated"],
+    rule: "melodic raga color with tabla rhythmic cycles",
+  },
+  {
+    keys: ["lo-fi hip hop"],
+    sounds: ["Vinyl texture", "Piano", "Soft drums"],
+    rhythms: ["Boom Bap", "Swing"],
+    rule: "dusty sample warmth with relaxed swung drums",
+  },
 ];
 
 /**

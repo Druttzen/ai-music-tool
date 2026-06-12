@@ -1,3 +1,15 @@
+import { lyricLanguageOptions as sunoLyricLanguageOptions } from "./suno-lyric-languages";
+import {
+  genreOptions as sunoGenreOptions,
+  rhythmOptions as sunoRhythmOptions,
+  soundOptions as sunoSoundOptions,
+} from "./suno-music-styles";
+
+export const lyricLanguageOptions = sunoLyricLanguageOptions;
+export const genreOptions = sunoGenreOptions;
+export const rhythmOptions = sunoRhythmOptions;
+export const soundOptions = sunoSoundOptions;
+
 export const STORAGE_KEY = "ai_music_creator_visual_tool_v3";
 export const PRESET_KEY = "ai_music_creator_custom_presets_v1";
 export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
@@ -5,7 +17,7 @@ export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
 export const APP_VERSION =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION
     ? process.env.NEXT_PUBLIC_APP_VERSION
-    : "0.8.1";
+    : "0.8.2";
 export const AUTHOR = "DJ M@D";
 
 export const DEFAULT_STATE = {
@@ -83,97 +95,8 @@ export const BLANK_STATE = {
   guidedStep: 0,
 };
 
-export const genreOptions = [
-  "Techno",
-  "House",
-  "Drum & Bass",
-  "Jungle",
-  "Hip Hop",
-  "Trap",
-  "Pop",
-  "Ambient",
-  "Cinematic",
-  "Rock",
-  "Jazz",
-  "Experimental",
-  "Industrial",
-  "Synthwave",
-  "Future Bass",
-  "Orchestral",
-  "Classical",
-  "Folk",
-  "Country",
-  "Latin",
-  "World",
-  "Worship",
-  "Gospel",
-  "Bluegrass",
-  "Metal",
-  "Drill",
-  "Chillwave",
-  "Dubstep",
-  "Reggae",
-  "Funk",
-  "Soul",
-  "Trance",
-  "Breakcore",
-  "New Wave",
-  "Americana",
-  "Folk Metal",
-  "Game Music",
-];
-export const rhythmOptions = [
-  "4/4",
-  "Breakbeat",
-  "Halftime",
-  "Swing",
-  "Boom Bap",
-  "Rolling",
-  "Off-grid",
-  "Minimal",
-  "No drums",
-  "Syncopated",
-  "Drill groove",
-  "Double-time",
-  "Tribal",
-  "Shuffle",
-];
-export const soundOptions = [
-  "Heavy sub bass",
-  "Distorted bass",
-  "808 bass",
-  "Metallic percussion",
-  "Analog synths",
-  "Bright leads",
-  "Dark pads",
-  "Piano",
-  "Guitar",
-  "Orchestral strings",
-  "Big drums",
-  "Soft drums",
-  "Vinyl texture",
-  "Noise atmosphere",
-  "Dub delays",
-  "Glitch FX",
-  "Choir texture",
-  "Pipe organ",
-  "Melodic violin",
-  "Subtle strings",
-  "Pad synth",
-  "Vocal samples",
-  "Beatbox texture",
-  "Didgeridoo",
-  "Bagpipes",
-  "Harp",
-  "Brass section",
-  "Arena crowd FX",
-  "DJ scratches",
-  "Hand percussion",
-  "Wobble bass",
-  "Side-chain pump",
-  "World strings",
-  "Dark saxophone",
-];
+export const promptFormatOptions = ["Compressed", "Balanced", "Detailed"];
+
 export const vocalOptions = [
   "Instrumental",
   "Female Lead",
@@ -200,14 +123,6 @@ export const lyricStyleOptions = [
   "Dreamlike abstract",
 ];
 
-export const lyricLanguageOptions = [
-  "English",
-  "Swedish",
-  "Mixed English/Swedish",
-  "No specific language",
-];
-
-export const promptFormatOptions = ["Compressed", "Balanced", "Detailed"];
 export const lyricModeOptions = ["Raw Prompt", "Structured Song", "Performance Ready"];
 
 export const stylePresets = {

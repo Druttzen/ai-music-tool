@@ -56,8 +56,8 @@ describe("generateCoProducerLyrics", () => {
       lyricStyle: "Robotic cyber",
       lyricMode: "Structured Song",
     });
-    expect(out.lyrics).toContain("[Verse 1]");
-    expect(out.lyrics).toContain("[Chorus]");
+    expect(out.lyrics).toContain("[Verse 1");
+    expect(out.lyrics).toContain("[Chorus");
     expect(out.lyrics).toContain("night drive through the city");
     expect(out.lyrics).toContain("Metal heart, electric mind");
   });
@@ -75,6 +75,15 @@ describe("generateCoProducerLyrics", () => {
       lyricStyle: "Dark poetic",
     });
     expect(out.lyrics).toContain("Skuggor");
+  });
+
+  it("Spanish language uses Spanish phrases for Dark poetic", () => {
+    const out = generateCoProducerLyrics({
+      ...baseInput,
+      lyricLanguage: "Spanish",
+      lyricStyle: "Dark poetic",
+    });
+    expect(out.lyrics).toMatch(/sombras|oscuro|piel/i);
   });
 
   it("dense lyric density adds more lines", () => {

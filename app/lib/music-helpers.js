@@ -1,4 +1,5 @@
 import { getLyricStyleDirection } from "./lyric-generator";
+import { getSunoLanguagePromptRules } from "./suno-lyric-languages";
 
 export function uniq(arr) {
   return Array.from(new Set(arr));
@@ -92,6 +93,8 @@ Energy map: [Build] then [Drop]; hooks can use ALL CAPS; screams and shouts stay
 Alternate spoken and instruments: [Spoken] vs [Instrumental Break — sax].
 FX ad-libs: (BOOM) (CLAP); fictional words stay very short.`;
 
+  const languageRules = getSunoLanguagePromptRules(lyricLanguage);
+
   return bracketizeSunoPromptBlock(`LYRIC STYLE
 Language: ${lyricLanguage}
 Theme: ${lyricTheme}
@@ -99,6 +102,7 @@ Style: ${lyricStyle} — ${getLyricStyleDirection(lyricStyle)}
 Mode: ${lyricMode}
 Structure: ${lyricStructure}
 Density: ${densityText}
+${languageRules}
 SUNO LANGUAGE RULES ONLY
 Use bracket section tags like [Intro], [Verse 1], [Chorus], [Bridge], [Final Chorus], [Outro].
 Keep lyric lines short and singable.

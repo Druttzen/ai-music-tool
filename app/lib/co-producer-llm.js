@@ -4,6 +4,7 @@
  */
 
 import { getLyricStyleDirection } from "./lyric-generator";
+import { getSunoLanguagePromptRules } from "./suno-lyric-languages";
 
 export const LLM_SETTINGS_KEY = "ai_music_creator_co_producer_llm_v1";
 
@@ -50,6 +51,7 @@ export async function generateLyricsWithLlm(input, settings) {
   const theme = String(input.lyricTheme || input.idea || "the night").trim();
   const mode = input.lyricMode || "Structured Song";
   const language = input.lyricLanguage || "English";
+  const languageRules = getSunoLanguagePromptRules(language);
   const density =
     Number(input.lyricDensity) < 35
       ? "sparse, minimal words"
@@ -60,6 +62,7 @@ export async function generateLyricsWithLlm(input, settings) {
   const system = `You write lyrics for Suno AI music generation.
 Style: ${styleLabel} — ${styleDirection}
 Language: ${language}
+${languageRules}
 Lyric mode: ${mode}
 Rules:
 - Use [Intro], [Verse 1], [Chorus], [Bridge], [Outro] section tags for song modes.

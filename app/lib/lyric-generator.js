@@ -4,6 +4,14 @@
 
 import { bracketizeSunoPromptBlock, bracketizeSunoPromptLine } from "./music-helpers";
 import {
+  applyLanguageFlavorToContent,
+  formatSunoLyricSectionTag,
+  getLanguageEnergyLine,
+  getLanguageHeaderLine,
+  getLanguageHookLine,
+  getSunoLanguagePromptRules,
+} from "./suno-lyric-languages";
+import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
   SUNO_LYRICS_CHAR_WARN,
 } from "./suno-limits";
@@ -174,57 +182,17 @@ const LYRIC_STYLE_CONTENT = {
   },
 };
 
-/** Swedish phrase overlays per style (used when Language = Swedish or Mixed). */
-const SWEDISH_STYLE_PHRASES = {
-  "Dark poetic": {
-    signatureLine: "Skuggor rör sig under huden",
-    verse: ["Neons regn på tomma gator", "Månsken skär genom betonggrått"],
-    chorus: ["I mörkret vaknar vi", "Håll natten i ditt bröst"],
-    hooks: ["I mörkret vaknar vi", "Neonhemligheter"],
-  },
-  "Club chant": {
-    signatureLine: "Händer upp, bas ner, rör dig nu",
-    verse: ["Ett, två, drop — vi stannar inte", "Känn golvet, känn toppen"],
-    chorus: ["Händer upp! Bas ner! Rör dig nu!", "Vi stannar inte!"],
-    hooks: ["Händer upp!", "Känn droppen!"],
-  },
-  "Street raw": {
-    signatureLine: "Byggd av grit, jag står min mark",
-    verse: ["Betongsanning i varje bar", "Ärr som visar vem du är"],
-    chorus: ["Jag viker mig inte", "Varje steg är mitt att ta"],
-    hooks: ["Står min mark", "Äkta talk"],
-  },
-  "Emotional cinematic": {
-    signatureLine: "Hjärtan möts under himlen",
-    verse: ["Vid horisonten, sol som dör", "Två själar blir till en"],
-    chorus: ["Res med mig genom eld och regn", "Jag finner vägen tillbaka"],
-    hooks: ["Hjärtan möts", "Res med mig"],
-  },
-  "Minimal mantra": {
-    signatureLine: "Ett pulsslag, ett andetag, en låga",
-    verse: ["Ett pulsslag", "Ett andetag"],
-    chorus: ["Ett pulsslag, ett andetag, en låga"],
-    hooks: ["Ett pulsslag", "En låga"],
-  },
-  "Robotic cyber": {
-    signatureLine: "Metallhjärta, elektriskt sinne",
-    verse: ["Binär blod i kromådror", "Neon kod ersätter hud"],
-    chorus: ["Metallhjärta, elektriskt sinne", "Ladda upp själen i ljus"],
-    hooks: ["Metallhjärta", "Elektriskt sinne"],
-  },
-  "Aggressive hype": {
-    signatureLine: "Krossa golvet, skaka väggarna",
-    verse: ["Ingen reträtt, inget långsamt", "Varje bar en varningsskott"],
-    chorus: ["Krossa golvet! Skaka väggarna!", "Ta kronan!"],
-    hooks: ["Krossa golvet!", "Ta kronan!"],
-  },
-  "Dreamlike abstract": {
-    signatureLine: "Silver skuggor smälter i regn",
-    verse: ["Glasmånar driver i violett luft", "Klockor löses upp utan brådska"],
-    chorus: ["Silver skuggor smälter i regn", "Inget är som det verkar"],
-    hooks: ["Silver skuggor", "Drömmande tillstånd"],
-  },
-};
+function moodEnergyLine(mood, lyricLanguage) {
+  if (mood.energy > 70) return getLanguageEnergyLine(lyricLanguage, "high");
+  if (mood.energy < 35) return getLanguageEnergyLine(lyricLanguage, "low");
+  return getLanguageEnergyLine(lyricLanguage, "mid");
+}
+
+function moodHookLine(mood, lyricLanguage) {
+  if (mood.darkness > 65) return getLanguageHookLine(lyricLanguage, "dark");
+  if (mood.emotion > 65) return getLanguageHookLine(lyricLanguage, "emo");
+  return getLanguageHookLine(lyricLanguage, "light");
+}
 
 export function getLyricStyleDirection(lyricStyle) {
   return LYRIC_STYLE_DIRECTIONS[lyricStyle] || String(lyricStyle || "").trim();
@@ -266,57 +234,6 @@ function densityLineCount(lyricDensity) {
   return 3;
 }
 
-function applyLanguageFlavor(content, lyricStyle, lyricLanguage) {
-  if (lyricLanguage === "English" || lyricLanguage === "No specific language") {
-    return content;
-  }
-  const sv = SWEDISH_STYLE_PHRASES[lyricStyle];
-  if (!sv) return content;
-
-  if (lyricLanguage === "Swedish") {
-    return {
-      ...content,
-      signatureLine: sv.signatureLine || content.signatureLine,
-      verse: sv.verse?.length ? sv.verse : content.verse,
-      chorus: sv.chorus?.length ? sv.chorus : content.chorus,
-      hooks: sv.hooks?.length ? sv.hooks : content.hooks,
-    };
-  }
-
-  if (lyricLanguage === "Mixed English/Swedish") {
-    return {
-      ...content,
-      signatureLine: `${content.signatureLine} / ${sv.signatureLine || ""}`.trim(),
-      verse: [...content.verse.slice(0, 2), ...(sv.verse || []).slice(0, 2)],
-      chorus: [...content.chorus.slice(0, 2), ...(sv.chorus || []).slice(0, 2)],
-      hooks: [...(content.hooks || []).slice(0, 2), ...(sv.hooks || []).slice(0, 1)],
-    };
-  }
-  return content;
-}
-
-function moodEnergyLine(mood, lyricLanguage) {
-  if (lyricLanguage === "Swedish") {
-    if (mood.energy > 70) return "Känn trycket, känn ljudet";
-    if (mood.energy < 35) return "Långsam rörelse, glider ner";
-    return "Varje hjärtslag låser tiden";
-  }
-  if (mood.energy > 70) return "Feel the pressure, feel the sound";
-  if (mood.energy < 35) return "Slow motion, drifting down";
-  return "Every heartbeat locks in time";
-}
-
-function moodHookLine(mood, lyricLanguage) {
-  if (lyricLanguage === "Swedish") {
-    if (mood.darkness > 65) return "I mörkret vaknar vi";
-    if (mood.emotion > 65) return "Hjärtan möts under himlen";
-    return "I ljuset stiger vi igen";
-  }
-  if (mood.darkness > 65) return "In the dark we come alive";
-  if (mood.emotion > 65) return "Hearts collide beneath the sky";
-  return "In the light we rise again";
-}
-
 function buildStructuredLyrics({
   content,
   styleLabel,
@@ -335,83 +252,85 @@ function buildStructuredLyrics({
   const energyLine = moodEnergyLine(mood || {}, lyricLanguage);
   const hookLine = moodHookLine(mood || {}, lyricLanguage);
   const styleTag = `[Style: ${styleLabel} — ${styleDirection}]`;
+  const langHeader = getLanguageHeaderLine(lyricLanguage);
+  const tag = (name) => formatSunoLyricSectionTag(name, lyricLanguage);
   const densityNote =
     lineCount === 1 ? "(sparse — leave space between lines)" : lineCount >= 3 ? "(dense — rapid phrases)" : "";
 
   if (lyricMode === "Performance Ready") {
-    return `[Intro]
+    return `${tag("Intro")}
 (${content.introCue})
 
 ${styleTag}
-
-[Verse 1]
+${langHeader ? `${langHeader}\n` : ""}
+${tag("Verse 1")}
 ${theme}
 ${content.signatureLine}
 ${verseLines.join("\n")}
 
-[Pre-Chorus]
+${tag("Pre-Chorus")}
 ${energyLine}
 Take control, don't slow it down
 Feel the signal underground
 We are rising through the sound
 
-[Chorus]
+${tag("Chorus")}
 ${hookLine}
 ${chorusLines.join("\n")}
 ${content.signatureLine}
 
-[Verse 2]
+${tag("Verse 2")}
 Same fire, new direction
 Built from pressure and connection
 ${verse2Lines.join("\n")}
 
-[Bridge]
+${tag("Bridge")}
 ${bridgeLines.join("\n")}
 Hold the silence
 Shape the wave
 
-[Final Chorus]
+${tag("Final Chorus")}
 ${hookLine}
 ${chorusLines.join("\n")}
 ${content.signatureLine}
 
-[Outro]
+${tag("Outro")}
 (fading vocal echo)
 ${content.signatureLine}
 ${densityNote}`.trim();
   }
 
-  return `[Intro]
+  return `${tag("Intro")}
 (${content.introCue})
 
 ${styleTag}
-
-[Verse 1]
+${langHeader ? `${langHeader}\n` : ""}
+${tag("Verse 1")}
 ${theme}
 ${content.signatureLine}
 ${verseLines.join("\n")}
 
-[Pre-Chorus]
+${tag("Pre-Chorus")}
 ${energyLine}
 Take control, don't slow it down
 
-[Chorus]
+${tag("Chorus")}
 ${hookLine}
 ${chorusLines.join("\n")}
 
-[Verse 2]
+${tag("Verse 2")}
 Same rhythm, new direction
 Built on sound and tension
 ${verse2Lines.join("\n")}
 
-[Bridge]
+${tag("Bridge")}
 ${bridgeLines.join("\n")}
 
-[Chorus]
+${tag("Chorus")}
 ${hookLine}
 ${chorusLines.join("\n")}
 
-[Outro]
+${tag("Outro")}
 (fading energy, minimal vocal tail)
 ${content.signatureLine}
 ${densityNote}`.trim();
@@ -442,7 +361,7 @@ export function generateCoProducerLyrics(input) {
   const styleLabel = lyricStyle || "Dark poetic";
   const styleDirection = getLyricStyleDirection(styleLabel);
   const baseContent = LYRIC_STYLE_CONTENT[styleLabel] || LYRIC_STYLE_CONTENT["Dark poetic"];
-  const content = applyLanguageFlavor(baseContent, styleLabel, lyricLanguage);
+  const content = applyLanguageFlavorToContent(baseContent, lyricLanguage);
   const theme = String(lyricTheme || idea || "the night").trim();
   const seed = computeSeed(mood, variantSeed);
   const lineCount = densityLineCount(lyricDensity);
@@ -465,6 +384,7 @@ export function generateCoProducerLyrics(input) {
         : lineCount >= 3
           ? "dense lyrical flow, internal rhyme, high detail"
           : "balanced lines, memorable phrases, clear hook";
+    const langRules = getSunoLanguagePromptRules(lyricLanguage);
     return {
       lyrics: bracketizeSunoPromptBlock(`LYRIC DIRECTION · ${styleLabel}
 Language: ${lyricLanguage}
@@ -476,6 +396,7 @@ Density: ${densityText}
 Signature hook example: ${content.signatureLine}
 Write short singable lines with a strong repeated chorus.
 Use [Verse], [Chorus], [Bridge], and [Outro] tags.
+${langRules}
 Match ${selectedGenres.join(" + ") || "the genre"} and ${styleDirection}.`),
       styleLabel,
       styleDirection,
@@ -520,29 +441,15 @@ export function generateCoProducerHooks(input) {
   const styleLabel = lyricStyle || "Dark poetic";
   const styleDirection = getLyricStyleDirection(styleLabel);
   const baseContent = LYRIC_STYLE_CONTENT[styleLabel] || LYRIC_STYLE_CONTENT["Dark poetic"];
-  const content = applyLanguageFlavor(baseContent, styleLabel, lyricLanguage);
+  const content = applyLanguageFlavorToContent(baseContent, lyricLanguage);
   const core = String(lyricTheme || idea || "the night").trim();
   const seed = computeSeed(mood, variantSeed);
   const hookPool = content.hooks || [content.signatureLine];
   const h1 = hookPool[seed % hookPool.length];
   const h2 = hookPool[(seed + 1) % hookPool.length];
   const h3 = hookPool[(seed + 2) % hookPool.length];
-  const darkWord =
-    lyricLanguage === "Swedish"
-      ? mood.darkness > 65
-        ? "natten"
-        : "ljuset"
-      : mood.darkness > 65
-        ? "night"
-        : "light";
-  const energyWord =
-    lyricLanguage === "Swedish"
-      ? mood.energy > 70
-        ? "tänd"
-        : "andas"
-      : mood.energy > 70
-        ? "ignite"
-        : "breathe";
+  const hookAccent = moodHookLine(mood || {}, lyricLanguage);
+  const energyAccent = moodEnergyLine(mood || {}, lyricLanguage);
 
   if (vocal === "Instrumental") {
     return {
@@ -561,11 +468,11 @@ ${bracketizeSunoPromptLine("Meta: Example hook sketches — singable lines for t
 1.
 ${core}
 ${h1}
-Feel the bass in the ${darkWord}
+${hookAccent}
 
 2.
 ${h2}
-We don't stop, we ${energyWord}
+${energyAccent}
 
 3.
 ${h3}

@@ -5,7 +5,7 @@ import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { SunoGuidedPath } from "./components/suno-guided-path";
 import { StylePromptPicker } from "./components/suno-english-style-prompt-picker";
 import { AudioTrackEditor } from "./components/audio-track-editor";
-import { DropBox, Panel, Pill, Slider, TextBox } from "./components/ui-blocks";
+import { DropBox, Panel, Pill, SearchablePillGrid, Slider, TextBox } from "./components/ui-blocks";
 import { useAnalyzers } from "./hooks/use-analyzers";
 import { useClipboard } from "./hooks/use-clipboard";
 import { useSplashOverlay } from "./hooks/use-splash-seen";
@@ -73,7 +73,6 @@ import {
   fixes,
   genreOptions,
   HISTORY_KEY,
-  lyricLanguageOptions,
   lyricModeOptions,
   lyricStyleOptions,
   PRESET_KEY,
@@ -84,6 +83,13 @@ import {
   stylePresets,
   vocalOptions,
 } from "./lib/music-config";
+import { SUNO_LYRIC_LANGUAGE_GROUPS, normalizeLyricLanguage } from "./lib/suno-lyric-languages";
+import {
+  SUNO_GENRE_GROUPS,
+  SUNO_GENRE_WHEEL_COUNT,
+  SUNO_INSTRUMENT_GROUPS,
+  SUNO_RHYTHM_GROUPS,
+} from "./lib/suno-music-styles";
 import {
   bracketizeSunoPromptBlock,
   bracketizeSunoPromptLine,
@@ -314,7 +320,7 @@ export default function Page() {
     if (data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
     else clearImageAnalysis();
     setLyricTheme(data.lyricTheme ?? DEFAULT_STATE.lyricTheme);
-    setLyricLanguage(data.lyricLanguage ?? DEFAULT_STATE.lyricLanguage);
+    setLyricLanguage(normalizeLyricLanguage(data.lyricLanguage ?? DEFAULT_STATE.lyricLanguage));
     setLyricStructure(data.lyricStructure ?? DEFAULT_STATE.lyricStructure);
     setLyricStyle(data.lyricStyle ?? DEFAULT_STATE.lyricStyle);
     setLyricDensity(data.lyricDensity ?? DEFAULT_STATE.lyricDensity);
@@ -1239,7 +1245,13 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                 <label>
                   <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Language</div>
                   <select value={lyricLanguage} onChange={(e)=>setLyricLanguage(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">
-                    {lyricLanguageOptions.map(x => <option key={x}>{x}</option>)}
+                    {SUNO_LYRIC_LANGUAGE_GROUPS.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.languages.map((lang) => (
+                          <option key={lang.label} value={lang.label}>{lang.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                 </label>
 
@@ -1532,8 +1544,15 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
               ["Darkness","bright","dark","darkness"],["Energy","calm","extreme","energy"],["Aggression","soft","brutal","aggression"],["Emotion","cold","emotional","emotion"],["Complexity","minimal","complex","complexity"],["Space","dry","wide","space"]
             ].map(([label,left,right,key])=><Slider key={key} label={label} value={mood[key]} left={left} right={right} setValue={(v)=>setMood({...mood,[key]:v})}/>)}</div></Panel>
 
-            <Panel title="Step 3 — Clickable Music Controls" hint="Select genre, rhythm, sound modules, vocal mode, and style prompts from the library.">
-              <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Genres</div><div className="flex flex-wrap gap-2">{genreOptions.map(x=><Pill key={x} active={selectedGenres.includes(x)} onClick={()=>toggle(x,selectedGenres,setSelectedGenres)}>{x}</Pill>)}</div></div>
+            <Panel title="Step 3 — Clickable Music Controls" hint={`Suno-aligned genres (${genreOptions.length}), instruments (${soundOptions.length}), and rhythms. Style Prompt Library adds ${SUNO_GENRE_WHEEL_COUNT}+ fusion phrases from the Suno v5.5 genre wheel.`}>
+              <SearchablePillGrid
+                label="Genres"
+                hint="Strong Suno genres by family — use Style Prompt Library below for fusion / wheel phrases."
+                options={genreOptions}
+                groups={SUNO_GENRE_GROUPS}
+                selected={selectedGenres}
+                onToggle={(x) => toggle(x, selectedGenres, setSelectedGenres)}
+              />
               <StylePromptPicker
                 selectedGenres={selectedGenres}
                 setSelectedGenres={setSelectedGenres}
@@ -1542,8 +1561,21 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                 setStatusWithTime={setStatusWithTime}
                 defaultOpen
               />
-              <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Rhythm</div><div className="flex flex-wrap gap-2">{rhythmOptions.map(x=><Pill key={x} active={selectedRhythms.includes(x)} onClick={()=>toggle(x,selectedRhythms,setSelectedRhythms)}>{x}</Pill>)}</div></div>
-              <div className="mb-4"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Sound Modules</div><div className="flex flex-wrap gap-2">{soundOptions.map(x=><Pill key={x} active={selectedSounds.includes(x)} onClick={()=>toggle(x,selectedSounds,setSelectedSounds)}>{x}</Pill>)}</div></div>
+              <SearchablePillGrid
+                label="Rhythm"
+                options={rhythmOptions}
+                groups={SUNO_RHYTHM_GROUPS}
+                selected={selectedRhythms}
+                onToggle={(x) => toggle(x, selectedRhythms, setSelectedRhythms)}
+              />
+              <SearchablePillGrid
+                label="Instruments & textures"
+                hint="Core Suno instrument tags plus catalog lines — search e.g. sax, 808, koto."
+                options={soundOptions}
+                groups={SUNO_INSTRUMENT_GROUPS}
+                selected={selectedSounds}
+                onToggle={(x) => toggle(x, selectedSounds, setSelectedSounds)}
+              />
               <div><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Vocals</div><div className="flex flex-wrap gap-2">{vocalOptions.map(x=><Pill key={x} active={vocal===x} onClick={()=>setVocal(x)}>{x}</Pill>)}</div></div>
             </Panel>
 
