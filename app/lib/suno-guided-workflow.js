@@ -8,6 +8,14 @@ export const FACTORY_PRESET_BLURBS = {
   "Jungle / DnB": "174 BPM • DnB+Jungle • breaks & sub",
   "Cinematic Hybrid": "95 BPM • orchestral+choir • film arc",
   "Ambient Flow": "60 BPM • pads+texture • no fixed sections",
+  "Trap Night": "140 BPM • Trap+Hip Hop • halftime 808",
+  "Pop Anthem": "118 BPM • Pop+Synth Pop • hook-forward",
+  "Lo-Fi Study": "82 BPM • Lo-Fi+Jazz • dusty Rhodes loop",
+  "Reggaeton Heat": "95 BPM • Reggaeton+Latin • dembow pocket",
+  "Metal Forge": "150 BPM • Metal • double-time drive",
+  "Jazz Lounge": "105 BPM • Smooth Jazz • swing & sax",
+  "Afrobeats Pulse": "102 BPM • Afrobeats+R&B • syncopated groove",
+  "Detroit Techno": "128 BPM • Detroit Techno • shuffle hats",
 };
 
 /**

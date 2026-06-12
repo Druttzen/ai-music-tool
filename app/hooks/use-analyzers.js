@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { buildImagePaletteSuggestions } from "../lib/analyzer-suggestions";
 import {
   applyMoodPatch,
   compactAudioStyleRule,
@@ -527,35 +528,17 @@ export function useAnalyzers({
             space: clamp(bright ? 75 : cool ? 68 : 50),
           };
 
-          const imgGenres = [];
-          const imgSounds = [];
-          const imgRhythms = [];
-
-          if (dark && highContrast) {
-            imgGenres.push("Industrial", "Techno");
-            imgSounds.push("Metallic percussion", "Distorted bass", "Noise atmosphere");
-            imgRhythms.push("4/4", "Syncopated");
-          }
-          if (cool) {
-            imgGenres.push("Ambient", "Cinematic");
-            imgSounds.push("Dark pads", "Dub delays");
-            imgRhythms.push("Minimal");
-          }
-          if (warm && vivid) {
-            imgGenres.push("House", "Pop");
-            imgSounds.push("Bright leads", "Big drums");
-            imgRhythms.push("4/4");
-          }
-          if (bright && !vivid) {
-            imgGenres.push("Ambient", "Orchestral");
-            imgSounds.push("Piano", "Orchestral strings", "Soft drums");
-            imgRhythms.push("Minimal");
-          }
-          if (vivid && highContrast) {
-            imgGenres.push("Experimental");
-            imgSounds.push("Glitch FX", "Analog synths");
-            imgRhythms.push("Off-grid");
-          }
+          const palette = buildImagePaletteSuggestions({
+            dark,
+            cool,
+            warm,
+            vivid,
+            bright,
+            highContrast,
+          });
+          const imgGenres = palette.suggestedGenres;
+          const imgSounds = palette.suggestedSounds;
+          const imgRhythms = palette.suggestedRhythms;
 
           const visualMood = `${dark ? "dark" : bright ? "bright" : "balanced"}, ${vivid ? "vivid" : "muted"}, ${highContrast ? "high-contrast" : "soft-contrast"}, ${warm ? "warm" : cool ? "cool" : "neutral"}`;
 

@@ -269,7 +269,7 @@ REGULAR LINE
   /** Short narrative anchors (display / docs only). */
   genreAnchors: {
     techno: ["driving 4/4 kick", "industrial textures", "dark warehouse mood"],
-    detroit: ["shuffle swing hats", "analog sequencer soul", "warehouse hypnosis"],
+    "detroit techno": ["shuffle swing hats", "analog sequencer soul", "warehouse hypnosis"],
     dnb: ["rolling breakbeats", "reese bass", "high-energy tension"],
     ambient: ["evolving pads", "slow movement", "wide atmospheric space"],
     cinematic: ["orchestral swells", "impact drums", "epic dynamic arc"],
@@ -507,6 +507,12 @@ export const GENRE_ANCHOR_ENTRIES = [
     sounds: ["Sitar", "Tabla", "Orchestral strings"],
     rhythms: ["Tribal", "Syncopated"],
     rule: "melodic raga color with tabla rhythmic cycles",
+  },
+  {
+    keys: ["detroit techno"],
+    sounds: ["Analog synths", "Heavy sub bass", "Vinyl texture"],
+    rhythms: ["4/4", "Shuffle"],
+    rule: "shuffle hats with analog sequencer soul and warehouse hypnosis",
   },
   {
     keys: ["lo-fi hip hop"],

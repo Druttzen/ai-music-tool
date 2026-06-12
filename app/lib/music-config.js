@@ -17,7 +17,7 @@ export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
 export const APP_VERSION =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION
     ? process.env.NEXT_PUBLIC_APP_VERSION
-    : "0.8.2";
+    : "0.8.3";
 export const AUTHOR = "DJ M@D";
 
 export const DEFAULT_STATE = {
@@ -101,6 +101,14 @@ export const vocalOptions = [
   "Instrumental",
   "Female Lead",
   "Male Lead",
+  "Female Group",
+  "Male Group",
+  "Duet (M/F)",
+  "Baritone Lead",
+  "Whispered Lead",
+  "Raspy Lead",
+  "Breathy Soprano",
+  "Autotuned Vocal",
   "Robotic",
   "Choir",
   "Spoken Word",
@@ -108,8 +116,8 @@ export const vocalOptions = [
   "Rave Chant",
   "Background Vocals",
   "Beatbox",
-  "Baritone Lead",
-  "Female Group",
+  "Crowd Chant",
+  "Stacked Harmonies",
 ];
 
 export const lyricStyleOptions = [
@@ -130,6 +138,14 @@ export const stylePresets = {
   "Jungle / DnB": { genres:["Drum & Bass","Jungle"], rhythms:["Breakbeat","Rolling"], sounds:["Heavy sub bass","Dub delays","Dark pads","Glitch FX"], vocal:"Instrumental", tempo:"174 BPM", structure:"cold intro → breakbeat build → sub drop → mutation → breakdown → final roll" },
   "Cinematic Hybrid": { genres:["Cinematic","Orchestral"], rhythms:["Halftime"], sounds:["Orchestral strings","Big drums","Dark pads","Choir texture"], vocal:"Choir", tempo:"95 BPM", structure:"quiet opening → emotional build → heroic climax → soft outro" },
   "Ambient Flow": { genres:["Ambient","Experimental"], rhythms:["No drums","Minimal"], sounds:["Dark pads","Noise atmosphere","Dub delays","Choir texture"], vocal:"Instrumental", tempo:"60 BPM", structure:"slow evolution with no clear sections" },
+  "Trap Night": { genres:["Trap","Hip Hop"], rhythms:["Halftime","Trap halftime"], sounds:["808 bass","Dark pads","Glitch FX","Vinyl texture"], vocal:"Male Lead", tempo:"140 BPM", structure:"intro → verse → hook → verse → hook → outro" },
+  "Pop Anthem": { genres:["Pop","Synth Pop"], rhythms:["4/4","Rolling"], sounds:["Bright leads","Big drums","Supersaw chords","Soft drums"], vocal:"Female Lead", tempo:"118 BPM", structure:"intro → verse → pre-chorus → chorus → verse → chorus → outro" },
+  "Lo-Fi Study": { genres:["Lo-Fi Hip Hop","Jazz"], rhythms:["Boom Bap","Swing"], sounds:["Rhodes electric piano","Vinyl texture","Soft drums","Dark saxophone"], vocal:"Instrumental", tempo:"82 BPM", structure:"loop-friendly intro → head → variation → fade" },
+  "Reggaeton Heat": { genres:["Reggaeton","Latin"], rhythms:["Dembow bounce","Latin clave"], sounds:["808 bass","Hand percussion","Bright leads","Metallic percussion"], vocal:"Male Lead", tempo:"95 BPM", structure:"intro → verse → chorus → verse → chorus → bridge → chorus" },
+  "Metal Forge": { genres:["Metal","Heavy Metal"], rhythms:["4/4","Double-time"], sounds:["Distorted bass","Guitar","Big drums","Metallic percussion"], vocal:"Male Lead", tempo:"150 BPM", structure:"intro → verse → chorus → solo → chorus → outro" },
+  "Jazz Lounge": { genres:["Jazz","Smooth Jazz"], rhythms:["Swing","Bossa groove"], sounds:["Piano","Upright bass","Dark saxophone","Soft drums"], vocal:"Female Lead", tempo:"105 BPM", structure:"intro → head → solo → head → outro" },
+  "Afrobeats Pulse": { genres:["Afrobeats","R&B"], rhythms:["Syncopated","Tribal"], sounds:["Hand percussion","Electric bass","Bright leads","Background choir"], vocal:"Male Lead", tempo:"102 BPM", structure:"intro → groove → hook → groove → hook → outro" },
+  "Detroit Techno": { genres:["Detroit Techno","Techno"], rhythms:["4/4","Shuffle"], sounds:["Analog synths","Heavy sub bass","Metallic percussion","Vinyl texture"], vocal:"Instrumental", tempo:"128 BPM", structure:"intro → filter build → main groove → breakdown → final groove → outro" },
 };
 
 export const fixes = {

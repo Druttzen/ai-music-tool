@@ -21,6 +21,12 @@ export function getVocalText(vocal) {
   if (vocal === "Robotic") return "robotic voice persona, synthetic tone, processed delivery, rhythmic phrases, consistent voice identity";
   if (vocal === "Vocal Chops") return "short rhythmic vocal chops only, no lead singing, no mumbled background speech";
   if (vocal === "Choir") return "choir textures, cinematic vocal layers, no pop lead vocal";
+  if (vocal === "Whispered Lead") return "intimate whispered lead vocal, close-mic breath texture, soft delivery";
+  if (vocal === "Raspy Lead") return "raspy gritty lead vocal, raw edge, consistent persona";
+  if (vocal === "Autotuned Vocal") return "autotuned vocal processing, modern pitch-tight delivery, hook-focused";
+  if (vocal === "Duet (M/F)") return "male/female duet with labeled lines, clear role separation, balanced mix";
+  if (vocal === "Crowd Chant") return "arena crowd chant bed, short repeatable phrases, no lead singing";
+  if (vocal === "Stacked Harmonies") return "stacked vocal harmonies, layered chorus doubles, wide stereo vocal stack";
   return `${vocal}, clear delivery, consistent vocal role, genre-matched processing`;
 }
 
@@ -94,6 +100,10 @@ Alternate spoken and instruments: [Spoken] vs [Instrumental Break — sax].
 FX ad-libs: (BOOM) (CLAP); fictional words stay very short.`;
 
   const languageRules = getSunoLanguagePromptRules(lyricLanguage);
+  const sectionTagNote =
+    lyricLanguage && lyricLanguage !== "English" && lyricLanguage !== "No specific language"
+      ? "Use language-declared section tags, e.g. [Verse 1 — language only, no English ad-libs]."
+      : "Use bracket section tags like [Intro], [Verse 1], [Chorus], [Bridge], [Final Chorus], [Outro].";
 
   return bracketizeSunoPromptBlock(`LYRIC STYLE
 Language: ${lyricLanguage}
@@ -103,8 +113,7 @@ Mode: ${lyricMode}
 Structure: ${lyricStructure}
 Density: ${densityText}
 ${languageRules}
-SUNO LANGUAGE RULES ONLY
-Use bracket section tags like [Intro], [Verse 1], [Chorus], [Bridge], [Final Chorus], [Outro].
+${sectionTagNote}
 Keep lyric lines short and singable.
 Do not write paragraphs.
 Do not explain lyrics inside the lyric output.

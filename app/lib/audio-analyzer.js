@@ -3,6 +3,7 @@
  */
 
 import { makeAudioLookupKey } from "./audio-cache";
+import { buildAudioAnalyzerSuggestions } from "./analyzer-suggestions";
 import { clamp, uniq } from "./music-helpers";
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -148,66 +149,7 @@ function formatBpmLabel(bpm) {
 }
 
 function buildSuggestions(metrics) {
-  const { energy, aggression, brightness, darkness, complexity, bpm, centroidHz } = metrics;
-  const suggestedGenres = [];
-  const suggestedSubgenres = [];
-  const suggestedMoods = [];
-  const suggestedInstruments = [];
-  const suggestedSounds = [];
-  const suggestedRhythms = [];
-
-  if (energy > 65 && aggression > 55) {
-    suggestedGenres.push("Techno", "Electronic");
-    suggestedSubgenres.push("Peak-time", "Club");
-    suggestedMoods.push("Driving", "Intense");
-    suggestedInstruments.push("Synth bass", "Drum machine", "Hi-hats");
-    suggestedSounds.push("Heavy sub bass", "Big drums");
-    suggestedRhythms.push("4/4", "Syncopated");
-  } else if (energy < 40 && darkness > 55) {
-    suggestedGenres.push("Ambient", "Cinematic");
-    suggestedSubgenres.push("Atmospheric", "Drone");
-    suggestedMoods.push("Calm", "Mysterious");
-    suggestedInstruments.push("Pads", "Strings", "Soft piano");
-    suggestedSounds.push("Dark pads", "Noise atmosphere");
-    suggestedRhythms.push("Minimal", "Free time");
-  } else {
-    suggestedGenres.push("Electronic", "Pop");
-    suggestedSubgenres.push("Modern", "Hybrid");
-    suggestedMoods.push("Balanced", "Focused");
-    suggestedInstruments.push("Synths", "Drums", "Bass");
-    suggestedSounds.push("Analog synths", "Balanced mix");
-    suggestedRhythms.push("4/4");
-  }
-
-  if (brightness > 58) {
-    suggestedMoods.push("Bright");
-    suggestedInstruments.push("Bright leads");
-    suggestedSounds.push("Bright leads", "Glitch FX");
-  }
-  if (aggression > 65) {
-    suggestedSounds.push("Distorted bass", "Metallic percussion");
-    suggestedMoods.push("Aggressive");
-  }
-  if (complexity > 60) suggestedRhythms.push("Breakbeat", "Off-grid");
-  if (bpm && bpm > 128) suggestedSubgenres.push("Uptempo");
-  if (bpm && bpm < 95) suggestedSubgenres.push("Downtempo");
-
-  const vocals =
-    centroidHz > 2800 && energy > 45
-      ? "Vocals likely"
-      : energy < 30 && aggression < 40
-        ? "Instrumental likely"
-        : "Mixed / uncertain";
-
-  return {
-    suggestedGenres: uniq(suggestedGenres),
-    suggestedSubgenres: uniq(suggestedSubgenres),
-    suggestedMoods: uniq(suggestedMoods),
-    suggestedInstruments: uniq(suggestedInstruments),
-    suggestedSounds: uniq(suggestedSounds),
-    suggestedRhythms: uniq(suggestedRhythms),
-    vocals,
-  };
+  return buildAudioAnalyzerSuggestions(metrics);
 }
 
 /**

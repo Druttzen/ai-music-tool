@@ -4,7 +4,11 @@
  */
 
 import { getLyricStyleDirection } from "./lyric-generator";
-import { getSunoLanguagePromptRules } from "./suno-lyric-languages";
+import {
+  formatSunoLyricSectionTag,
+  getLanguageHeaderLine,
+  getSunoLanguagePromptRules,
+} from "./suno-lyric-languages";
 
 export const LLM_SETTINGS_KEY = "ai_music_creator_co_producer_llm_v1";
 
@@ -41,17 +45,19 @@ export function isCoProducerLlmReady(settings) {
 }
 
 /**
- * @param {object} input — same shape as generateCoProducerLyrics input
- * @param {object} settings
- * @returns {Promise<{ lyrics: string, styleLabel: string, styleDirection: string, source: "llm" }>}
+ * @param {object} input
+ * @returns {{ system: string, user: string, styleLabel: string, styleDirection: string, mode: string, language: string }}
  */
-export async function generateLyricsWithLlm(input, settings) {
+export function buildCoProducerLlmMessages(input) {
   const styleLabel = input.lyricStyle || "Dark poetic";
   const styleDirection = getLyricStyleDirection(styleLabel);
   const theme = String(input.lyricTheme || input.idea || "the night").trim();
   const mode = input.lyricMode || "Structured Song";
   const language = input.lyricLanguage || "English";
   const languageRules = getSunoLanguagePromptRules(language);
+  const langHeader = getLanguageHeaderLine(language);
+  const verseTag = formatSunoLyricSectionTag("Verse 1", language);
+  const chorusTag = formatSunoLyricSectionTag("Chorus", language);
   const density =
     Number(input.lyricDensity) < 35
       ? "sparse, minimal words"
@@ -65,7 +71,8 @@ Language: ${language}
 ${languageRules}
 Lyric mode: ${mode}
 Rules:
-- Use [Intro], [Verse 1], [Chorus], [Bridge], [Outro] section tags for song modes.
+- Use section tags like ${verseTag} and ${chorusTag} for song modes.
+- ${langHeader ? `Include a top line: ${langHeader}` : "Use standard [Intro]/[Outro] tags when language is flexible."}
 - For Raw Prompt mode, output bracketed [direction] lines only — no full sung lyrics.
 - Keep lines short and singable; strong repeatable chorus.
 - Do not explain your choices; output lyrics only.`;
@@ -76,7 +83,18 @@ Structure: ${input.lyricStructure || "verse → chorus"}
 Density: ${density}
 Genres: ${(input.selectedGenres || []).join(", ") || "electronic"}
 
-Write ${mode === "Raw Prompt" ? "bracketed lyric direction" : "full lyrics with section tags"}.`;
+Write ${mode === "Raw Prompt" ? "bracketed lyric direction" : `full lyrics in ${language} with language-declared section tags`}.`;
+
+  return { system, user, styleLabel, styleDirection, mode, language };
+}
+
+/**
+ * @param {object} input — same shape as generateCoProducerLyrics input
+ * @param {object} settings
+ * @returns {Promise<{ lyrics: string, styleLabel: string, styleDirection: string, source: "llm" }>}
+ */
+export async function generateLyricsWithLlm(input, settings) {
+  const { system, user, styleLabel, styleDirection, mode, language } = buildCoProducerLlmMessages(input);
 
   const res = await fetch(String(settings.apiUrl).trim(), {
     method: "POST",
@@ -103,8 +121,12 @@ Write ${mode === "Raw Prompt" ? "bracketed lyric direction" : "full lyrics with 
   const lyrics = String(data?.choices?.[0]?.message?.content || "").trim();
   if (!lyrics) throw new Error("LLM returned empty lyrics");
 
+  const header = getLanguageHeaderLine(language);
   return {
-    lyrics: mode === "Raw Prompt" ? lyrics : `[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`,
+    lyrics:
+      mode === "Raw Prompt"
+        ? lyrics
+        : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`,
     styleLabel,
     styleDirection,
     source: "llm",
