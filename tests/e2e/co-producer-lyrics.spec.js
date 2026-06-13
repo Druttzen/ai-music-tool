@@ -1,11 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { dismissSplash } from "./helpers.js";
 
 test("Co-Producer Generate Lyrics produces style-tagged draft", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-
-  await page.keyboard.press("Escape").catch(() => {});
-  await page.locator("body").click({ position: { x: 8, y: 8 }, force: true }).catch(() => {});
+  await dismissSplash(page);
 
   await page.getByRole("button", { name: "Male Lead" }).first().click();
   await page.getByTestId("co-producer-generate-lyrics").first().click();

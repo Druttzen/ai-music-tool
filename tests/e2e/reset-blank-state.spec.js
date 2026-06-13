@@ -1,11 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { dismissSplash } from "./helpers.js";
 
 test("Reset to Default clears preselected prompts to blank slate", async ({ page }) => {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-
-  await page.keyboard.press("Escape").catch(() => {});
-  await page.locator("body").click({ position: { x: 8, y: 8 }, force: true }).catch(() => {});
+  await dismissSplash(page);
 
   const ideaInput = page
     .locator("section")

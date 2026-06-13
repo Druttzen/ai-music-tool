@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 const SPLASH_KEY = "ai_music_splash_seen";
 const listeners = new Set();
@@ -53,4 +53,21 @@ export function useSplashOverlay() {
   }, []);
 
   return { showSplash, dismissSplash, resetSplash };
+}
+
+/** Auto-dismiss splash after timeout or first user interaction. */
+export function useSplashAutoDismiss(showSplash, dismissSplash) {
+  useEffect(() => {
+    if (!showSplash) return undefined;
+    const timer = window.setTimeout(dismissSplash, 1800);
+    const fallback = window.setTimeout(dismissSplash, 3500);
+    window.addEventListener("pointerdown", dismissSplash, { once: true });
+    window.addEventListener("keydown", dismissSplash, { once: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(fallback);
+      window.removeEventListener("pointerdown", dismissSplash);
+      window.removeEventListener("keydown", dismissSplash);
+    };
+  }, [dismissSplash, showSplash]);
 }

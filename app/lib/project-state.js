@@ -166,3 +166,53 @@ export const PROJECT_PATCH_KEYS = [
   "lyricsGenerateBusy",
   "coProducerLlmSettings",
 ];
+
+/**
+ * Build autosave / undo snapshot from live project fields.
+ * @param {string} appVersion
+ * @param {Record<string, unknown>} fields
+ */
+export function buildProjectSnapshot(appVersion, fields) {
+  return {
+    appVersion,
+    idea: fields.idea,
+    tempo: fields.tempo,
+    structure: fields.structure,
+    selectedGenres: fields.selectedGenres,
+    selectedRhythms: fields.selectedRhythms,
+    selectedSounds: fields.selectedSounds,
+    vocal: fields.vocal,
+    mode: fields.mode,
+    proMode: fields.proMode,
+    promptIntensity: fields.promptIntensity,
+    variationCount: fields.variationCount,
+    rules: fields.rules,
+    notes: fields.notes,
+    scores: fields.scores,
+    mood: fields.mood,
+    audioAnalysis: fields.audioAnalysis,
+    imageAnalysis: fields.imageAnalysis,
+    lyricTheme: fields.lyricTheme,
+    lyricLanguage: fields.lyricLanguage,
+    lyricStructure: fields.lyricStructure,
+    lyricStyle: fields.lyricStyle,
+    lyricDensity: fields.lyricDensity,
+    promptFormat: fields.promptFormat,
+    promptEngine: fields.promptEngine,
+    coProducerOutput: fields.coProducerOutput,
+    generatedLyrics: fields.generatedLyrics,
+    generatedLyricsStyle: fields.generatedLyricsStyle,
+    generatedHooks: fields.generatedHooks,
+    generatedHooksStyle: fields.generatedHooksStyle,
+    lyricVariantSeed: fields.lyricVariantSeed,
+    lyricMode: fields.lyricMode,
+    voiceRefFirstName: fields.voiceRefFirstName,
+    voiceRefLastName: fields.voiceRefLastName,
+    voiceStyleLine: fields.voiceStyleLine,
+    instrumentalVocalFx: fields.instrumentalVocalFx,
+    guidedStep: fields.guidedStep,
+    variations: fields.variations,
+    history: fields.history,
+    selectedHistoryId: fields.selectedHistoryId,
+  };
+}

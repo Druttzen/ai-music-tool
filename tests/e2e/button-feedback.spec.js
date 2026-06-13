@@ -1,22 +1,5 @@
 import { test, expect } from "@playwright/test";
-
-async function dismissSplash(page) {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  const skip = page.getByRole("button", { name: "Skip intro" });
-  if (await skip.isVisible().catch(() => false)) {
-    await skip.click();
-  } else {
-    await page.keyboard.press("Escape").catch(() => {});
-  }
-}
-
-async function expectToast(page, textPattern) {
-  const toast = page.getByTestId("action-toast");
-  await expect(toast).toBeVisible();
-  await expect(toast).toContainText(textPattern);
-  await expect(toast).toHaveAttribute("data-toast-type", /.+/);
-}
+import { dismissSplash, expectToast } from "./helpers.js";
 
 test.describe("Button feedback toasts", () => {
   test("Save Progress shows animated confirmation", async ({ page }) => {

@@ -1,32 +1,19 @@
 import { test, expect } from "@playwright/test";
+import {
+  analyzerPanel,
+  coProducerPanel,
+  dismissSplash,
+  lyricStylePanel,
+  musicControlsPanel,
+} from "./helpers.js";
 
 const INSTRUMENTAL_FIXTURE = "tests/fixtures/e2e-instrumental-bed.wav";
-
-async function dismissSplash(page) {
-  await page.goto("/");
-  await page.waitForLoadState("networkidle");
-  const skip = page.getByRole("button", { name: "Skip intro" });
-  if (await skip.isVisible().catch(() => false)) {
-    await skip.click();
-  } else {
-    await page.keyboard.press("Escape").catch(() => {});
-    await page.locator("body").click({ position: { x: 8, y: 8 }, force: true }).catch(() => {});
-  }
-}
-
-function analyzerPanel(page) {
-  return page
-    .locator("section.rounded-3xl")
-    .filter({ has: page.getByRole("heading", { name: "Drag & Drop Analyzers" }) });
-}
 
 test.describe("Instrumental track lyrics e2e", () => {
   test("drop instrumental audio and add timed lyrics scaffold", async ({ page }) => {
     await dismissSplash(page);
 
-    const controlsPanel = page.locator("section").filter({
-      hasText: "Step 3 — Clickable Music Controls",
-    });
+    const controlsPanel = musicControlsPanel(page);
     const instrumentalPill = controlsPanel.getByRole("button", { name: "Instrumental", exact: true });
     await instrumentalPill.click();
     await expect(instrumentalPill).toHaveClass(/border-cyan-300/);
@@ -53,7 +40,7 @@ test.describe("Instrumental track lyrics e2e", () => {
 
     await expect(instrumentalPill).not.toHaveClass(/border-cyan-300/);
 
-    const lyricPanel = page.locator("section").filter({ hasText: "Lyric Style Generator" });
+    const lyricPanel = lyricStylePanel(page);
     await expect(lyricPanel.locator("label").filter({ hasText: "Lyric Theme" }).locator("input")).not.toHaveValue(
       "",
     );
@@ -64,9 +51,8 @@ test.describe("Instrumental track lyrics e2e", () => {
     await expect(lyricsBox).toHaveValue(/\[Chorus/);
     await expect(lyricsBox).toHaveValue(/e2e-instrumental-bed\.wav/);
 
-    const coPanel = page.locator("section").filter({ hasText: "Co‑Producer AI" });
     await expect(
-      coPanel.locator("label").filter({ hasText: "Prompt Engine" }).locator("select"),
+      coProducerPanel(page).locator("label").filter({ hasText: "Prompt Engine" }).locator("select"),
     ).toHaveValue("Suno-like");
   });
 });
