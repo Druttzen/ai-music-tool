@@ -167,6 +167,62 @@ export const PROJECT_PATCH_KEYS = [
   "coProducerLlmSettings",
 ];
 
+/** Project + analyzer keys persisted in autosave / undo snapshots (excludes appVersion). */
+export const SNAPSHOT_FIELD_KEYS = [
+  "idea",
+  "tempo",
+  "structure",
+  "selectedGenres",
+  "selectedRhythms",
+  "selectedSounds",
+  "vocal",
+  "mode",
+  "proMode",
+  "promptIntensity",
+  "variationCount",
+  "rules",
+  "notes",
+  "scores",
+  "mood",
+  "audioAnalysis",
+  "imageAnalysis",
+  "lyricTheme",
+  "lyricLanguage",
+  "lyricStructure",
+  "lyricStyle",
+  "lyricDensity",
+  "promptFormat",
+  "promptEngine",
+  "coProducerOutput",
+  "generatedLyrics",
+  "generatedLyricsStyle",
+  "generatedHooks",
+  "generatedHooksStyle",
+  "lyricVariantSeed",
+  "lyricMode",
+  "voiceRefFirstName",
+  "voiceRefLastName",
+  "voiceStyleLine",
+  "instrumentalVocalFx",
+  "guidedStep",
+  "variations",
+  "history",
+  "selectedHistoryId",
+];
+
+/**
+ * Pick snapshot-shaped fields from a flat project + analyzer source object.
+ * @param {Record<string, unknown>} source
+ */
+export function pickSnapshotFields(source) {
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  for (const key of SNAPSHOT_FIELD_KEYS) {
+    out[key] = source[key];
+  }
+  return out;
+}
+
 /**
  * Build autosave / undo snapshot from live project fields.
  * @param {string} appVersion
@@ -175,44 +231,6 @@ export const PROJECT_PATCH_KEYS = [
 export function buildProjectSnapshot(appVersion, fields) {
   return {
     appVersion,
-    idea: fields.idea,
-    tempo: fields.tempo,
-    structure: fields.structure,
-    selectedGenres: fields.selectedGenres,
-    selectedRhythms: fields.selectedRhythms,
-    selectedSounds: fields.selectedSounds,
-    vocal: fields.vocal,
-    mode: fields.mode,
-    proMode: fields.proMode,
-    promptIntensity: fields.promptIntensity,
-    variationCount: fields.variationCount,
-    rules: fields.rules,
-    notes: fields.notes,
-    scores: fields.scores,
-    mood: fields.mood,
-    audioAnalysis: fields.audioAnalysis,
-    imageAnalysis: fields.imageAnalysis,
-    lyricTheme: fields.lyricTheme,
-    lyricLanguage: fields.lyricLanguage,
-    lyricStructure: fields.lyricStructure,
-    lyricStyle: fields.lyricStyle,
-    lyricDensity: fields.lyricDensity,
-    promptFormat: fields.promptFormat,
-    promptEngine: fields.promptEngine,
-    coProducerOutput: fields.coProducerOutput,
-    generatedLyrics: fields.generatedLyrics,
-    generatedLyricsStyle: fields.generatedLyricsStyle,
-    generatedHooks: fields.generatedHooks,
-    generatedHooksStyle: fields.generatedHooksStyle,
-    lyricVariantSeed: fields.lyricVariantSeed,
-    lyricMode: fields.lyricMode,
-    voiceRefFirstName: fields.voiceRefFirstName,
-    voiceRefLastName: fields.voiceRefLastName,
-    voiceStyleLine: fields.voiceStyleLine,
-    instrumentalVocalFx: fields.instrumentalVocalFx,
-    guidedStep: fields.guidedStep,
-    variations: fields.variations,
-    history: fields.history,
-    selectedHistoryId: fields.selectedHistoryId,
+    ...pickSnapshotFields(fields),
   };
 }

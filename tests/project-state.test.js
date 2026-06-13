@@ -4,6 +4,7 @@ import {
   buildProjectSnapshot,
   createInitialProjectState,
   normalizeLoadPayload,
+  pickSnapshotFields,
   projectReducer,
 } from "../app/lib/project-state.js";
 import { BLANK_STATE } from "../app/lib/music-config.js";
@@ -43,6 +44,20 @@ describe("project-state", () => {
 
   it("normalizeLoadPayload clamps guided step", () => {
     expect(normalizeLoadPayload({ guidedStep: -3 }).guidedStep).toBe(0);
+  });
+
+  it("pickSnapshotFields selects only persisted snapshot keys", () => {
+    const picked = pickSnapshotFields({
+      idea: "goal",
+      tempo: "128 BPM",
+      audioAnalysis: { fileName: "a.wav" },
+      presetName: "ignored",
+      coProducerLlmSettings: { provider: "x" },
+    });
+    expect(picked.idea).toBe("goal");
+    expect(picked.audioAnalysis).toEqual({ fileName: "a.wav" });
+    expect(picked).not.toHaveProperty("presetName");
+    expect(picked).not.toHaveProperty("coProducerLlmSettings");
   });
 
   it("buildProjectSnapshot embeds version and analyzer refs for undo/autosave", () => {

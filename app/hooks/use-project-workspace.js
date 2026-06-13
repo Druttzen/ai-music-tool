@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useAnalyzers } from "./use-analyzers";
 import { useClipboard } from "./use-clipboard";
 import { usePipelineInput } from "./use-pipeline-input";
 import { useProjectActions } from "./use-project-actions";
 import { useProjectSnapshot } from "./use-project-snapshot";
 import { useProjectState } from "./use-project-state";
+import { useSnapshotFields } from "./use-snapshot-fields";
 import { useSplashAutoDismiss, useSplashOverlay } from "./use-splash-seen";
 import { useStatusMessage } from "./use-status-message";
 import { useWorkspaceValue } from "./use-workspace-value";
@@ -25,6 +26,7 @@ export function useProjectWorkspaceProvider() {
   } = useStatusMessage("Not saved yet");
   const projectState = useProjectState();
   const {
+    state: projectReducerState,
     patch,
     load: loadProjectState,
     resetBlank,
@@ -153,90 +155,10 @@ export function useProjectWorkspaceProvider() {
     updateAudioAnalysis,
   } = analyzers;
 
-  const snapshotFields = useMemo(
-    () => ({
-      idea,
-      tempo,
-      structure,
-      selectedGenres,
-      selectedRhythms,
-      selectedSounds,
-      vocal,
-      mode,
-      proMode,
-      promptIntensity,
-      variationCount,
-      rules,
-      notes,
-      scores,
-      mood,
-      audioAnalysis,
-      imageAnalysis,
-      lyricTheme,
-      lyricLanguage,
-      lyricStructure,
-      lyricStyle,
-      lyricDensity,
-      promptFormat,
-      promptEngine,
-      coProducerOutput,
-      generatedLyrics,
-      generatedLyricsStyle,
-      generatedHooks,
-      generatedHooksStyle,
-      lyricVariantSeed,
-      lyricMode,
-      voiceRefFirstName,
-      voiceRefLastName,
-      voiceStyleLine,
-      instrumentalVocalFx,
-      guidedStep,
-      variations,
-      history,
-      selectedHistoryId,
-    }),
-    [
-      idea,
-      tempo,
-      structure,
-      selectedGenres,
-      selectedRhythms,
-      selectedSounds,
-      vocal,
-      mode,
-      proMode,
-      promptIntensity,
-      variationCount,
-      rules,
-      notes,
-      scores,
-      mood,
-      audioAnalysis,
-      imageAnalysis,
-      lyricTheme,
-      lyricLanguage,
-      lyricStructure,
-      lyricStyle,
-      lyricDensity,
-      promptFormat,
-      promptEngine,
-      coProducerOutput,
-      generatedLyrics,
-      generatedLyricsStyle,
-      generatedHooks,
-      generatedHooksStyle,
-      lyricVariantSeed,
-      lyricMode,
-      voiceRefFirstName,
-      voiceRefLastName,
-      voiceStyleLine,
-      instrumentalVocalFx,
-      guidedStep,
-      variations,
-      history,
-      selectedHistoryId,
-    ],
-  );
+  const snapshotFields = useSnapshotFields(projectReducerState, {
+    audioAnalysis,
+    imageAnalysis,
+  });
 
   const { captureSnapshot, currentState, lastAutosavePayloadRef, loadState, revertSnapshot } =
     useProjectSnapshot({

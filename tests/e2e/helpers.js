@@ -35,6 +35,12 @@ export function lyricStylePanel(page) {
   return page.locator("section").filter({ hasText: "Lyric Style Generator" });
 }
 
+export function guidedSunoPanel(page) {
+  return page.locator("section.rounded-3xl").filter({
+    has: page.getByRole("navigation", { name: "Suno guided steps" }),
+  });
+}
+
 export async function expectToast(page, textPattern) {
   const toast = page.getByTestId("action-toast");
   await expect(toast).toBeVisible();
