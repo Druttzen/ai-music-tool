@@ -38,7 +38,7 @@
   "lyricMode": "Structured Song",
   "voiceRefFirstName": "",
   "voiceRefLastName": "",
-  "voiceStyleLine": "",
+  "voiceStyleLine": "Vocal character (Suno Style direction — synthesized trait map, not a real voice clone): E2E Narrator; baritone register, breathy, steady pitch, moderate phrasing; median pitch ~180 Hz; fit the track genre. Lead vocal: clear diction, genre-appropriate mix, intentional performance matching analyzed dynamics.",
   "instrumentalVocalFx": false,
   "guidedStep": 0,
   "variations": [],
@@ -79,5 +79,26 @@
       "vocalRole": "Male Lead",
       "rulesAddition": "Match lead vocal to analyzed character: baritone register, breathy, steady pitch, moderate phrasing."
     }
+  },
+  "characterVoiceStudioSession": {
+    "voiceAnalysis": {
+      "version": 1,
+      "fileName": "fixture",
+      "duration": 2,
+      "characterLabel": "baritone register, breathy, moderate phrasing",
+      "registerLabel": "baritone register",
+      "register": "baritone",
+      "pitchMedianHz": 180,
+      "textureTags": ["breathy", "steady pitch"],
+      "suggestedVocalRole": "Male Lead",
+      "deliveryPace": "moderate phrasing",
+      "summary": "E2E fixture character preset for import tests."
+    },
+    "voiceStyleCompact": {
+      "style": "E2E Narrator, baritone register, breathy steady",
+      "lyricTag": "[Vocal character: E2E Narrator — breathy, steady pitch; trait-based Suno direction]"
+    },
+    "youtubeReference": null,
+    "presetName": "E2E Narrator"
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isSupportedAudioFile, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { buildMoodWords } from "../lib/music-helpers";
 import { storageFailureMessage } from "../lib/safe-local-storage";
@@ -16,6 +16,13 @@ import {
   saveCharacterPresetsToStorage,
   serializeCharacterPresetsExport,
 } from "../lib/voice-character-preset";
+import {
+  CHARACTER_VOICE_STUDIO_SESSION_CHANGED_EVENT,
+  loadCharacterVoiceStudioSessionFromStorage,
+  normalizeCharacterVoiceStudioSession,
+  persistCharacterVoiceStudioSession,
+  saveCharacterVoiceStudioSessionToStorage,
+} from "../lib/voice-character-studio-session";
 import { fetchYoutubeTitle, parseYoutubeReference } from "../lib/youtube-reference";
 import { APP_VERSION } from "../lib/music-config";
 import { useProjectWorkspace } from "../context/project-workspace-context";
@@ -31,6 +38,7 @@ export function useCharacterVoiceStudio() {
   const [busy, setBusy] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [voiceStyleCompact, setVoiceStyleCompact] = useState({ style: "", lyricTag: "" });
+  const skipSessionPersistRef = useRef(true);
 
   useEffect(() => {
     const syncFromStorage = () => setCharacterPresets(loadCharacterPresetsFromStorage());
@@ -38,6 +46,35 @@ export function useCharacterVoiceStudio() {
     window.addEventListener(CHARACTER_VOICE_PRESETS_CHANGED_EVENT, syncFromStorage);
     return () => window.removeEventListener(CHARACTER_VOICE_PRESETS_CHANGED_EVENT, syncFromStorage);
   }, []);
+
+  const applySessionState = useCallback((session) => {
+    const normalized = normalizeCharacterVoiceStudioSession(session);
+    setVoiceAnalysis(normalized.voiceAnalysis);
+    setYoutubeReference(normalized.youtubeReference);
+    setPresetName(normalized.presetName);
+    setVoiceStyleCompact(normalized.voiceStyleCompact);
+  }, []);
+
+  useEffect(() => {
+    const syncSessionFromStorage = () => {
+      applySessionState(loadCharacterVoiceStudioSessionFromStorage());
+      skipSessionPersistRef.current = false;
+    };
+    syncSessionFromStorage();
+    window.addEventListener(CHARACTER_VOICE_STUDIO_SESSION_CHANGED_EVENT, syncSessionFromStorage);
+    return () =>
+      window.removeEventListener(CHARACTER_VOICE_STUDIO_SESSION_CHANGED_EVENT, syncSessionFromStorage);
+  }, [applySessionState]);
+
+  useEffect(() => {
+    if (skipSessionPersistRef.current) return;
+    saveCharacterVoiceStudioSessionToStorage({
+      voiceAnalysis,
+      voiceStyleCompact,
+      youtubeReference,
+      presetName,
+    });
+  }, [voiceAnalysis, voiceStyleCompact, youtubeReference, presetName]);
 
   const projectCtx = useCallback(
     () => ({
@@ -251,6 +288,12 @@ export function useCharacterVoiceStudio() {
     setYoutubeReference(null);
     setPresetName("");
     setVoiceStyleCompact({ style: "", lyricTag: "" });
+    persistCharacterVoiceStudioSession({
+      voiceAnalysis: null,
+      voiceStyleCompact: { style: "", lyricTag: "" },
+      youtubeReference: null,
+      presetName: "",
+    });
     ws.setStatusWithTime("Voice character studio cleared");
   }, [ws]);
 

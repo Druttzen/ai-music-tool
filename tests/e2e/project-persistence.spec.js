@@ -122,4 +122,28 @@ test.describe("Project persistence e2e", () => {
     await expect(studio.getByText("E2E Narrator", { exact: true })).not.toBeVisible();
     await expect(ideaInput(page)).toHaveValue("Imported from P14 fixture");
   });
+
+  test("project JSON with characterVoiceStudioSession restores studio UI after reload", async ({ page }) => {
+    const fixture = "tests/fixtures/e2e-import-project-with-character-presets.json";
+
+    await dismissSplash(page);
+
+    const panel = saveLoadPanel(page);
+    await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(fixture);
+    await expectToast(page, /Imported JSON project/i);
+
+    const studio = voiceCharacterStudioPanel(page);
+    await studio.scrollIntoViewIfNeeded();
+    await expect(studio.locator(".font-bold.text-cyan-200")).toContainText(/baritone register/i);
+    await expect(studio.locator('input[placeholder="e.g. Warm baritone narrator"]')).toHaveValue("E2E Narrator");
+
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await skipSplashIfVisible(page);
+
+    await expect(studio.locator(".font-bold.text-cyan-200")).toContainText(/baritone register/i, {
+      timeout: 5000,
+    });
+    await expect(studio.locator('input[placeholder="e.g. Warm baritone narrator"]')).toHaveValue("E2E Narrator");
+  });
 });

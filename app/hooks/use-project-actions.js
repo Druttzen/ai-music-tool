@@ -39,10 +39,14 @@ import {
   slimStateForPersistence,
 } from "../lib/project-persistence";
 import {
-  attachCharacterVoicePresetsToProjectExport,
   extractCharacterVoicePresetsFromProject,
   persistCharacterVoicePresets,
 } from "../lib/voice-character-preset";
+import {
+  attachCharacterVoiceFieldsToProjectExport,
+  extractCharacterVoiceStudioSessionFromProject,
+  persistCharacterVoiceStudioSession,
+} from "../lib/voice-character-studio-session";
 import { collectGenreAnchors } from "../lib/suno-language-index";
 import { SUNO_AUTO_FIX_DEFAULTS } from "../lib/suno-rules";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
@@ -224,7 +228,7 @@ export function useProjectActions({
   }, [selectedGenres, setRules, setSelectedRhythms, setSelectedSounds, setStatusWithTime]);
 
   const saveProject = useCallback(() => {
-    const slim = attachCharacterVoicePresetsToProjectExport(slimStateForPersistence(currentState));
+    const slim = attachCharacterVoiceFieldsToProjectExport(slimStateForPersistence(currentState));
     const payload = JSON.stringify(slim, null, 2);
     const result = safeLocalStorage.set(STORAGE_KEY, payload);
     if (!result.ok) {
@@ -236,7 +240,7 @@ export function useProjectActions({
   }, [currentState, lastAutosavePayloadRef, setStatusWithTime]);
 
   const exportProject = useCallback(() => {
-    const payload = attachCharacterVoicePresetsToProjectExport(currentState);
+    const payload = attachCharacterVoiceFieldsToProjectExport(currentState);
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
@@ -264,6 +268,10 @@ export function useProjectActions({
             if (!presetResult.ok) {
               setStatusWithTime(storageFailureMessage(presetResult), "error");
             }
+          }
+          const cvSession = extractCharacterVoiceStudioSessionFromProject(raw);
+          if (cvSession !== null) {
+            persistCharacterVoiceStudioSession(cvSession);
           }
           loadState(migrateImportedProject(raw, APP_VERSION));
           setStatusWithTime("Imported JSON project");

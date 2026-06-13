@@ -3,6 +3,10 @@
 import { useCallback, useMemo } from "react";
 import { buildProjectSnapshot } from "../lib/project-state";
 import {
+  extractCharacterVoiceStudioSessionFromProject,
+  persistCharacterVoiceStudioSession,
+} from "../lib/voice-character-studio-session";
+import {
   extractCharacterVoicePresetsFromProject,
   persistCharacterVoicePresets,
 } from "../lib/voice-character-preset";
@@ -44,6 +48,10 @@ export function useProjectSnapshot({
       const cvPresets = extractCharacterVoicePresetsFromProject(data);
       if (cvPresets !== null) {
         persistCharacterVoicePresets(cvPresets, { merge: false });
+      }
+      const cvSession = extractCharacterVoiceStudioSessionFromProject(data);
+      if (cvSession !== null) {
+        persistCharacterVoiceStudioSession(cvSession);
       }
     },
     [clearAudioAnalysis, clearImageAnalysis, loadProjectState, setAudioAnalysis, setImageAnalysis],

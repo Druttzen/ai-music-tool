@@ -13,7 +13,11 @@ import {
   slimStateForPersistence,
 } from "../lib/project-persistence";
 import {
-  attachCharacterVoicePresetsToProjectExport,
+  attachCharacterVoiceFieldsToProjectExport,
+  extractCharacterVoiceStudioSessionFromProject,
+  persistCharacterVoiceStudioSession,
+} from "../lib/voice-character-studio-session";
+import {
   extractCharacterVoicePresetsFromProject,
   persistCharacterVoicePresets,
 } from "../lib/voice-character-preset";
@@ -65,6 +69,10 @@ export function useProjectPersistence({
           if (cvPresets !== null) {
             persistCharacterVoicePresets(cvPresets, { merge: false });
           }
+          const cvSession = extractCharacterVoiceStudioSessionFromProject(parsed);
+          if (cvSession !== null) {
+            persistCharacterVoiceStudioSession(cvSession);
+          }
         }
         const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
         if (presets) setCustomPresets(presets);
@@ -84,7 +92,7 @@ export function useProjectPersistence({
     const timeoutId = window.setTimeout(() => {
       try {
         const payload = JSON.stringify(
-          attachCharacterVoicePresetsToProjectExport(slimStateForPersistence(currentState)),
+          attachCharacterVoiceFieldsToProjectExport(slimStateForPersistence(currentState)),
         );
         if (payload === lastAutosavePayloadRef.current) return;
         const result = safeLocalStorage.set(STORAGE_KEY, payload);
