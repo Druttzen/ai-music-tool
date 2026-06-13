@@ -32,9 +32,9 @@ test.describe("Voice Character Studio e2e", () => {
       .click();
     await expectToast(page, /Loaded character preset: E2E Narrator/i);
 
-    const voiceBlock = panel.locator("pre").filter({ hasText: /E2E Narrator/i });
+    const voiceBlock = panel.locator("pre").filter({ hasText: /trait map/i }).first();
     await expect(voiceBlock).toBeVisible();
-    await expect(voiceBlock).toContainText(/trait map/i);
+    await expect(voiceBlock).toContainText(/E2E Narrator/i);
 
     const controls = musicControlsPanel(page);
     await expect(controls.getByRole("button", { name: "Male Lead", exact: true })).toHaveClass(
@@ -74,6 +74,48 @@ test.describe("Voice Character Studio e2e", () => {
       .getByRole("button", { name: "Regenerate", exact: true })
       .click();
     await expectToast(page, /Regenerated Suno voice block from character DNA/i);
+  });
+
+  test("loading file-only preset clears linked YouTube reference", async ({ page }) => {
+    await dismissSplash(page);
+
+    const panel = voiceCharacterStudioPanel(page);
+    await panel.scrollIntoViewIfNeeded();
+
+    await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(CHARACTER_PRESETS_FIXTURE);
+
+    await panel.getByPlaceholder(/youtube\.com\/watch/i).fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    await panel.getByRole("button", { name: "Link YouTube" }).click();
+    await expect(panel.getByText(/^Linked:/)).toBeVisible({ timeout: 15000 });
+
+    await panel
+      .locator("div")
+      .filter({ hasText: "E2E Narrator" })
+      .getByRole("button", { name: "Load", exact: true })
+      .click();
+    await expectToast(page, /Loaded character preset: E2E Narrator/i);
+
+    await expect(panel.getByText(/^Linked:/)).not.toBeVisible();
+    await expect(panel.getByPlaceholder(/youtube\.com\/watch/i)).toHaveValue("");
+  });
+
+  test("load preset shows compact style and lyric metatag copy blocks", async ({ page }) => {
+    await dismissSplash(page);
+
+    const panel = voiceCharacterStudioPanel(page);
+    await panel.scrollIntoViewIfNeeded();
+
+    await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(CHARACTER_PRESETS_FIXTURE);
+    await panel
+      .locator("div")
+      .filter({ hasText: "E2E Narrator" })
+      .getByRole("button", { name: "Load", exact: true })
+      .click();
+
+    await expect(panel.getByText("Compact (Style box)")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Copy compact style line" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Copy lyric metatag" })).toBeVisible();
+    await expect(panel.locator("pre").filter({ hasText: /\[Vocal character: E2E Narrator/i })).toBeVisible();
   });
 
   test("analyze vocal file and show character traits", async ({ page }) => {

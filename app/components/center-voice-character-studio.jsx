@@ -12,6 +12,17 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
   const studio = useCharacterVoiceStudio();
   const [youtubeUrl, setYoutubeUrl] = useState("");
 
+  const handleLoadPreset = (name) => {
+    const preset = studio.characterPresets[name];
+    studio.loadCharacterPreset(name);
+    setYoutubeUrl(preset?.source?.youtubeUrl || "");
+  };
+
+  const handleClearStudio = () => {
+    studio.clearStudio();
+    setYoutubeUrl("");
+  };
+
   return (
     <Panel
       title="Voice Character Studio"
@@ -138,7 +149,7 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
                 <div className="text-[10px] text-white/45">{preset.analysis?.characterLabel}</div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Pill active={false} onClick={() => studio.loadCharacterPreset(name)}>
+                <Pill active={false} onClick={() => handleLoadPreset(name)}>
                   Load
                 </Pill>
                 <Pill active={false} onClick={() => studio.regenerateCharacterVoice(name)}>
@@ -173,9 +184,36 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
         </div>
       ) : null}
 
+      {studio.voiceStyleCompact.style ? (
+        <div className="mt-4 space-y-2">
+          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Compact (Style box)</div>
+          <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/80">
+            {studio.voiceStyleCompact.style}
+          </pre>
+          <button
+            type="button"
+            onClick={() => ws.copyToClipboard(studio.voiceStyleCompact.style, "Character compact style copied")}
+            className="w-full rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100"
+          >
+            Copy compact style line
+          </button>
+          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Lyric metatag (optional)</div>
+          <pre className="max-h-20 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/80">
+            {studio.voiceStyleCompact.lyricTag}
+          </pre>
+          <button
+            type="button"
+            onClick={() => ws.copyToClipboard(studio.voiceStyleCompact.lyricTag, "Character lyric metatag copied")}
+            className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
+          >
+            Copy lyric metatag
+          </button>
+        </div>
+      ) : null}
+
       <button
         type="button"
-        onClick={studio.clearStudio}
+        onClick={handleClearStudio}
         className="mt-3 text-xs font-bold text-white/45 hover:text-white/70"
       >
         Clear studio session

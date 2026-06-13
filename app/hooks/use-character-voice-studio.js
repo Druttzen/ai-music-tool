@@ -38,6 +38,7 @@ export function useCharacterVoiceStudio() {
   const [youtubeReference, setYoutubeReference] = useState(null);
   const [busy, setBusy] = useState(false);
   const [presetName, setPresetName] = useState("");
+  const [voiceStyleCompact, setVoiceStyleCompact] = useState({ style: "", lyricTag: "" });
 
   const projectCtx = useCallback(
     () => ({
@@ -53,6 +54,11 @@ export function useCharacterVoiceStudio() {
       ws.setVocal(lines.vocalRole);
       ws.setVoiceRefFirstName("");
       ws.setVoiceRefLastName("");
+      setVoiceStyleCompact(
+        lines.voiceStyleCompact && typeof lines.voiceStyleCompact === "object"
+          ? lines.voiceStyleCompact
+          : { style: "", lyricTag: "" },
+      );
       if (appendRules && lines.rulesAddition) {
         ws.setRules((prev) => {
           const p = String(prev || "").trim();
@@ -213,7 +219,11 @@ export function useCharacterVoiceStudio() {
           rulesAddition: regen.rulesAddition,
         };
         const next = { ...characterPresets, [name]: updated };
-        savePresetsToStorage(next);
+        const result = savePresetsToStorage(next);
+        if (!result.ok) {
+          ws.setStatusWithTime(storageFailureMessage(result), "error");
+          return;
+        }
         setCharacterPresets(next);
       }
       ws.setStatusWithTime("Regenerated Suno voice block from character DNA (max trait match)");
@@ -240,6 +250,7 @@ export function useCharacterVoiceStudio() {
     setVoiceAnalysis(null);
     setYoutubeReference(null);
     setPresetName("");
+    setVoiceStyleCompact({ style: "", lyricTag: "" });
     ws.setStatusWithTime("Voice character studio cleared");
   }, [ws]);
 
@@ -274,23 +285,31 @@ export function useCharacterVoiceStudio() {
             ws.setStatusWithTime("No valid character presets in file", "error");
             return;
           }
-          const next = mergeCharacterPresetsMaps(characterPresets, imported);
-          const result = savePresetsToStorage(next);
-          if (!result.ok) {
-            ws.setStatusWithTime(storageFailureMessage(result), "error");
-            return;
-          }
-          setCharacterPresets(next);
-          ws.setStatusWithTime(`Imported ${count} character preset${count === 1 ? "" : "s"}`);
+          setCharacterPresets((prev) => {
+            const next = mergeCharacterPresetsMaps(prev, imported);
+            const result = savePresetsToStorage(next);
+            if (!result.ok) {
+              queueMicrotask(() => ws.setStatusWithTime(storageFailureMessage(result), "error"));
+              return prev;
+            }
+            queueMicrotask(() =>
+              ws.setStatusWithTime(`Imported ${count} character preset${count === 1 ? "" : "s"}`),
+            );
+            return next;
+          });
         } catch {
           ws.setStatusWithTime("Character preset import failed", "error");
         } finally {
           event.target.value = "";
         }
       };
+      reader.onerror = () => {
+        ws.setStatusWithTime("Character preset import failed", "error");
+        event.target.value = "";
+      };
       reader.readAsText(file);
     },
-    [characterPresets, ws],
+    [ws],
   );
 
   return {
@@ -308,6 +327,7 @@ export function useCharacterVoiceStudio() {
     saveCharacterPreset,
     setPresetName,
     voiceAnalysis,
+    voiceStyleCompact,
     youtubeReference,
   };
 }
