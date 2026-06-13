@@ -1,5 +1,109 @@
 import { validateSunoFieldLengths } from "./suno-limits";
 
+/** Shared defaults for Suno-like auto-fix and blank-slate guidance. */
+export const SUNO_AUTO_FIX_DEFAULTS = {
+  genres: ["Techno"],
+  sounds: ["Heavy sub bass", "Analog synths"],
+  rhythms: ["4/4"],
+  structure: "intro → verse → pre-chorus → chorus → bridge → final chorus → outro",
+  idea: "high-impact track with clear identity, strong groove, and memorable emotional arc",
+  instrumentalRule: "no vocals, no vocal chops, no mumbled speech",
+  maxGenres: 2,
+};
+
+/**
+ * Standard (non-Suno-like) prompt formats: Compressed, Detailed, or Balanced.
+ */
+export function buildStandardPrompt({
+  format,
+  selectedGenres,
+  tempo,
+  moodWords,
+  selectedSounds,
+  selectedRhythms,
+  vocalText,
+  structure,
+  idea,
+  vocal,
+  lyricPrompt,
+  lyricStyle,
+  lyricTheme,
+  rules,
+  intensityText,
+  mode,
+  audioAnalysis,
+  imageAnalysis,
+  coProducerOutput,
+  notes,
+}) {
+  const genreLine = `${selectedGenres.join(" + ") || "Electronic"} | ${tempo} | ${moodWords}`;
+
+  if (format === "Compressed") {
+    return `${genreLine}
+Sound: ${selectedSounds.slice(0, 6).join(", ") || "balanced instruments"}
+Rhythm: ${selectedRhythms.join(", ") || "steady groove"}
+Vocals: ${vocalText}
+Goal: ${idea}
+Lyrics: ${vocal === "Instrumental" ? "instrumental only" : `${lyricStyle}, ${lyricTheme}`}
+Rules: ${rules}`;
+  }
+
+  if (format === "Detailed") {
+    return `STYLE:
+${genreLine}
+
+SOUND:
+${selectedSounds.join(", ") || "balanced instruments"} | Rhythm: ${selectedRhythms.join(", ") || "steady groove"}
+
+VOCALS:
+${vocalText}
+
+SONG MAP:
+${structure}
+
+GOAL:
+${idea}
+
+${vocal !== "Instrumental" ? lyricPrompt : "LYRICS:\nInstrumental only."}
+
+RULES:
+${rules}
+Intensity: ${intensityText}
+Mode: ${mode}
+
+${audioAnalysis ? `AUDIO DNA:\n${audioAnalysis.summary}` : ""}
+
+${imageAnalysis ? `IMAGE DNA:\n${imageAnalysis.summary}` : ""}
+
+CO-PRODUCER:
+${coProducerOutput || "No co-producer notes yet."}
+
+NOTES:
+${notes || "No extra notes."}`;
+  }
+
+  return `STYLE:
+${genreLine}
+
+SOUND:
+${selectedSounds.slice(0, 8).join(", ") || "balanced instruments"}
+Rhythm: ${selectedRhythms.join(", ") || "steady groove"}
+
+VOCALS:
+${vocalText}
+
+GOAL:
+${idea}
+
+${vocal !== "Instrumental" ? lyricPrompt : "LYRICS:\nInstrumental only."}
+
+RULES:
+${rules}
+Intensity: ${intensityText} | Mode: ${mode}
+
+${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
+}
+
 /**
  * Text for Suno **Style of Music** (sound, arrangement intent, rules) — no lyric-generation block.
  */

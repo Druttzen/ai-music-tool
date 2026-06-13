@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { ActionToast } from "./components/action-toast";
 import { SunoGuidedPath } from "./components/suno-guided-path";
@@ -9,14 +10,10 @@ import { AudioTrackEditor } from "./components/audio-track-editor";
 import { DropBox, Panel, Pill, SearchablePillGrid, Slider, TextBox } from "./components/ui-blocks";
 import { useAnalyzers } from "./hooks/use-analyzers";
 import { useClipboard } from "./hooks/use-clipboard";
+import { usePromptPipeline } from "./hooks/use-prompt-pipeline";
 import { useSplashOverlay } from "./hooks/use-splash-seen";
 import { useStatusMessage } from "./hooks/use-status-message";
-import {
-  buildSunoLikePrompt,
-  buildSunoLyricsBoxPrompt,
-  buildSunoStyleBoxPrompt,
-  validateSunoLikePrompt,
-} from "./lib/suno-rules";
+import { SUNO_AUTO_FIX_DEFAULTS } from "./lib/suno-rules";
 import {
   SUNO_LIMITS_NOTE,
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
@@ -24,10 +21,6 @@ import {
   SUNO_STYLE_CHAR_CAP,
   SUNO_STYLE_CHAR_WARN,
 } from "./lib/suno-limits";
-import {
-  buildSunoPastedLyricsField,
-  buildSunoPastedStyleLine,
-} from "./lib/suno-guided-workflow";
 import { IMAGE_ANALYZER_DISCLAIMER } from "./lib/analyzer-disclaimer";
 import {
   buildInstrumentalLyricsScaffold,
@@ -51,14 +44,7 @@ import {
   SUPPORTED_IMAGE_ACCEPT,
   SUPPORTED_IMAGE_LABEL,
 } from "./lib/analyzer-file-types";
-import {
-  collectGenreAnchors,
-  formatPromptSymbolGuidePlain,
-  formatVocalArtifactGuidePlain,
-  referencePromptBlocks,
-  stylePromptCatalog,
-  sunoLanguageIndex,
-} from "./lib/suno-language-index";
+import { collectGenreAnchors } from "./lib/suno-language-index";
 import {
   migrateImportedProject,
   migratePersistedProject,
@@ -94,9 +80,7 @@ import {
 import {
   bracketizeSunoPromptBlock,
   bracketizeSunoPromptLine,
-  buildLyricPrompt,
-  getIntensityText,
-  getVocalText,
+  buildMoodWords,
   uniq,
 } from "./lib/music-helpers";
 import { generateCoProducerLyrics, generateCoProducerHooks, getLyricStyleDirection, mergeInstrumentalScaffoldWithStyleLyrics } from "./lib/lyric-generator";
@@ -108,17 +92,25 @@ import {
   saveCoProducerLlmSettings,
 } from "./lib/co-producer-llm";
 import {
-  buildSunoVoiceStyleCompact,
   buildSunoVoiceStyleLine,
   FAMOUS_VOICE_PRESETS,
   formatPublicName,
 } from "./lib/suno-voice-style";
 
-function flattenStylePromptCatalog(cat) {
-  return Object.entries(cat)
-    .map(([section, lines]) => `## ${section.replace(/([A-Z])/g, " $1").trim()}\n${lines.join("\n")}`)
-    .join("\n\n");
-}
+const SunoLanguageIndexPanel = dynamic(
+  () =>
+    import("./components/suno-language-index-panel").then((mod) => ({
+      default: mod.SunoLanguageIndexPanel,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <Panel title="Suno Language Index" hint="Loading reference…">
+        <p className="text-xs text-white/45">Loading vocabulary index…</p>
+      </Panel>
+    ),
+  },
+);
 
 export default function Page() {
   const [idea,setIdea]=useState(DEFAULT_STATE.idea);
@@ -364,13 +356,7 @@ export default function Page() {
     const suggestedStyle = suggestLyricStyleFromAnalysis(audioAnalysis);
     const vocalRole = suggestVocalRoleFromAnalysis(audioAnalysis);
     const scaffold = buildInstrumentalLyricsScaffold(audioAnalysis, { theme });
-    const moodWordsLocal = [
-      mood.darkness > 65 ? "dark" : null,
-      mood.energy > 70 ? "high-energy" : null,
-      mood.emotion > 60 ? "emotional" : null,
-    ]
-      .filter(Boolean)
-      .join(", ") || "balanced";
+    const moodWordsLocal = buildMoodWords(mood);
 
     const coInput = {
       vocal: vocalRole,
@@ -527,302 +513,82 @@ export default function Page() {
 
   const toggle=(item,list,setter)=>setter(list.includes(item)?list.filter(x=>x!==item):[...list,item]);
 
-  const moodWords=useMemo(()=>{
-    const out=[];
-    if(mood.darkness>65) out.push("dark"); if(mood.darkness<35) out.push("bright");
-    if(mood.energy>70) out.push("high-energy"); if(mood.energy<35) out.push("calm");
-    if(mood.aggression>65) out.push("aggressive"); if(mood.emotion>60) out.push("emotional");
-    if(mood.complexity>65) out.push("complex"); if(mood.complexity<35) out.push("minimal");
-    if(mood.space>65) out.push("wide and spacious");
-    if(!out.length) out.push("balanced");
-    return out.join(", ");
-  },[mood]);
-
-  const intensityText=useMemo(()=>getIntensityText(promptIntensity),[promptIntensity]);
-
-  const vocalText = useMemo(() => {
-    if (vocal === "Instrumental" && instrumentalVocalFx) {
-      return "instrumental arrangement with vocal FX only (short chops, textures, one-shots — no sung lyrics or verses)";
-    }
-    return getVocalText(vocal);
-  }, [vocal, instrumentalVocalFx]);
-
-
-  const lyricPrompt = useMemo(() => {
-    return buildLyricPrompt({
-      vocal,
-      lyricDensity,
-      lyricLanguage,
-      lyricTheme,
-      lyricStyle,
-      lyricMode,
-      lyricStructure,
-      selectedGenres,
-      moodWords,
-    });
-  }, [vocal, lyricDensity, lyricLanguage, lyricTheme, lyricStyle, lyricMode, lyricStructure, selectedGenres, moodWords]);
-
-  const compressedPrompt = useMemo(() => {
-    return `${selectedGenres.join(" + ") || "Electronic"} | ${tempo} | ${moodWords}
-Sound: ${selectedSounds.slice(0, 6).join(", ") || "balanced instruments"}
-Rhythm: ${selectedRhythms.join(", ") || "steady groove"}
-Vocals: ${vocalText}
-Goal: ${idea}
-Lyrics: ${vocal === "Instrumental" ? "instrumental only" : `${lyricStyle}, ${lyricTheme}`}
-Rules: ${rules}`;
-  }, [selectedGenres, tempo, moodWords, selectedSounds, selectedRhythms, vocalText, idea, vocal, lyricStyle, lyricTheme, rules]);
-
-  const detailedPrompt = useMemo(() => {
-    return `STYLE:
-${selectedGenres.join(" + ") || "Electronic"} | ${tempo} | ${moodWords}
-
-SOUND:
-${selectedSounds.join(", ") || "balanced instruments"} | Rhythm: ${selectedRhythms.join(", ") || "steady groove"}
-
-VOCALS:
-${vocalText}
-
-SONG MAP:
-${structure}
-
-GOAL:
-${idea}
-
-${vocal !== "Instrumental" ? lyricPrompt : "LYRICS:\nInstrumental only."}
-
-RULES:
-${rules}
-Intensity: ${intensityText}
-Mode: ${mode}
-
-${audioAnalysis ? `AUDIO DNA:\n${audioAnalysis.summary}` : ""}
-
-${imageAnalysis ? `IMAGE DNA:\n${imageAnalysis.summary}` : ""}
-
-CO-PRODUCER:
-${coProducerOutput || "No co-producer notes yet."}
-
-NOTES:
-${notes || "No extra notes."}`;
-  }, [selectedGenres, tempo, moodWords, selectedSounds, selectedRhythms, vocalText, structure, idea, vocal, lyricPrompt, rules, intensityText, mode, audioAnalysis, imageAnalysis, coProducerOutput, notes]);
-
-  const prompt = useMemo(() => {
-    if (promptEngine === "Suno-like") {
-      return buildSunoLikePrompt({
-        selectedGenres,
-        tempo,
-        moodWords,
-        selectedSounds,
-        selectedRhythms,
-        vocalText,
-        structure,
-        idea,
-        lyricPrompt,
-        vocal,
-        rules,
-        intensityText,
-        mode,
-        voiceStyleReference: voiceStyleLine,
-      });
-    }
-
-    if (promptFormat === "Compressed") return compressedPrompt;
-    if (promptFormat === "Detailed") return detailedPrompt;
-
-    return `STYLE:
-${selectedGenres.join(" + ") || "Electronic"} | ${tempo} | ${moodWords}
-
-SOUND:
-${selectedSounds.slice(0, 8).join(", ") || "balanced instruments"}
-Rhythm: ${selectedRhythms.join(", ") || "steady groove"}
-
-VOCALS:
-${vocalText}
-
-GOAL:
-${idea}
-
-${vocal !== "Instrumental" ? lyricPrompt : "LYRICS:\nInstrumental only."}
-
-RULES:
-${rules}
-Intensity: ${intensityText} | Mode: ${mode}
-
-${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
-  }, [promptEngine, promptFormat, compressedPrompt, detailedPrompt, selectedGenres, tempo, moodWords, selectedSounds, selectedRhythms, vocalText, structure, idea, vocal, lyricPrompt, rules, intensityText, mode, coProducerOutput, voiceStyleLine]);
-
-  /** Same strings as Suno validator / copy buttons — computed once per state change. */
-  const sunoFieldSlices = useMemo(() => {
-    const p = {
-      selectedGenres,
-      tempo,
-      moodWords,
-      selectedSounds,
-      selectedRhythms,
-      vocalText,
-      structure,
-      idea,
-      vocal,
-      rules,
-      intensityText,
-      mode,
-      voiceStyleReference: voiceStyleLine,
-    };
-    const guided = {
-      ...p,
-      lyricTheme,
-      lyricLanguage,
-      lyricStructure,
-      lyricStyle,
-      lyricDensity,
-      lyricMode,
-      generatedLyrics,
-      lyricPrompt,
-      instrumentalVocalFx,
-    };
-    return {
-      style:
-        promptEngine === "Suno-like"
-          ? buildSunoPastedStyleLine(guided)
-          : buildSunoStyleBoxPrompt(p),
-      lyrics:
-        promptEngine === "Suno-like"
-          ? buildSunoPastedLyricsField(guided)
-          : buildSunoLyricsBoxPrompt({ vocal, lyricPrompt }),
-    };
-  }, [
-    selectedGenres,
-    tempo,
-    moodWords,
-    selectedSounds,
-    selectedRhythms,
-    vocalText,
-    structure,
-    idea,
-    vocal,
-    rules,
-    intensityText,
-    mode,
-    voiceStyleLine,
-    lyricPrompt,
-    promptEngine,
-    lyricTheme,
-    lyricLanguage,
-    lyricStructure,
-    lyricStyle,
-    lyricDensity,
-    lyricMode,
-    generatedLyrics,
-    instrumentalVocalFx,
-  ]);
-
-  const sunoSlices = useMemo(
-    () => (promptEngine !== "Suno-like" ? null : sunoFieldSlices),
-    [promptEngine, sunoFieldSlices],
-  );
-
-  const sunoWarnings = useMemo(
-    () =>
-      validateSunoLikePrompt({
-        selectedGenres,
-        selectedSounds,
-        selectedRhythms,
-        vocal,
-        instrumentalVocalFx,
-        rules,
-        structure,
-        idea,
-        tempo,
-        moodWords,
-        vocalText,
-        lyricPrompt,
-        intensityText,
-        mode,
-        voiceStyleReference: voiceStyleLine,
-        ...(promptEngine === "Suno-like"
-          ? {
-              pastedStyleLen: sunoFieldSlices.style.length,
-              pastedLyricsLen: sunoFieldSlices.lyrics.length,
-            }
-          : {}),
-      }),
-    [
-      selectedGenres,
-      selectedSounds,
-      selectedRhythms,
-      vocal,
-      instrumentalVocalFx,
-      rules,
-      structure,
-      idea,
-      tempo,
-      moodWords,
-      vocalText,
-      lyricPrompt,
-      intensityText,
-      mode,
-      voiceStyleLine,
-      promptEngine,
-      sunoFieldSlices,
-    ],
-  );
-
-  const sunoGuidedInput = useMemo(
+  const pipelineInput = useMemo(
     () => ({
-      selectedGenres,
-      tempo,
-      moodWords,
-      selectedSounds,
-      selectedRhythms,
+      mood,
+      promptIntensity,
       vocal,
       instrumentalVocalFx,
+      lyricDensity,
+      lyricLanguage,
+      lyricTheme,
+      lyricStyle,
+      lyricMode,
+      lyricStructure,
+      selectedGenres,
+      tempo,
+      selectedSounds,
+      selectedRhythms,
       idea,
       structure,
       rules,
       mode,
+      promptFormat,
+      promptEngine,
+      coProducerOutput,
+      notes,
+      audioAnalysis,
+      imageAnalysis,
       voiceStyleLine,
-      lyricPrompt,
-      lyricTheme,
-      lyricLanguage,
-      lyricStructure,
-      lyricStyle,
-      lyricDensity,
-      lyricMode,
+      voiceRefFirstName,
+      voiceRefLastName,
       generatedLyrics,
     }),
     [
-      selectedGenres,
-      tempo,
-      moodWords,
-      selectedSounds,
-      selectedRhythms,
+      mood,
+      promptIntensity,
       vocal,
       instrumentalVocalFx,
+      lyricDensity,
+      lyricLanguage,
+      lyricTheme,
+      lyricStyle,
+      lyricMode,
+      lyricStructure,
+      selectedGenres,
+      tempo,
+      selectedSounds,
+      selectedRhythms,
       idea,
       structure,
       rules,
       mode,
+      promptFormat,
+      promptEngine,
+      coProducerOutput,
+      notes,
+      audioAnalysis,
+      imageAnalysis,
       voiceStyleLine,
-      lyricPrompt,
-      lyricTheme,
-      lyricLanguage,
-      lyricStructure,
-      lyricStyle,
-      lyricDensity,
-      lyricMode,
+      voiceRefFirstName,
+      voiceRefLastName,
       generatedLyrics,
     ],
   );
 
-  const voiceStyleCompact = useMemo(
-    () =>
-      buildSunoVoiceStyleCompact({
-        firstName: voiceRefFirstName,
-        lastName: voiceRefLastName,
-        selectedGenres,
-      }),
-    [voiceRefFirstName, voiceRefLastName, selectedGenres],
-  );
+  const {
+    moodWords,
+    intensityText,
+    vocalText,
+    lyricPrompt,
+    prompt,
+    sunoFieldSlices,
+    sunoSlices,
+    sunoWarnings,
+    sunoGuidedInput,
+    voiceStyleCompact,
+    sourcePrompt,
+  } = usePromptPipeline(pipelineInput);
 
   const generateVoiceStyleFromNames = () => {
     if (!formatPublicName(voiceRefFirstName, voiceRefLastName).trim()) {
@@ -840,24 +606,21 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
   };
 
   const fixSunoWarnings = () => {
-    if (!selectedGenres.length) setSelectedGenres(["Techno"]);
-    if (!selectedSounds.length) setSelectedSounds(["Heavy sub bass", "Analog synths"]);
-    if (!selectedRhythms.length) setSelectedRhythms(["4/4"]);
-    if (!structure || structure.trim().length < 8) {
-      setStructure("intro → verse → pre-chorus → chorus → bridge → final chorus → outro");
-    }
-    if (!idea || idea.trim().length < 10) {
-      setIdea("high-impact track with clear identity, strong groove, and memorable emotional arc");
-    }
+    const d = SUNO_AUTO_FIX_DEFAULTS;
+    if (!selectedGenres.length) setSelectedGenres(d.genres);
+    if (!selectedSounds.length) setSelectedSounds(d.sounds);
+    if (!selectedRhythms.length) setSelectedRhythms(d.rhythms);
+    if (!structure || structure.trim().length < 8) setStructure(d.structure);
+    if (!idea || idea.trim().length < 10) setIdea(d.idea);
     if (
       vocal === "Instrumental" &&
       !instrumentalVocalFx &&
       !rules.toLowerCase().includes("no vocal")
     ) {
-      setRules((prev) => `${prev}${prev.trim() ? "\n" : ""}no vocals, no vocal chops, no mumbled speech`);
+      setRules((prev) => `${prev}${prev.trim() ? "\n" : ""}${d.instrumentalRule}`);
     }
-    if (selectedGenres.length > 2) {
-      setSelectedGenres(selectedGenres.slice(0, 2));
+    if (selectedGenres.length > d.maxGenres) {
+      setSelectedGenres(selectedGenres.slice(0, d.maxGenres));
     }
     setStatusWithTime("Applied Suno-like auto-fixes");
   };
@@ -881,37 +644,6 @@ ${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
     }
     setStatusWithTime("Applied genre anchors");
   };
-
-
-  const sourcePrompt = useMemo(() => {
-    const parts = [];
-
-    if (audioAnalysis) {
-      parts.push(`AUDIO STYLE PROMPT:
-Use this audio analysis as the musical DNA.
-
-${audioAnalysis.summary}
-
-Music direction:
-- Match the detected energy, aggression, brightness, and rhythmic behavior.
-- Translate the audio character into genre, groove, bass design, drum feel, and production texture.
-- Keep the result usable as a music-generation prompt.`);
-    }
-
-    if (imageAnalysis) {
-      parts.push(`IMAGE STYLE PROMPT:
-Convert this image analysis into a music style.
-
-${imageAnalysis.summary}
-
-Music direction:
-- Translate color, contrast, brightness, and visual mood into sound.
-- Use the image as emotional and atmospheric direction.
-- Turn visual texture into instruments, rhythm, space, and mix character.`);
-    }
-
-    return parts.join("\n\n---\n\n");
-  }, [audioAnalysis, imageAnalysis]);
 
   const avgScore=((scores.bass+scores.rhythm+scores.identity+scores.clarity)/4).toFixed(1);
 
@@ -1732,298 +1464,8 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                 )}
               </Panel>
             )}
-            <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
-                <div className="space-y-3 text-xs text-white/80">
-                  <p className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3 text-[11px] text-white/55">
-                    Browse and add style prompts in <strong className="text-cyan-100">Step 3 → Style prompt library</strong>{" "}
-                    (section dropdown + multi-select → Add to Styles).
-                  </p>
-                  <div>
-                    <div className="mb-1 font-bold text-cyan-200">Core Principles</div>
-                    <ul className="space-y-1 text-white/70">
-                      {sunoLanguageIndex.principles.map((p, i) => (
-                        <li key={i}>- {p}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <div className="mb-1 font-bold text-cyan-200">Structure Tags</div>
-                    <div className="rounded-2xl border border-white/10 bg-black/30 p-2 text-white/70">
-                      {sunoLanguageIndex.structureTags.map((tag) => `[${tag}]`).join("  ")}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-3">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-bold text-amber-100">Prompt symbol overview</div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          copyToClipboard(formatPromptSymbolGuidePlain(), "Symbol guide copied")
-                        }
-                        className="rounded-xl border border-amber-300/40 bg-amber-400/20 px-2 py-1 text-[11px] font-bold text-amber-50 hover:bg-amber-400/30"
-                      >
-                        Copy full symbol guide
-                      </button>
-                    </div>
-                    <p className="mb-2 text-[11px] text-amber-100/70">
-                      Delimiter roles (comma, semicolon, brackets, pipes, etc.) + examples for style
-                      prompts and registers.
-                    </p>
-                    <div className="max-h-[min(220px,35vh)] overflow-auto rounded-xl border border-white/10 bg-black/40">
-                      <table className="w-full border-collapse text-left text-[10px] text-white/75">
-                        <thead className="sticky top-0 bg-black/80 text-amber-100/90">
-                          <tr>
-                            <th className="border-b border-white/10 p-2">Symbol</th>
-                            <th className="border-b border-white/10 p-2">Meaning</th>
-                            <th className="border-b border-white/10 p-2">Example</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(sunoLanguageIndex.promptSymbolOverview || []).map((row, idx) => (
-                            <tr key={`sym-${idx}`} className="border-b border-white/5">
-                              <td className="align-top p-2 font-mono text-cyan-100/90">
-                                <div className="whitespace-nowrap">
-                                  {"symbolAlt" in row && row.symbolAlt
-                                    ? `${row.symbol} (${row.symbolAlt})`
-                                    : row.symbol}
-                                </div>
-                                <div className="mt-0.5 text-[9px] font-sans font-normal text-white/40">
-                                  {row.label}
-                                </div>
-                              </td>
-                              <td className="align-top p-2">{row.role}</td>
-                              <td className="align-top p-2 text-white/60">{row.example}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <ul className="mt-2 space-y-1 text-[11px] text-white/65">
-                      {(sunoLanguageIndex.promptSymbolUsageTips || []).map((t, i) => (
-                        <li key={`tip-${i}`}>- {t}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
-                    <div className="mb-2 font-bold text-cyan-200">Delimiter examples</div>
-                    <div className="max-h-[min(280px,40vh)] space-y-2 overflow-y-auto">
-                      {Object.entries(sunoLanguageIndex.promptSymbolExamples || {}).map(
-                        ([key, lines]) => (
-                          <details
-                            key={key}
-                            className="rounded-xl border border-white/10 bg-black/40 open:border-cyan-400/25"
-                          >
-                            <summary className="cursor-pointer px-3 py-2 text-[11px] font-bold text-cyan-100 marker:text-cyan-300">
-                              {key.replace(/([A-Z])/g, " $1").trim()}
-                            </summary>
-                            <pre className="max-h-32 overflow-auto whitespace-pre-wrap px-3 pb-3 text-[11px] leading-relaxed text-white/65">
-                              {(lines || []).join("\n")}
-                            </pre>
-                            <div className="px-3 pb-3">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  copyToClipboard((lines || []).join("\n"), `${key} examples copied`)
-                                }
-                                className="rounded-xl bg-white/10 px-2 py-1 text-[11px] font-bold text-white hover:bg-white/20"
-                              >
-                                Copy
-                              </button>
-                            </div>
-                          </details>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-rose-400/30 bg-rose-950/40 p-3">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-bold text-rose-100">
-                        {sunoLanguageIndex.sunoVocalArtifactGuide?.title ||
-                          "Vocal texture vs lyrics (DnB / Jungle / dub)"}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          copyToClipboard(
-                            formatVocalArtifactGuidePlain(),
-                            "Vocal artifact guide copied",
-                          )
-                        }
-                        className="rounded-xl border border-rose-300/35 bg-rose-400/20 px-2 py-1 text-[11px] font-bold text-rose-50 hover:bg-rose-400/30"
-                      >
-                        Copy full guide
-                      </button>
-                    </div>
-                    <p className="mb-2 text-[11px] text-rose-100/75">
-                      {sunoLanguageIndex.sunoVocalArtifactGuide?.summary}
-                    </p>
-                    <div className="max-h-[min(340px,45vh)] space-y-3 overflow-y-auto text-[11px] text-white/75">
-                      {(sunoLanguageIndex.sunoVocalArtifactGuide?.causes || []).map((c, i) => (
-                        <div key={`cause-${i}`} className="rounded-xl border border-white/10 bg-black/35 p-2">
-                          <div className="font-bold text-rose-100/95">{c.heading}</div>
-                          <ul className="mt-1 list-disc space-y-1 pl-4">
-                            {(c.bullets || []).map((b, j) => (
-                              <li key={j}>{b}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                      {(sunoLanguageIndex.sunoVocalArtifactGuide?.fixes || []).map((f, i) => (
-                        <div key={`fix-${i}`} className="rounded-xl border border-emerald-400/20 bg-emerald-950/30 p-2">
-                          <div className="font-bold text-emerald-100">{f.heading}</div>
-                          <ul className="mt-1 list-disc space-y-1 pl-4">
-                            {(f.bullets || []).map((b, j) => (
-                              <li key={j}>{b}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                      <div className="rounded-xl border border-cyan-400/25 bg-black/40 p-2 font-mono text-[10px] text-cyan-50/90">
-                        <div className="font-bold text-cyan-100">
-                          {(sunoLanguageIndex.sunoVocalArtifactGuide || {}).diagnostic?.heading}
-                        </div>
-                        <div className="mt-1 whitespace-pre-wrap">
-                          Before: {(sunoLanguageIndex.sunoVocalArtifactGuide || {}).diagnostic?.before}
-                          {"\n"}
-                          After: {(sunoLanguageIndex.sunoVocalArtifactGuide || {}).diagnostic?.after}
-                          {"\n"}
-                          {(sunoLanguageIndex.sunoVocalArtifactGuide || {}).diagnostic?.note}
-                        </div>
-                      </div>
-                      <p className="text-white/70">
-                        {(sunoLanguageIndex.sunoVocalArtifactGuide || {}).bottomLine}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-3">
-                    <button onClick={() => copyToClipboard(sunoLanguageIndex.templates.styleField, "Suno style template copied")} className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 font-bold text-white hover:bg-white/20">
-                      Copy Style Template
-                    </button>
-                    <button onClick={() => copyToClipboard(sunoLanguageIndex.templates.lyricsField, "Suno lyrics template copied")} className="rounded-2xl border border-white/10 bg-white/10 px-3 py-2 font-bold text-white hover:bg-white/20">
-                      Copy Lyrics Template
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        copyToClipboard(
-                          sunoLanguageIndex.templates.lyricsFieldAdvanced,
-                          "Advanced lyrics template copied",
-                        )
-                      }
-                      className="rounded-2xl border border-fuchsia-400/35 bg-fuchsia-500/15 px-3 py-2 font-bold text-fuchsia-100 hover:bg-fuchsia-500/25"
-                    >
-                      Copy Advanced Lyrics
-                    </button>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
-                    <div className="mb-2 font-bold text-fuchsia-200">Quick lyric snippets</div>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(sunoLanguageIndex.templates.lyricSnippets || {}).map(
-                        ([key, text]) => (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() =>
-                              copyToClipboard(text, `${key.replace(/([A-Z])/g, " $1").trim()} copied`)
-                            }
-                            className="rounded-xl border border-white/15 bg-white/5 px-2 py-1 text-[11px] font-bold text-white/85 hover:bg-white/15"
-                          >
-                            {key.replace(/([A-Z])/g, " $1").trim()}
-                          </button>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
-                    <div className="mb-2 font-bold text-fuchsia-200">Advanced Suno lyric cookbook</div>
-                    <p className="mb-2 text-[11px] text-white/55">
-                      Meta intros, curly FX, SATB, build/drop, duets — paste into Suno&apos;s Lyrics box.
-                    </p>
-                    <div className="max-h-[min(320px,40vh)] space-y-2 overflow-y-auto">
-                      {(sunoLanguageIndex.advancedLyricCookbook || []).map((item) => (
-                        <details
-                          key={item.id}
-                          className="rounded-xl border border-white/10 bg-black/40 open:border-fuchsia-400/30"
-                        >
-                          <summary className="cursor-pointer px-3 py-2 text-[11px] font-bold text-fuchsia-100 marker:text-fuchsia-300">
-                            {item.title}
-                          </summary>
-                          <pre className="max-h-40 overflow-auto whitespace-pre-wrap px-3 pb-2 text-[11px] leading-relaxed text-white/70">
-                            {item.body}
-                          </pre>
-                          <div className="px-3 pb-3">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                copyToClipboard(item.body, `${item.title} copied`)
-                              }
-                              className="rounded-xl bg-fuchsia-400/90 px-2 py-1 text-[11px] font-bold text-black hover:bg-fuchsia-300"
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        </details>
-                      ))}
-                    </div>
-                  </div>
-                  <button onClick={applyGenreAnchors} className="w-full rounded-2xl bg-cyan-300 px-3 py-2 font-bold text-black hover:bg-cyan-200">
-                    Apply Genre Anchors
-                  </button>
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-bold text-cyan-200">Style prompt index (copy only)</div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          copyToClipboard(
-                            flattenStylePromptCatalog(stylePromptCatalog),
-                            "Full style index copied",
-                          )
-                        }
-                        className="rounded-xl border border-white/15 bg-white/10 px-2 py-1 text-[11px] font-bold text-white hover:bg-white/20"
-                      >
-                        Copy all sections
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-white/45">
-                      To add prompts into your track identity, use Step 3 Style prompt library instead of copy-paste.
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-black/25 p-3">
-                    <div className="mb-2 font-bold text-cyan-200">Reference prompt blocks</div>
-                    <p className="mb-2 text-[11px] text-white/55">
-                      Long-form examples (trim lines before pasting into Suno).
-                    </p>
-                    <div className="max-h-[min(380px,45vh)] space-y-2 overflow-y-auto">
-                      {referencePromptBlocks.map((block) => (
-                        <details
-                          key={block.id}
-                          className="rounded-xl border border-white/10 bg-black/40 open:border-orange-300/25"
-                        >
-                          <summary className="cursor-pointer px-3 py-2 text-[11px] font-bold text-orange-100 marker:text-orange-300">
-                            {block.title}
-                          </summary>
-                          <pre className="max-h-48 overflow-auto whitespace-pre-wrap px-3 pb-2 text-[11px] leading-relaxed text-white/70">
-                            {block.body}
-                          </pre>
-                          <div className="px-3 pb-3">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                copyToClipboard(block.body, `${block.title} copied`)
-                              }
-                              className="rounded-xl bg-orange-300/90 px-2 py-1 text-[11px] font-bold text-black hover:bg-orange-200"
-                            >
-                              Copy block
-                            </button>
-                          </div>
-                        </details>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </Panel>
-            <Panel title="History / Compare" hint="Restore earlier prompt states."><button onClick={clearHistory} className="mb-3 w-full rounded-2xl border border-red-300/30 bg-red-300/10 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-300/20">Clear History</button>{history.length===0?<div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-white/45">No history yet. Copy a prompt, save a snapshot, or generate variations.</div>:<div className="space-y-2">{history.map(h=><div key={h.id} className={"rounded-2xl border p-3 "+(selectedHistoryId===h.id?"border-cyan-300/50 bg-cyan-300/10":"border-white/10 bg-black/25")}><div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-cyan-100">{h.label}</div><div className="text-[10px] text-white/40">{h.time} • score {h.avgScore}/5</div></div><button onClick={()=>restoreHistory(h)} className="rounded-xl bg-white px-2 py-1 text-xs font-bold text-black">Restore</button></div><pre className="mt-2 max-h-20 overflow-auto whitespace-pre-wrap text-[10px] text-white/45">{h.prompt}</pre></div>)}</div>}</Panel>
+                        <SunoLanguageIndexPanel copyToClipboard={copyToClipboard} onApplyGenreAnchors={applyGenreAnchors} />
+<Panel title="History / Compare" hint="Restore earlier prompt states."><button onClick={clearHistory} className="mb-3 w-full rounded-2xl border border-red-300/30 bg-red-300/10 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-300/20">Clear History</button>{history.length===0?<div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-white/45">No history yet. Copy a prompt, save a snapshot, or generate variations.</div>:<div className="space-y-2">{history.map(h=><div key={h.id} className={"rounded-2xl border p-3 "+(selectedHistoryId===h.id?"border-cyan-300/50 bg-cyan-300/10":"border-white/10 bg-black/25")}><div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-cyan-100">{h.label}</div><div className="text-[10px] text-white/40">{h.time} • score {h.avgScore}/5</div></div><button onClick={()=>restoreHistory(h)} className="rounded-xl bg-white px-2 py-1 text-xs font-bold text-black">Restore</button></div><pre className="mt-2 max-h-20 overflow-auto whitespace-pre-wrap text-[10px] text-white/45">{h.prompt}</pre></div>)}</div>}</Panel>
             <Panel title="Track Scoring" hint="Use after generation to compare outputs.">{Object.entries(scores).map(([key,value])=><div key={key} className="mb-3 rounded-2xl bg-black/25 p-3"><div className="mb-2 flex justify-between text-sm"><span className="capitalize text-white/70">{key}</span><span className="font-bold text-cyan-200">{value}/5</span></div><input type="range" min="1" max="5" value={value} onChange={(e)=>setScores({...scores,[key]:Number(e.target.value)})} className="w-full accent-cyan-300"/></div>)}</Panel>
           </aside>
         </div>

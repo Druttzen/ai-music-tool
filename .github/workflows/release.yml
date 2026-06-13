@@ -18,6 +18,7 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
+      - run: npm run check
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
       - name: Build and publish Windows installer
         env:

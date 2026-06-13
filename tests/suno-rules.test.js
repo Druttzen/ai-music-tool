@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   buildSunoStyleBoxPrompt,
   buildSunoLyricsBoxPrompt,
+  buildStandardPrompt,
+  SUNO_AUTO_FIX_DEFAULTS,
   validateSunoLikePrompt,
 } from "../app/lib/suno-rules.js";
 
@@ -20,7 +22,13 @@ const base = {
   mode: "Hybrid",
   voiceStyleReference: "",
   lyricPrompt: "[Verse]\nLine one",
+  lyricStyle: "Raw",
+  lyricTheme: "night drive",
   instrumentalVocalFx: false,
+  audioAnalysis: null,
+  imageAnalysis: null,
+  coProducerOutput: "",
+  notes: "",
 };
 
 describe("suno-rules", () => {
@@ -38,5 +46,23 @@ describe("suno-rules", () => {
   it("validateSunoLikePrompt flags missing genres", () => {
     const w = validateSunoLikePrompt({ ...base, selectedGenres: [] });
     expect(w.length).toBeGreaterThan(0);
+  });
+
+  it("buildStandardPrompt compressed format is single block", () => {
+    const p = buildStandardPrompt({ ...base, format: "Compressed" });
+    expect(p).toContain("Techno | 130 BPM");
+    expect(p).toContain("Rules:");
+    expect(p).not.toContain("STYLE:");
+  });
+
+  it("buildStandardPrompt detailed format includes song map", () => {
+    const p = buildStandardPrompt({ ...base, format: "Detailed" });
+    expect(p).toContain("SONG MAP:");
+    expect(p).toContain("Intensity:");
+  });
+
+  it("SUNO_AUTO_FIX_DEFAULTS provides genre and structure fallbacks", () => {
+    expect(SUNO_AUTO_FIX_DEFAULTS.genres).toEqual(["Techno"]);
+    expect(SUNO_AUTO_FIX_DEFAULTS.structure.length).toBeGreaterThan(8);
   });
 });

@@ -32,13 +32,13 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1",
-    "@tailwindcss/postcss": "latest",
+    "@tailwindcss/postcss": "^4.2.4",
     "electron": "41.3.0",
     "electron-builder": "26.8.1",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.4",
     "pdfkit": "^0.18.0",
-    "tailwindcss": "latest",
+    "tailwindcss": "^4.2.4",
     "vitest": "^4.1.8"
   },
   "overrides": {

@@ -95,7 +95,7 @@ A Next.js app for building dense, reproducible prompts for AI music workflows (e
 - **Waveform persistence** — Autosave/history omit heavy peak arrays; **IndexedDB** caches audio for rehydrate. **Export JSON** keeps full `waveformPeaks`; **import** preserves them. **Attach audio** reconnects playback when the cache is missing.
 - **Version-aware reset** — A **major** `package.json` version bump clears the autosaved project and analyzer state; **presets and history are kept**. Patch/minor bumps migrate the saved project in place.
 - **Refactored UI** — Analyzer logic in `use-analyzers`, splash/header in `app-shell`, splash timing via `useSyncExternalStore` (no hydration mismatch in dev).
-- **Packaged assets** — `public/bones-logo.png`, root `icon.ico`, and `build/AI_Music_Creator_README.pdf` included for Electron builds.
+- **Packaged assets** — `public/bones-logo.webp`, root `icon.ico`, and `build/AI_Music_Creator_README.pdf` included for Electron builds.
 - **Live length readout** — Style box and lyrics direction character counts next to analyzers (same strings as the validator).
 - **Presets & history** — Factory and custom presets, project save/import/export JSON, variation engine, Co‑Producer helpers, Suno language index and symbol guides.
 

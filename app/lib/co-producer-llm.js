@@ -4,6 +4,7 @@
  */
 
 import { getLyricStyleDirection } from "./lyric-generator";
+import { safeLocalStorage } from "./safe-local-storage";
 import {
   formatSunoLyricSectionTag,
   getLanguageHeaderLine,
@@ -21,19 +22,15 @@ export const DEFAULT_LLM_SETTINGS = {
 
 export function loadCoProducerLlmSettings() {
   if (typeof window === "undefined") return { ...DEFAULT_LLM_SETTINGS };
-  try {
-    const raw = localStorage.getItem(LLM_SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_LLM_SETTINGS };
-    return { ...DEFAULT_LLM_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_LLM_SETTINGS };
-  }
+  const parsed = safeLocalStorage.getJSON(LLM_SETTINGS_KEY, null);
+  if (!parsed) return { ...DEFAULT_LLM_SETTINGS };
+  return { ...DEFAULT_LLM_SETTINGS, ...parsed };
 }
 
 export function saveCoProducerLlmSettings(settings) {
   if (typeof window === "undefined") return;
   const next = { ...DEFAULT_LLM_SETTINGS, ...settings, apiKey: String(settings.apiKey || "") };
-  localStorage.setItem(LLM_SETTINGS_KEY, JSON.stringify(next));
+  safeLocalStorage.setJSON(LLM_SETTINGS_KEY, next);
 }
 
 export function isCoProducerLlmReady(settings) {

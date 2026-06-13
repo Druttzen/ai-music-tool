@@ -2,7 +2,18 @@
 
 import { ElectronUpdateControls } from "./electron-update-controls";
 
-const LOGO_SRC = "./bones-logo.png";
+const LOGO_WEBP = "./bones-logo.webp";
+
+function AppLogo({ className, alt = "BONES VIBRATION logo" }) {
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element -- static export/Electron friendly asset */
+    <img
+      src={LOGO_WEBP}
+      alt={alt}
+      className={className}
+    />
+  );
+}
 
 export function SplashOverlay({ onDismiss }) {
   return (
@@ -15,12 +26,7 @@ export function SplashOverlay({ onDismiss }) {
         }}
       />
       <div className="relative mx-6 max-w-xl rounded-[2rem] border border-orange-300/25 bg-black/60 p-8 text-center shadow-2xl backdrop-blur">
-        {/* eslint-disable-next-line @next/next/no-img-element -- static export/Electron friendly asset */}
-        <img
-          src={LOGO_SRC}
-          alt="BONES VIBRATION logo"
-          className="mx-auto mb-4 max-h-44 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]"
-        />
+        <AppLogo className="mx-auto mb-4 max-h-44 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]" />
         <div className="text-xs font-black uppercase tracking-[0.35em] text-orange-300">
           BONES VIBRATION
         </div>
@@ -68,12 +74,7 @@ export function AppHeader({ appVersion, avgScore, saveStatus, statusPulseKey = 0
         </div>
       </div>
       <div className="hidden items-center justify-center rounded-[2rem] border border-orange-300/15 bg-black/25 p-3 shadow-2xl md:flex">
-        {/* eslint-disable-next-line @next/next/no-img-element -- static export/Electron friendly asset */}
-        <img
-          src={LOGO_SRC}
-          alt="BONES VIBRATION logo"
-          className="max-h-48 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]"
-        />
+        <AppLogo className="max-h-48 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]" />
       </div>
       <div
         key={statusPulseKey}

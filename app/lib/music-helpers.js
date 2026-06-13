@@ -15,6 +15,28 @@ export function getIntensityText(promptIntensity) {
   return "experimental, high-impact, more mutation, bold transitions, intense sound design";
 }
 
+export function buildMoodWords(mood) {
+  const out = [];
+  if (mood.darkness > 65) out.push("dark");
+  if (mood.darkness < 35) out.push("bright");
+  if (mood.energy > 70) out.push("high-energy");
+  if (mood.energy < 35) out.push("calm");
+  if (mood.aggression > 65) out.push("aggressive");
+  if (mood.emotion > 60) out.push("emotional");
+  if (mood.complexity > 65) out.push("complex");
+  if (mood.complexity < 35) out.push("minimal");
+  if (mood.space > 65) out.push("wide and spacious");
+  if (!out.length) out.push("balanced");
+  return out.join(", ");
+}
+
+export function buildVocalTextForPrompt(vocal, instrumentalVocalFx) {
+  if (vocal === "Instrumental" && instrumentalVocalFx) {
+    return "instrumental arrangement with vocal FX only (short chops, textures, one-shots — no sung lyrics or verses)";
+  }
+  return getVocalText(vocal);
+}
+
 export function getVocalText(vocal) {
   if (!vocal) return "vocal role not selected yet — pick a vocal mode when you reach that step";
   if (vocal === "Instrumental") return "instrumental only, no vocals, no vocal chops, no mumbled speech textures, do not use lyrics as FX";
