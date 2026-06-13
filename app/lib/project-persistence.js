@@ -3,6 +3,7 @@
  */
 
 import { normalizeAudioAnalysis } from "./audio-analyzer";
+import { loadCharacterPresetsFromStorage } from "./voice-character-preset";
 
 /** Max waveform peaks kept in undo snapshots (larger arrays stay IndexedDB-only). */
 export const MAX_UNDO_WAVEFORM_PEAKS = 4096;
@@ -78,6 +79,7 @@ export function slimStateForUndo(state) {
     variations: Array.isArray(state.variations) ? state.variations : [],
     history: Array.isArray(state.history) ? state.history : [],
     selectedHistoryId: state.selectedHistoryId ?? null,
+    characterVoicePresets: loadCharacterPresetsFromStorage(),
   };
 }
 

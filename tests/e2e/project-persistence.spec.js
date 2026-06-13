@@ -100,4 +100,26 @@ test.describe("Project persistence e2e", () => {
 
     await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible({ timeout: 5000 });
   });
+
+  test("revert snapshot restores project state before character preset import", async ({ page }) => {
+    await dismissSplash(page);
+
+    const panel = saveLoadPanel(page);
+    await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(IMPORT_FIXTURE);
+    await expect(ideaInput(page)).toHaveValue("Imported from P14 fixture");
+
+    const studio = voiceCharacterStudioPanel(page);
+    await studio.scrollIntoViewIfNeeded();
+    await studio
+      .locator('input[type="file"][accept="application/json"]')
+      .setInputFiles("tests/fixtures/e2e-character-voice-presets.json");
+    await expectToast(page, /Imported 1 character preset/i);
+    await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible();
+
+    await panel.getByRole("button", { name: "Revert to last snapshot" }).click();
+    await expectToast(page, /Reverted to last snapshot/i);
+
+    await expect(studio.getByText("E2E Narrator", { exact: true })).not.toBeVisible();
+    await expect(ideaInput(page)).toHaveValue("Imported from P14 fixture");
+  });
 });

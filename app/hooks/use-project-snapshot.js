@@ -2,6 +2,10 @@
 
 import { useCallback, useMemo } from "react";
 import { buildProjectSnapshot } from "../lib/project-state";
+import {
+  extractCharacterVoicePresetsFromProject,
+  persistCharacterVoicePresets,
+} from "../lib/voice-character-preset";
 import { useProjectPersistence } from "./use-project-persistence";
 import { useUndoSnapshot } from "./use-undo-snapshot";
 
@@ -37,6 +41,10 @@ export function useProjectSnapshot({
       else clearAudioAnalysis();
       if (data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
       else clearImageAnalysis();
+      const cvPresets = extractCharacterVoicePresetsFromProject(data);
+      if (cvPresets !== null) {
+        persistCharacterVoicePresets(cvPresets, { merge: false });
+      }
     },
     [clearAudioAnalysis, clearImageAnalysis, loadProjectState, setAudioAnalysis, setImageAnalysis],
   );

@@ -53,7 +53,7 @@ export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
       setStatusWithTime(
         needsAudio
           ? "Reverted — audio cache will rehydrate; attach the same file if playback is missing"
-          : "Reverted to last snapshot (guided step, variations, and history restored)",
+          : "Reverted to last snapshot (guided step, variations, history, and character presets restored)",
       );
       return true;
     } catch {

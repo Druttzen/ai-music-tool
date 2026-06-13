@@ -232,6 +232,7 @@ export function useCharacterVoiceStudio() {
 
   const deleteCharacterPreset = useCallback(
     (name) => {
+      ws.captureSnapshot(`before delete character preset ${name}`);
       const next = { ...characterPresets };
       delete next[name];
       const result = saveCharacterPresetsToStorage(next);
@@ -274,6 +275,7 @@ export function useCharacterVoiceStudio() {
     (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
+      ws.captureSnapshot("before character preset import");
       const reader = new FileReader();
       reader.onload = () => {
         try {
