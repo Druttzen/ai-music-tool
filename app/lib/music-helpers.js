@@ -71,7 +71,14 @@ export function buildLyricPrompt({
   selectedGenres,
   moodWords,
 }) {
-  if (vocal === "Instrumental") {
+  const theme = String(lyricTheme || "").trim();
+  const vocalRole = String(vocal || "").trim();
+
+  if (!vocalRole && !theme) {
+    return "[Lyrics: select vocal mode and lyric theme to build direction.]";
+  }
+
+  if (vocalRole === "Instrumental") {
     return "[Lyrics: instrumental only, no sung lyrics, no rap, no spoken words.]";
   }
 
@@ -107,7 +114,7 @@ FX ad-libs: (BOOM) (CLAP); fictional words stay very short.`;
 
   return bracketizeSunoPromptBlock(`LYRIC STYLE
 Language: ${lyricLanguage}
-Theme: ${lyricTheme}
+Theme: ${theme}
 Style: ${lyricStyle} — ${getLyricStyleDirection(lyricStyle)}
 Mode: ${lyricMode}
 Structure: ${lyricStructure}

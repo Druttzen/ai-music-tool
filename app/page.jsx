@@ -431,8 +431,15 @@ export default function Page() {
     setVariations([]);
     setHistory([]);
     setSelectedHistoryId(null);
+    setGeneratedLyrics("");
+    setGeneratedLyricsStyle("");
+    setGeneratedHooks("");
+    setGeneratedHooksStyle("");
+    setCoProducerOutput("");
+    setLyricVariantSeed(0);
     resetAnalyzers();
     setGuidedStep(0);
+    lastAutosavePayloadRef.current = "";
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(HISTORY_KEY);
     resetSplash();
