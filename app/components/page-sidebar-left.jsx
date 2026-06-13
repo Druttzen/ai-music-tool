@@ -87,17 +87,17 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
 
       <Panel
         title="Save / Load"
-        hint="Keeps unfinished work safe. Reset to Default clears all preselected genres, sounds, rules, and lyrics so you can build step by step from guided step 1."
+        hint="Export bundle includes project state, custom style presets, and voice character profile. Legacy flat JSON still imports."
       >
         <div className="grid gap-2">
           <button onClick={saveProject} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">
             Save Progress
           </button>
           <button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">
-            Export JSON
+            Export Bundle
           </button>
           <label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">
-            Import JSON
+            Import Bundle
             <input type="file" accept="application/json" onChange={importProject} className="hidden" />
           </label>
           <button

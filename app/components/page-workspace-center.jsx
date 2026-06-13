@@ -12,6 +12,7 @@ import { CenterLyricStylePanel } from "./center-lyric-style-panel";
 import { CenterMoodPanel } from "./center-mood-panel";
 import { CenterMusicControlsPanel } from "./center-music-controls-panel";
 import { CenterProModePanel } from "./center-pro-mode-panel";
+import { CenterSunoReimportPanel } from "./center-suno-reimport-panel";
 import { CenterVariationsPanel } from "./center-variations-panel";
 import { CenterVoiceCharacterStudio } from "./center-voice-character-studio";
 import { CenterVoiceStylePanel } from "./center-voice-style-panel";
@@ -29,6 +30,7 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
       <CenterMusicControlsPanel />
       <CenterCoProducerQuickPanel />
       <CenterCoProducerPanel />
+      <CenterSunoReimportPanel />
       <CenterVariationsPanel />
       <CenterProModePanel />
     </section>

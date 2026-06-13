@@ -78,6 +78,9 @@ export function normalizeLoadPayload(data) {
     voiceRefLastName: data.voiceRefLastName ?? DEFAULT_STATE.voiceRefLastName ?? "",
     voiceStyleLine: data.voiceStyleLine ?? DEFAULT_STATE.voiceStyleLine ?? "",
     instrumentalVocalFx: data.instrumentalVocalFx ?? DEFAULT_STATE.instrumentalVocalFx,
+    sunoPasteStyle: data.sunoPasteStyle ?? DEFAULT_STATE.sunoPasteStyle ?? "",
+    sunoPasteLyrics: data.sunoPasteLyrics ?? DEFAULT_STATE.sunoPasteLyrics ?? "",
+    sunoPasteActive: data.sunoPasteActive ?? DEFAULT_STATE.sunoPasteActive ?? false,
     guidedStep:
       typeof data.guidedStep === "number" && !Number.isNaN(data.guidedStep)
         ? Math.max(0, data.guidedStep)
@@ -115,6 +118,9 @@ export function projectReducer(state, action) {
         presetName: "",
         copied: false,
         lyricsGenerateBusy: false,
+        sunoPasteStyle: "",
+        sunoPasteLyrics: "",
+        sunoPasteActive: false,
       });
     default:
       return state;
@@ -156,6 +162,9 @@ export const PROJECT_PATCH_KEYS = [
   "voiceRefLastName",
   "voiceStyleLine",
   "instrumentalVocalFx",
+  "sunoPasteStyle",
+  "sunoPasteLyrics",
+  "sunoPasteActive",
   "guidedStep",
   "variations",
   "history",
@@ -204,6 +213,9 @@ export const SNAPSHOT_FIELD_KEYS = [
   "voiceRefLastName",
   "voiceStyleLine",
   "instrumentalVocalFx",
+  "sunoPasteStyle",
+  "sunoPasteLyrics",
+  "sunoPasteActive",
   "guidedStep",
   "variations",
   "history",

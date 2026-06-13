@@ -13,6 +13,7 @@ import {
   buildSunoPastedLyricsField,
   buildSunoPastedStyleLine,
 } from "../lib/suno-guided-workflow";
+import { applySunoPasteToSlices } from "../lib/suno-reimport";
 import { buildUsableAnalyzerStylePrompt } from "../lib/analyzer-guided-merge";
 import { buildSunoVoiceStyleCompact } from "../lib/suno-voice-style";
 import { useMemo } from "react";
@@ -47,6 +48,9 @@ import { useMemo } from "react";
  * @property {string} voiceRefFirstName
  * @property {string} voiceRefLastName
  * @property {string} generatedLyrics
+ * @property {string} sunoPasteStyle
+ * @property {string} sunoPasteLyrics
+ * @property {boolean} sunoPasteActive
  */
 
 function buildSourcePrompt(audioAnalysis, imageAnalysis) {
@@ -175,7 +179,7 @@ export function usePromptPipeline(input) {
     standardParams,
   ]);
 
-  const sunoFieldSlices = useMemo(() => {
+  const sunoBuiltFieldSlices = useMemo(() => {
     const guided = {
       selectedGenres: input.selectedGenres,
       tempo: input.tempo,
@@ -229,6 +233,21 @@ export function usePromptPipeline(input) {
     input.generatedLyrics,
     input.instrumentalVocalFx,
   ]);
+
+  const sunoFieldSlices = useMemo(
+    () =>
+      applySunoPasteToSlices(sunoBuiltFieldSlices, {
+        sunoPasteActive: input.sunoPasteActive,
+        sunoPasteStyle: input.sunoPasteStyle,
+        sunoPasteLyrics: input.sunoPasteLyrics,
+      }),
+    [
+      sunoBuiltFieldSlices,
+      input.sunoPasteActive,
+      input.sunoPasteStyle,
+      input.sunoPasteLyrics,
+    ],
+  );
 
   const sunoSlices = sunoFieldSlices;
 
@@ -348,6 +367,7 @@ export function usePromptPipeline(input) {
     compressedPrompt,
     detailedPrompt,
     prompt,
+    sunoBuiltFieldSlices,
     sunoFieldSlices,
     sunoSlices,
     sunoWarnings,

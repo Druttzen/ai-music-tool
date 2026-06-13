@@ -55,6 +55,11 @@ export const DEFAULT_STATE = {
   voiceStyleLine: "",
   /** Guided path: instrumental with vocal chops/textures (no lyrics). */
   instrumentalVocalFx: false,
+  /** Suno re-import: pasted Style/Lyrics from finished Suno output. */
+  sunoPasteStyle: "",
+  sunoPasteLyrics: "",
+  /** When true, preview/copy uses pasted Suno fields instead of project-built slices. */
+  sunoPasteActive: false,
 };
 
 /** Blank project — no preselected genres, sounds, rules, or prompt text (guided step 1). */
@@ -93,6 +98,9 @@ export const BLANK_STATE = {
   voiceStyleLine: "",
   instrumentalVocalFx: false,
   guidedStep: 0,
+  sunoPasteStyle: "",
+  sunoPasteLyrics: "",
+  sunoPasteActive: false,
 };
 
 export const promptFormatOptions = ["Compressed", "Balanced", "Detailed"];

@@ -91,9 +91,12 @@ export function SearchablePillGrid({ label, options, groups, selected, onToggle,
   );
 }
 
-export function Panel({ title, hint, children }) {
+export function Panel({ title, hint, children, ...rest }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.065] p-4 shadow-2xl shadow-black/30 backdrop-blur">
+    <section
+      className="rounded-3xl border border-white/10 bg-white/[0.065] p-4 shadow-2xl shadow-black/30 backdrop-blur"
+      {...rest}
+    >
       <div className="mb-3">
         <h2 className="text-lg font-black">{title}</h2>
         {hint && <p className="mt-1 text-xs text-white/45">{hint}</p>}

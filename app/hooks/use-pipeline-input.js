@@ -35,6 +35,9 @@ export function usePipelineInput({
   voiceRefFirstName,
   voiceRefLastName,
   generatedLyrics,
+  sunoPasteStyle,
+  sunoPasteLyrics,
+  sunoPasteActive,
 }) {
   const audioSummaryForPipeline = audioAnalysis?.summary ?? "";
   const imageSummaryForPipeline = imageAnalysis?.summary ?? "";
@@ -81,6 +84,9 @@ export function usePipelineInput({
       voiceRefFirstName,
       voiceRefLastName,
       generatedLyrics,
+      sunoPasteStyle,
+      sunoPasteLyrics,
+      sunoPasteActive,
     }),
     [
       mood,
@@ -111,6 +117,9 @@ export function usePipelineInput({
       voiceRefFirstName,
       voiceRefLastName,
       generatedLyrics,
+      sunoPasteStyle,
+      sunoPasteLyrics,
+      sunoPasteActive,
     ],
   );
 

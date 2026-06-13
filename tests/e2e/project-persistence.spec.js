@@ -23,7 +23,7 @@ test.describe("Project persistence e2e", () => {
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(IMPORT_FIXTURE);
 
-    await expectToast(page, /Imported JSON project/i);
+    await expectToast(page, /Imported project bundle/i);
     await expect(ideaInput(page)).toHaveValue("Imported from P14 fixture");
 
     const controls = musicControlsPanel(page);
@@ -87,7 +87,7 @@ test.describe("Project persistence e2e", () => {
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(fixture);
-    await expectToast(page, /Imported JSON project/i);
+    await expectToast(page, /Imported project bundle/i);
     await expect(ideaInput(page)).toHaveValue("Imported with character voice presets");
 
     const studio = voiceCharacterStudioPanel(page);
@@ -130,7 +130,7 @@ test.describe("Project persistence e2e", () => {
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(fixture);
-    await expectToast(page, /Imported JSON project/i);
+    await expectToast(page, /Imported project bundle/i);
 
     const studio = voiceCharacterStudioPanel(page);
     await studio.scrollIntoViewIfNeeded();
@@ -160,7 +160,7 @@ test.describe("Project persistence e2e", () => {
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(fixture);
-    await expectToast(page, /Imported JSON project/i);
+    await expectToast(page, /Imported project bundle/i);
 
     const studio = voiceCharacterStudioPanel(page);
     await studio.scrollIntoViewIfNeeded();

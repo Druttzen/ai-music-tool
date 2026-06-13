@@ -54,6 +54,12 @@ import {
   scrollToVoiceCharacterStudioPanel,
 } from "../lib/voice-character-handoff";
 import { resolveAudioCacheBlob } from "../lib/audio-cache";
+import {
+  buildProjectBundleExport,
+  mergeCustomPresetsMaps,
+  parseProjectBundleImport,
+} from "../lib/project-bundle";
+import { extractLyricsBodyFromPaste } from "../lib/suno-reimport";
 import { collectGenreAnchors } from "../lib/suno-language-index";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { SUNO_AUTO_FIX_DEFAULTS } from "../lib/suno-rules";
@@ -94,6 +100,10 @@ export function useProjectActions({
   prompt,
   promptEngine,
   sunoSlices,
+  sunoBuiltFieldSlices,
+  sunoPasteStyle,
+  sunoPasteLyrics,
+  sunoPasteActive,
   promptIntensity,
   resetAnalyzers,
   resetBlank,
@@ -259,18 +269,18 @@ export function useProjectActions({
   }, [currentState, lastAutosavePayloadRef, setStatusWithTime]);
 
   const exportProject = useCallback(() => {
-    const payload = attachCharacterVoiceFieldsToProjectExport(currentState);
+    const payload = buildProjectBundleExport(currentState, customPresets, APP_VERSION);
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "ai-music-project.json";
+    a.download = "ai-music-bundle.json";
     a.click();
     URL.revokeObjectURL(url);
-    setStatusWithTime("Exported JSON project");
-  }, [currentState, setStatusWithTime]);
+    setStatusWithTime("Exported project bundle (project + style presets + voice profile)");
+  }, [currentState, customPresets, setStatusWithTime]);
 
   const importProject = useCallback(
     (event) => {
@@ -281,27 +291,84 @@ export function useProjectActions({
         try {
           captureSnapshot("before import");
           const raw = JSON.parse(String(reader.result));
-          const cvPresets = extractCharacterVoicePresetsFromProject(raw);
+          const { project, customPresets: importedPresets } = parseProjectBundleImport(raw);
+          const cvPresets = extractCharacterVoicePresetsFromProject(project);
           if (cvPresets && Object.keys(cvPresets).length > 0) {
             const presetResult = persistCharacterVoicePresets(cvPresets, { merge: true });
             if (!presetResult.ok) {
               setStatusWithTime(storageFailureMessage(presetResult), "error");
             }
           }
-          const cvSession = extractCharacterVoiceStudioSessionFromProject(raw);
+          const cvSession = extractCharacterVoiceStudioSessionFromProject(project);
           if (cvSession !== null) {
             persistCharacterVoiceStudioSession(cvSession);
           }
-          loadState(migrateImportedProject(raw, APP_VERSION));
-          setStatusWithTime("Imported JSON project");
+          if (importedPresets && Object.keys(importedPresets).length > 0) {
+            setCustomPresets((prev) => {
+              const next = mergeCustomPresetsMaps(prev, importedPresets);
+              const result = safeLocalStorage.setJSON(PRESET_KEY, next);
+              if (!result.ok) {
+                setStatusWithTime(storageFailureMessage(result), "error");
+              }
+              return next;
+            });
+          }
+          loadState(migrateImportedProject(project, APP_VERSION));
+          setStatusWithTime("Imported project bundle");
         } catch {
           setStatusWithTime("Import failed", "error");
         }
       };
       reader.readAsText(file);
     },
-    [captureSnapshot, loadState, setStatusWithTime],
+    [captureSnapshot, loadState, setCustomPresets, setStatusWithTime],
   );
+
+  const captureSunoPasteFromProject = useCallback(() => {
+    const style = sunoBuiltFieldSlices?.style || "";
+    const lyrics = sunoBuiltFieldSlices?.lyrics || "";
+    patch({
+      sunoPasteStyle: style,
+      sunoPasteLyrics: lyrics,
+      sunoPasteActive: false,
+    });
+    setStatusWithTime("Captured current Style/Lyrics into re-import fields");
+  }, [patch, setStatusWithTime, sunoBuiltFieldSlices]);
+
+  const clearSunoPaste = useCallback(() => {
+    patch({
+      sunoPasteStyle: "",
+      sunoPasteLyrics: "",
+      sunoPasteActive: false,
+    });
+    setStatusWithTime("Cleared Suno re-import paste");
+  }, [patch, setStatusWithTime]);
+
+  const activateSunoPasteForCopy = useCallback(() => {
+    if (!sunoPasteStyle?.trim() && !sunoPasteLyrics?.trim()) {
+      setStatusWithTime("Paste Suno Style or Lyrics first");
+      return;
+    }
+    patch({ sunoPasteActive: true });
+    setStatusWithTime("Preview and copy now use pasted Suno fields");
+  }, [patch, setStatusWithTime, sunoPasteLyrics, sunoPasteStyle]);
+
+  const deactivateSunoPasteForCopy = useCallback(() => {
+    patch({ sunoPasteActive: false });
+    setStatusWithTime("Preview and copy use project-built paste again");
+  }, [patch, setStatusWithTime]);
+
+  const applyPastedLyricsToGenerated = useCallback(() => {
+    const body = extractLyricsBodyFromPaste(sunoPasteLyrics);
+    if (!body) {
+      setStatusWithTime("Paste Lyrics from Suno first");
+      return;
+    }
+    captureSnapshot("before apply pasted lyrics");
+    setGeneratedLyrics(body);
+    patch({ sunoPasteActive: false });
+    setStatusWithTime("Applied pasted Lyrics to generated lyrics");
+  }, [captureSnapshot, patch, setGeneratedLyrics, setStatusWithTime, sunoPasteLyrics]);
 
   const saveCustomPreset = useCallback(() => {
     const name = presetName.trim();
@@ -866,15 +933,20 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
   ]);
 
   return {
+    activateSunoPasteForCopy,
     addHistory,
     addLyricsFromInstrumentalTrack,
     applyGenreAnchors,
+    applyPastedLyricsToGenerated,
     applyPreset,
     applyQuickFix,
     buildCoProducerAI,
+    captureSunoPasteFromProject,
     clearHistory,
+    clearSunoPaste,
     coProducer,
     copyPrompt,
+    deactivateSunoPasteForCopy,
     deleteCustomPreset,
     exportProject,
     fixSunoWarnings,

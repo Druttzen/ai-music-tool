@@ -9,10 +9,10 @@ test.describe("Button feedback toasts", () => {
     await expect(page.getByText(/Saved at /i)).toBeVisible();
   });
 
-  test("Export JSON shows confirmation", async ({ page }) => {
+  test("Export Bundle shows confirmation", async ({ page }) => {
     await dismissSplash(page);
-    await page.getByRole("button", { name: "Export JSON" }).click();
-    await expectToast(page, /Exported JSON project/i);
+    await page.getByRole("button", { name: "Export Bundle" }).click();
+    await expectToast(page, /Exported project bundle/i);
   });
 
   test("Pro Mode toggle shows confirmation", async ({ page }) => {
