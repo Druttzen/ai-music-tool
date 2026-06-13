@@ -2,13 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  applyMoodPatch,
-  compactAudioStyleRule,
-  compactImageStyleRule,
-  mergeAnalyzerRuleLine,
-  mergeGuidedGenres,
-  mergeGuidedRhythms,
-  mergeGuidedSounds,
+  buildAudioAnalyzerPatch,
+  buildImageAnalyzerPatch,
 } from "../lib/analyzer-guided-merge";
 import {
   isSupportedAudioFile,
@@ -38,20 +33,13 @@ import { sliceAudioBuffer } from "../lib/audio-buffer-serialize";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { exportEnhancedInWorker } from "../lib/studio-export-client";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
-import { getGuidedPolishStepIndex, getStepCount } from "../lib/suno-guided-workflow";
+import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 
 export function useAnalyzers({
   promptEngine,
   setGuidedStep,
-  setIdea,
-  setMood,
-  setNotes,
-  setRules,
-  setSelectedGenres,
-  setSelectedRhythms,
-  setSelectedSounds,
+  applyAnalyzerPatch,
   setStatusWithTime,
-  setTempo,
 }) {
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
@@ -199,7 +187,9 @@ export function useAnalyzers({
     async (file) => {
       if (!isSupportedAudioFile(file)) {
         setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} only for audio analysis`);
-        setNotes(`Audio analyzer accepts ${SUPPORTED_AUDIO_LABEL} (check file extension or MIME type).`);
+        applyAnalyzerPatch({
+          notes: `Audio analyzer accepts ${SUPPORTED_AUDIO_LABEL} (check file extension or MIME type).`,
+        });
         return;
       }
 
@@ -225,9 +215,9 @@ export function useAnalyzers({
         setStatusWithTime("Track report ready — edit tags, then merge into Suno fields");
       } catch {
         setStatusWithTime("Audio analysis failed");
-        setNotes(
-          `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL} in a format your browser can decode (try WAV or MP3).`,
-        );
+        applyAnalyzerPatch({
+          notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL} in a format your browser can decode (try WAV or MP3).`,
+        });
       } finally {
         if (audioContext) {
           try {
@@ -236,7 +226,7 @@ export function useAnalyzers({
         }
       }
     },
-    [setAudioPreviewFromBlob, setNotes, setStatusWithTime, syncCacheKeysRef],
+    [applyAnalyzerPatch, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
   );
 
   useEffect(() => {
@@ -339,78 +329,29 @@ export function useAnalyzers({
     audioPreviewUrl,
   ]);
 
+  const navigateToPolishStep = useCallback(() => {
+    setGuidedStep(resolvePolishStepIndex());
+  }, [setGuidedStep]);
+
   const applyAudioToSunoStyle = useCallback(() => {
     if (!audioAnalysis) {
       setStatusWithTime("No audio analysis yet");
       return;
     }
-    setTempo(audioAnalysis.estimatedBpm);
-
-    const genreTags = [
-      ...(audioAnalysis.suggestedGenres || []),
-      ...(audioAnalysis.suggestedSubgenres || []),
-    ];
-    if (genreTags.length) {
-      setSelectedGenres((g) => mergeGuidedGenres(g, genreTags));
-    }
-
-    const soundTags = [
-      ...(audioAnalysis.suggestedSounds || []),
-      ...(audioAnalysis.suggestedInstruments || []),
-    ];
-    setSelectedSounds((s) => mergeGuidedSounds(s, soundTags));
-    setSelectedRhythms((r) => mergeGuidedRhythms(r, audioAnalysis.suggestedRhythms));
-    if (audioAnalysis.moodSuggestion) {
-      setMood((m) => applyMoodPatch(m, audioAnalysis.moodSuggestion));
-    }
-    setRules((prev) => mergeAnalyzerRuleLine(prev, "audio", compactAudioStyleRule(audioAnalysis)));
-
-    const summary = (audioAnalysis.trackSummary || "").trim();
-    const hiLabel = audioAnalysis.highlightLabel || "section";
-    const hiRange = `${formatTime(audioAnalysis.highlightStart)}–${formatTime(audioAnalysis.highlightEnd)}`;
-
-    if (summary) {
-      setIdea((prev) => {
-        const p = (prev || "").trim();
-        const add = `Reference track (highlight ${hiRange}): ${summary}`;
-        if (!p) return add;
-        if (/reference track/i.test(p)) return p;
-        if (p.length < 140) return `${p}. ${add}`;
-        return p;
-      });
-
-      setNotes((prev) => {
-        const block = `Audio highlight (${hiRange}, ${hiLabel}):\n${summary}`;
-        const p = (prev || "").trim();
-        if (!p) return block;
-        if (p.includes("Audio highlight (")) return p;
-        return `${p}\n\n${block}`;
-      });
-    }
+    applyAnalyzerPatch(buildAudioAnalyzerPatch(audioAnalysis, formatTime));
 
     if (promptEngine === "Suno-like") {
-      setGuidedStep(() => {
-        const max = getStepCount() - 1;
-        const polish = getGuidedPolishStepIndex();
-        return Math.min(max, Math.max(0, polish));
-      });
+      navigateToPolishStep();
       setStatusWithTime("Audio DNA merged — guided path: Polish (analyzers)");
     } else {
       setStatusWithTime("Audio DNA merged into fields — switch to Suno-like to use the guided path");
     }
   }, [
     audioAnalysis,
+    applyAnalyzerPatch,
+    navigateToPolishStep,
     promptEngine,
-    setGuidedStep,
-    setIdea,
-    setMood,
-    setNotes,
-    setRules,
-    setSelectedRhythms,
-    setSelectedGenres,
-    setSelectedSounds,
     setStatusWithTime,
-    setTempo,
   ]);
 
   const applyImageToSunoStyle = useCallback(() => {
@@ -418,41 +359,19 @@ export function useAnalyzers({
       setStatusWithTime("No image analysis yet");
       return;
     }
-    setSelectedGenres((g) => mergeGuidedGenres(g, imageAnalysis.suggestedGenres));
-    setSelectedSounds((s) => mergeGuidedSounds(s, imageAnalysis.suggestedSounds));
-    setSelectedRhythms((r) => mergeGuidedRhythms(r, imageAnalysis.suggestedRhythms));
-    if (imageAnalysis.moodSuggestion) {
-      setMood((m) => applyMoodPatch(m, imageAnalysis.moodSuggestion));
-    }
-    setRules((prev) => mergeAnalyzerRuleLine(prev, "image", compactImageStyleRule(imageAnalysis)));
-    setIdea((prev) => {
-      const p = (prev || "").trim();
-      const add = `Inspired by image: ${imageAnalysis.visualMood}`;
-      if (!p) return add;
-      if (p.toLowerCase().includes("inspired by image")) return p;
-      if (p.length < 10) return `${p}. ${add}`;
-      return p;
-    });
+    applyAnalyzerPatch(buildImageAnalyzerPatch(imageAnalysis));
+
     if (promptEngine === "Suno-like") {
-      setGuidedStep(() => {
-        const max = getStepCount() - 1;
-        const polish = getGuidedPolishStepIndex();
-        return Math.min(max, Math.max(0, polish));
-      });
+      navigateToPolishStep();
       setStatusWithTime("Image style merged — guided path: Polish (analyzers)");
     } else {
       setStatusWithTime("Image style merged into fields — switch to Suno-like to use the guided path");
     }
   }, [
+    applyAnalyzerPatch,
     imageAnalysis,
+    navigateToPolishStep,
     promptEngine,
-    setGuidedStep,
-    setIdea,
-    setMood,
-    setRules,
-    setSelectedGenres,
-    setSelectedRhythms,
-    setSelectedSounds,
     setStatusWithTime,
   ]);
 
@@ -460,7 +379,9 @@ export function useAnalyzers({
     async (file) => {
       if (!isSupportedImageFile(file)) {
         setStatusWithTime(`Use ${SUPPORTED_IMAGE_LABEL} only for image analysis`);
-        setNotes(`Image analyzer accepts ${SUPPORTED_IMAGE_LABEL} (check file extension or MIME type).`);
+        applyAnalyzerPatch({
+          notes: `Image analyzer accepts ${SUPPORTED_IMAGE_LABEL} (check file extension or MIME type).`,
+        });
         return;
       }
       try {
@@ -488,7 +409,7 @@ export function useAnalyzers({
         setStatusWithTime("Image analysis failed");
       }
     },
-    [setNotes, setStatusWithTime],
+    [applyAnalyzerPatch, setStatusWithTime],
   );
 
   const exportEnhancedAudio = useCallback(

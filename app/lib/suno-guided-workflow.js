@@ -245,6 +245,13 @@ export function getGuidedPolishStepIndex() {
   return i >= 0 ? i : 6;
 }
 
+/** Clamp guided path to the Polish (analyzer) step. */
+export function resolvePolishStepIndex() {
+  const max = getStepCount() - 1;
+  const polish = getGuidedPolishStepIndex();
+  return Math.min(max, Math.max(0, polish));
+}
+
 /** Short caption under “Live Style preview” — what this step’s preview includes vs later steps. */
 export function getSunoStylePreviewHint(stepIndex) {
   if (stepIndex < 0) return "";

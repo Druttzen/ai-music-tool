@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { ActionToast } from "./components/action-toast";
 import { SunoGuidedPath } from "./components/suno-guided-path";
@@ -10,7 +9,12 @@ import { AudioTrackEditor } from "./components/audio-track-editor";
 import { DropBox, Panel, Pill, SearchablePillGrid, Slider, TextBox } from "./components/ui-blocks";
 import { useAnalyzers } from "./hooks/use-analyzers";
 import { useClipboard } from "./hooks/use-clipboard";
+import { useProjectState } from "./hooks/use-project-state";
 import { usePromptPipeline } from "./hooks/use-prompt-pipeline";
+import { ProjectWorkspaceContext } from "./context/project-workspace-context";
+import { PageSidebarLeft } from "./components/page-sidebar-left";
+import { PageWorkspaceCenter } from "./components/page-workspace-center";
+import { PageSidebarRight } from "./components/page-sidebar-right";
 import { useSplashOverlay } from "./hooks/use-splash-seen";
 import { useStatusMessage } from "./hooks/use-status-message";
 import { SUNO_AUTO_FIX_DEFAULTS } from "./lib/suno-rules";
@@ -52,6 +56,7 @@ import {
   slimStateForHistory,
   slimStateForPersistence,
 } from "./lib/project-persistence";
+import { safeLocalStorage, storageFailureMessage } from "./lib/safe-local-storage";
 import {
   APP_VERSION,
   AUTHOR,
@@ -97,77 +102,103 @@ import {
   formatPublicName,
 } from "./lib/suno-voice-style";
 
-const SunoLanguageIndexPanel = dynamic(
-  () =>
-    import("./components/suno-language-index-panel").then((mod) => ({
-      default: mod.SunoLanguageIndexPanel,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <Panel title="Suno Language Index" hint="Loading reference…">
-        <p className="text-xs text-white/45">Loading vocabulary index…</p>
-      </Panel>
-    ),
-  },
-);
-
 export default function Page() {
-  const [idea,setIdea]=useState(DEFAULT_STATE.idea);
-  const [tempo,setTempo]=useState(DEFAULT_STATE.tempo);
-  const [structure,setStructure]=useState(DEFAULT_STATE.structure);
-  const [selectedGenres,setSelectedGenres]=useState(DEFAULT_STATE.selectedGenres);
-  const [selectedRhythms,setSelectedRhythms]=useState(DEFAULT_STATE.selectedRhythms);
-  const [selectedSounds,setSelectedSounds]=useState(DEFAULT_STATE.selectedSounds);
-  const [vocal,setVocal]=useState(DEFAULT_STATE.vocal);
-  const [mode,setMode]=useState(DEFAULT_STATE.mode);
-  const [proMode,setProMode]=useState(DEFAULT_STATE.proMode);
-  const [promptIntensity,setPromptIntensity]=useState(DEFAULT_STATE.promptIntensity);
-  const [variationCount,setVariationCount]=useState(DEFAULT_STATE.variationCount);
-  const [rules,setRules]=useState(DEFAULT_STATE.rules);
-  const [notes,setNotes]=useState(DEFAULT_STATE.notes);
-  const [copied,setCopied]=useState(false);
   const { statusMessage: saveStatus, setStatusMessage, setStatusWithTime, toast, clearToast } = useStatusMessage("Not saved yet");
-  const [scores,setScores]=useState(DEFAULT_STATE.scores);
-  const [mood,setMood]=useState(DEFAULT_STATE.mood);
-  const [lyricTheme, setLyricTheme] = useState(DEFAULT_STATE.lyricTheme);
-  const [lyricLanguage, setLyricLanguage] = useState(DEFAULT_STATE.lyricLanguage);
-  const [lyricStructure, setLyricStructure] = useState(DEFAULT_STATE.lyricStructure);
-  const [lyricStyle, setLyricStyle] = useState(DEFAULT_STATE.lyricStyle);
-  const [lyricDensity, setLyricDensity] = useState(DEFAULT_STATE.lyricDensity);
-  const [promptFormat, setPromptFormat] = useState(DEFAULT_STATE.promptFormat);
-  const [promptEngine, setPromptEngine] = useState(DEFAULT_STATE.promptEngine ?? "Standard");
-  const [coProducerOutput, setCoProducerOutput] = useState(DEFAULT_STATE.coProducerOutput);
-  const [generatedLyrics, setGeneratedLyrics] = useState(DEFAULT_STATE.generatedLyrics);
-  const [generatedLyricsStyle, setGeneratedLyricsStyle] = useState(
-    DEFAULT_STATE.generatedLyricsStyle ?? "",
-  );
-  const [generatedHooks, setGeneratedHooks] = useState(DEFAULT_STATE.generatedHooks);
-  const [generatedHooksStyle, setGeneratedHooksStyle] = useState(
-    DEFAULT_STATE.generatedHooksStyle ?? "",
-  );
-  const [lyricVariantSeed, setLyricVariantSeed] = useState(DEFAULT_STATE.lyricVariantSeed ?? 0);
-  const [lyricsGenerateBusy, setLyricsGenerateBusy] = useState(false);
-  const [coProducerLlmSettings, setCoProducerLlmSettings] = useState(() =>
-    typeof window !== "undefined" ? loadCoProducerLlmSettings() : DEFAULT_LLM_SETTINGS,
-  );
-  const [lyricMode, setLyricMode] = useState(DEFAULT_STATE.lyricMode);
-  const [voiceRefFirstName, setVoiceRefFirstName] = useState(
-    DEFAULT_STATE.voiceRefFirstName ?? "",
-  );
-  const [voiceRefLastName, setVoiceRefLastName] = useState(
-    DEFAULT_STATE.voiceRefLastName ?? "",
-  );
-  const [voiceStyleLine, setVoiceStyleLine] = useState(DEFAULT_STATE.voiceStyleLine ?? "");
-  const [presetName,setPresetName]=useState("");
-  const [customPresets,setCustomPresets]=useState({});
-  const [history,setHistory]=useState([]);
-  const [variations,setVariations]=useState([]);
-  const [selectedHistoryId,setSelectedHistoryId]=useState(null);
+  const {
+    patch,
+    load: loadProjectState,
+    resetBlank,
+    idea,
+    setIdea,
+    tempo,
+    setTempo,
+    structure,
+    setStructure,
+    selectedGenres,
+    setSelectedGenres,
+    selectedRhythms,
+    setSelectedRhythms,
+    selectedSounds,
+    setSelectedSounds,
+    vocal,
+    setVocal,
+    mode,
+    setMode,
+    proMode,
+    setProMode,
+    promptIntensity,
+    setPromptIntensity,
+    variationCount,
+    setVariationCount,
+    rules,
+    setRules,
+    notes,
+    setNotes,
+    copied,
+    setCopied,
+    scores,
+    setScores,
+    mood,
+    setMood,
+    lyricTheme,
+    setLyricTheme,
+    lyricLanguage,
+    setLyricLanguage,
+    lyricStructure,
+    setLyricStructure,
+    lyricStyle,
+    setLyricStyle,
+    lyricDensity,
+    setLyricDensity,
+    promptFormat,
+    setPromptFormat,
+    promptEngine,
+    setPromptEngine,
+    coProducerOutput,
+    setCoProducerOutput,
+    generatedLyrics,
+    setGeneratedLyrics,
+    generatedLyricsStyle,
+    setGeneratedLyricsStyle,
+    generatedHooks,
+    setGeneratedHooks,
+    generatedHooksStyle,
+    setGeneratedHooksStyle,
+    lyricVariantSeed,
+    setLyricVariantSeed,
+    lyricsGenerateBusy,
+    setLyricsGenerateBusy,
+    coProducerLlmSettings,
+    setCoProducerLlmSettings,
+    lyricMode,
+    setLyricMode,
+    voiceRefFirstName,
+    setVoiceRefFirstName,
+    voiceRefLastName,
+    setVoiceRefLastName,
+    voiceStyleLine,
+    setVoiceStyleLine,
+    presetName,
+    setPresetName,
+    customPresets,
+    setCustomPresets,
+    history,
+    setHistory,
+    variations,
+    setVariations,
+    selectedHistoryId,
+    setSelectedHistoryId,
+    guidedStep,
+    setGuidedStep,
+    instrumentalVocalFx,
+    setInstrumentalVocalFx,
+  } = useProjectState();
   const { showSplash, dismissSplash, resetSplash } = useSplashOverlay();
 
-  const [guidedStep, setGuidedStep] = useState(0);
-  const [instrumentalVocalFx, setInstrumentalVocalFx] = useState(DEFAULT_STATE.instrumentalVocalFx);
+  const applyAnalyzerPatch = useCallback((analyzerPatch) => {
+    patch(analyzerPatch);
+  }, [patch]);
+
   const lastAutosavePayloadRef = useRef("");
   const {
     attachAudioFile,
@@ -194,15 +225,8 @@ export default function Page() {
   } = useAnalyzers({
     promptEngine,
     setGuidedStep,
-    setIdea,
-    setMood,
-    setNotes,
-    setRules,
-    setSelectedGenres,
-    setSelectedRhythms,
-    setSelectedSounds,
+    applyAnalyzerPatch,
     setStatusWithTime,
-    setTempo,
   });
 
   const currentState = useMemo(
@@ -292,50 +316,12 @@ export default function Page() {
   );
 
   const loadState=useCallback((data)=>{
-    setIdea(data.idea ?? DEFAULT_STATE.idea);
-    setTempo(data.tempo ?? DEFAULT_STATE.tempo);
-    setStructure(data.structure ?? DEFAULT_STATE.structure);
-    setSelectedGenres(data.selectedGenres ?? DEFAULT_STATE.selectedGenres);
-    setSelectedRhythms(data.selectedRhythms ?? DEFAULT_STATE.selectedRhythms);
-    setSelectedSounds(data.selectedSounds ?? DEFAULT_STATE.selectedSounds);
-    setVocal(data.vocal ?? DEFAULT_STATE.vocal);
-    setMode(data.mode ?? DEFAULT_STATE.mode);
-    setProMode(data.proMode ?? DEFAULT_STATE.proMode);
-    setPromptIntensity(data.promptIntensity ?? DEFAULT_STATE.promptIntensity);
-    setVariationCount(data.variationCount ?? DEFAULT_STATE.variationCount);
-    setRules(data.rules ?? DEFAULT_STATE.rules);
-    setNotes(data.notes ?? DEFAULT_STATE.notes);
-    setScores(data.scores ?? DEFAULT_STATE.scores);
-    setMood(data.mood ?? DEFAULT_STATE.mood);
+    loadProjectState(data);
     if (data.audioAnalysis) setAudioAnalysis(data.audioAnalysis);
     else clearAudioAnalysis();
     if (data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
     else clearImageAnalysis();
-    setLyricTheme(data.lyricTheme ?? DEFAULT_STATE.lyricTheme);
-    setLyricLanguage(normalizeLyricLanguage(data.lyricLanguage ?? DEFAULT_STATE.lyricLanguage));
-    setLyricStructure(data.lyricStructure ?? DEFAULT_STATE.lyricStructure);
-    setLyricStyle(data.lyricStyle ?? DEFAULT_STATE.lyricStyle);
-    setLyricDensity(data.lyricDensity ?? DEFAULT_STATE.lyricDensity);
-    setPromptFormat(data.promptFormat ?? DEFAULT_STATE.promptFormat);
-    setPromptEngine(data.promptEngine ?? DEFAULT_STATE.promptEngine ?? "Standard");
-    setCoProducerOutput(data.coProducerOutput ?? DEFAULT_STATE.coProducerOutput);
-    setGeneratedLyrics(data.generatedLyrics ?? DEFAULT_STATE.generatedLyrics);
-    setGeneratedLyricsStyle(data.generatedLyricsStyle ?? DEFAULT_STATE.generatedLyricsStyle ?? "");
-    setGeneratedHooks(data.generatedHooks ?? DEFAULT_STATE.generatedHooks);
-    setGeneratedHooksStyle(data.generatedHooksStyle ?? DEFAULT_STATE.generatedHooksStyle ?? "");
-    setLyricVariantSeed(data.lyricVariantSeed ?? DEFAULT_STATE.lyricVariantSeed ?? 0);
-    setLyricMode(data.lyricMode ?? DEFAULT_STATE.lyricMode);
-    setVoiceRefFirstName(data.voiceRefFirstName ?? DEFAULT_STATE.voiceRefFirstName ?? "");
-    setVoiceRefLastName(data.voiceRefLastName ?? DEFAULT_STATE.voiceRefLastName ?? "");
-    setVoiceStyleLine(data.voiceStyleLine ?? DEFAULT_STATE.voiceStyleLine ?? "");
-    setInstrumentalVocalFx(data.instrumentalVocalFx ?? DEFAULT_STATE.instrumentalVocalFx);
-    if (typeof data.guidedStep === "number" && !Number.isNaN(data.guidedStep)) {
-      setGuidedStep(Math.max(0, data.guidedStep));
-    }
-    setVariations(Array.isArray(data.variations) ? data.variations : []);
-    if (Array.isArray(data.history)) setHistory(data.history);
-    setSelectedHistoryId(data.selectedHistoryId ?? null);
-  }, [clearAudioAnalysis, clearImageAnalysis, setAudioAnalysis, setImageAnalysis]);
+  }, [clearAudioAnalysis, clearImageAnalysis, loadProjectState, setAudioAnalysis, setImageAnalysis]);
 
   const { captureSnapshot, revertSnapshot } = useUndoSnapshot(
     () => currentState,
@@ -407,27 +393,31 @@ export default function Page() {
     mood,
     promptEngine,
     selectedGenres,
+    setGeneratedHooks,
+    setGeneratedHooksStyle,
+    setGeneratedLyrics,
+    setGeneratedLyricsStyle,
     setGuidedStep,
+    setInstrumentalVocalFx,
+    setLyricMode,
+    setLyricStructure,
+    setLyricStyle,
+    setLyricTheme,
+    setLyricVariantSeed,
+    setPromptEngine,
+    setRules,
     setStatusWithTime,
+    setStructure,
+    setVocal,
   ]);
 
   const resetAll=()=>{
     captureSnapshot("before reset");
-    loadState(BLANK_STATE);
-    setVariations([]);
-    setHistory([]);
-    setSelectedHistoryId(null);
-    setGeneratedLyrics("");
-    setGeneratedLyricsStyle("");
-    setGeneratedHooks("");
-    setGeneratedHooksStyle("");
-    setCoProducerOutput("");
-    setLyricVariantSeed(0);
+    resetBlank();
     resetAnalyzers();
-    setGuidedStep(0);
     lastAutosavePayloadRef.current = "";
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(HISTORY_KEY);
+    safeLocalStorage.remove(STORAGE_KEY);
+    safeLocalStorage.remove(HISTORY_KEY);
     resetSplash();
     setStatusWithTime("Reset — blank slate on guided step 1; pick each prompt yourself");
   };
@@ -452,15 +442,14 @@ export default function Page() {
     const t = window.setTimeout(() => {
       if (cancelled) return;
       try {
-        const saved = localStorage.getItem(STORAGE_KEY);
+        const saved = safeLocalStorage.get(STORAGE_KEY, null);
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed?.appVersion !== APP_VERSION) {
             if (shouldHardResetProjectOnVersionChange(parsed.appVersion, APP_VERSION)) {
-              localStorage.removeItem(STORAGE_KEY);
+              safeLocalStorage.remove(STORAGE_KEY);
               resetAnalyzers();
-              setVariations([]);
-              setGuidedStep(0);
+              patch({ variations: [], guidedStep: 0 });
               lastAutosavePayloadRef.current = "";
               setStatusWithTime(
                 `Major upgrade to v${APP_VERSION} — project cleared (presets and history kept)`,
@@ -474,10 +463,10 @@ export default function Page() {
             setStatusWithTime("Loaded saved project");
           }
         }
-        const presets = localStorage.getItem(PRESET_KEY);
-        if (presets) setCustomPresets(JSON.parse(presets));
-        const hist = localStorage.getItem(HISTORY_KEY);
-        if (hist) setHistory(JSON.parse(hist));
+        const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
+        if (presets) setCustomPresets(presets);
+        const hist = safeLocalStorage.getJSON(HISTORY_KEY, null);
+        if (hist) setHistory(hist);
       } catch {
         setStatusWithTime("Could not load saved data");
       }
@@ -486,20 +475,24 @@ export default function Page() {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [loadState, resetAnalyzers, setStatusWithTime]);
+  }, [loadState, patch, resetAnalyzers, setCustomPresets, setHistory, setStatusWithTime]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
         const payload = JSON.stringify(slimStateForPersistence(currentState));
         if (payload === lastAutosavePayloadRef.current) return;
-        localStorage.setItem(STORAGE_KEY, payload);
+        const result = safeLocalStorage.set(STORAGE_KEY, payload);
+        if (!result.ok) {
+          setStatusWithTime(storageFailureMessage(result), "error");
+          return;
+        }
         lastAutosavePayloadRef.current = payload;
         setStatusMessage(`Autosaved at ${new Date().toLocaleTimeString()}`);
       } catch {
         setStatusWithTime("Autosave failed", "error");
       }
-    }, 600);
+    }, 2000);
     return () => window.clearTimeout(timeoutId);
   }, [currentState, setStatusMessage, setStatusWithTime]);
 
@@ -509,7 +502,7 @@ export default function Page() {
       setGuidedStep(0);
     }, 0);
     return () => window.clearTimeout(t);
-  }, [promptEngine]);
+  }, [promptEngine, setGuidedStep]);
 
   const toggle=(item,list,setter)=>setter(list.includes(item)?list.filter(x=>x!==item):[...list,item]);
 
@@ -652,7 +645,11 @@ export default function Page() {
   const saveProject=()=>{ 
     const slim = slimStateForPersistence(currentState);
     const payload = JSON.stringify(slim, null, 2);
-    localStorage.setItem(STORAGE_KEY, payload);
+    const result = safeLocalStorage.set(STORAGE_KEY, payload);
+    if (!result.ok) {
+      setStatusWithTime(storageFailureMessage(result), "error");
+      return;
+    }
     lastAutosavePayloadRef.current = payload;
     setStatusWithTime("Saved"); 
   };
@@ -677,7 +674,14 @@ export default function Page() {
         promptIntensity,
       },
     };
-    setCustomPresets(next); localStorage.setItem(PRESET_KEY,JSON.stringify(next,null,2)); setPresetName(""); setStatusWithTime(`Saved preset: ${name}`);
+    setCustomPresets(next);
+    const result = safeLocalStorage.setJSON(PRESET_KEY, next);
+    if (!result.ok) {
+      setStatusWithTime(storageFailureMessage(result), "error");
+      return;
+    }
+    setPresetName("");
+    setStatusWithTime(`Saved preset: ${name}`);
   };
 
   const loadPresetObject=(name,p)=>{
@@ -689,17 +693,17 @@ export default function Page() {
     setStatusWithTime(`Loaded preset: ${name}`);
   };
 
-  const deleteCustomPreset=(name)=>{ const next={...customPresets}; delete next[name]; setCustomPresets(next); localStorage.setItem(PRESET_KEY,JSON.stringify(next,null,2)); setStatusWithTime(`Deleted preset: ${name}`); };
+  const deleteCustomPreset=(name)=>{ const next={...customPresets}; delete next[name]; setCustomPresets(next); const result = safeLocalStorage.setJSON(PRESET_KEY, next); if (!result.ok) { setStatusWithTime(storageFailureMessage(result), "error"); return; } setStatusWithTime(`Deleted preset: ${name}`); };
   const applyPreset=(name)=>{ captureSnapshot(`before preset ${name}`); loadPresetObject(name, stylePresets[name]); };
 
   const addHistory=(label,promptText=prompt,state=currentState)=>{
     const item={id:Date.now(),label,time:new Date().toLocaleTimeString(),prompt:promptText,state:slimStateForHistory(state),avgScore};
-    const next=[item,...history].slice(0,12); setHistory(next); localStorage.setItem(HISTORY_KEY,JSON.stringify(next,null,2));
+    const next=[item,...history].slice(0,12); setHistory(next); const result = safeLocalStorage.setJSON(HISTORY_KEY, next); if (!result.ok) setStatusWithTime(storageFailureMessage(result), "error");
   };
 
   const copyPrompt=async()=>{ const ok = await copyToClipboard(prompt, "Prompt copied"); if(!ok) return; setCopied(true); addHistory("Copied prompt"); setTimeout(()=>setCopied(false),1200); };
   const restoreHistory=(item)=>{ loadState(item.state); setSelectedHistoryId(item.id); setStatusWithTime(`Restored: ${item.label}`); };
-  const clearHistory=()=>{ setHistory([]); localStorage.removeItem(HISTORY_KEY); setStatusWithTime("History cleared"); };
+  const clearHistory=()=>{ setHistory([]); safeLocalStorage.remove(HISTORY_KEY); setStatusWithTime("History cleared"); };
 
   const applyQuickFix = (label) => {
     const line = fixes[label];
@@ -895,6 +899,137 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
     setVariations(output); addHistory("Generated variations",output[0]?.prompt || prompt,currentState); setStatusWithTime(`Generated ${variationCount} variations`);
   };
 
+  const workspace = {
+    addHistory,
+    addLyricsFromInstrumentalTrack,
+    analyzeAudioFile,
+    analyzeImageFile,
+    applyAudioToSunoStyle,
+    applyGenreAnchors,
+    applyImageToSunoStyle,
+    applyPreset,
+    applyQuickFix,
+    attachAudioFile,
+    audioAnalysis,
+    audioExportBusy,
+    audioExportProgress,
+    audioLoudness,
+    audioLoudnessBusy,
+    audioPreviewUrl,
+    buildCoProducerAI,
+    clearAudioAnalysis,
+    clearHistory,
+    clearImageAnalysis,
+    captureSnapshot,
+    coProducer,
+    coProducerLlmSettings,
+    coProducerOutput,
+    copied,
+    copyPrompt,
+    copyToClipboard,
+    customPresets,
+    deleteCustomPreset,
+    exportEnhancedAudio,
+    exportProject,
+    fixSunoWarnings,
+    generateExampleLyrics,
+    generateHooks,
+    generateVariations,
+    generateVoiceStyleFromNames,
+    generatedHooks,
+    generatedHooksStyle,
+    generatedLyrics,
+    generatedLyricsStyle,
+    guidedStep,
+    history,
+    idea,
+    imageAnalysis,
+    imagePreview,
+    importProject,
+    instrumentalVocalFx,
+    intensityText,
+    loadPresetObject,
+    lyricDensity,
+    lyricLanguage,
+    lyricMode,
+    lyricPrompt,
+    lyricStructure,
+    lyricStyle,
+    lyricTheme,
+    lyricsGenerateBusy,
+    mode,
+    mood,
+    notes,
+    presetName,
+    proMode,
+    prompt,
+    promptEngine,
+    promptFormat,
+    promptIntensity,
+    resetAll,
+    restoreHistory,
+    revertSnapshot,
+    rules,
+    saveCustomPreset,
+    saveProject,
+    scores,
+    selectedGenres,
+    selectedHistoryId,
+    selectedRhythms,
+    selectedSounds,
+    setCoProducerLlmSettings,
+    setCoProducerOutput,
+    setCopied,
+    setGeneratedLyrics,
+    setGuidedStep,
+    setIdea,
+    setInstrumentalVocalFx,
+    setLyricDensity,
+    setLyricLanguage,
+    setLyricMode,
+    setLyricStructure,
+    setLyricStyle,
+    setLyricTheme,
+    setMode,
+    setMood,
+    setNotes,
+    setPresetName,
+    setProMode,
+    setPromptEngine,
+    setPromptFormat,
+    setPromptIntensity,
+    setRules,
+    setScores,
+    setSelectedGenres,
+    setSelectedRhythms,
+    setSelectedSounds,
+    setStatusWithTime,
+    setStructure,
+    setTempo,
+    setVariationCount,
+    setVoiceRefFirstName,
+    setVoiceRefLastName,
+    setVoiceStyleLine,
+    setVocal,
+    shuffleExampleLyrics,
+    sourcePrompt,
+    structure,
+    sunoFieldSlices,
+    sunoGuidedInput,
+    sunoSlices,
+    sunoWarnings,
+    tempo,
+    toggle,
+    updateAudioAnalysis,
+    variationCount,
+    variations,
+    vocal,
+    voiceRefFirstName,
+    voiceRefLastName,
+    voiceStyleCompact,
+    voiceStyleLine,
+  };
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#0b0d10] p-4 text-white md:p-8">
       {showSplash && (
@@ -918,557 +1053,14 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
           statusPulseKey={toast?.tick ?? 0}
         />
 
-        <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
-          <aside className="space-y-4">
-            <Panel title="Style Presets" hint="Load factory or custom styles.">
-              <div className="space-y-2">{Object.keys(stylePresets).map(name=><button key={name} onClick={()=>applyPreset(name)} className="w-full rounded-2xl border border-white/10 bg-black/25 p-3 text-left text-sm font-bold hover:border-cyan-300/50 hover:bg-cyan-300/10">{name}</button>)}</div>
-              <div className="mt-4 rounded-2xl border border-orange-400/20 bg-orange-400/10 p-3"><div className="mb-2 text-xs font-bold uppercase tracking-wider text-orange-200">Save Current As Preset</div><input value={presetName} onChange={(e)=>setPresetName(e.target.value)} placeholder="Preset name..." className="mb-2 w-full rounded-xl border border-white/10 bg-black/30 p-2 text-sm text-white outline-none"/><button onClick={saveCustomPreset} className="w-full rounded-xl bg-orange-300 px-3 py-2 text-sm font-bold text-black hover:bg-orange-200">Save As Preset</button></div>
-              {Object.keys(customPresets).length>0 && <div className="mt-4 space-y-2"><div className="text-xs font-bold uppercase tracking-wider text-white/45">Custom Presets</div>{Object.entries(customPresets).map(([name,p])=><div key={name} className="rounded-2xl border border-white/10 bg-black/25 p-2"><button onClick={()=>loadPresetObject(name,p)} className="w-full text-left text-sm font-bold text-cyan-100">{name}</button><button onClick={()=>deleteCustomPreset(name)} className="mt-2 text-xs font-bold text-red-300 hover:text-red-200">Delete</button></div>)}</div>}
-            </Panel>
+        <ProjectWorkspaceContext.Provider value={workspace}>
+          <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
+            <PageSidebarLeft />
+            <PageWorkspaceCenter />
+            <PageSidebarRight />
+          </div>
+        </ProjectWorkspaceContext.Provider>
 
-            <Panel title="Save / Load" hint="Keeps unfinished work safe. Reset to Default clears all preselected genres, sounds, rules, and lyrics so you can build step by step from guided step 1."><div className="grid gap-2"><button onClick={saveProject} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">Save Progress</button><button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">Export JSON</button><label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">Import JSON<input type="file" accept="application/json" onChange={importProject} className="hidden"/></label><button onClick={revertSnapshot} className="rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-2 font-bold text-amber-100 hover:bg-amber-500/25">Revert to last snapshot</button><button onClick={resetAll} className="rounded-2xl bg-red-400 px-4 py-2 font-bold text-black hover:bg-red-300" title="Clears all preselected style, prompts, analyzers, and history">Reset to Default</button></div></Panel>
-            <Panel title="Mode" hint="Controls stability vs creativity."><div className="grid grid-cols-3 gap-2">{["Control","Hybrid","Chaos"].map(m=><Pill key={m} active={mode===m} onClick={()=>{ setMode(m); setStatusWithTime(`Mode: ${m}`, "info"); }}>{m}</Pill>)}</div></Panel>
-            <Panel title="Pro Mode" hint="Advanced controls and stronger prompt shaping."><button onClick={()=>{ const next=!proMode; setProMode(next); setStatusWithTime(next?"Pro Mode enabled":"Pro Mode disabled","info"); }} className={"w-full rounded-2xl px-4 py-2 font-bold transition active:scale-[0.98] "+(proMode?"bg-purple-300 text-black":"bg-black/40 text-white border border-white/10")}>{proMode?"Pro Mode ON":"Pro Mode OFF"}</button>{proMode && <div className="mt-3 space-y-3"><Slider label="Prompt Intensity" value={promptIntensity} left="safe" right="experimental" setValue={setPromptIntensity}/><Slider label="Variations" value={variationCount} left="1" right="8" min={1} max={8} setValue={setVariationCount}/><div className="rounded-2xl border border-purple-300/20 bg-purple-300/10 p-3 text-xs text-purple-100">{intensityText}</div></div>}</Panel>
-          </aside>
-
-          <section className="space-y-4">
-            <SunoGuidedPath
-              promptEngine={promptEngine}
-              onSelectSunoEngine={() => {
-                setPromptEngine("Suno-like");
-                setStatusWithTime("Switched to Suno-like engine", "info");
-              }}
-              input={sunoGuidedInput}
-              copyToClipboard={copyToClipboard}
-              setStatusWithTime={setStatusWithTime}
-              vocal={vocal}
-              instrumentalVocalFx={instrumentalVocalFx}
-              setVocal={setVocal}
-              setInstrumentalVocalFx={setInstrumentalVocalFx}
-              customPresets={customPresets}
-              guidedStep={guidedStep}
-              setGuidedStep={setGuidedStep}
-              onApplyFactoryPreset={(name) => {
-                applyPreset(name);
-                setGuidedStep(0);
-                setStatusWithTime(`Loaded preset: ${name} — guided path reset to step 1`);
-              }}
-              onLoadCustomPreset={(name) => {
-                loadPresetObject(name, customPresets[name]);
-                setGuidedStep(0);
-                setStatusWithTime(`Loaded custom preset: ${name} — guided path reset to step 1`);
-              }}
-            />
-            <Panel title="Step 1 — Idea Input" hint="Describe what you want in plain language."><input value={idea} onChange={(e)=>setIdea(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-cyan-300"/></Panel>
-
-
-            <Panel title="Lyric Style Generator" hint="Suno-only lyric prompt metadata. Every generated line uses [] so Suno reads it as prompt direction, not lyric text.">
-              <div className="grid gap-3 md:grid-cols-2">
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Theme</div>
-                  <input
-                    value={lyricTheme}
-                    onChange={(e)=>setLyricTheme(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-orange-300"
-                  />
-                </label>
-
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Structure</div>
-                  <input
-                    value={lyricStructure}
-                    onChange={(e)=>setLyricStructure(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-orange-300"
-                  />
-                </label>
-              </div>
-
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Style</div>
-                  <select value={lyricStyle} onChange={(e)=>setLyricStyle(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">
-                    {lyricStyleOptions.map(x => <option key={x}>{x}</option>)}
-                  </select>
-                </label>
-
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Language</div>
-                  <select value={lyricLanguage} onChange={(e)=>setLyricLanguage(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">
-                    {SUNO_LYRIC_LANGUAGE_GROUPS.map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.languages.map((lang) => (
-                          <option key={lang.label} value={lang.label}>{lang.label}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Mode</div>
-                  <select value={lyricMode} onChange={(e)=>setLyricMode(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">
-                    {lyricModeOptions.map(x => <option key={x}>{x}</option>)}
-                  </select>
-                </label>
-
-                <Slider label="Lyric Density" value={lyricDensity} left="minimal" right="dense" setValue={setLyricDensity}/>
-              </div>
-
-              <CoProducerLyricsBlock
-                lyricStyle={lyricStyle}
-                generatedLyrics={generatedLyrics}
-                generatedLyricsStyle={generatedLyricsStyle}
-                onLyricsChange={setGeneratedLyrics}
-                onGenerate={generateExampleLyrics}
-                onAnotherTake={shuffleExampleLyrics}
-                generateBusy={lyricsGenerateBusy}
-              />
-
-              {generatedLyrics && (
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(generatedLyrics, "Generated lyrics copied")}
-                  className="mt-2 w-full rounded-2xl border border-orange-300/30 bg-black/30 px-4 py-2 text-sm font-bold text-orange-100 hover:bg-black/50"
-                >
-                  Copy Generated Lyrics
-                </button>
-              )}
-
-              <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50">
-                {lyricPrompt}
-              </pre>
-
-              <button
-                onClick={() => copyToClipboard(lyricPrompt, "Lyric style prompt copied")}
-                className="mt-3 w-full rounded-2xl bg-orange-300 px-4 py-2 font-bold text-black hover:bg-orange-200"
-              >
-                Copy Lyric Style Prompt
-              </button>
-            </Panel>
-
-            <Panel
-              title="Suno Voice Style Generator"
-              hint="Uses famous artists as stylistic references only (prompt direction — not impersonation or voice cloning). Included in Suno-like prompt when vocals are on."
-            >
-              <p className="mb-3 text-xs text-white/50">
-                Enter a first and last name, pick a quick preset, then generate. Paste the compact line into Suno&apos;s Style field; use the lyric tag above your verses in Custom Mode if you want.
-              </p>
-              <div className="grid gap-3 md:grid-cols-2">
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">
-                    First name
-                  </div>
-                  <input
-                    value={voiceRefFirstName}
-                    onChange={(e) => setVoiceRefFirstName(e.target.value)}
-                    placeholder="e.g. Freddie"
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-cyan-300"
-                  />
-                </label>
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">
-                    Last name
-                  </div>
-                  <input
-                    value={voiceRefLastName}
-                    onChange={(e) => setVoiceRefLastName(e.target.value)}
-                    placeholder="e.g. Mercury (optional)"
-                    className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-cyan-300"
-                  />
-                </label>
-              </div>
-              <div className="mt-3">
-                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">
-                  Quick presets
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {FAMOUS_VOICE_PRESETS.map((p, presetIdx) => {
-                    const label = formatPublicName(p.first, p.last);
-                    return (
-                      <Pill
-                        key={`voice-preset-${presetIdx}-${p.first}-${p.last}`}
-                        active={false}
-                        onClick={() => {
-                          setVoiceRefFirstName(p.first);
-                          setVoiceRefLastName(p.last);
-                          setStatusWithTime(`Preset: ${label}`);
-                        }}
-                      >
-                        {label}
-                      </Pill>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={generateVoiceStyleFromNames}
-                  className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-black hover:bg-cyan-200"
-                >
-                  Generate voice style
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setVoiceRefFirstName("");
-                    setVoiceRefLastName("");
-                    setVoiceStyleLine("");
-                    setStatusWithTime("Voice style cleared");
-                  }}
-                  className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10"
-                >
-                  Clear
-                </button>
-              </div>
-              {vocal === "Instrumental" && (
-                <div className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">
-                  Instrumental mode: voice reference is not added to the Suno-like export. Switch vocal preset to hear a lead vocal in the prompt.
-                </div>
-              )}
-              {voiceStyleLine ? (
-                <>
-                  <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
-                    {voiceStyleLine}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyToClipboard(voiceStyleLine, "Full voice style copied")
-                    }
-                    className="mt-2 w-full rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-cyan-300/20"
-                  >
-                    Copy full voice style (Suno-like block)
-                  </button>
-                </>
-              ) : null}
-              {voiceStyleCompact.style ? (
-                <div className="mt-3 space-y-2">
-                  <div className="text-xs font-bold uppercase tracking-wider text-white/45">
-                    Compact (Style box)
-                  </div>
-                  <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/80">
-                    {voiceStyleCompact.style}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyToClipboard(voiceStyleCompact.style, "Compact style copied")
-                    }
-                    className="w-full rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100"
-                  >
-                    Copy compact style line
-                  </button>
-                  <div className="text-xs font-bold uppercase tracking-wider text-white/45">
-                    Lyric metatag (optional)
-                  </div>
-                  <pre className="max-h-20 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/80">
-                    {voiceStyleCompact.lyricTag}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyToClipboard(
-                        voiceStyleCompact.lyricTag,
-                        "Lyric metatag copied",
-                      )
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
-                  >
-                    Copy lyric metatag
-                  </button>
-                </div>
-              ) : null}
-            </Panel>
-
-            <Panel title="Drag & Drop Analyzers" hint="Optional Polish-step tools — track report with waveform, LUFS/dBTP meter, studio WAV export (Streaming −14 LUFS), merge into Suno fields, Goal, and Notes. Image DNA uses compact AUDIO:/IMAGE: lines for the 1000-character Style cap.">
-              <div
-                className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
-                  sunoFieldSlices.style.length > SUNO_STYLE_CHAR_CAP
-                    ? "border-red-400/45 bg-red-500/15 text-red-100"
-                    : sunoFieldSlices.style.length > SUNO_STYLE_CHAR_WARN
-                      ? "border-amber-400/40 bg-amber-500/10 text-amber-50"
-                      : "border-emerald-400/30 bg-emerald-500/10 text-emerald-50"
-                }`}
-              >
-                <span>
-                  Style box: {sunoFieldSlices.style.length}/{SUNO_STYLE_CHAR_CAP}
-                  {promptEngine !== "Suno-like" ? (
-                    <span className="ml-1.5 font-sans text-[10px] font-normal text-white/40">
-                      (same string as validator when you use Suno-like)
-                    </span>
-                  ) : null}
-                </span>
-                <span
-                  className={
-                    sunoFieldSlices.lyrics.length > SUNO_LYRICS_CHAR_TYPICAL_MAX
-                      ? "text-red-200"
-                      : sunoFieldSlices.lyrics.length > SUNO_LYRICS_CHAR_WARN
-                        ? "text-amber-200"
-                        : "text-white/55"
-                  }
-                >
-                  Lyrics: {sunoFieldSlices.lyrics.length}/{SUNO_LYRICS_CHAR_TYPICAL_MAX}
-                </span>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <DropBox
-                  title="Drop Audio File"
-                  hint={SUPPORTED_AUDIO_LABEL}
-                  accept={SUPPORTED_AUDIO_ACCEPT}
-                  onFile={analyzeAudioFile}
-                >
-                  {audioAnalysis ? (
-                    <AudioTrackEditor
-                      analysis={audioAnalysis}
-                      audioUrl={audioPreviewUrl}
-                      onChange={updateAudioAnalysis}
-                      onApply={() => {
-                        captureSnapshot("before audio merge");
-                        applyAudioToSunoStyle();
-                      }}
-                      onClear={clearAudioAnalysis}
-                      onAttachAudio={attachAudioFile}
-                      onAddLyricsForTrack={addLyricsFromInstrumentalTrack}
-                      loudness={audioLoudness}
-                      loudnessBusy={audioLoudnessBusy}
-                      onExportEnhanced={exportEnhancedAudio}
-                      exportBusy={audioExportBusy}
-                      exportProgress={audioExportProgress}
-                    />
-                  ) : null}
-                </DropBox>
-                <DropBox
-                  title="Drop Image File"
-                  hint={SUPPORTED_IMAGE_LABEL}
-                  accept={SUPPORTED_IMAGE_ACCEPT}
-                  onFile={analyzeImageFile}
-                >
-                  {imagePreview && (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- blob Object URLs from analyzer */}
-                      <img src={imagePreview} alt="Image preview" className="mx-auto mt-3 max-h-40 rounded-2xl object-contain" />
-                    </>
-                  )}
-                  {imageAnalysis ? (
-                    <div className="mt-3 text-left">
-                      <p className="mb-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">
-                        {IMAGE_ANALYZER_DISCLAIMER}
-                      </p>
-                      <div className="rounded-2xl bg-black/30 p-3 text-xs text-white/70 whitespace-pre-wrap">{imageAnalysis.summary}</div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          captureSnapshot("before image merge");
-                          applyImageToSunoStyle();
-                        }}
-                        className="mt-2 w-full rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/20 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/30"
-                      >
-                        Add image style to Suno (merge) → next step
-                      </button>
-                    </div>
-                  ) : null}
-                </DropBox>
-              </div>
-            </Panel>
-
-
-            {sourcePrompt.trim() && (
-              <Panel title="Extracted Source Prompt" hint="Copy only the prompt created from audio/image analysis.">
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50">
-                  {sourcePrompt}
-                </pre>
-                <button
-                  onClick={() => copyToClipboard(sourcePrompt, "Extracted prompt copied")}
-                  className="mt-3 w-full rounded-2xl bg-orange-300 px-4 py-2 font-bold text-black hover:bg-orange-200"
-                >
-                  Copy Extracted Prompt
-                </button>
-              </Panel>
-            )}
-
-            <Panel title="Step 2 — Mood Sliders" hint="Shape the feeling without typing."><div className="grid gap-3 md:grid-cols-3">{[
-              ["Darkness","bright","dark","darkness"],["Energy","calm","extreme","energy"],["Aggression","soft","brutal","aggression"],["Emotion","cold","emotional","emotion"],["Complexity","minimal","complex","complexity"],["Space","dry","wide","space"]
-            ].map(([label,left,right,key])=><Slider key={key} label={label} value={mood[key]} left={left} right={right} setValue={(v)=>setMood({...mood,[key]:v})}/>)}</div></Panel>
-
-            <Panel title="Step 3 — Clickable Music Controls" hint={`Suno-aligned genres (${genreOptions.length}), instruments (${soundOptions.length}), and rhythms. Style Prompt Library adds ${SUNO_GENRE_WHEEL_COUNT}+ fusion phrases from the Suno v5.5 genre wheel.`}>
-              <SearchablePillGrid
-                label="Genres"
-                hint="Strong Suno genres by family — use Style Prompt Library below for fusion / wheel phrases."
-                options={genreOptions}
-                groups={SUNO_GENRE_GROUPS}
-                selected={selectedGenres}
-                onToggle={(x) => toggle(x, selectedGenres, setSelectedGenres)}
-              />
-              <StylePromptPicker
-                selectedGenres={selectedGenres}
-                setSelectedGenres={setSelectedGenres}
-                rules={rules}
-                setRules={setRules}
-                setStatusWithTime={setStatusWithTime}
-                defaultOpen
-              />
-              <SearchablePillGrid
-                label="Rhythm"
-                options={rhythmOptions}
-                groups={SUNO_RHYTHM_GROUPS}
-                selected={selectedRhythms}
-                onToggle={(x) => toggle(x, selectedRhythms, setSelectedRhythms)}
-              />
-              <SearchablePillGrid
-                label="Instruments & textures"
-                hint="Core Suno instrument tags plus catalog lines — search e.g. sax, 808, koto."
-                options={soundOptions}
-                groups={SUNO_INSTRUMENT_GROUPS}
-                selected={selectedSounds}
-                onToggle={(x) => toggle(x, selectedSounds, setSelectedSounds)}
-              />
-              <div><div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Vocals</div><div className="flex flex-wrap gap-2">{vocalOptions.map(x=><Pill key={x} active={vocal===x} onClick={()=>setVocal(x)}>{x}</Pill>)}</div></div>
-            </Panel>
-
-            <Panel title="Step 4 — Co‑Producer Buttons" hint="One-click creative direction."><div className="flex flex-wrap gap-2">{["Make darker","More aggressive","More minimal","More cinematic","More club"].map(x=><button key={x} onClick={()=>coProducer(x)} className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100">{x}</button>)}</div></Panel>
-
-            <Panel title="Co‑Producer AI" hint="Improve Prompt analyzes balance and gaps; quick fixes append rule lines. Hooks and lyrics follow your Lyric Style.">
-              <p className="mb-3 text-[11px] leading-relaxed text-white/50">
-                <strong className="text-white/65">Copy guide:</strong> Lyric Style Generator = bracketed Suno direction only.
-                <strong className="text-white/65"> Generate Lyrics</strong> writes draft lyric text matched to{" "}
-                <strong className="text-white/65">{lyricStyle}</strong> ({getLyricStyleDirection(lyricStyle)}).
-                Raw Prompt = bracketed direction; Structured Song / Performance Ready = [Verse]/[Chorus] drafts.
-              </p>
-              <div className="grid gap-2 md:grid-cols-3">
-                <button onClick={buildCoProducerAI} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">
-                  Improve Prompt
-                </button>
-                <button onClick={() => generateHooks()} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">
-                  Generate Hooks
-                </button>
-                <button onClick={() => generateHooks(true)} className="rounded-2xl border border-cyan-300/40 bg-black/30 px-4 py-2 font-bold text-cyan-100 hover:bg-black/50">
-                  Another hook take
-                </button>
-              </div>
-
-              <div className="mt-3">
-                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Quick rule fixes</div>
-                <div className="flex flex-wrap gap-2">
-                  {Object.keys(fixes).map((label) => (
-                    <button
-                      key={label}
-                      type="button"
-                      title={fixes[label]}
-                      onClick={() => applyQuickFix(label)}
-                      className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-100 hover:bg-amber-500/20"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <CoProducerLlmSettings
-                settings={coProducerLlmSettings}
-                onChange={setCoProducerLlmSettings}
-                onSave={() => {
-                  saveCoProducerLlmSettings(coProducerLlmSettings);
-                  setStatusWithTime("LLM settings saved locally");
-                }}
-              />
-
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Prompt Format</div>
-                  <select value={promptFormat} onChange={(e)=>setPromptFormat(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">
-                    {promptFormatOptions.map(x => <option key={x}>{x}</option>)}
-                  </select>
-                </label>
-                <label>
-                  <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Prompt Engine</div>
-                  <select value={promptEngine} onChange={(e)=>setPromptEngine(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">
-                    <option>Standard</option>
-                    <option>Suno-like</option>
-                  </select>
-                </label>
-              </div>
-
-              {coProducerOutput && (
-                <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-emerald-300/20 bg-black/50 p-4 text-xs leading-relaxed text-emerald-50">
-                  {coProducerOutput}
-                </pre>
-              )}
-
-              <CoProducerHooksBlock
-                lyricStyle={lyricStyle}
-                generatedHooks={generatedHooks}
-                generatedHooksStyle={generatedHooksStyle}
-              />
-
-              <CoProducerLyricsBlock
-                className="mt-3"
-                lyricStyle={lyricStyle}
-                generatedLyrics={generatedLyrics}
-                generatedLyricsStyle={generatedLyricsStyle}
-                onLyricsChange={setGeneratedLyrics}
-                onGenerate={generateExampleLyrics}
-                onAnotherTake={shuffleExampleLyrics}
-                generateBusy={lyricsGenerateBusy}
-                showStyleHint={false}
-              />
-
-              <div className="mt-3 grid gap-2 md:grid-cols-3">
-                <button onClick={() => copyToClipboard(coProducerOutput || "", "Report copied")} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20">Copy Report</button>
-                <button onClick={() => copyToClipboard(generatedHooks || "", "Hooks copied")} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20">Copy Hooks</button>
-                <button onClick={() => copyToClipboard(generatedLyrics || "", "Lyrics copied")} className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20">Copy Lyrics</button>
-              </div>
-            </Panel>
-
-            <Panel title="Variation Engine" hint="Auto-generate prompt versions while keeping your core identity."><button onClick={generateVariations} className="w-full rounded-2xl bg-fuchsia-300 px-4 py-2 font-bold text-black hover:bg-fuchsia-200">Generate {variationCount} Variations</button>{variations.length>0 && <><VariationCompare key={variations.map((v) => v.id).join("-")} variations={variations} onCopy={copyToClipboard} onApplyWinner={(text)=>{ setNotes(text.slice(0,2000)); setStatusWithTime("Variation A seeded into Notes"); }} /><div className="mt-3 space-y-3">{variations.map(v=><div key={v.id} className="rounded-2xl border border-white/10 bg-black/30 p-3"><div className="mb-2 font-bold text-fuchsia-200">{v.title}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs text-white/70">{v.prompt}</pre><button onClick={()=>copyToClipboard(v.prompt, `${v.title} copied`)} className="mt-2 rounded-xl bg-white px-3 py-1 text-xs font-bold text-black hover:bg-cyan-100">Copy Variation</button></div>)}</div></>}</Panel>
-
-            {proMode && <Panel title="Advanced Override" hint="Optional text editing for exact control."><div className="grid gap-3 md:grid-cols-2"><label><div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Tempo</div><input value={tempo} onChange={(e)=>setTempo(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"/></label><label><div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Structure</div><input value={structure} onChange={(e)=>setStructure(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"/></label></div><div className="mt-3 grid gap-3 md:grid-cols-2"><TextBox label="Rules" value={rules} setValue={setRules}/><TextBox label="Notes / Analyzer Output" value={notes} setValue={setNotes}/></div></Panel>}
-          </section>
-
-          <aside className="space-y-4">
-            <Panel title="Prompt Preview" hint="Copy this into Suno or another AI music tool."><pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">{prompt}</pre><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={copyPrompt} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">{copied?"Copied!":"Copy Prompt"}</button><button onClick={()=>addHistory("Manual snapshot")} className="rounded-2xl bg-white px-4 py-2 font-bold text-black hover:bg-cyan-100">Save Snapshot</button></div>{promptEngine === "Suno-like" && sunoSlices ? (<div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={()=>copyToClipboard(sunoSlices.style,"Suno Style box copied")} className="rounded-2xl border border-cyan-400/35 bg-cyan-500/15 px-4 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/25">Copy Style box</button><button type="button" onClick={()=>copyToClipboard(sunoSlices.lyrics,"Suno Lyrics field copied")} className="rounded-2xl border border-fuchsia-400/35 bg-fuchsia-500/15 px-4 py-2 text-xs font-bold text-fuchsia-100 hover:bg-fuchsia-500/25">Copy Lyrics field</button></div>) : null}</Panel>
-            {promptEngine === "Suno-like" && (
-              <Panel title="Suno-like Validator" hint="Checks structured style/prompt constraints before copying.">
-                {sunoSlices ? (
-                  <div className="mb-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[10px] leading-relaxed text-white/55">
-                    <div className="font-bold text-cyan-100/90">Suno field lengths (paste-ready)</div>
-                    <div className="mt-1 font-mono text-white/75">
-                      Style: {sunoSlices.style.length} / {SUNO_STYLE_CHAR_CAP} (cap) · Lyrics: {sunoSlices.lyrics.length} / ~
-                      {SUNO_LYRICS_CHAR_TYPICAL_MAX}
-                    </div>
-                    <p className="mt-2 text-white/45">{SUNO_LIMITS_NOTE}</p>
-                  </div>
-                ) : null}
-                {sunoWarnings.length > 0 && (
-                  <button
-                    onClick={fixSunoWarnings}
-                    className="mb-3 w-full rounded-2xl bg-emerald-300 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-200"
-                  >
-                    Fix Suno Warnings
-                  </button>
-                )}
-                {sunoWarnings.length ? (
-                  <div className="space-y-2">
-                    {sunoWarnings.map((w, i) => (
-                      <div key={i} className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-50">
-                        {w}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs text-emerald-100">
-                    Prompt structure looks solid for Suno-like generation.
-                  </div>
-                )}
-              </Panel>
-            )}
-                        <SunoLanguageIndexPanel copyToClipboard={copyToClipboard} onApplyGenreAnchors={applyGenreAnchors} />
-<Panel title="History / Compare" hint="Restore earlier prompt states."><button onClick={clearHistory} className="mb-3 w-full rounded-2xl border border-red-300/30 bg-red-300/10 px-4 py-2 text-sm font-bold text-red-200 hover:bg-red-300/20">Clear History</button>{history.length===0?<div className="rounded-2xl border border-white/10 bg-black/25 p-3 text-xs text-white/45">No history yet. Copy a prompt, save a snapshot, or generate variations.</div>:<div className="space-y-2">{history.map(h=><div key={h.id} className={"rounded-2xl border p-3 "+(selectedHistoryId===h.id?"border-cyan-300/50 bg-cyan-300/10":"border-white/10 bg-black/25")}><div className="flex items-center justify-between gap-2"><div><div className="text-sm font-bold text-cyan-100">{h.label}</div><div className="text-[10px] text-white/40">{h.time} • score {h.avgScore}/5</div></div><button onClick={()=>restoreHistory(h)} className="rounded-xl bg-white px-2 py-1 text-xs font-bold text-black">Restore</button></div><pre className="mt-2 max-h-20 overflow-auto whitespace-pre-wrap text-[10px] text-white/45">{h.prompt}</pre></div>)}</div>}</Panel>
-            <Panel title="Track Scoring" hint="Use after generation to compare outputs.">{Object.entries(scores).map(([key,value])=><div key={key} className="mb-3 rounded-2xl bg-black/25 p-3"><div className="mb-2 flex justify-between text-sm"><span className="capitalize text-white/70">{key}</span><span className="font-bold text-cyan-200">{value}/5</span></div><input type="range" min="1" max="5" value={value} onChange={(e)=>setScores({...scores,[key]:Number(e.target.value)})} className="w-full accent-cyan-300"/></div>)}</Panel>
-          </aside>
-        </div>
       </div>
       <div className="fixed bottom-3 left-6 z-50 rounded-full border border-orange-400/30 bg-black/50 px-3 py-1 text-xs font-bold text-orange-300 backdrop-blur">Version {APP_VERSION}</div>
       <div className="fixed bottom-3 right-6 z-50 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-xs text-white/60 backdrop-blur">Created by <span className="font-bold text-orange-300">{AUTHOR}</span></div>

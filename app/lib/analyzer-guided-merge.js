@@ -210,3 +210,111 @@ export function applyMoodPatch(mood, patch) {
   }
   return next;
 }
+
+/**
+ * Merge audio highlight summary into Goal when not already present.
+ * @param {string} prev
+ * @param {{ summary?: string, highlightStart?: number, highlightEnd?: number, highlightLabel?: string }} analysis
+ * @param {(seconds: number) => string} formatTime
+ */
+export function mergeAudioHighlightIntoIdea(prev, analysis, formatTime) {
+  const summary = (analysis.summary || analysis.trackSummary || "").trim();
+  if (!summary) return prev;
+
+  const hiLabel = analysis.highlightLabel || "section";
+  const hiRange = `${formatTime(analysis.highlightStart)}–${formatTime(analysis.highlightEnd)}`;
+  const add = `Reference track (highlight ${hiRange}): ${summary}`;
+  const p = (prev || "").trim();
+
+  if (!p) return add;
+  if (/reference track/i.test(p)) return p;
+  if (p.length < 140) return `${p}. ${add}`;
+  return p;
+}
+
+/**
+ * @param {string} prev
+ * @param {{ summary?: string, trackSummary?: string, highlightStart?: number, highlightEnd?: number, highlightLabel?: string }} analysis
+ * @param {(seconds: number) => string} formatTime
+ */
+export function mergeAudioHighlightIntoNotes(prev, analysis, formatTime) {
+  const summary = (analysis.summary || analysis.trackSummary || "").trim();
+  if (!summary) return prev;
+
+  const hiLabel = analysis.highlightLabel || "section";
+  const hiRange = `${formatTime(analysis.highlightStart)}–${formatTime(analysis.highlightEnd)}`;
+  const block = `Audio highlight (${hiRange}, ${hiLabel}):\n${summary}`;
+  const p = (prev || "").trim();
+
+  if (!p) return block;
+  if (p.includes("Audio highlight (")) return p;
+  return `${p}\n\n${block}`;
+}
+
+/**
+ * @param {string} prev
+ * @param {string} visualMood
+ */
+export function mergeImageMoodIntoIdea(prev, visualMood) {
+  const add = `Inspired by image: ${visualMood}`;
+  const p = (prev || "").trim();
+  if (!p) return add;
+  if (p.toLowerCase().includes("inspired by image")) return p;
+  if (p.length < 10) return `${p}. ${add}`;
+  return p;
+}
+
+/**
+ * Build a project-state patch from audio analysis for merge into Suno fields.
+ * @param {object} audioAnalysis
+ * @param {(seconds: number) => string} formatTime
+ */
+export function buildAudioAnalyzerPatch(audioAnalysis, formatTime) {
+  const genreTags = [
+    ...(audioAnalysis.suggestedGenres || []),
+    ...(audioAnalysis.suggestedSubgenres || []),
+  ];
+  const soundTags = [
+    ...(audioAnalysis.suggestedSounds || []),
+    ...(audioAnalysis.suggestedInstruments || []),
+  ];
+
+  /** @type {Record<string, unknown>} */
+  const patch = {
+    tempo: audioAnalysis.estimatedBpm,
+    selectedSounds: (prev) => mergeGuidedSounds(prev, soundTags),
+    selectedRhythms: (prev) => mergeGuidedRhythms(prev, audioAnalysis.suggestedRhythms),
+    rules: (prev) => mergeAnalyzerRuleLine(prev, "audio", compactAudioStyleRule(audioAnalysis)),
+    idea: (prev) => mergeAudioHighlightIntoIdea(prev, audioAnalysis, formatTime),
+    notes: (prev) => mergeAudioHighlightIntoNotes(prev, audioAnalysis, formatTime),
+  };
+
+  if (genreTags.length) {
+    patch.selectedGenres = (prev) => mergeGuidedGenres(prev, genreTags);
+  }
+  if (audioAnalysis.moodSuggestion) {
+    patch.mood = (prev) => applyMoodPatch(prev, audioAnalysis.moodSuggestion);
+  }
+
+  return patch;
+}
+
+/**
+ * @param {object} imageAnalysis
+ */
+export function buildImageAnalyzerPatch(imageAnalysis) {
+  /** @type {Record<string, unknown>} */
+  const patch = {
+    selectedGenres: (prev) => mergeGuidedGenres(prev, imageAnalysis.suggestedGenres),
+    selectedSounds: (prev) => mergeGuidedSounds(prev, imageAnalysis.suggestedSounds),
+    selectedRhythms: (prev) => mergeGuidedRhythms(prev, imageAnalysis.suggestedRhythms),
+    rules: (prev) => mergeAnalyzerRuleLine(prev, "image", compactImageStyleRule(imageAnalysis)),
+    idea: (prev) => mergeImageMoodIntoIdea(prev, imageAnalysis.visualMood),
+  };
+
+  if (imageAnalysis.moodSuggestion) {
+    patch.mood = (prev) => applyMoodPatch(prev, imageAnalysis.moodSuggestion);
+  }
+
+  return patch;
+}
