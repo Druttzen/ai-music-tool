@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppHeader, SplashOverlay } from "./components/app-shell";
+import { ActionToast } from "./components/action-toast";
 import { SunoGuidedPath } from "./components/suno-guided-path";
 import { StylePromptPicker } from "./components/suno-english-style-prompt-picker";
 import { AudioTrackEditor } from "./components/audio-track-editor";
@@ -134,8 +135,7 @@ export default function Page() {
   const [rules,setRules]=useState(DEFAULT_STATE.rules);
   const [notes,setNotes]=useState(DEFAULT_STATE.notes);
   const [copied,setCopied]=useState(false);
-  const { statusMessage: saveStatus, setStatusWithTime } = useStatusMessage("Not saved yet");
-  const [issue,setIssue]=useState("Weak bass");
+  const { statusMessage: saveStatus, setStatusMessage, setStatusWithTime, toast, clearToast } = useStatusMessage("Not saved yet");
   const [scores,setScores]=useState(DEFAULT_STATE.scores);
   const [mood,setMood]=useState(DEFAULT_STATE.mood);
   const [lyricTheme, setLyricTheme] = useState(DEFAULT_STATE.lyricTheme);
@@ -509,13 +509,13 @@ export default function Page() {
         if (payload === lastAutosavePayloadRef.current) return;
         localStorage.setItem(STORAGE_KEY, payload);
         lastAutosavePayloadRef.current = payload;
-        setStatusWithTime("Autosaved");
+        setStatusMessage(`Autosaved at ${new Date().toLocaleTimeString()}`);
       } catch {
-        setStatusWithTime("Autosave failed");
+        setStatusWithTime("Autosave failed", "error");
       }
     }, 600);
     return () => window.clearTimeout(timeoutId);
-  }, [currentState, setStatusWithTime]);
+  }, [currentState, setStatusMessage, setStatusWithTime]);
 
   useEffect(() => {
     if (promptEngine === "Suno-like") return;
@@ -924,8 +924,8 @@ Music direction:
     lastAutosavePayloadRef.current = payload;
     setStatusWithTime("Saved"); 
   };
-  const exportProject=()=>{ const blob=new Blob([JSON.stringify(currentState,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="ai-music-project.json"; a.click(); URL.revokeObjectURL(url); };
-  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ captureSnapshot("before import"); const raw=JSON.parse(String(reader.result)); loadState(migrateImportedProject(raw, APP_VERSION)); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed"); } }; reader.readAsText(file); };
+  const exportProject=()=>{ const blob=new Blob([JSON.stringify(currentState,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="ai-music-project.json"; a.click(); URL.revokeObjectURL(url); setStatusWithTime("Exported JSON project"); };
+  const importProject=(event)=>{ const file=event.target.files?.[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ captureSnapshot("before import"); const raw=JSON.parse(String(reader.result)); loadState(migrateImportedProject(raw, APP_VERSION)); setStatusWithTime("Imported JSON project"); }catch{ setStatusWithTime("Import failed", "error"); } }; reader.readAsText(file); };
 
   const saveCustomPreset=()=>{
     const name=presetName.trim(); if(!name){ setStatusWithTime("Preset name missing"); return; }
@@ -969,7 +969,12 @@ Music direction:
   const restoreHistory=(item)=>{ loadState(item.state); setSelectedHistoryId(item.id); setStatusWithTime(`Restored: ${item.label}`); };
   const clearHistory=()=>{ setHistory([]); localStorage.removeItem(HISTORY_KEY); setStatusWithTime("History cleared"); };
 
-  const applyFix=()=>{ setRules(old=>`${old}\n${fixes[issue]}`); setStatusWithTime(`Applied fix: ${issue}`); };
+  const applyQuickFix = (label) => {
+    const line = fixes[label];
+    if (!line) return;
+    setRules((old) => (old.trim() ? `${old.trim()}\n${line}` : line));
+    setStatusWithTime(`Applied fix: ${label}`);
+  };
 
   const coProducer=(action)=>{
     if(action==="Make darker") setMood(m=>({...m,darkness:Math.min(100,m.darkness+15)}));
@@ -978,18 +983,6 @@ Music direction:
     if(action==="More cinematic"){ setSelectedGenres(g=>uniq([...g,"Cinematic"])); setSelectedSounds(s=>uniq([...s,"Orchestral strings","Big drums"])); setMood(m=>({...m,space:Math.min(100,m.space+15),emotion:Math.min(100,m.emotion+10)})); }
     if(action==="More club"){ setSelectedRhythms(r=>uniq([...r,"4/4"])); setSelectedSounds(s=>uniq([...s,"Heavy sub bass","Big drums"])); setMood(m=>({...m,energy:Math.min(100,m.energy+15)})); }
     setStatusWithTime(action);
-  };
-
-  const analyze=()=>{
-    const messages=[];
-    if(!selectedGenres.length) messages.push("Add at least one genre.");
-    if(!selectedRhythms.length) messages.push("Add rhythm behavior.");
-    if(!selectedSounds.length) messages.push("Add sound modules.");
-    if(vocal!=="Instrumental" && !rules.toLowerCase().includes("vocal")) messages.push("Add vocal-control rules to prevent drift.");
-    if(idea.length<10) messages.push("Describe the creative goal in more detail.");
-    if(promptIntensity>75 && mode==="Control") messages.push("High prompt intensity conflicts with Control mode. Use Hybrid or Chaos.");
-    if(!messages.length) messages.push("Prompt looks complete. Generate variations, score them, then refine the weakest area.");
-    setNotes(messages.join("\n"));
   };
 
   const buildCoProducerAI = () => {
@@ -1172,12 +1165,26 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0b0d10] p-4 text-white md:p-8">
-      {showSplash && <SplashOverlay onDismiss={dismissSplash} />}
+      {showSplash && (
+        <SplashOverlay
+          onDismiss={() => {
+            dismissSplash();
+            setStatusWithTime("Ready — build your prompt step by step", "info");
+          }}
+        />
+      )}
+
+      <ActionToast toast={toast} onDismiss={clearToast} />
 
       <canvas ref={canvasRef} className="hidden"/>
       <div className="fixed inset-0 pointer-events-none opacity-40" style={{background:"radial-gradient(circle at 18% 0%, rgba(184,115,51,.25), transparent 34%), radial-gradient(circle at 82% 12%, rgba(34,211,238,.16), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 35%)"}}/>
       <div className="relative mx-auto max-w-7xl pb-12">
-        <AppHeader appVersion={APP_VERSION} avgScore={avgScore} saveStatus={saveStatus} />
+        <AppHeader
+          appVersion={APP_VERSION}
+          avgScore={avgScore}
+          saveStatus={saveStatus}
+          statusPulseKey={toast?.tick ?? 0}
+        />
 
         <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
           <aside className="space-y-4">
@@ -1188,14 +1195,17 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
             </Panel>
 
             <Panel title="Save / Load" hint="Keeps unfinished work safe. Reset to Default clears all preselected genres, sounds, rules, and lyrics so you can build step by step from guided step 1."><div className="grid gap-2"><button onClick={saveProject} className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200">Save Progress</button><button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">Export JSON</button><label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">Import JSON<input type="file" accept="application/json" onChange={importProject} className="hidden"/></label><button onClick={revertSnapshot} className="rounded-2xl border border-amber-400/40 bg-amber-500/15 px-4 py-2 font-bold text-amber-100 hover:bg-amber-500/25">Revert to last snapshot</button><button onClick={resetAll} className="rounded-2xl bg-red-400 px-4 py-2 font-bold text-black hover:bg-red-300" title="Clears all preselected style, prompts, analyzers, and history">Reset to Default</button></div></Panel>
-            <Panel title="Mode" hint="Controls stability vs creativity."><div className="grid grid-cols-3 gap-2">{["Control","Hybrid","Chaos"].map(m=><Pill key={m} active={mode===m} onClick={()=>setMode(m)}>{m}</Pill>)}</div></Panel>
-            <Panel title="Pro Mode" hint="Advanced controls and stronger prompt shaping."><button onClick={()=>setProMode(!proMode)} className={"w-full rounded-2xl px-4 py-2 font-bold "+(proMode?"bg-purple-300 text-black":"bg-black/40 text-white border border-white/10")}>{proMode?"Pro Mode ON":"Pro Mode OFF"}</button>{proMode && <div className="mt-3 space-y-3"><Slider label="Prompt Intensity" value={promptIntensity} left="safe" right="experimental" setValue={setPromptIntensity}/><Slider label="Variations" value={variationCount} left="1" right="8" min={1} max={8} setValue={setVariationCount}/><div className="rounded-2xl border border-purple-300/20 bg-purple-300/10 p-3 text-xs text-purple-100">{intensityText}</div></div>}</Panel>
+            <Panel title="Mode" hint="Controls stability vs creativity."><div className="grid grid-cols-3 gap-2">{["Control","Hybrid","Chaos"].map(m=><Pill key={m} active={mode===m} onClick={()=>{ setMode(m); setStatusWithTime(`Mode: ${m}`, "info"); }}>{m}</Pill>)}</div></Panel>
+            <Panel title="Pro Mode" hint="Advanced controls and stronger prompt shaping."><button onClick={()=>{ const next=!proMode; setProMode(next); setStatusWithTime(next?"Pro Mode enabled":"Pro Mode disabled","info"); }} className={"w-full rounded-2xl px-4 py-2 font-bold transition active:scale-[0.98] "+(proMode?"bg-purple-300 text-black":"bg-black/40 text-white border border-white/10")}>{proMode?"Pro Mode ON":"Pro Mode OFF"}</button>{proMode && <div className="mt-3 space-y-3"><Slider label="Prompt Intensity" value={promptIntensity} left="safe" right="experimental" setValue={setPromptIntensity}/><Slider label="Variations" value={variationCount} left="1" right="8" min={1} max={8} setValue={setVariationCount}/><div className="rounded-2xl border border-purple-300/20 bg-purple-300/10 p-3 text-xs text-purple-100">{intensityText}</div></div>}</Panel>
           </aside>
 
           <section className="space-y-4">
             <SunoGuidedPath
               promptEngine={promptEngine}
-              onSelectSunoEngine={() => setPromptEngine("Suno-like")}
+              onSelectSunoEngine={() => {
+                setPromptEngine("Suno-like");
+                setStatusWithTime("Switched to Suno-like engine", "info");
+              }}
               input={sunoGuidedInput}
               copyToClipboard={copyToClipboard}
               setStatusWithTime={setStatusWithTime}
@@ -1588,7 +1598,7 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
 
             <Panel title="Step 4 — Co‑Producer Buttons" hint="One-click creative direction."><div className="flex flex-wrap gap-2">{["Make darker","More aggressive","More minimal","More cinematic","More club"].map(x=><button key={x} onClick={()=>coProducer(x)} className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100">{x}</button>)}</div></Panel>
 
-            <Panel title="Co‑Producer AI" hint="One-click assistant that tightens your style, fixes weak spots, and generates hooks/lyrics tied to your Lyric Style.">
+            <Panel title="Co‑Producer AI" hint="Improve Prompt analyzes balance and gaps; quick fixes append rule lines. Hooks and lyrics follow your Lyric Style.">
               <p className="mb-3 text-[11px] leading-relaxed text-white/50">
                 <strong className="text-white/65">Copy guide:</strong> Lyric Style Generator = bracketed Suno direction only.
                 <strong className="text-white/65"> Generate Lyrics</strong> writes draft lyric text matched to{" "}
@@ -1605,6 +1615,23 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
                 <button onClick={() => generateHooks(true)} className="rounded-2xl border border-cyan-300/40 bg-black/30 px-4 py-2 font-bold text-cyan-100 hover:bg-black/50">
                   Another hook take
                 </button>
+              </div>
+
+              <div className="mt-3">
+                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Quick rule fixes</div>
+                <div className="flex flex-wrap gap-2">
+                  {Object.keys(fixes).map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      title={fixes[label]}
+                      onClick={() => applyQuickFix(label)}
+                      className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-100 hover:bg-amber-500/20"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <CoProducerLlmSettings
@@ -1670,7 +1697,6 @@ Variation ${i+1}: keep the core identity, change texture and movement without lo
 
           <aside className="space-y-4">
             <Panel title="Prompt Preview" hint="Copy this into Suno or another AI music tool."><pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">{prompt}</pre><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={copyPrompt} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">{copied?"Copied!":"Copy Prompt"}</button><button onClick={()=>addHistory("Manual snapshot")} className="rounded-2xl bg-white px-4 py-2 font-bold text-black hover:bg-cyan-100">Save Snapshot</button></div>{promptEngine === "Suno-like" && sunoSlices ? (<div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={()=>copyToClipboard(sunoSlices.style,"Suno Style box copied")} className="rounded-2xl border border-cyan-400/35 bg-cyan-500/15 px-4 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/25">Copy Style box</button><button type="button" onClick={()=>copyToClipboard(sunoSlices.lyrics,"Suno Lyrics field copied")} className="rounded-2xl border border-fuchsia-400/35 bg-fuchsia-500/15 px-4 py-2 text-xs font-bold text-fuchsia-100 hover:bg-fuchsia-500/25">Copy Lyrics field</button></div>) : null}</Panel>
-            <Panel title="Analyzer / Debug" hint="Find weak spots and apply fixes."><button onClick={analyze} className="mb-3 w-full rounded-2xl bg-purple-300 px-4 py-2 font-bold text-black hover:bg-purple-200">Analyze Prompt</button><select value={issue} onChange={(e)=>setIssue(e.target.value)} className="mb-3 w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none">{Object.keys(fixes).map(x=><option key={x}>{x}</option>)}</select><div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-50">{fixes[issue]}</div><button onClick={applyFix} className="w-full rounded-2xl bg-amber-300 px-4 py-2 font-bold text-black hover:bg-amber-200">Apply Fix To Rules</button></Panel>
             {promptEngine === "Suno-like" && (
               <Panel title="Suno-like Validator" hint="Checks structured style/prompt constraints before copying.">
                 {sunoSlices ? (

@@ -3,9 +3,10 @@ import { useMemo, useRef, useState } from "react";
 export function Pill({ active, children, onClick }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={
-        "rounded-2xl border px-3 py-2 text-xs font-semibold transition " +
+        "rounded-2xl border px-3 py-2 text-xs font-semibold transition transform active:scale-95 motion-safe:active:duration-100 " +
         (active
           ? "border-cyan-300 bg-cyan-300/20 text-cyan-100 shadow shadow-cyan-500/20"
           : "border-white/10 bg-black/25 text-white/60 hover:bg-white/10 hover:text-white")

@@ -40,7 +40,7 @@ export function SplashOverlay({ onDismiss }) {
   );
 }
 
-export function AppHeader({ appVersion, avgScore, saveStatus }) {
+export function AppHeader({ appVersion, avgScore, saveStatus, statusPulseKey = 0 }) {
   return (
     <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div>
@@ -75,7 +75,10 @@ export function AppHeader({ appVersion, avgScore, saveStatus }) {
           className="max-h-48 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]"
         />
       </div>
-      <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
+      <div
+        key={statusPulseKey}
+        className={`rounded-3xl border border-white/10 bg-white/[0.06] p-4 ${statusPulseKey ? "status-pulse" : ""}`}
+      >
         <div className="text-xs text-white/50">Project status</div>
         <div className="text-sm font-bold text-cyan-100">{saveStatus}</div>
         <div className="mt-2 text-xs text-white/50">Average score</div>

@@ -128,7 +128,11 @@ export function SunoGuidedPath({
               key={s.id}
               type="button"
               title={s.name}
-              onClick={() => setStep(i)}
+              onClick={() => {
+                if (i === step) return;
+                setStep(i);
+                setStatusWithTime(`Suno step ${i + 1}: ${s.name}`, "info");
+              }}
               className={
                 "min-w-[1.75rem] rounded-lg px-1.5 py-0.5 text-center text-[10px] font-bold transition " +
                 (active
@@ -287,7 +291,12 @@ export function SunoGuidedPath({
         <button
           type="button"
           disabled={step === 0}
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          onClick={() => {
+            const next = Math.max(0, step - 1);
+            if (next === step) return;
+            setStep(next);
+            setStatusWithTime(`Suno step ${next + 1}: ${SUNO_GUIDED_STEPS[next].name}`, "info");
+          }}
           className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Back
@@ -295,14 +304,22 @@ export function SunoGuidedPath({
         <button
           type="button"
           disabled={step >= lastIndex}
-          onClick={() => setStep((s) => Math.min(lastIndex, s + 1))}
+          onClick={() => {
+            const next = Math.min(lastIndex, step + 1);
+            if (next === step) return;
+            setStep(next);
+            setStatusWithTime(`Suno step ${next + 1}: ${SUNO_GUIDED_STEPS[next].name}`, "info");
+          }}
           className="rounded-2xl bg-cyan-300 px-4 py-2 text-xs font-bold text-black hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {step === lastIndex - 1 ? "Show copy blocks" : "Next step"}
         </button>
         <button
           type="button"
-          onClick={() => setStep(0)}
+          onClick={() => {
+            setStep(0);
+            setStatusWithTime("Suno guided path restarted at step 1", "info");
+          }}
           className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-xs font-bold text-white/80 hover:bg-white/10"
         >
           Start over

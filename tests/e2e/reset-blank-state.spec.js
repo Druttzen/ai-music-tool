@@ -35,7 +35,7 @@ test("Reset to Default clears preselected prompts to blank slate", async ({ page
 
   await expect(ideaInput).toHaveValue("");
   await expect(housePill).not.toHaveClass(/border-cyan-300/);
-  await expect(page.getByText(/blank slate on guided step 1/i)).toBeVisible();
+  await expect(page.locator("header").getByText(/blank slate on guided step 1/i)).toBeVisible();
   await expect(lyricPanel.locator("pre").first()).toContainText(/select vocal mode and lyric theme/i);
   await expect(lyricPanel.locator("textarea")).toHaveCount(0);
 });
