@@ -1,8 +1,20 @@
 import { expect } from "@playwright/test";
 
+export async function clearProjectStorage(page) {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("__e2e_storage_cleared__")) return;
+    localStorage.clear();
+    sessionStorage.setItem("__e2e_storage_cleared__", "1");
+  });
+}
+
 export async function dismissSplash(page) {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
+  await skipSplashIfVisible(page);
+}
+
+export async function skipSplashIfVisible(page) {
   const skip = page.getByRole("button", { name: "Skip intro" });
   if (await skip.isVisible().catch(() => false)) {
     await skip.click();
@@ -25,6 +37,18 @@ export function analyzerPanel(page) {
 
 export function coProducerPanel(page) {
   return page.locator("section").filter({ hasText: "Co‑Producer AI" });
+}
+
+export function saveLoadPanel(page) {
+  return page.locator("section").filter({ hasText: "Save / Load" });
+}
+
+export function ideaInput(page) {
+  return page
+    .locator("section")
+    .filter({ hasText: "Step 1 — Idea Input" })
+    .locator("input")
+    .first();
 }
 
 export function musicControlsPanel(page) {
