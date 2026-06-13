@@ -34,6 +34,21 @@ describe("co-producer-llm", () => {
     expect(user).toContain("full lyrics in Spanish");
   });
 
+  it("buildCoProducerLlmMessages includes voice character delivery traits", () => {
+    const { system, user } = buildCoProducerLlmMessages({
+      lyricStyle: "Dark poetic",
+      lyricTheme: "night city",
+      vocal: "Male Lead",
+      voiceStyleCompact: {
+        style: "Warm baritone narrator",
+        lyricTag: "[Vocal character: Narrator — breathy; trait-based Suno direction]",
+      },
+    });
+    expect(system).toContain("Vocal role for delivery: Male Lead");
+    expect(system).toContain("Warm baritone narrator");
+    expect(user).toContain("Vocal delivery traits: Warm baritone narrator");
+  });
+
   it("generateLyricsWithLlm aborts hung requests", async () => {
     vi.useFakeTimers();
     global.fetch = vi.fn((_url, init) =>

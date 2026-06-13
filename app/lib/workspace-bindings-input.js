@@ -13,6 +13,7 @@ export function pickProjectActionInput(projectState, analyzers, pipeline, snapsh
   return {
     applyAudioToSunoStyle: analyzers.applyAudioToSunoStyle,
     audioAnalysis: analyzers.audioAnalysis,
+    audioPreviewUrl: analyzers.audioPreviewUrl,
     avgScore: externals.avgScore,
     captureSnapshot: snapshot.captureSnapshot,
     coProducerLlmSettings: projectState.coProducerLlmSettings,
@@ -95,6 +96,8 @@ export function pickProjectActionInput(projectState, analyzers, pipeline, snapsh
     vocalText: pipeline.vocalText,
     voiceRefFirstName: projectState.voiceRefFirstName,
     voiceRefLastName: projectState.voiceRefLastName,
+    voiceStyleLine: projectState.voiceStyleLine,
+    voiceStyleCompact: pipeline.voiceStyleCompact,
   };
 }
 

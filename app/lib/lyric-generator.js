@@ -36,6 +36,42 @@ export const LYRIC_STYLE_DIRECTIONS = {
     "surreal images, strange symbols, floating emotion, loose logic",
 };
 
+/**
+ * Resolve voice character context for Co-Producer lyrics/hooks (character studio session or Style line).
+ * @param {object} input
+ */
+export function resolveVoiceLyricContext(input) {
+  const compact =
+    input?.voiceStyleCompact && typeof input.voiceStyleCompact === "object"
+      ? input.voiceStyleCompact
+      : { style: "", lyricTag: "" };
+  const vocalTag = String(compact.lyricTag || "").trim();
+  const deliveryHint = String(compact.style || "").trim() || String(input?.voiceStyleLine || "").trim().slice(0, 160);
+  const vocalRole =
+    input?.vocal && input.vocal !== "Instrumental" ? String(input.vocal).trim() : "";
+  return { vocalTag, deliveryHint, vocalRole };
+}
+
+/**
+ * @param {string} lyrics
+ * @param {{ vocalTag: string, deliveryHint: string, vocalRole: string }} voiceCtx
+ */
+export function prependVoiceCharacterToLyrics(lyrics, voiceCtx) {
+  const body = String(lyrics || "").trim();
+  if (!body) return body;
+  const blocks = [];
+  if (voiceCtx.vocalTag) {
+    blocks.push(voiceCtx.vocalTag);
+  } else if (voiceCtx.deliveryHint) {
+    blocks.push(`[Vocal character: ${voiceCtx.deliveryHint}]`);
+  }
+  if (voiceCtx.vocalRole) {
+    blocks.push(`[Vocal role: ${voiceCtx.vocalRole}]`);
+  }
+  if (!blocks.length) return body;
+  return `${blocks.join("\n")}\n\n${body}`;
+}
+
 const LYRIC_STYLE_CONTENT = {
   "Dark poetic": {
     signatureLine: "Shadows move under my skin",
@@ -385,8 +421,10 @@ export function generateCoProducerLyrics(input) {
           ? "dense lyrical flow, internal rhyme, high detail"
           : "balanced lines, memorable phrases, clear hook";
     const langRules = getSunoLanguagePromptRules(lyricLanguage);
+    const voiceCtx = resolveVoiceLyricContext(input);
     return {
-      lyrics: bracketizeSunoPromptBlock(`LYRIC DIRECTION · ${styleLabel}
+      lyrics: prependVoiceCharacterToLyrics(
+        bracketizeSunoPromptBlock(`LYRIC DIRECTION · ${styleLabel}
 Language: ${lyricLanguage}
 Theme: ${theme}
 Style: ${styleLabel} — ${styleDirection}
@@ -398,24 +436,30 @@ Write short singable lines with a strong repeated chorus.
 Use [Verse], [Chorus], [Bridge], and [Outro] tags.
 ${langRules}
 Match ${selectedGenres.join(" + ") || "the genre"} and ${styleDirection}.`),
+        voiceCtx,
+      ),
       styleLabel,
       styleDirection,
       variantSeed,
     };
   }
 
+  const voiceCtx = resolveVoiceLyricContext(input);
   return {
-    lyrics: buildStructuredLyrics({
-      content,
-      styleLabel,
-      styleDirection,
-      theme,
-      lyricMode,
-      lyricLanguage,
-      mood,
-      seed,
-      lineCount,
-    }),
+    lyrics: prependVoiceCharacterToLyrics(
+      buildStructuredLyrics({
+        content,
+        styleLabel,
+        styleDirection,
+        theme,
+        lyricMode,
+        lyricLanguage,
+        mood,
+        seed,
+        lineCount,
+      }),
+      voiceCtx,
+    ),
     styleLabel,
     styleDirection,
     variantSeed,
@@ -478,7 +522,12 @@ ${energyAccent}
 ${h3}
 ${content.signatureLine}`;
 
-  return { hooks, styleLabel, styleDirection };
+  const voiceCtx = resolveVoiceLyricContext(input);
+  return {
+    hooks: prependVoiceCharacterToLyrics(hooks, voiceCtx),
+    styleLabel,
+    styleDirection,
+  };
 }
 
 /**

@@ -45,7 +45,7 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
 export const AudioTrackEditor = memo(function AudioTrackEditor({
   analysis,
@@ -57,6 +57,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   onClear,
   onAttachAudio,
   onAddLyricsForTrack,
+  onAnalyzeVocalCharacter,
   onExportEnhanced,
   exportBusy = false,
   exportProgress = null,
@@ -248,6 +249,28 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             className="w-full rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/25 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/35"
           >
             Add lyrics timed to this track →
+          </button>
+        </section>
+      ) : null}
+
+      {onAnalyzeVocalCharacter ? (
+        <section className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 p-3 space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-200/90">
+            Vocal character (Voice Character Studio)
+          </div>
+          <p className="text-[10px] leading-relaxed text-white/55">
+            Send this track to Voice Character Studio for trait-based Suno voice DNA. Acapella or
+            isolated lead works best; full mixes may yield weak pitch signal.
+          </p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onAnalyzeVocalCharacter();
+            }}
+            className="w-full rounded-2xl border border-cyan-400/40 bg-cyan-500/25 py-2 text-xs font-bold text-cyan-50 hover:bg-cyan-500/35"
+          >
+            Analyze vocal character →
           </button>
         </section>
       ) : null}

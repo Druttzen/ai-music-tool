@@ -47,8 +47,15 @@ import {
   clearCharacterVoiceStudioSessionOnReset,
   extractCharacterVoiceStudioSessionFromProject,
   persistCharacterVoiceStudioSession,
+  pickVoiceStyleCompactForCoProducer,
 } from "../lib/voice-character-studio-session";
+import {
+  dispatchVoiceCharacterAnalyzeFile,
+  scrollToVoiceCharacterStudioPanel,
+} from "../lib/voice-character-handoff";
+import { resolveAudioCacheBlob } from "../lib/audio-cache";
 import { collectGenreAnchors } from "../lib/suno-language-index";
+import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { SUNO_AUTO_FIX_DEFAULTS } from "../lib/suno-rules";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
 import { buildSunoVoiceStyleLine, formatPublicName } from "../lib/suno-voice-style";
@@ -58,6 +65,7 @@ import { buildSunoVoiceStyleLine, formatPublicName } from "../lib/suno-voice-sty
  */
 export function useProjectActions({
   audioAnalysis,
+  audioPreviewUrl,
   avgScore,
   captureSnapshot,
   coProducerLlmSettings,
@@ -139,9 +147,18 @@ export function useProjectActions({
   vocalText,
   voiceRefFirstName,
   voiceRefLastName,
+  voiceStyleLine,
+  voiceStyleCompact,
   applyAudioToSunoStyle,
   imageAnalysis,
 }) {
+  const coProducerVoiceFields = useCallback(
+    () => ({
+      voiceStyleLine,
+      voiceStyleCompact: pickVoiceStyleCompactForCoProducer(voiceStyleCompact),
+    }),
+    [voiceStyleLine, voiceStyleCompact],
+  );
   const toggle = useCallback(
     (item, list, setter) => setter(toggleListItem(item, list)),
     [],
@@ -496,6 +513,7 @@ export function useProjectActions({
         mood,
         idea,
         variantSeed: nextSeed,
+        ...coProducerVoiceFields(),
       });
       setGeneratedHooks(result.hooks);
       setGeneratedHooksStyle(result.styleLabel);
@@ -517,6 +535,7 @@ export function useProjectActions({
       setLyricVariantSeed,
       setStatusWithTime,
       vocal,
+      coProducerVoiceFields,
     ],
   );
 
@@ -538,6 +557,7 @@ export function useProjectActions({
         selectedGenres,
         idea,
         variantSeed: nextSeed,
+        ...coProducerVoiceFields(),
       };
 
       if (vocal === "Instrumental") {
@@ -595,6 +615,7 @@ export function useProjectActions({
       setLyricsGenerateBusy,
       setStatusWithTime,
       vocal,
+      coProducerVoiceFields,
     ],
   );
 
@@ -721,6 +742,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
       selectedGenres,
       idea,
       variantSeed: 0,
+      ...coProducerVoiceFields(),
     };
     const coProd = generateCoProducerLyrics(coInput);
     const hookResult = generateCoProducerHooks(coInput);
@@ -773,6 +795,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     setStatusWithTime,
     setStructure,
     setVocal,
+    coProducerVoiceFields,
   ]);
 
   const resetAll = useCallback(() => {
@@ -794,6 +817,50 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     setStatusWithTime,
   ]);
 
+  const handoffTrackToVoiceCharacterStudio = useCallback(async () => {
+    if (!audioAnalysis) {
+      setStatusWithTime("Analyze a track first", "warning");
+      return;
+    }
+    captureSnapshot("before vocal character handoff");
+    let blob = (await resolveAudioCacheBlob(audioAnalysis))?.blob;
+    if (!blob && audioPreviewUrl) {
+      try {
+        blob = await fetch(audioPreviewUrl).then((r) => r.blob());
+      } catch {
+        blob = null;
+      }
+    }
+    if (!blob) {
+      setStatusWithTime("Re-attach the audio file for vocal character analysis", "warning");
+      return;
+    }
+    const file = new File([blob], audioAnalysis.fileName || "track.wav", {
+      type: blob.type || "audio/wav",
+    });
+    dispatchVoiceCharacterAnalyzeFile(file);
+    scrollToVoiceCharacterStudioPanel();
+    const vocalsTag = String(audioAnalysis.vocals || "").toLowerCase();
+    if (vocalsTag.includes("instrumental")) {
+      setStatusWithTime(
+        "Handoff sent — acapella or isolated lead works best for trait analysis",
+        "warning",
+      );
+    } else {
+      setStatusWithTime("Analyzing vocal character in Voice Character Studio…", "info");
+    }
+    if (promptEngine === "Suno-like") {
+      setGuidedStep(resolvePolishStepIndex());
+    }
+  }, [
+    audioAnalysis,
+    audioPreviewUrl,
+    captureSnapshot,
+    promptEngine,
+    setGuidedStep,
+    setStatusWithTime,
+  ]);
+
   return {
     addHistory,
     addLyricsFromInstrumentalTrack,
@@ -811,6 +878,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     generateHooks,
     generateVariations,
     generateVoiceStyleFromNames,
+    handoffTrackToVoiceCharacterStudio,
     importProject,
     loadPresetObject,
     resetAll,

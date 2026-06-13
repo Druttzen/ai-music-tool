@@ -4,6 +4,7 @@ import { memo, useState } from "react";
 import { DropBox, Panel, Pill } from "./ui-blocks";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { VOICE_CHARACTER_DISCLAIMER } from "../lib/voice-character-preset";
+import { VOICE_CHARACTER_STUDIO_PANEL_ID } from "../lib/voice-character-handoff";
 import { useCharacterVoiceStudio } from "../hooks/use-character-voice-studio";
 import { useProjectWorkspace } from "../context/project-workspace-context";
 
@@ -26,9 +27,10 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
   };
 
   return (
+    <div id={VOICE_CHARACTER_STUDIO_PANEL_ID}>
     <Panel
       title="Voice Character Studio"
-      hint="Analyze vocal structure from audio, map traits to Suno prompts, save character presets, and regenerate the voice block."
+      hint="Optional Polish-step tool — analyze vocal structure from audio (acapella best), map traits to Suno Style + lyric metatag, save character presets, regenerate the voice block."
     >
       <p className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-100/95">
         {VOICE_CHARACTER_DISCLAIMER}
@@ -222,5 +224,6 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
         Clear studio session
       </button>
     </Panel>
+    </div>
   );
 });

@@ -162,8 +162,10 @@ export const SunoGuidedPath = memo(function SunoGuidedPath({
       {step === polishStepIndex ? (
         <p className="mt-2 rounded-xl border border-white/10 bg-black/30 p-2 text-[10px] leading-relaxed text-white/50">
           <span className="font-bold text-cyan-200/90">Optional here: </span>
-          Audio and image analyzers are not required. You can go straight to{" "}
-          <span className="text-white/65">Next step</span> → final copy whenever you’re ready.
+          Use <span className="text-white/65">Voice Character Studio</span> (center column) to map vocal traits
+          into Style + lyric metatags, or drop a track in Drag &amp; Drop Analyzers and use{" "}
+          <span className="text-white/65">Analyze vocal character</span>. None of this is required — press{" "}
+          <span className="text-white/65">Next step</span> → final copy whenever you&apos;re ready.
         </p>
       ) : null}
 

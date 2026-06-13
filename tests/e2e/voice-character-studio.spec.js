@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import {
+  analyzerPanel,
   clearProjectStorage,
   dismissSplash,
   expectToast,
@@ -131,5 +132,25 @@ test.describe("Voice Character Studio e2e", () => {
 
     await expect(panel.getByText("Generated Suno voice block")).toBeVisible();
     await expect(panel.locator("pre").last()).toContainText(/Vocal character|Suno Style direction/i);
+  });
+
+  test("track analyzer handoff runs Voice Character Studio analysis", async ({ page }) => {
+    await dismissSplash(page);
+
+    const analyzers = analyzerPanel(page);
+    await analyzers.scrollIntoViewIfNeeded();
+    await analyzers.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(VOCAL_FIXTURE);
+
+    await expect(analyzers.getByRole("button", { name: "Analyze vocal character →" })).toBeVisible({
+      timeout: 30000,
+    });
+
+    await analyzers.getByRole("button", { name: "Analyze vocal character →" }).click();
+    await expectToast(page, /Analyzing vocal character|acapella|Weak vocal signal|Voice character analyzed/i);
+
+    const studio = voiceCharacterStudioPanel(page);
+    await expect(studio.locator(".font-bold.text-cyan-200")).toContainText(/register/i, {
+      timeout: 30000,
+    });
   });
 });

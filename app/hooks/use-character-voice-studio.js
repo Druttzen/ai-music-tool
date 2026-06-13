@@ -23,6 +23,10 @@ import {
   persistCharacterVoiceStudioSession,
   saveCharacterVoiceStudioSessionToStorage,
 } from "../lib/voice-character-studio-session";
+import {
+  VOICE_CHARACTER_ANALYZE_FILE_EVENT,
+} from "../lib/voice-character-handoff";
+import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { fetchYoutubeTitle, parseYoutubeReference } from "../lib/youtube-reference";
 import { APP_VERSION } from "../lib/music-config";
 import { useProjectWorkspace } from "../context/project-workspace-context";
@@ -136,6 +140,9 @@ export function useCharacterVoiceStudio() {
             : "Weak vocal signal — try acapella; draft lines still generated",
           analysis.vocalsLikely ? "success" : "warning",
         );
+        if (ws.promptEngine === "Suno-like") {
+          ws.setGuidedStep(resolvePolishStepIndex());
+        }
       } catch {
         ws.setStatusWithTime("Voice analysis failed — try WAV or MP3 acapella", "error");
       } finally {
@@ -144,6 +151,15 @@ export function useCharacterVoiceStudio() {
     },
     [applyLinesToProject, presetName, projectCtx, ws, youtubeReference],
   );
+
+  useEffect(() => {
+    const onHandoffFile = (event) => {
+      const file = event.detail?.file;
+      if (file) analyzeVoiceFile(file);
+    };
+    window.addEventListener(VOICE_CHARACTER_ANALYZE_FILE_EVENT, onHandoffFile);
+    return () => window.removeEventListener(VOICE_CHARACTER_ANALYZE_FILE_EVENT, onHandoffFile);
+  }, [analyzeVoiceFile]);
 
   const linkYoutubeReference = useCallback(
     async (url) => {

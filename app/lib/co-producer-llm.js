@@ -3,7 +3,7 @@
  * API keys stay in localStorage only — never sent to this app's server.
  */
 
-import { getLyricStyleDirection } from "./lyric-generator";
+import { getLyricStyleDirection, prependVoiceCharacterToLyrics, resolveVoiceLyricContext } from "./lyric-generator";
 import { safeLocalStorage } from "./safe-local-storage";
 import {
   formatSunoLyricSectionTag,
@@ -64,13 +64,21 @@ export function buildCoProducerLlmMessages(input) {
       : Number(input.lyricDensity) > 70
         ? "dense, detailed flow"
         : "balanced, hook-focused";
+  const voiceCtx = resolveVoiceLyricContext(input);
+  const voiceSystemLines = [
+    voiceCtx.vocalRole ? `Vocal role for delivery: ${voiceCtx.vocalRole}` : "",
+    voiceCtx.deliveryHint ? `Trait-based delivery (match in lyrics): ${voiceCtx.deliveryHint}` : "",
+    voiceCtx.vocalTag ? `Include this lyric metatag near the top when appropriate: ${voiceCtx.vocalTag}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const system = `You write lyrics for Suno AI music generation.
 Style: ${styleLabel} — ${styleDirection}
 Language: ${language}
 ${languageRules}
 Lyric mode: ${mode}
-Rules:
+${voiceSystemLines ? `${voiceSystemLines}\n` : ""}Rules:
 - Use section tags like ${verseTag} and ${chorusTag} for song modes.
 - ${langHeader ? `Include a top line: ${langHeader}` : "Use standard [Intro]/[Outro] tags when language is flexible."}
 - For Raw Prompt mode, output bracketed [direction] lines only — no full sung lyrics.
@@ -82,6 +90,7 @@ Mood: ${input.moodWords || "neutral"}
 Structure: ${input.lyricStructure || "verse → chorus"}
 Density: ${density}
 Genres: ${(input.selectedGenres || []).join(", ") || "electronic"}
+${voiceCtx.deliveryHint ? `Vocal delivery traits: ${voiceCtx.deliveryHint}` : ""}
 
 Write ${mode === "Raw Prompt" ? "bracketed lyric direction" : `full lyrics in ${language} with language-declared section tags`}.`;
 
@@ -137,11 +146,13 @@ export async function generateLyricsWithLlm(input, settings, options = {}) {
     if (!lyrics) throw new Error("LLM returned empty lyrics");
 
     const header = getLanguageHeaderLine(language);
+    const voiceCtx = resolveVoiceLyricContext(input);
+    const body =
+      mode === "Raw Prompt"
+        ? lyrics
+        : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`;
     return {
-      lyrics:
-        mode === "Raw Prompt"
-          ? lyrics
-          : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`,
+      lyrics: prependVoiceCharacterToLyrics(body, voiceCtx),
       styleLabel,
       styleDirection,
       source: "llm",

@@ -121,6 +121,22 @@ export function clearCharacterVoiceStudioSessionOnReset() {
 }
 
 /**
+ * Prefer character studio session compact lines over pipeline famous-name compact for Co-Producer.
+ * @param {{ style?: string, lyricTag?: string }|null|undefined} pipelineCompact
+ */
+export function pickVoiceStyleCompactForCoProducer(pipelineCompact) {
+  const session = loadCharacterVoiceStudioSessionFromStorage().voiceStyleCompact;
+  if (session?.style?.trim() || session?.lyricTag?.trim()) return session;
+  if (pipelineCompact && typeof pipelineCompact === "object") {
+    return {
+      style: String(pipelineCompact.style || ""),
+      lyricTag: String(pipelineCompact.lyricTag || ""),
+    };
+  }
+  return { style: "", lyricTag: "" };
+}
+
+/**
  * @param {unknown} raw
  */
 export function extractCharacterVoiceStudioSessionFromProject(raw) {

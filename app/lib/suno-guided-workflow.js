@@ -69,14 +69,14 @@ export const SUNO_GUIDED_STEPS = [
     name: "Lyric direction",
     line: "Lyric direction: set theme, style, and mode so the app builds your Suno ‘Lyrics’ field coherently with bracket rules.",
     where: "Lyric Style Generator — pick Lyric Style, then Co-Producer · Generate Lyrics for a draft matched to that style prompt.",
-    next: "Suno Voice Style (first/last) or famous presets, then voice style line — audio/image analyzers come later and are optional.",
+    next: "Polish step: optional Voice Character Studio (trait map from vocal audio), Suno Voice Style, then analyzers if you want track/image DNA.",
     optimal: "Use [Verse] / [Chorus] in generated content so Suno can section correctly; keep Style box for sound only.",
   },
   {
     id: 6,
     name: "Polish",
-    line: "Polish before export — Voice Style, Genre Anchors, Co-Producer, variations. Optional: drop a reference track (LUFS meter, studio WAV export, edit tags, drag highlight, merge into Suno).",
-    where: "Right column: Drag & Drop Analyzers (track report, LUFS, studio export, image→style), Voice Style, Suno Language Index, Co-Producer, Variation Engine — optional.",
+    line: "Polish before export — Voice Character Studio (optional vocal trait map), Voice Style, Genre Anchors, Co-Producer, variations. Optional: drop a reference track (LUFS meter, studio WAV export, merge into Suno).",
+    where: "Center column: Voice Character Studio (below Voice Style), Drag & Drop Analyzers, Co-Producer, Variation Engine. Right column: Suno Language Index — all optional.",
     next: "When satisfied (with or without analyzers), open the final step and copy Style + Lyrics into Suno.",
     optimal: "You can press Next and go straight to the copy step without ever opening the analyzers — they’re extra tools, not a gate.",
   },
@@ -261,7 +261,7 @@ export function getSunoStylePreviewHint(stepIndex) {
   if (stepIndex < 5) return "Adds idea and structure lines (walkthrough order).";
   if (stepIndex < 6) return "Adds voice reference when set (omitted for instrumental).";
   if (stepIndex < 7) {
-    return "Polish step: audio/image analyzers are optional — use Next whenever you’re ready to copy.";
+    return "Polish step: Voice Character Studio, analyzers, and Co-Producer are optional — use Next whenever you're ready to copy.";
   }
   return "Use the two copy blocks only — the Style line is 1000-safe and re-ordered for Suno (not the same as the walkthrough string above).";
 }

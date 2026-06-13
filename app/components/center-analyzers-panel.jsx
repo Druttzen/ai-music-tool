@@ -75,6 +75,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 onClear={ws.clearAudioAnalysis}
                 onAttachAudio={ws.attachAudioFile}
                 onAddLyricsForTrack={ws.addLyricsFromInstrumentalTrack}
+                onAnalyzeVocalCharacter={ws.handoffTrackToVoiceCharacterStudio}
                 loudness={ws.audioLoudness}
                 loudnessBusy={ws.audioLoudnessBusy}
                 onExportEnhanced={ws.exportEnhancedAudio}

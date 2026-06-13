@@ -40,6 +40,7 @@ export function buildProjectWorkspaceValue(s) {
     generateHooks: s.generateHooks,
     generateVariations: s.generateVariations,
     generateVoiceStyleFromNames: s.generateVoiceStyleFromNames,
+    handoffTrackToVoiceCharacterStudio: s.handoffTrackToVoiceCharacterStudio,
     generatedHooks: s.generatedHooks,
     generatedHooksStyle: s.generatedHooksStyle,
     generatedLyrics: s.generatedLyrics,

@@ -91,6 +91,15 @@ describe("generateCoProducerLyrics", () => {
     const dense = generateCoProducerLyrics({ ...baseInput, lyricDensity: 90 });
     expect(dense.lyrics.length).toBeGreaterThan(sparse.lyrics.length);
   });
+
+  it("prepends character voice lyricTag when voiceStyleCompact is set", () => {
+    const tag = "[Vocal character: Narrator — breathy, steady pitch; trait-based Suno direction]";
+    const out = generateCoProducerLyrics({
+      ...baseInput,
+      voiceStyleCompact: { style: "Narrator, baritone", lyricTag: tag },
+    });
+    expect(out.lyrics.indexOf(tag)).toBeLessThan(out.lyrics.indexOf("[Verse 1"));
+  });
 });
 
 describe("generateCoProducerHooks", () => {
@@ -101,6 +110,15 @@ describe("generateCoProducerHooks", () => {
     });
     expect(out.hooks).toContain("Aggressive hype");
     expect(out.hooks).toContain(getLyricStyleDirection("Aggressive hype"));
+  });
+
+  it("prepends character voice context when provided", () => {
+    const tag = "[Vocal character: Narrator — breathy; trait-based Suno direction]";
+    const out = generateCoProducerHooks({
+      ...baseInput,
+      voiceStyleCompact: { style: "Narrator", lyricTag: tag },
+    });
+    expect(out.hooks.startsWith(tag)).toBe(true);
   });
 });
 
