@@ -133,6 +133,14 @@ Remove stale packaging folders (when not locked):
 npm run cleanup:dist
 ```
 
+If folders stay locked (Cursor/Electron holding files), run elevated cleanup — it removes what it can and schedules the rest for delete on next reboot:
+
+```bash
+npm run cleanup:dist:admin
+```
+
+Old installer output under `dist/` is gitignored; safe to delete locally anytime.
+
 ### Electron auto-update
 
 Packaged builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startup. Updates require a published release with `latest.yml` from `electron-builder --publish` (or manual upload). Dev/`npm run electron` skips update checks.

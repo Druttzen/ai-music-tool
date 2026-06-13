@@ -21,8 +21,7 @@
     "electron": "electron .",
     "build:readme-pdf": "node scripts/generate-readme-pdf.cjs",
     "prepare:electron-dist": "node scripts/prep-electron-dist.cjs",
-    "dist": "npm run build && npm run build:readme-pdf && npm run prepare:electron-dist && node scripts/run-electron-builder.cjs",
-    "dis": "npm run dist"
+    "dist": "npm run build && npm run build:readme-pdf && npm run prepare:electron-dist && node scripts/run-electron-builder.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.3",
