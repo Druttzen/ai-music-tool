@@ -1,10 +1,11 @@
 "use client";
 
+import { memo } from "react";
 import { Panel, Pill, Slider } from "./ui-blocks";
 import { stylePresets } from "../lib/music-config";
 import { useProjectWorkspace } from "../context/project-workspace-context";
 
-export function PageSidebarLeft() {
+export const PageSidebarLeft = memo(function PageSidebarLeft() {
   const {
     applyPreset,
     customPresets,
@@ -172,4 +173,4 @@ export function PageSidebarLeft() {
       </Panel>
     </aside>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, memo } from "react";
 import { Panel } from "./ui-blocks";
 import {
   buildSunoPastedLyricsField,
@@ -20,7 +20,7 @@ import {
   SUNO_STYLE_CHAR_CAP,
 } from "../lib/suno-limits";
 
-export function SunoGuidedPath({
+export const SunoGuidedPath = memo(function SunoGuidedPath({
   promptEngine,
   onSelectSunoEngine,
   input,
@@ -393,4 +393,4 @@ export function SunoGuidedPath({
       ) : null}
     </Panel>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, memo } from "react";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { formatTime } from "../lib/audio-analyzer";
 import { AUDIO_ANALYZER_DISCLAIMER } from "../lib/analyzer-disclaimer";
@@ -46,7 +46,7 @@ function joinTags(arr) {
  * Sonoteller-style editable local analysis report.
  * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
-export function AudioTrackEditor({
+export const AudioTrackEditor = memo(function AudioTrackEditor({
   analysis,
   audioUrl,
   loudness = null,
@@ -409,7 +409,7 @@ export function AudioTrackEditor({
       </div>
     </div>
   );
-}
+});
 
 function clampBpm(n) {
   return Math.min(200, Math.max(60, Math.round(n)));

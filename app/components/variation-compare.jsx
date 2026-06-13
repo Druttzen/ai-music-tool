@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 
 /**
  * Side-by-side A/B for generated variation prompts.
  * @param {{ variations: { id: number|string, title: string, prompt: string }[], onCopy: (text: string, label: string) => void, onApplyWinner?: (prompt: string) => void }} props
  */
-export function VariationCompare({ variations, onCopy, onApplyWinner }) {
+export const VariationCompare = memo(function VariationCompare({ variations, onCopy, onApplyWinner }) {
   const [idA, setIdA] = useState(variations[0]?.id ?? "");
   const [idB, setIdB] = useState(variations[1]?.id ?? "");
 
@@ -120,4 +120,4 @@ export function VariationCompare({ variations, onCopy, onApplyWinner }) {
       </div>
     </div>
   );
-}
+});

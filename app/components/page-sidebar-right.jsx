@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { memo } from "react";
 import { Panel } from "./ui-blocks";
 import {
   SUNO_LIMITS_NOTE,
@@ -24,7 +25,7 @@ const SunoLanguageIndexPanel = dynamic(
   },
 );
 
-export function PageSidebarRight() {
+export const PageSidebarRight = memo(function PageSidebarRight() {
   const {
     addHistory,
     applyGenreAnchors,
@@ -184,4 +185,4 @@ export function PageSidebarRight() {
       </Panel>
     </aside>
   );
-}
+});
