@@ -18,6 +18,16 @@ export function slimAudioAnalysisForStorage(analysis) {
 }
 
 /**
+ * Prompt builders only read analysis.summary — omit waveform/UI fields so peak edits
+ * do not recompute the full prompt memo chain.
+ * @param {object|null} analysis
+ */
+export function slimAnalysisForPromptPipeline(analysis) {
+  if (!analysis || typeof analysis !== "object") return null;
+  return { summary: String(analysis.summary ?? "") };
+}
+
+/**
  * Undo snapshots keep compact peak arrays so waveforms restore without re-attach.
  * @param {object|null} analysis
  */

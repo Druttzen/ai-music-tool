@@ -13,6 +13,9 @@ import {
 
 export const LLM_SETTINGS_KEY = "ai_music_creator_co_producer_llm_v1";
 
+/** Default OpenAI-compatible lyrics request timeout (ms). */
+export const LLM_REQUEST_TIMEOUT_MS = 60_000;
+
 export const DEFAULT_LLM_SETTINGS = {
   enabled: false,
   apiUrl: "https://api.openai.com/v1/chat/completions",
@@ -88,44 +91,67 @@ Write ${mode === "Raw Prompt" ? "bracketed lyric direction" : `full lyrics in ${
 /**
  * @param {object} input — same shape as generateCoProducerLyrics input
  * @param {object} settings
+ * @param {{ timeoutMs?: number, signal?: AbortSignal }} [options]
  * @returns {Promise<{ lyrics: string, styleLabel: string, styleDirection: string, source: "llm" }>}
  */
-export async function generateLyricsWithLlm(input, settings) {
+export async function generateLyricsWithLlm(input, settings, options = {}) {
   const { system, user, styleLabel, styleDirection, mode, language } = buildCoProducerLlmMessages(input);
+  const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const res = await fetch(String(settings.apiUrl).trim(), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${String(settings.apiKey).trim()}`,
-    },
-    body: JSON.stringify({
-      model: settings.model || DEFAULT_LLM_SETTINGS.model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      temperature: 0.85,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(`LLM request failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort();
+    } else {
+      options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
   }
 
-  const data = await res.json();
-  const lyrics = String(data?.choices?.[0]?.message?.content || "").trim();
-  if (!lyrics) throw new Error("LLM returned empty lyrics");
+  try {
+    const res = await fetch(String(settings.apiUrl).trim(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${String(settings.apiKey).trim()}`,
+      },
+      body: JSON.stringify({
+        model: settings.model || DEFAULT_LLM_SETTINGS.model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.85,
+      }),
+      signal: controller.signal,
+    });
 
-  const header = getLanguageHeaderLine(language);
-  return {
-    lyrics:
-      mode === "Raw Prompt"
-        ? lyrics
-        : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`,
-    styleLabel,
-    styleDirection,
-    source: "llm",
-  };
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`LLM request failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+    }
+
+    const data = await res.json();
+    const lyrics = String(data?.choices?.[0]?.message?.content || "").trim();
+    if (!lyrics) throw new Error("LLM returned empty lyrics");
+
+    const header = getLanguageHeaderLine(language);
+    return {
+      lyrics:
+        mode === "Raw Prompt"
+          ? lyrics
+          : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`,
+      styleLabel,
+      styleDirection,
+      source: "llm",
+    };
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(`LLM request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

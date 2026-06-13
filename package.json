@@ -37,6 +37,7 @@
     "electron-builder": "26.8.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.4",
+    "fake-indexeddb": "^6.2.5",
     "pdfkit": "^0.18.0",
     "tailwindcss": "^4.2.4",
     "vitest": "^4.1.8"

@@ -271,6 +271,21 @@ export default function Page() {
     };
   }, [dismissSplash, showSplash]);
 
+  const audioSummaryForPipeline = audioAnalysis?.summary ?? "";
+  const imageSummaryForPipeline = imageAnalysis?.summary ?? "";
+  const hasAudioAnalysis = Boolean(audioAnalysis);
+  const hasImageAnalysis = Boolean(imageAnalysis);
+
+  const pipelineAudioAnalysis = useMemo(
+    () => (hasAudioAnalysis ? { summary: String(audioSummaryForPipeline) } : null),
+    [hasAudioAnalysis, audioSummaryForPipeline],
+  );
+
+  const pipelineImageAnalysis = useMemo(
+    () => (hasImageAnalysis ? { summary: String(imageSummaryForPipeline) } : null),
+    [hasImageAnalysis, imageSummaryForPipeline],
+  );
+
   const pipelineInput = useMemo(
     () => ({
       mood,
@@ -295,8 +310,8 @@ export default function Page() {
       promptEngine,
       coProducerOutput,
       notes,
-      audioAnalysis,
-      imageAnalysis,
+      audioAnalysis: pipelineAudioAnalysis,
+      imageAnalysis: pipelineImageAnalysis,
       voiceStyleLine,
       voiceRefFirstName,
       voiceRefLastName,
@@ -325,8 +340,8 @@ export default function Page() {
       promptEngine,
       coProducerOutput,
       notes,
-      audioAnalysis,
-      imageAnalysis,
+      pipelineAudioAnalysis,
+      pipelineImageAnalysis,
       voiceStyleLine,
       voiceRefFirstName,
       voiceRefLastName,
