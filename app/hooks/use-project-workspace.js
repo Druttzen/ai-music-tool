@@ -5,14 +5,12 @@ import { useAnalyzers } from "./use-analyzers";
 import { useClipboard } from "./use-clipboard";
 import { usePipelineInput } from "./use-pipeline-input";
 import { useProjectActions } from "./use-project-actions";
-import { useProjectPersistence } from "./use-project-persistence";
+import { useProjectSnapshot } from "./use-project-snapshot";
 import { useProjectState } from "./use-project-state";
 import { useSplashAutoDismiss, useSplashOverlay } from "./use-splash-seen";
 import { useStatusMessage } from "./use-status-message";
-import { useUndoSnapshot } from "./use-undo-snapshot";
 import { useWorkspaceValue } from "./use-workspace-value";
 import { APP_VERSION } from "../lib/music-config";
-import { buildProjectSnapshot } from "../lib/project-state";
 
 /**
  * Orchestrates project state, analyzers, persistence, prompts, actions, and workspace context value.
@@ -240,40 +238,24 @@ export function useProjectWorkspaceProvider() {
     ],
   );
 
-  const currentState = useMemo(
-    () => buildProjectSnapshot(APP_VERSION, snapshotFields),
-    [snapshotFields],
-  );
-
-  const loadState = useCallback(
-    (data) => {
-      loadProjectState(data);
-      if (data.audioAnalysis) setAudioAnalysis(data.audioAnalysis);
-      else clearAudioAnalysis();
-      if (data.imageAnalysis) setImageAnalysis(data.imageAnalysis);
-      else clearImageAnalysis();
-    },
-    [clearAudioAnalysis, clearImageAnalysis, loadProjectState, setAudioAnalysis, setImageAnalysis],
-  );
-
-  const { captureSnapshot, revertSnapshot } = useUndoSnapshot(
-    () => currentState,
-    loadState,
-    setStatusWithTime,
-  );
-
-  const { lastAutosavePayloadRef } = useProjectPersistence({
-    currentState,
-    loadState,
-    patch,
-    promptEngine,
-    resetAnalyzers,
-    setCustomPresets,
-    setGuidedStep,
-    setHistory,
-    setStatusMessage,
-    setStatusWithTime,
-  });
+  const { captureSnapshot, currentState, lastAutosavePayloadRef, loadState, revertSnapshot } =
+    useProjectSnapshot({
+      appVersion: APP_VERSION,
+      snapshotFields,
+      loadProjectState,
+      setAudioAnalysis,
+      clearAudioAnalysis,
+      setImageAnalysis,
+      clearImageAnalysis,
+      resetAnalyzers,
+      patch,
+      promptEngine,
+      setCustomPresets,
+      setGuidedStep,
+      setHistory,
+      setStatusMessage,
+      setStatusWithTime,
+    });
 
   const pipeline = usePipelineInput({
     mood,
