@@ -106,15 +106,28 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
         </button>
       )}
 
-      <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50">
-        {ws.lyricPrompt}
-      </pre>
+      <div className="mt-3">
+        <div className="mb-1 text-xs font-bold uppercase tracking-wider text-orange-200/80">
+          Suno Lyrics field (paste-ready)
+        </div>
+        {!ws.sunoFieldSlices?.lyrics ? (
+          <p className="text-[11px] text-white/45">
+            Set vocal mode and theme, or generate lyrics — the box shows only paste-ready text.
+          </p>
+        ) : null}
+        <pre className="mt-1 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50">
+          {ws.sunoFieldSlices?.lyrics || ""}
+        </pre>
+      </div>
 
       <button
-        onClick={() => ws.copyToClipboard(ws.lyricPrompt, "Lyric style prompt copied")}
-        className="mt-3 w-full rounded-2xl bg-orange-300 px-4 py-2 font-bold text-black hover:bg-orange-200"
+        onClick={() =>
+          ws.copyToClipboard(ws.sunoFieldSlices?.lyrics || "", "Suno Lyrics field copied")
+        }
+        disabled={!ws.sunoFieldSlices?.lyrics}
+        className="mt-3 w-full rounded-2xl bg-orange-300 px-4 py-2 font-bold text-black hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        Copy Lyric Style Prompt
+        Copy Lyrics field
       </button>
     </Panel>
   );

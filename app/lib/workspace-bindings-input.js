@@ -42,6 +42,7 @@ export function pickProjectActionInput(projectState, analyzers, pipeline, snapsh
     presetName: projectState.presetName,
     prompt: pipeline.prompt,
     promptEngine: projectState.promptEngine,
+    sunoSlices: pipeline.sunoSlices,
     promptIntensity: projectState.promptIntensity,
     resetAnalyzers: analyzers.resetAnalyzers,
     resetBlank: projectState.resetBlank,

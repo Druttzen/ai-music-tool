@@ -15,6 +15,7 @@ import {
   buildSunoPastedLyricsField,
   buildSunoPastedStyleLine,
 } from "../lib/suno-guided-workflow";
+import { buildUsableAnalyzerStylePrompt } from "../lib/analyzer-guided-merge";
 import { buildSunoVoiceStyleCompact } from "../lib/suno-voice-style";
 import { useMemo } from "react";
 
@@ -51,33 +52,7 @@ import { useMemo } from "react";
  */
 
 function buildSourcePrompt(audioAnalysis, imageAnalysis) {
-  const parts = [];
-
-  if (audioAnalysis) {
-    parts.push(`AUDIO STYLE PROMPT:
-Use this audio analysis as the musical DNA.
-
-${audioAnalysis.summary}
-
-Music direction:
-- Match the detected energy, aggression, brightness, and rhythmic behavior.
-- Translate the audio character into genre, groove, bass design, drum feel, and production texture.
-- Keep the result usable as a music-generation prompt.`);
-  }
-
-  if (imageAnalysis) {
-    parts.push(`IMAGE STYLE PROMPT:
-Convert this image analysis into a music style.
-
-${imageAnalysis.summary}
-
-Music direction:
-- Translate color, contrast, brightness, and visual mood into sound.
-- Use the image as emotional and atmospheric direction.
-- Turn visual texture into instruments, rhythm, space, and mix character.`);
-  }
-
-  return parts.join("\n\n---\n\n");
+  return buildUsableAnalyzerStylePrompt(audioAnalysis, imageAnalysis);
 }
 
 /**

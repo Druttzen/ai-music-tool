@@ -9,10 +9,13 @@ import {
   sunoLanguageIndex,
 } from "../lib/suno-language-index";
 
-function flattenStylePromptCatalog(cat) {
-  return Object.entries(cat)
-    .map(([section, lines]) => `## ${section.replace(/([A-Z])/g, " $1").trim()}\n${lines.join("\n")}`)
-    .join("\n\n");
+/** Flat catalog lines only — no section headers or UI tips. */
+export function flattenStylePromptCatalogLines(catalog) {
+  return Object.values(catalog)
+    .flat()
+    .map((line) => String(line).trim())
+    .filter(Boolean)
+    .join("\n");
 }
 
 /**
@@ -259,7 +262,7 @@ export function SunoLanguageIndexPanel({ copyToClipboard, onApplyGenreAnchors })
             <button
               type="button"
               onClick={() =>
-                copyToClipboard(flattenStylePromptCatalog(stylePromptCatalog), "Full style index copied")
+                copyToClipboard(flattenStylePromptCatalogLines(stylePromptCatalog), "Full style index copied")
               }
               className="rounded-xl border border-white/15 bg-white/10 px-2 py-1 text-[11px] font-bold text-white hover:bg-white/20"
             >

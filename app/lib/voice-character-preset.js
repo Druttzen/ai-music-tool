@@ -18,9 +18,7 @@ export const VOICE_CHARACTER_DISCLAIMER =
  */
 export function buildSunoLinesFromVoiceCharacter(analysis, ctx = {}) {
   const genres = ctx.selectedGenres || [];
-  const moodWords = ctx.moodWords || "";
   const name = String(ctx.characterName || analysis?.characterLabel || "Custom character").trim();
-  const genreHint = genres.length > 0 ? genres.slice(0, 2).join(", ") : "the track genre";
 
   const traitLine = [
     analysis?.registerLabel,
@@ -29,18 +27,6 @@ export function buildSunoLinesFromVoiceCharacter(analysis, ctx = {}) {
   ]
     .filter(Boolean)
     .join(", ");
-
-  const pitchHint = analysis?.pitchMedianHz
-    ? `median pitch ~${analysis.pitchMedianHz} Hz`
-    : "natural pitch contour";
-
-  const moodSuffix = moodWords ? ` Mood: ${moodWords}.` : "";
-  const refSuffix = ctx.youtubeTitle ? ` Reference study: ${ctx.youtubeTitle}.` : "";
-
-  const voiceStyleLine =
-    `Vocal character (Suno Style direction — synthesized trait map, not a real voice clone): ` +
-    `${name}; ${traitLine}; ${pitchHint}; fit ${genreHint}.${moodSuffix}${refSuffix} ` +
-    `Lead vocal: clear diction, genre-appropriate mix, intentional performance matching analyzed dynamics.`;
 
   const compactStyle = [
     name,
@@ -53,10 +39,10 @@ export function buildSunoLinesFromVoiceCharacter(analysis, ctx = {}) {
     .slice(0, 120);
 
   const lyricTag =
-    `[Vocal character: ${name} — ${(analysis?.textureTags || ["studio lead"]).slice(0, 2).join(", ")}; trait-based Suno direction]`;
+    `[Vocal character: ${name} — ${(analysis?.textureTags || ["studio lead"]).slice(0, 2).join(", ")}]`;
 
   return {
-    voiceStyleLine,
+    voiceStyleLine: compactStyle,
     voiceStyleCompact: { style: compactStyle, lyricTag },
     vocalRole: analysis?.suggestedVocalRole || "Male Lead",
     rulesAddition: `Match lead vocal to analyzed character: ${traitLine}.`,

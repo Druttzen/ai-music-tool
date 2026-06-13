@@ -48,6 +48,19 @@ const CATALOG_LABELS = {
   environmentSoundscapes: "Catalog — Environment & soundscapes",
 };
 
+/** Reference / tips sections — excluded from Style prompt library (prompts only). */
+const EXCLUDED_STYLE_SECTION_IDS = new Set([
+  "idx-principles",
+  "idx-blueprint",
+  "idx-struct",
+  "idx-genre-anchors",
+  "sym-overview",
+  "sym-examples",
+  "sym-tips",
+  "vocal-artifact",
+  "lyric-cook",
+]);
+
 let _cached = null;
 
 /**
@@ -205,7 +218,7 @@ export function buildEnglishSunoStylePromptSections() {
         : null,
   );
 
-  _cached = sections;
+  _cached = sections.filter((s) => !EXCLUDED_STYLE_SECTION_IDS.has(s.sectionId));
   return _cached;
 }
 

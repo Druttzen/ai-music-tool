@@ -1,4 +1,3 @@
-import { buildSunoLyricsBoxPrompt } from "./suno-rules";
 import { stylePresets } from "./music-config";
 import { SUNO_LYRICS_CHAR_TYPICAL_MAX, SUNO_STYLE_CHAR_CAP } from "./suno-limits";
 
@@ -97,46 +96,90 @@ export const SUNO_GUIDED_STEPS = [
  */
 export function getProgressiveStyleFragment(p, maxStep) {
   if (maxStep < 0) return "";
-  const a = [];
-  a.push((p.selectedGenres || []).join(", ") || "— set genres or load a preset —");
-  a.push(p.tempo || "— tempo —", p.moodWords || "— mood —");
-  if (maxStep < 2) return a.join(" | ");
-  if (p.selectedSounds?.length) a.push(`sounds: ${p.selectedSounds.slice(0, 5).join(", ")}`);
-  if (p.selectedRhythms?.length) a.push(`groove: ${p.selectedRhythms.join(", ")}`);
-  if (maxStep < 3) return a.join(" | ");
-  a.push(
-    p.vocal === "Instrumental"
-      ? p.instrumentalVocalFx
-        ? "instrumental + vocal FX (no lyrics)"
-        : "instrumental"
-      : p.vocal || "vocal",
-  );
-  a.push(p.rules ? `rules: ${String(p.rules).slice(0, 80)}${String(p.rules).length > 80 ? "…" : ""}` : "— rules —");
-  if (maxStep < 4) return a.join(" | ");
-  a.push(p.idea ? `goal: ${String(p.idea).slice(0, 100)}` : "— idea —");
-  a.push(p.structure ? `form: ${String(p.structure).slice(0, 60)}` : "— form —");
-  if (maxStep < 5) return a.join(" | ");
-  const vref = (p.voiceStyleLine || p.voiceStyleReference || "").trim();
-  if (vref && p.vocal !== "Instrumental") a.push(`vocal ref: ${vref.slice(0, 60)}`);
-  return a.join(" | ");
+  const slice = {
+    ...p,
+    selectedSounds: maxStep >= 2 ? p.selectedSounds : [],
+    selectedRhythms: maxStep >= 2 ? p.selectedRhythms : [],
+    vocal: maxStep >= 3 ? p.vocal : "Instrumental",
+    instrumentalVocalFx: maxStep >= 3 ? p.instrumentalVocalFx : false,
+    rules: maxStep >= 3 ? p.rules : "",
+    idea: maxStep >= 4 ? p.idea : "",
+    voiceStyleLine: maxStep >= 5 ? p.voiceStyleLine : "",
+    voiceStyleReference: maxStep >= 5 ? p.voiceStyleReference : "",
+  };
+  return buildSunoPastedStyleLine(slice);
+}
+
+function normalizeToken(s) {
+  return String(s || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function pushTokens(parts, items) {
+  for (const item of items) {
+    const t = normalizeToken(item);
+    if (t) parts.push(t);
+  }
 }
 
 /**
- * Join parts with " | " and cap at Suno’s Style limit (1000) without breaking mid-unicode if possible.
+ * Join comma-separated style tokens and cap at Suno’s Style limit (1000).
  */
-function joinWithCap(parts, cap) {
-  const clean = parts
-    .map((x) => (typeof x === "string" ? x.replace(/\s+/g, " ").trim() : ""))
-    .filter(Boolean);
-  let s = clean.join(" | ");
+function joinWithCap(parts, cap, separator = ", ") {
+  const clean = parts.map(normalizeToken).filter(Boolean);
+  let s = clean.join(separator);
   if (s.length <= cap) return s;
   for (let n = clean.length - 1; n >= 1 && s.length > cap; n--) {
-    s = clean.slice(0, n).join(" | ");
+    s = clean.slice(0, n).join(separator);
   }
   if (s.length > cap) {
     s = s.slice(0, cap - 1) + "…";
   }
   return s;
+}
+
+/** Map lyric structure text to bracket section tags (Lyrics field only). */
+export function structureToSectionTags(structure) {
+  const raw = normalizeToken(structure);
+  if (!raw) return [];
+  return raw
+    .split(/\s*(?:→|->|,|\/)\s*/i)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((segment, i) => {
+      const lower = segment.toLowerCase();
+      if (/final\s+chorus/.test(lower)) return "Final Chorus";
+      if (/pre[-\s]?chorus/.test(lower)) return "Pre-Chorus";
+      if (/post[-\s]?chorus/.test(lower)) return "Post-Chorus";
+      if (lower.includes("chorus")) return "Chorus";
+      if (lower.includes("bridge")) return "Bridge";
+      if (lower.includes("intro")) return "Intro";
+      if (lower.includes("outro")) return "Outro";
+      if (lower.includes("verse")) return i === 0 ? "Verse 1" : `Verse ${i + 1}`;
+      if (lower.includes("drop")) return "Drop";
+      if (lower.includes("build")) return "Build";
+      return segment
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    });
+}
+
+/** Minimal bracket scaffold — lyric lines only, no direction meta. */
+export function buildMinimalLyricsScaffold({ lyricTheme = "", lyricStructure = "" }) {
+  const theme = normalizeToken(lyricTheme);
+  const tags = structureToSectionTags(lyricStructure);
+  if (!tags.length) {
+    if (!theme) return "";
+    return `[Verse 1]\n${theme}\n\n[Chorus]\n${theme}`;
+  }
+  return tags
+    .map((tag, i) => {
+      const line = i === 0 && theme ? theme : "";
+      return line ? `[${tag}]\n${line}` : `[${tag}]`;
+    })
+    .join("\n\n");
 }
 
 /**
@@ -153,42 +196,32 @@ export function buildSunoPastedStyleLine(p) {
     vocal = "Instrumental",
     instrumentalVocalFx = false,
     idea = "",
-    structure = "",
     rules = "",
-    mode = "Hybrid",
     voiceStyleReference = "",
     voiceStyleLine = "",
   } = p;
-  const voiceRef = (voiceStyleLine || voiceStyleReference || "").trim();
+  const voiceRef = normalizeToken(voiceStyleLine || voiceStyleReference).slice(0, 120);
 
   const parts = [];
-  const g = selectedGenres.length ? selectedGenres.join(", ") : "electronic";
-  parts.push(g);
+  pushTokens(parts, selectedGenres.length ? selectedGenres : ["electronic"]);
   if (tempo) parts.push(tempo);
-  if (moodWords) parts.push(moodWords);
+  if (moodWords) pushTokens(parts, moodWords.split(/,\s*/));
   if (vocal === "Instrumental") {
     parts.push(
       instrumentalVocalFx
-        ? "instrumental with vocal FX only (chops, textures, one-shots) — no sung lyrics"
-        : "instrumental, no vocal chops, no mumbled texture",
+        ? "instrumental, vocal FX only, no sung lyrics"
+        : "instrumental, no vocals, no vocal chops, no mumbled texture",
     );
-  } else {
-    parts.push(vocal || "vocals");
+  } else if (vocal) {
+    parts.push(vocal);
   }
-  if (selectedSounds.length) parts.push(`sounds: ${selectedSounds.slice(0, 6).join(", ")}`);
-  if (selectedRhythms.length) parts.push(`rhythm: ${selectedRhythms.slice(0, 4).join(", ")}`);
-  const goal = String(idea).replace(/\s+/g, " ").trim().slice(0, 120);
-  if (goal) parts.push(`goal: ${goal}`);
-  const form = String(structure).replace(/\s+/g, " ").trim().slice(0, 90);
-  if (form) parts.push(`sections: ${form}`);
-  const r = String(rules).replace(/\n/g, " ").trim();
-  /** 1000-cap one-liner: allow longer RULES so compact analyzer lines (≤260 each) survive before tail trim. */
-  if (r) parts.push(`rules: ${r.slice(0, 300)}${r.length > 300 ? "…" : ""}`);
-  if (voiceRef && vocal !== "Instrumental") {
-    const vr = voiceRef.slice(0, 100);
-    if (vr) parts.push(`vocal ref: ${vr}`);
-  }
-  parts.push(`mode: ${mode}`);
+  pushTokens(parts, (selectedSounds || []).slice(0, 6));
+  pushTokens(parts, (selectedRhythms || []).slice(0, 4));
+  const goal = normalizeToken(idea).slice(0, 120);
+  if (goal) parts.push(goal);
+  const r = normalizeToken(rules).replace(/\n/g, ", ");
+  if (r) pushTokens(parts, r.split(/,\s*/).slice(0, 10));
+  if (voiceRef && vocal !== "Instrumental") parts.push(voiceRef);
 
   return joinWithCap(parts, SUNO_STYLE_CHAR_CAP);
 }
@@ -200,39 +233,23 @@ export function buildSunoPastedStyleLine(p) {
 export function buildSunoPastedLyricsField(p) {
   const vocal = p.vocal || "Instrumental";
   if (vocal === "Instrumental") {
-    return "Instrumental only. No lyrical content.";
+    return "Instrumental only.";
   }
 
-  const parts = [];
-  const theme = String(p.lyricTheme || "").replace(/\s+/g, " ").trim();
-  const lang = String(p.lyricLanguage || "").replace(/\s+/g, " ").trim();
-  const form = String(p.lyricStructure || "").replace(/\s+/g, " ").trim();
-  const style = String(p.lyricStyle || "").replace(/\s+/g, " ").trim();
-  const mode = String(p.lyricMode || "").replace(/\s+/g, " ").trim();
-  const density =
-    typeof p.lyricDensity === "number" && !Number.isNaN(p.lyricDensity)
-      ? `density ${p.lyricDensity}%`
-      : "";
-
-  if (theme) parts.push(`theme: ${theme.slice(0, 140)}`);
-  if (lang) parts.push(`language: ${lang.slice(0, 40)}`);
-  if (form) parts.push(`sections: ${form.slice(0, 120)}`);
-  if (style) parts.push(`lyric style: ${style.slice(0, 100)}`);
-  if (mode) parts.push(`mode: ${mode.slice(0, 60)}`);
-  if (density) parts.push(density);
-
-  const body =
-    String(p.generatedLyrics || "").trim() ||
-    String(p.lyricPrompt || "").trim() ||
-    buildSunoLyricsBoxPrompt({ vocal, lyricPrompt: p.lyricPrompt || "" });
-
-  if (body && body !== "(Add lyric lines or bracketed sections.)") {
-    parts.push(body);
-  } else {
-    parts.push("(Add lyric lines or bracketed sections.)");
+  const generated = normalizeToken(p.generatedLyrics);
+  if (generated) {
+    return joinWithCap([generated], SUNO_LYRICS_CHAR_TYPICAL_MAX, "\n\n");
   }
 
-  return joinWithCap(parts, SUNO_LYRICS_CHAR_TYPICAL_MAX);
+  const scaffold = buildMinimalLyricsScaffold({
+    lyricTheme: p.lyricTheme,
+    lyricStructure: p.lyricStructure,
+  });
+  if (scaffold) {
+    return joinWithCap([scaffold], SUNO_LYRICS_CHAR_TYPICAL_MAX, "\n\n");
+  }
+
+  return "";
 }
 
 export function getStepCount() {

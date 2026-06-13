@@ -99,6 +99,43 @@ export function mergeAnalyzerRuleLine(rules, kind, compactLine) {
 }
 
 /**
+ * Comma-separated style tokens from analyzer suggestions — paste-ready for Suno Style.
+ * @param {object|null} audioAnalysis
+ * @param {object|null} imageAnalysis
+ */
+export function buildUsableAnalyzerStylePrompt(audioAnalysis, imageAnalysis) {
+  const tokens = [];
+  const add = (arr) => {
+    for (const x of arr || []) {
+      const t = normalizeSpace(x);
+      if (t && t !== "—") tokens.push(t);
+    }
+  };
+
+  if (audioAnalysis) {
+    add(audioAnalysis.suggestedGenres);
+    add(audioAnalysis.suggestedSubgenres);
+    if (audioAnalysis.estimatedBpm) tokens.push(normalizeSpace(audioAnalysis.estimatedBpm));
+    add(audioAnalysis.suggestedMoods);
+    add(audioAnalysis.suggestedSounds);
+    add(audioAnalysis.suggestedInstruments);
+    add(audioAnalysis.suggestedRhythms);
+    const v = normalizeSpace(audioAnalysis.vocals);
+    if (v && v !== "—") tokens.push(v);
+  }
+
+  if (imageAnalysis) {
+    add(imageAnalysis.suggestedGenres);
+    const mood = normalizeSpace(imageAnalysis.visualMood);
+    if (mood) tokens.push(mood);
+    add(imageAnalysis.suggestedSounds);
+    add(imageAnalysis.suggestedRhythms);
+  }
+
+  return uniq(tokens).join(", ");
+}
+
+/**
  * Audio DNA → single high-density line (tempo, meters, groove, textures, mood patch nums).
  * @param {object} a - audioAnalysis from page state
  */

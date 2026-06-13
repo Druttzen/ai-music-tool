@@ -47,10 +47,31 @@ export const PageSidebarRight = memo(function PageSidebarRight() {
 
   return (
     <aside className="space-y-4">
-      <Panel title="Prompt Preview" hint="Copy this into Suno or another AI music tool.">
-        <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
-          {prompt}
-        </pre>
+      <Panel title="Prompt Preview" hint="Paste-ready Suno Style and Lyrics — no internal labels or tips.">
+        {promptEngine === "Suno-like" && sunoSlices ? (
+          <div className="space-y-3">
+            <div>
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-cyan-200/80">
+                Style of Music
+              </div>
+              <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
+                {sunoSlices.style || ""}
+              </pre>
+            </div>
+            <div>
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200/80">
+                Lyrics
+              </div>
+              <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-2xl border border-fuchsia-300/20 bg-black/50 p-4 text-xs leading-relaxed text-fuchsia-50">
+                {sunoSlices.lyrics || ""}
+              </pre>
+            </div>
+          </div>
+        ) : (
+          <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
+            {prompt}
+          </pre>
+        )}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button onClick={copyPrompt} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">
             {copied ? "Copied!" : "Copy Prompt"}

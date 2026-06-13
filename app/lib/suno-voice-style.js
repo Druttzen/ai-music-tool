@@ -31,7 +31,7 @@ export function formatPublicName(firstName, lastName) {
 }
 
 /**
- * Style-field friendly line (single paragraph).
+ * Paste-ready Style-field line (comma-separated tokens, no disclaimers).
  */
 export function buildSunoVoiceStyleLine({
   firstName,
@@ -42,19 +42,11 @@ export function buildSunoVoiceStyleLine({
   const name = formatPublicName(firstName, lastName);
   if (!name) return "";
 
-  const genreHint =
-    selectedGenres.length > 0
-      ? selectedGenres.slice(0, 3).join(", ")
-      : "the chosen genre";
-
-  const moodHint = moodWords ? ` Mood: ${moodWords}.` : "";
-
-  return (
-    `Vocal direction (stylistic reference for Suno — not impersonation): ` +
-    `aim for delivery energy, dynamics, and phrasing density in the spirit of recordings associated with ${name}; ` +
-    `blend with ${genreHint}.${moodHint} ` +
-    `Lead vocal: clear diction, genre-appropriate processing, intentional performance.`
-  );
+  const parts = [`${name}-inspired vocal energy`, "stylistic reference only"];
+  if (selectedGenres.length) parts.push(...selectedGenres.slice(0, 3));
+  if (moodWords) parts.push(...moodWords.split(/,\s*/).filter(Boolean));
+  parts.push("clear diction", "genre-appropriate processing");
+  return parts.join(", ");
 }
 
 /**

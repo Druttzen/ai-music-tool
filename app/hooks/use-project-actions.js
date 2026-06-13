@@ -93,6 +93,7 @@ export function useProjectActions({
   presetName,
   prompt,
   promptEngine,
+  sunoSlices,
   promptIntensity,
   resetAnalyzers,
   resetBlank,
@@ -424,12 +425,16 @@ export function useProjectActions({
   );
 
   const copyPrompt = useCallback(async () => {
-    const ok = await copyToClipboard(prompt, "Prompt copied");
+    const text =
+      promptEngine === "Suno-like" && sunoSlices
+        ? [sunoSlices.style, sunoSlices.lyrics].filter(Boolean).join("\n\n")
+        : prompt;
+    const ok = await copyToClipboard(text, "Prompt copied");
     if (!ok) return;
     setCopied(true);
     addHistory("Copied prompt");
     setTimeout(() => setCopied(false), 1200);
-  }, [addHistory, copyToClipboard, prompt, setCopied]);
+  }, [addHistory, copyToClipboard, prompt, promptEngine, setCopied, sunoSlices]);
 
   const restoreHistory = useCallback(
     (item) => {

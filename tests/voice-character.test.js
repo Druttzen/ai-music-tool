@@ -61,7 +61,7 @@ describe("voice-character-preset", () => {
       characterName: "Night narrator",
       selectedGenres: ["Techno"],
     });
-    expect(lines.voiceStyleLine).toMatch(/trait map/i);
+    expect(lines.voiceStyleLine).not.toMatch(/trait map|not impersonation|Vocal character \(/i);
     expect(lines.voiceStyleLine).toContain("Night narrator");
     expect(lines.vocalRole).toBe("Male Lead");
     expect(lines.voiceStyleCompact.lyricTag).toContain("[Vocal character:");

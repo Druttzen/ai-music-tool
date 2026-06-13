@@ -85,34 +85,20 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
           vocal in the prompt.
         </div>
       )}
-      {ws.voiceStyleLine ? (
-        <>
-          <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
-            {ws.voiceStyleLine}
-          </pre>
-          <button
-            type="button"
-            onClick={() => ws.copyToClipboard(ws.voiceStyleLine, "Full voice style copied")}
-            className="mt-2 w-full rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-cyan-300/20"
-          >
-            Copy full voice style (Suno-like block)
-          </button>
-        </>
-      ) : null}
       {ws.voiceStyleCompact.style ? (
         <div className="mt-3 space-y-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Compact (Style box)</div>
-          <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/80">
+          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Style box</div>
+          <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-3 text-[11px] text-cyan-50">
             {ws.voiceStyleCompact.style}
           </pre>
           <button
             type="button"
-            onClick={() => ws.copyToClipboard(ws.voiceStyleCompact.style, "Compact style copied")}
-            className="w-full rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100"
+            onClick={() => ws.copyToClipboard(ws.voiceStyleCompact.style, "Voice style copied")}
+            className="w-full rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-black hover:bg-cyan-200"
           >
-            Copy compact style line
+            Copy style line
           </button>
-          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Lyric metatag (optional)</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Lyric metatag</div>
           <pre className="max-h-20 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/80">
             {ws.voiceStyleCompact.lyricTag}
           </pre>
