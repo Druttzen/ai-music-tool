@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.9.3**
+**Version 0.9.4**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+
+## Highlights (v0.9.4)
+
+- **Voice Character Studio hardening** — normalize presets from localStorage; clear stale YouTube refs on load; safe `textureTags` validation on import.
+- **Studio UX polish** — compact Style line + lyric metatag copy blocks; YouTube URL field syncs on preset load/clear; hardened preset import (functional merge, read errors, storage checks on regenerate).
+- **116 unit + 27 e2e tests** — adds YouTube-clear and compact-metatag Playwright coverage for Voice Character Studio.
 
 ## Highlights (v0.9.3)
 
