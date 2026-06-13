@@ -62,7 +62,9 @@ export function musicControlsPanel(page) {
 }
 
 export function lyricStylePanel(page) {
-  return page.locator("section").filter({ hasText: "Lyric Style Generator" });
+  return page.locator("section.rounded-3xl").filter({
+    has: page.getByRole("heading", { name: "Lyric Style Generator" }),
+  });
 }
 
 export function guidedSunoPanel(page) {
@@ -100,13 +102,14 @@ export async function expectSunoFieldCopies(page, context, { stylePattern }) {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
   const toast = page.getByTestId("action-toast");
-  await page.getByRole("button", { name: "Copy Style box" }).click();
+  const preview = promptPreviewPanel(page);
+  await preview.getByRole("button", { name: "Copy Style box" }).click();
   await expect(toast).toContainText(/Suno Style box copied/i);
   const styleClipboard = await page.evaluate(() => navigator.clipboard.readText());
   expect(styleClipboard.length).toBeGreaterThan(20);
   expect(styleClipboard).toMatch(stylePattern);
 
-  await page.getByRole("button", { name: "Copy Lyrics field" }).click();
+  await lyricStylePanel(page).getByRole("button", { name: "Copy Lyrics field" }).click();
   await expect(toast).toContainText(/Suno Lyrics field copied/i);
   const lyricsClipboard = await page.evaluate(() => navigator.clipboard.readText());
   expect(lyricsClipboard.length).toBeGreaterThan(0);

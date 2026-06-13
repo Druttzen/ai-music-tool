@@ -1,8 +1,13 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.9.11**
+**Version 0.9.12**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+
+## Highlights (v0.9.12)
+
+- **CI e2e green again** — Updated Playwright helpers and specs for paste-ready copy buttons, reset blank slate, and Voice Character Studio UI labels.
+- **Version sync** — `package-lock.json`, `APP_VERSION` fallback, and MusicBrainz User-Agent aligned with `0.9.12`.
 
 ## Highlights (v0.9.11)
 

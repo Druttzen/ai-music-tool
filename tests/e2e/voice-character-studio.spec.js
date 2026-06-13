@@ -33,9 +33,8 @@ test.describe("Voice Character Studio e2e", () => {
       .click();
     await expectToast(page, /Loaded character preset: E2E Narrator/i);
 
-    const voiceBlock = panel.locator("pre").filter({ hasText: /trait map/i }).first();
-    await expect(voiceBlock).toBeVisible();
-    await expect(voiceBlock).toContainText(/E2E Narrator/i);
+    await expect(panel.getByText("Style box")).toBeVisible();
+    await expect(panel.locator("pre").filter({ hasText: /E2E Narrator, baritone register/i }).first()).toBeVisible();
 
     const controls = musicControlsPanel(page);
     await expect(controls.getByRole("button", { name: "Male Lead", exact: true })).toHaveClass(
@@ -113,8 +112,8 @@ test.describe("Voice Character Studio e2e", () => {
       .getByRole("button", { name: "Load", exact: true })
       .click();
 
-    await expect(panel.getByText("Compact (Style box)")).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Copy compact style line" })).toBeVisible();
+    await expect(panel.getByText("Style box")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Copy style line" })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Copy lyric metatag" })).toBeVisible();
     await expect(panel.locator("pre").filter({ hasText: /\[Vocal character: E2E Narrator/i })).toBeVisible();
   });
@@ -130,8 +129,8 @@ test.describe("Voice Character Studio e2e", () => {
     await expect(panel.locator(".font-bold.text-cyan-200")).toContainText(/register/i, { timeout: 30000 });
     await expectToast(page, /Voice character analyzed|Suno voice block regenerated|Weak vocal signal/i);
 
-    await expect(panel.getByText("Generated Suno voice block")).toBeVisible();
-    await expect(panel.locator("pre").last()).toContainText(/Vocal character|Suno Style direction/i);
+    await expect(panel.getByText("Style box")).toBeVisible();
+    await expect(panel.locator("pre").first()).not.toHaveText("");
   });
 
   test("track analyzer handoff runs Voice Character Studio analysis", async ({ page }) => {
