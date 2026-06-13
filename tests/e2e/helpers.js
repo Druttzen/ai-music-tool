@@ -71,6 +71,15 @@ export function guidedSunoPanel(page) {
   });
 }
 
+export function promptPreviewPanel(page) {
+  return page.locator("section").filter({ hasText: "Prompt Preview" });
+}
+
+export async function selectStandardEngine(page) {
+  const coPanel = coProducerPanel(page);
+  await coPanel.locator("label").filter({ hasText: "Prompt Engine" }).locator("select").selectOption("Standard");
+}
+
 export async function expectToast(page, textPattern) {
   const toast = page.getByTestId("action-toast");
   await expect(toast).toBeVisible();

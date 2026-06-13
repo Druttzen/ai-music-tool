@@ -6,8 +6,6 @@ import {
 } from "../lib/music-helpers";
 import {
   buildSunoLikePrompt,
-  buildSunoLyricsBoxPrompt,
-  buildSunoStyleBoxPrompt,
   buildStandardPrompt,
   validateSunoLikePrompt,
 } from "../lib/suno-rules";
@@ -178,7 +176,7 @@ export function usePromptPipeline(input) {
   ]);
 
   const sunoFieldSlices = useMemo(() => {
-    const p = {
+    const guided = {
       selectedGenres: input.selectedGenres,
       tempo: input.tempo,
       moodWords,
@@ -192,9 +190,7 @@ export function usePromptPipeline(input) {
       intensityText,
       mode: input.mode,
       voiceStyleReference: input.voiceStyleLine,
-    };
-    const guided = {
-      ...p,
+      voiceStyleLine: input.voiceStyleLine,
       lyricTheme: input.lyricTheme,
       lyricLanguage: input.lyricLanguage,
       lyricStructure: input.lyricStructure,
@@ -206,14 +202,8 @@ export function usePromptPipeline(input) {
       instrumentalVocalFx: input.instrumentalVocalFx,
     };
     return {
-      style:
-        input.promptEngine === "Suno-like"
-          ? buildSunoPastedStyleLine(guided)
-          : buildSunoStyleBoxPrompt(p),
-      lyrics:
-        input.promptEngine === "Suno-like"
-          ? buildSunoPastedLyricsField(guided)
-          : buildSunoLyricsBoxPrompt({ vocal: input.vocal, lyricPrompt }),
+      style: buildSunoPastedStyleLine(guided),
+      lyrics: buildSunoPastedLyricsField(guided),
     };
   }, [
     input.selectedGenres,
@@ -230,7 +220,6 @@ export function usePromptPipeline(input) {
     input.mode,
     input.voiceStyleLine,
     lyricPrompt,
-    input.promptEngine,
     input.lyricTheme,
     input.lyricLanguage,
     input.lyricStructure,
@@ -241,10 +230,7 @@ export function usePromptPipeline(input) {
     input.instrumentalVocalFx,
   ]);
 
-  const sunoSlices = useMemo(
-    () => (input.promptEngine !== "Suno-like" ? null : sunoFieldSlices),
-    [input.promptEngine, sunoFieldSlices],
-  );
+  const sunoSlices = sunoFieldSlices;
 
   const sunoWarnings = useMemo(
     () =>

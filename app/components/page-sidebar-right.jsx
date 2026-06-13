@@ -47,14 +47,17 @@ export const PageSidebarRight = memo(function PageSidebarRight() {
 
   return (
     <aside className="space-y-4">
-      <Panel title="Prompt Preview" hint="Paste-ready Suno Style and Lyrics — no internal labels or tips.">
-        {promptEngine === "Suno-like" && sunoSlices ? (
+      <Panel title="Prompt Preview" hint="Paste-ready Style and Lyrics — no internal labels or tips.">
+        {sunoSlices ? (
           <div className="space-y-3">
             <div>
               <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-cyan-200/80">
-                Style of Music
+                Style
               </div>
-              <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
+              <pre
+                data-testid="prompt-preview-style"
+                className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50"
+              >
                 {sunoSlices.style || ""}
               </pre>
             </div>
@@ -62,7 +65,10 @@ export const PageSidebarRight = memo(function PageSidebarRight() {
               <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200/80">
                 Lyrics
               </div>
-              <pre className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-2xl border border-fuchsia-300/20 bg-black/50 p-4 text-xs leading-relaxed text-fuchsia-50">
+              <pre
+                data-testid="prompt-preview-lyrics"
+                className="max-h-[220px] overflow-auto whitespace-pre-wrap rounded-2xl border border-fuchsia-300/20 bg-black/50 p-4 text-xs leading-relaxed text-fuchsia-50"
+              >
                 {sunoSlices.lyrics || ""}
               </pre>
             </div>
@@ -83,7 +89,7 @@ export const PageSidebarRight = memo(function PageSidebarRight() {
             Save Snapshot
           </button>
         </div>
-        {promptEngine === "Suno-like" && sunoSlices ? (
+        {sunoSlices ? (
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button
               type="button"

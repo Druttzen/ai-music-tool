@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.9.8**
+**Version 0.9.9**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+
+## Highlights (v0.9.9)
+
+- **Standard engine preview cleanup** — Prompt Preview and Copy Prompt use the same paste-ready Style/Lyrics slices as Suno-like (comma-separated Style, bracket Lyrics scaffolds) instead of `STYLE:` / `RULES:` blocks.
+- **Paste-ready e2e smoke** — Playwright asserts Prompt Preview, Lyric field preview, and clipboard copy contain no `DNA:`, `theme:`, `sounds:`, or section-label wrappers.
+- **136 unit + 36 e2e tests** — four new paste-ready preview specs plus existing suite.
 
 ## Highlights (v0.9.8)
 

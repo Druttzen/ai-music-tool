@@ -425,16 +425,15 @@ export function useProjectActions({
   );
 
   const copyPrompt = useCallback(async () => {
-    const text =
-      promptEngine === "Suno-like" && sunoSlices
-        ? [sunoSlices.style, sunoSlices.lyrics].filter(Boolean).join("\n\n")
-        : prompt;
+    const text = sunoSlices
+      ? [sunoSlices.style, sunoSlices.lyrics].filter(Boolean).join("\n\n")
+      : prompt;
     const ok = await copyToClipboard(text, "Prompt copied");
     if (!ok) return;
     setCopied(true);
     addHistory("Copied prompt");
     setTimeout(() => setCopied(false), 1200);
-  }, [addHistory, copyToClipboard, prompt, promptEngine, setCopied, sunoSlices]);
+  }, [addHistory, copyToClipboard, prompt, setCopied, sunoSlices]);
 
   const restoreHistory = useCallback(
     (item) => {

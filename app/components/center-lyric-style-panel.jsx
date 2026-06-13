@@ -115,7 +115,10 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
             Set vocal mode and theme, or generate lyrics — the box shows only paste-ready text.
           </p>
         ) : null}
-        <pre className="mt-1 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50">
+        <pre
+          data-testid="lyric-field-preview"
+          className="mt-1 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50"
+        >
           {ws.sunoFieldSlices?.lyrics || ""}
         </pre>
       </div>
