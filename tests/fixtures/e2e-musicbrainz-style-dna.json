@@ -1,0 +1,12 @@
+{
+  "recordings": [
+    {
+      "id": "e2e-mb-recording-1",
+      "title": "E2E Techno Pulse",
+      "length": 240000,
+      "tags": [{ "name": "techno" }, { "name": "electronic" }],
+      "artist-credit": [{ "name": "E2E Artist" }],
+      "releases": [{ "title": "E2E Album", "date": "2024" }]
+    }
+  ]
+}

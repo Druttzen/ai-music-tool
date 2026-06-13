@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.9.10**
+**Version 0.9.11**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+
+## Highlights (v0.9.11)
+
+- **Style-DNA Search** — Search by artist/title, Spotify track URL, or YouTube link; optional Spotify audio features (danceability, energy, valence, tempo, key) map to Suno genres, mood, and paste-ready style tokens. MusicBrainz fallback when Spotify is not configured.
+- **Apply Style DNA** — One-click merge into project fields with `REF:` rule line, Goal reference, and guided Polish step.
+- **148 unit + 41 e2e tests** — Style-DNA mapper unit tests and MusicBrainz-mocked e2e smoke.
 
 ## Highlights (v0.9.10)
 

@@ -1,5 +1,6 @@
 import { BLANK_STATE, DEFAULT_STATE } from "./music-config";
 import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
+import { DEFAULT_STYLE_DNA_SETTINGS } from "./style-dna-settings";
 import { normalizeLyricLanguage } from "./suno-lyric-languages";
 
 /** @typedef {typeof DEFAULT_STATE & Record<string, unknown>} ProjectStateShape */
@@ -33,6 +34,7 @@ export function createInitialProjectState(overrides = {}) {
     copied: false,
     lyricsGenerateBusy: false,
     coProducerLlmSettings: DEFAULT_LLM_SETTINGS,
+    styleDnaSettings: DEFAULT_STYLE_DNA_SETTINGS,
     ...overrides,
   };
 }
@@ -174,6 +176,7 @@ export const PROJECT_PATCH_KEYS = [
   "copied",
   "lyricsGenerateBusy",
   "coProducerLlmSettings",
+  "styleDnaSettings",
 ];
 
 /** Project + analyzer keys persisted in autosave / undo snapshots (excludes appVersion). */

@@ -61,6 +61,7 @@ import {
 } from "../lib/project-bundle";
 import { extractLyricsBodyFromPaste } from "../lib/suno-reimport";
 import { collectGenreAnchors } from "../lib/suno-language-index";
+import { buildStyleDnaPatch } from "../lib/track-style-dna";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { SUNO_AUTO_FIX_DEFAULTS } from "../lib/suno-rules";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
@@ -888,6 +889,20 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     setStatusWithTime,
   ]);
 
+  const applyStyleDnaToProject = useCallback(
+    (dna) => {
+      if (!dna) return;
+      captureSnapshot("before style DNA merge");
+      patch(buildStyleDnaPatch(dna));
+      if (promptEngine !== "Suno-like") {
+        setPromptEngine("Suno-like");
+      }
+      setGuidedStep(resolvePolishStepIndex());
+      setStatusWithTime(`Applied Style DNA: ${dna.artist} — ${dna.title}`);
+    },
+    [captureSnapshot, patch, promptEngine, setGuidedStep, setPromptEngine, setStatusWithTime],
+  );
+
   const handoffTrackToVoiceCharacterStudio = useCallback(async () => {
     if (!audioAnalysis) {
       setStatusWithTime("Analyze a track first", "warning");
@@ -938,6 +953,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     addLyricsFromInstrumentalTrack,
     applyGenreAnchors,
     applyPastedLyricsToGenerated,
+    applyStyleDnaToProject,
     applyPreset,
     applyQuickFix,
     buildCoProducerAI,

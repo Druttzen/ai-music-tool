@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useReducer } from "react";
 import { loadCoProducerLlmSettings } from "../lib/co-producer-llm";
+import { loadStyleDnaSettings } from "../lib/style-dna-settings";
 import {
   PROJECT_PATCH_KEYS,
   createInitialProjectState,
@@ -19,7 +20,10 @@ export function useProjectState() {
   const [state, dispatch] = useReducer(projectReducer, undefined, () =>
     createInitialProjectState(
       typeof window !== "undefined"
-        ? { coProducerLlmSettings: loadCoProducerLlmSettings() }
+        ? {
+            coProducerLlmSettings: loadCoProducerLlmSettings(),
+            styleDnaSettings: loadStyleDnaSettings(),
+          }
         : {},
     ),
   );

@@ -79,6 +79,10 @@ export function sunoReimportPanel(page) {
   return page.getByTestId("suno-reimport-panel");
 }
 
+export function styleDnaSearchPanel(page) {
+  return page.getByTestId("style-dna-search-panel");
+}
+
 export async function selectStandardEngine(page) {
   const coPanel = coProducerPanel(page);
   await coPanel.locator("label").filter({ hasText: "Prompt Engine" }).locator("select").selectOption("Standard");

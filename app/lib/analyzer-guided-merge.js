@@ -76,7 +76,11 @@ export function stripAnalyzerRuleLine(rules, kind) {
   const prefixes =
     kind === "audio"
       ? ["AUDIO:", "AUDIO STYLE:"]
-      : ["IMAGE:", "IMAGE STYLE:"];
+      : kind === "image"
+        ? ["IMAGE:", "IMAGE STYLE:"]
+        : kind === "ref"
+          ? ["REF:", "STYLE-DNA:", "STYLE DNA:"]
+          : [];
   return rules
     .split("\n")
     .map((l) => l.trimEnd())
