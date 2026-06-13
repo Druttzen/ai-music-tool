@@ -9,6 +9,10 @@ export function clamp(n, min = 0, max = 100) {
   return Math.max(min, Math.min(max, n));
 }
 
+export function toggleListItem(item, list) {
+  return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+}
+
 export function getIntensityText(promptIntensity) {
   if (promptIntensity < 30) return "strict and clean, low risk, avoid experimental drift";
   if (promptIntensity < 65) return "balanced creativity, controlled variation, clear identity";
