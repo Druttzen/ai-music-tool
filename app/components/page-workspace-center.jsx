@@ -13,6 +13,7 @@ import { CenterMoodPanel } from "./center-mood-panel";
 import { CenterMusicControlsPanel } from "./center-music-controls-panel";
 import { CenterProModePanel } from "./center-pro-mode-panel";
 import { CenterVariationsPanel } from "./center-variations-panel";
+import { CenterVoiceCharacterStudio } from "./center-voice-character-studio";
 import { CenterVoiceStylePanel } from "./center-voice-style-panel";
 
 export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
@@ -22,6 +23,7 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
       <CenterIdeaPanel />
       <CenterLyricStylePanel />
       <CenterVoiceStylePanel />
+      <CenterVoiceCharacterStudio />
       <CenterAnalyzersPanel />
       <CenterMoodPanel />
       <CenterMusicControlsPanel />

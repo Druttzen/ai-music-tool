@@ -51,6 +51,12 @@ export function ideaInput(page) {
     .first();
 }
 
+export function voiceCharacterStudioPanel(page) {
+  return page.locator("section.rounded-3xl").filter({
+    has: page.getByRole("heading", { name: "Voice Character Studio" }),
+  });
+}
+
 export function musicControlsPanel(page) {
   return page.locator("section").filter({ hasText: "Step 3 — Clickable Music Controls" });
 }

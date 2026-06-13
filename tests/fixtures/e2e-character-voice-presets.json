@@ -1,0 +1,41 @@
+{
+  "kind": "character_voice_presets",
+  "appVersion": "0.9.2",
+  "exportedAt": "2026-06-03T12:00:00.000Z",
+  "presets": {
+    "E2E Narrator": {
+      "id": "cv_e2e_fixture",
+      "name": "E2E Narrator",
+      "createdAt": "2026-06-03T12:00:00.000Z",
+      "analysis": {
+        "version": 1,
+        "fileName": "fixture",
+        "duration": 2,
+        "characterLabel": "baritone register, breathy, moderate phrasing",
+        "registerLabel": "baritone register",
+        "register": "baritone",
+        "pitchMedianHz": 180,
+        "pitchMinHz": 165,
+        "pitchMaxHz": 195,
+        "vibratoStrength": 20,
+        "breathiness": 62,
+        "brightness": 48,
+        "dynamics": 40,
+        "deliveryPace": "moderate phrasing",
+        "textureTags": ["breathy", "steady pitch"],
+        "suggestedVocalRole": "Male Lead",
+        "confidence": 85,
+        "vocalsLikely": true,
+        "summary": "E2E fixture character preset for import tests."
+      },
+      "source": { "type": "fixture" },
+      "voiceStyleLine": "Vocal character (Suno Style direction — synthesized trait map, not a real voice clone): E2E Narrator; baritone register, breathy, steady pitch, moderate phrasing; median pitch ~180 Hz; fit the track genre. Lead vocal: clear diction, genre-appropriate mix, intentional performance matching analyzed dynamics.",
+      "voiceStyleCompact": {
+        "style": "E2E Narrator, baritone register, breathy steady",
+        "lyricTag": "[Vocal character: E2E Narrator — breathy, steady pitch; trait-based Suno direction]"
+      },
+      "vocalRole": "Male Lead",
+      "rulesAddition": "Match lead vocal to analyzed character: baritone register, breathy, steady pitch, moderate phrasing."
+    }
+  }
+}
