@@ -1,0 +1,176 @@
+"use client";
+
+import { memo } from "react";
+import {
+  CoProducerHooksBlock,
+  CoProducerLlmSettings,
+  CoProducerLyricsBlock,
+} from "./co-producer-lyrics-block";
+import { Panel } from "./ui-blocks";
+import { fixes, promptFormatOptions } from "../lib/music-config";
+import { saveCoProducerLlmSettings } from "../lib/co-producer-llm";
+import { getLyricStyleDirection } from "../lib/lyric-generator";
+import { useProjectWorkspace } from "../context/project-workspace-context";
+
+const CO_PRODUCER_DIRECTIONS = [
+  "Make darker",
+  "More aggressive",
+  "More minimal",
+  "More cinematic",
+  "More club",
+];
+
+export const CenterCoProducerQuickPanel = memo(function CenterCoProducerQuickPanel() {
+  const ws = useProjectWorkspace();
+
+  return (
+    <Panel title="Step 4 — Co‑Producer Buttons" hint="One-click creative direction.">
+      <div className="flex flex-wrap gap-2">
+        {CO_PRODUCER_DIRECTIONS.map((x) => (
+          <button
+            key={x}
+            onClick={() => ws.coProducer(x)}
+            className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100"
+          >
+            {x}
+          </button>
+        ))}
+      </div>
+    </Panel>
+  );
+});
+
+export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
+  const ws = useProjectWorkspace();
+
+  return (
+    <Panel
+      title="Co‑Producer AI"
+      hint="Improve Prompt analyzes balance and gaps; quick fixes append rule lines. Hooks and lyrics follow your Lyric Style."
+    >
+      <p className="mb-3 text-[11px] leading-relaxed text-white/50">
+        <strong className="text-white/65">Copy guide:</strong> Lyric Style Generator = bracketed Suno direction only.
+        <strong className="text-white/65"> Generate Lyrics</strong> writes draft lyric text matched to{" "}
+        <strong className="text-white/65">{ws.lyricStyle}</strong> ({getLyricStyleDirection(ws.lyricStyle)}). Raw Prompt
+        = bracketed direction; Structured Song / Performance Ready = [Verse]/[Chorus] drafts.
+      </p>
+      <div className="grid gap-2 md:grid-cols-3">
+        <button
+          onClick={ws.buildCoProducerAI}
+          className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200"
+        >
+          Improve Prompt
+        </button>
+        <button
+          onClick={() => ws.generateHooks()}
+          className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200"
+        >
+          Generate Hooks
+        </button>
+        <button
+          onClick={() => ws.generateHooks(true)}
+          className="rounded-2xl border border-cyan-300/40 bg-black/30 px-4 py-2 font-bold text-cyan-100 hover:bg-black/50"
+        >
+          Another hook take
+        </button>
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Quick rule fixes</div>
+        <div className="flex flex-wrap gap-2">
+          {Object.keys(fixes).map((label) => (
+            <button
+              key={label}
+              type="button"
+              title={fixes[label]}
+              onClick={() => ws.applyQuickFix(label)}
+              className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-100 hover:bg-amber-500/20"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <CoProducerLlmSettings
+        settings={ws.coProducerLlmSettings}
+        onChange={ws.setCoProducerLlmSettings}
+        onSave={() => {
+          saveCoProducerLlmSettings(ws.coProducerLlmSettings);
+          ws.setStatusWithTime("LLM settings saved locally");
+        }}
+      />
+
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <label>
+          <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Prompt Format</div>
+          <select
+            value={ws.promptFormat}
+            onChange={(e) => ws.setPromptFormat(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
+          >
+            {promptFormatOptions.map((x) => (
+              <option key={x}>{x}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Prompt Engine</div>
+          <select
+            value={ws.promptEngine}
+            onChange={(e) => ws.setPromptEngine(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
+          >
+            <option>Standard</option>
+            <option>Suno-like</option>
+          </select>
+        </label>
+      </div>
+
+      {ws.coProducerOutput && (
+        <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-emerald-300/20 bg-black/50 p-4 text-xs leading-relaxed text-emerald-50">
+          {ws.coProducerOutput}
+        </pre>
+      )}
+
+      <CoProducerHooksBlock
+        lyricStyle={ws.lyricStyle}
+        generatedHooks={ws.generatedHooks}
+        generatedHooksStyle={ws.generatedHooksStyle}
+      />
+
+      <CoProducerLyricsBlock
+        className="mt-3"
+        lyricStyle={ws.lyricStyle}
+        generatedLyrics={ws.generatedLyrics}
+        generatedLyricsStyle={ws.generatedLyricsStyle}
+        onLyricsChange={ws.setGeneratedLyrics}
+        onGenerate={ws.generateExampleLyrics}
+        onAnotherTake={ws.shuffleExampleLyrics}
+        generateBusy={ws.lyricsGenerateBusy}
+        showStyleHint={false}
+      />
+
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
+        <button
+          onClick={() => ws.copyToClipboard(ws.coProducerOutput || "", "Report copied")}
+          className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20"
+        >
+          Copy Report
+        </button>
+        <button
+          onClick={() => ws.copyToClipboard(ws.generatedHooks || "", "Hooks copied")}
+          className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20"
+        >
+          Copy Hooks
+        </button>
+        <button
+          onClick={() => ws.copyToClipboard(ws.generatedLyrics || "", "Lyrics copied")}
+          className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20"
+        >
+          Copy Lyrics
+        </button>
+      </div>
+    </Panel>
+  );
+});
