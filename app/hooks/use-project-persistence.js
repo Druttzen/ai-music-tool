@@ -12,6 +12,11 @@ import {
   shouldHardResetProjectOnVersionChange,
   slimStateForPersistence,
 } from "../lib/project-persistence";
+import {
+  attachCharacterVoicePresetsToProjectExport,
+  extractCharacterVoicePresetsFromProject,
+  persistCharacterVoicePresets,
+} from "../lib/voice-character-preset";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
 
 /**
@@ -56,6 +61,10 @@ export function useProjectPersistence({
             loadState(parsed);
             setStatusWithTime("Loaded saved project");
           }
+          const cvPresets = extractCharacterVoicePresetsFromProject(parsed);
+          if (cvPresets !== null) {
+            persistCharacterVoicePresets(cvPresets, { merge: false });
+          }
         }
         const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
         if (presets) setCustomPresets(presets);
@@ -74,7 +83,9 @@ export function useProjectPersistence({
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
-        const payload = JSON.stringify(slimStateForPersistence(currentState));
+        const payload = JSON.stringify(
+          attachCharacterVoicePresetsToProjectExport(slimStateForPersistence(currentState)),
+        );
         if (payload === lastAutosavePayloadRef.current) return;
         const result = safeLocalStorage.set(STORAGE_KEY, payload);
         if (!result.ok) {

@@ -7,6 +7,7 @@ import {
   musicControlsPanel,
   saveLoadPanel,
   skipSplashIfVisible,
+  voiceCharacterStudioPanel,
 } from "./helpers.js";
 
 const IMPORT_FIXTURE = "tests/fixtures/e2e-import-project.json";
@@ -77,5 +78,26 @@ test.describe("Project persistence e2e", () => {
     await skipSplashIfVisible(page);
 
     await expect(ideaInput(page)).toHaveValue(marker, { timeout: 5000 });
+  });
+
+  test("project JSON with characterVoicePresets survives reload", async ({ page }) => {
+    const fixture = "tests/fixtures/e2e-import-project-with-character-presets.json";
+
+    await dismissSplash(page);
+
+    const panel = saveLoadPanel(page);
+    await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(fixture);
+    await expectToast(page, /Imported JSON project/i);
+    await expect(ideaInput(page)).toHaveValue("Imported with character voice presets");
+
+    const studio = voiceCharacterStudioPanel(page);
+    await studio.scrollIntoViewIfNeeded();
+    await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible();
+
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await skipSplashIfVisible(page);
+
+    await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible({ timeout: 5000 });
   });
 });

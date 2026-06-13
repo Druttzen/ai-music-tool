@@ -8,6 +8,8 @@ import {
 import {
   buildSunoLinesFromVoiceCharacter,
   createCharacterVoicePreset,
+  attachCharacterVoicePresetsToProjectExport,
+  extractCharacterVoicePresetsFromProject,
   mergeCharacterPresetsMaps,
   parseCharacterPresetsImport,
   regenerateCharacterVoicePreset,
@@ -105,6 +107,29 @@ describe("voice-character-preset", () => {
     );
     const fromMap = parseCharacterPresetsImport({ Safe: preset });
     expect(fromMap.Safe.analysis.textureTags).toEqual([]);
+  });
+
+  it("attachCharacterVoicePresetsToProjectExport adds presets map when non-empty", () => {
+    const preset = createCharacterVoicePreset(
+      "Alpha",
+      analysis,
+      buildSunoLinesFromVoiceCharacter(analysis, { characterName: "Alpha" }),
+    );
+    const out = attachCharacterVoicePresetsToProjectExport({ idea: "test" }, { Alpha: preset });
+    expect(out.characterVoicePresets.Alpha.name).toBe("Alpha");
+    expect(attachCharacterVoicePresetsToProjectExport({ idea: "test" }, {})).toEqual({ idea: "test" });
+  });
+
+  it("extractCharacterVoicePresetsFromProject reads optional project field", () => {
+    const preset = createCharacterVoicePreset(
+      "Beta",
+      analysis,
+      buildSunoLinesFromVoiceCharacter(analysis, { characterName: "Beta" }),
+    );
+    expect(extractCharacterVoicePresetsFromProject({ characterVoicePresets: { Beta: preset } }).Beta.name).toBe(
+      "Beta",
+    );
+    expect(extractCharacterVoicePresetsFromProject({ idea: "x" })).toBeNull();
   });
 });
 

@@ -1,44 +1,43 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { isSupportedAudioFile, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { buildMoodWords } from "../lib/music-helpers";
-import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
+import { storageFailureMessage } from "../lib/safe-local-storage";
 import { decodeAndAnalyzeVoiceFile } from "../lib/voice-character-analyzer";
 import {
   buildSunoLinesFromVoiceCharacter,
-  CHARACTER_VOICE_PRESET_KEY,
+  CHARACTER_VOICE_PRESETS_CHANGED_EVENT,
   createCharacterVoicePreset,
+  loadCharacterPresetsFromStorage,
   mergeCharacterPresetsMaps,
-  normalizeCharacterPresetsMap,
   parseCharacterPresetsImport,
   regenerateCharacterVoicePreset,
+  saveCharacterPresetsToStorage,
   serializeCharacterPresetsExport,
 } from "../lib/voice-character-preset";
 import { fetchYoutubeTitle, parseYoutubeReference } from "../lib/youtube-reference";
 import { APP_VERSION } from "../lib/music-config";
 import { useProjectWorkspace } from "../context/project-workspace-context";
 
-function loadPresetsFromStorage() {
-  const raw = safeLocalStorage.getJSON(CHARACTER_VOICE_PRESET_KEY, {});
-  return normalizeCharacterPresetsMap(raw);
-}
-
-function savePresetsToStorage(presets) {
-  return safeLocalStorage.setJSON(CHARACTER_VOICE_PRESET_KEY, presets);
-}
-
 /**
  * Voice Character Studio — analyze vocal files, optional YouTube reference metadata, character presets.
  */
 export function useCharacterVoiceStudio() {
   const ws = useProjectWorkspace();
-  const [characterPresets, setCharacterPresets] = useState(loadPresetsFromStorage);
+  const [characterPresets, setCharacterPresets] = useState({});
   const [voiceAnalysis, setVoiceAnalysis] = useState(null);
   const [youtubeReference, setYoutubeReference] = useState(null);
   const [busy, setBusy] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [voiceStyleCompact, setVoiceStyleCompact] = useState({ style: "", lyricTag: "" });
+
+  useEffect(() => {
+    const syncFromStorage = () => setCharacterPresets(loadCharacterPresetsFromStorage());
+    syncFromStorage();
+    window.addEventListener(CHARACTER_VOICE_PRESETS_CHANGED_EVENT, syncFromStorage);
+    return () => window.removeEventListener(CHARACTER_VOICE_PRESETS_CHANGED_EVENT, syncFromStorage);
+  }, []);
 
   const projectCtx = useCallback(
     () => ({
@@ -158,7 +157,7 @@ export function useCharacterVoiceStudio() {
         : voiceAnalysis.source || {},
     );
     const next = { ...characterPresets, [name]: preset };
-    const result = savePresetsToStorage(next);
+    const result = saveCharacterPresetsToStorage(next);
     if (!result.ok) {
       ws.setStatusWithTime(storageFailureMessage(result), "error");
       return;
@@ -219,7 +218,7 @@ export function useCharacterVoiceStudio() {
           rulesAddition: regen.rulesAddition,
         };
         const next = { ...characterPresets, [name]: updated };
-        const result = savePresetsToStorage(next);
+        const result = saveCharacterPresetsToStorage(next);
         if (!result.ok) {
           ws.setStatusWithTime(storageFailureMessage(result), "error");
           return;
@@ -235,7 +234,7 @@ export function useCharacterVoiceStudio() {
     (name) => {
       const next = { ...characterPresets };
       delete next[name];
-      const result = savePresetsToStorage(next);
+      const result = saveCharacterPresetsToStorage(next);
       if (!result.ok) {
         ws.setStatusWithTime(storageFailureMessage(result), "error");
         return;
@@ -287,7 +286,7 @@ export function useCharacterVoiceStudio() {
           }
           setCharacterPresets((prev) => {
             const next = mergeCharacterPresetsMaps(prev, imported);
-            const result = savePresetsToStorage(next);
+            const result = saveCharacterPresetsToStorage(next);
             if (!result.ok) {
               queueMicrotask(() => ws.setStatusWithTime(storageFailureMessage(result), "error"));
               return prev;

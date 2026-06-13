@@ -2,7 +2,10 @@
  * Character voice presets — Suno prompt DNA from analyzed traits (not voice cloning).
  */
 
+import { safeLocalStorage } from "./safe-local-storage";
+
 export const CHARACTER_VOICE_PRESET_KEY = "ai_music_creator_character_voice_presets_v1";
+export const CHARACTER_VOICE_PRESETS_CHANGED_EVENT = "character-voice-presets-changed";
 
 export const VOICE_CHARACTER_DISCLAIMER =
   "Analyzes delivery traits (register, breath, vibrato, dynamics) for Suno Style/Lyrics direction only. " +
@@ -182,4 +185,59 @@ export function parseCharacterPresetsImport(raw) {
  */
 export function mergeCharacterPresetsMaps(existing, imported) {
   return { ...existing, ...imported };
+}
+
+/**
+ * @returns {Record<string, object>}
+ */
+export function loadCharacterPresetsFromStorage() {
+  const raw = safeLocalStorage.getJSON(CHARACTER_VOICE_PRESET_KEY, {});
+  return normalizeCharacterPresetsMap(raw);
+}
+
+/**
+ * @param {Record<string, object>} presets
+ */
+export function saveCharacterPresetsToStorage(presets) {
+  return safeLocalStorage.setJSON(CHARACTER_VOICE_PRESET_KEY, presets);
+}
+
+export function notifyCharacterPresetsChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHARACTER_VOICE_PRESETS_CHANGED_EVENT));
+  }
+}
+
+/**
+ * @param {unknown} presets
+ * @param {{ merge?: boolean }} [options]
+ */
+export function persistCharacterVoicePresets(presets, { merge = true } = {}) {
+  const normalized = normalizeCharacterPresetsMap(presets);
+  const next = merge
+    ? mergeCharacterPresetsMaps(loadCharacterPresetsFromStorage(), normalized)
+    : normalized;
+  const result = saveCharacterPresetsToStorage(next);
+  if (result.ok) notifyCharacterPresetsChanged();
+  return { ...result, count: Object.keys(normalized).length, presets: next };
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {Record<string, object> | null}
+ */
+export function extractCharacterVoicePresetsFromProject(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  if (!Object.prototype.hasOwnProperty.call(raw, "characterVoicePresets")) return null;
+  return normalizeCharacterPresetsMap(raw.characterVoicePresets);
+}
+
+/**
+ * @param {Record<string, unknown>} projectPayload
+ * @param {Record<string, object>} [presets]
+ */
+export function attachCharacterVoicePresetsToProjectExport(projectPayload, presets) {
+  const map = presets ?? loadCharacterPresetsFromStorage();
+  if (!Object.keys(map).length) return projectPayload;
+  return { ...projectPayload, characterVoicePresets: map };
 }

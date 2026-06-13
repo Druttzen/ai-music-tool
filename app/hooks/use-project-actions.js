@@ -38,6 +38,11 @@ import {
   slimStateForHistory,
   slimStateForPersistence,
 } from "../lib/project-persistence";
+import {
+  attachCharacterVoicePresetsToProjectExport,
+  extractCharacterVoicePresetsFromProject,
+  persistCharacterVoicePresets,
+} from "../lib/voice-character-preset";
 import { collectGenreAnchors } from "../lib/suno-language-index";
 import { SUNO_AUTO_FIX_DEFAULTS } from "../lib/suno-rules";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
@@ -219,7 +224,7 @@ export function useProjectActions({
   }, [selectedGenres, setRules, setSelectedRhythms, setSelectedSounds, setStatusWithTime]);
 
   const saveProject = useCallback(() => {
-    const slim = slimStateForPersistence(currentState);
+    const slim = attachCharacterVoicePresetsToProjectExport(slimStateForPersistence(currentState));
     const payload = JSON.stringify(slim, null, 2);
     const result = safeLocalStorage.set(STORAGE_KEY, payload);
     if (!result.ok) {
@@ -231,7 +236,8 @@ export function useProjectActions({
   }, [currentState, lastAutosavePayloadRef, setStatusWithTime]);
 
   const exportProject = useCallback(() => {
-    const blob = new Blob([JSON.stringify(currentState, null, 2)], {
+    const payload = attachCharacterVoicePresetsToProjectExport(currentState);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
@@ -252,6 +258,13 @@ export function useProjectActions({
         try {
           captureSnapshot("before import");
           const raw = JSON.parse(String(reader.result));
+          const cvPresets = extractCharacterVoicePresetsFromProject(raw);
+          if (cvPresets && Object.keys(cvPresets).length > 0) {
+            const presetResult = persistCharacterVoicePresets(cvPresets, { merge: true });
+            if (!presetResult.ok) {
+              setStatusWithTime(storageFailureMessage(presetResult), "error");
+            }
+          }
           loadState(migrateImportedProject(raw, APP_VERSION));
           setStatusWithTime("Imported JSON project");
         } catch {
