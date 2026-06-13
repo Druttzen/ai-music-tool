@@ -48,6 +48,16 @@ describe("suno-rules", () => {
     expect(w.length).toBeGreaterThan(0);
   });
 
+  it("validateSunoLikePrompt warns when style descriptors are sparse", () => {
+    const w = validateSunoLikePrompt({
+      ...base,
+      selectedGenres: ["Techno"],
+      moodWords: "dark",
+      selectedSounds: ["Heavy sub bass"],
+    });
+    expect(w.some((x) => x.includes("4–8"))).toBe(true);
+  });
+
   it("buildStandardPrompt compressed format is single block", () => {
     const p = buildStandardPrompt({ ...base, format: "Compressed" });
     expect(p).toContain("Techno | 130 BPM");

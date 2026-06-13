@@ -85,8 +85,9 @@ export const promptSymbolOverview = [
   {
     symbol: "|",
     label: "Pipe",
-    role: "Separator in short lists or UI fields.",
-    example: "pop | dance | electronic",
+    role:
+      "Section pipe notation — local overrides on one block, e.g. [chorus | style: hook, vocals: light]. Also separates short Style tag lists.",
+    example: "[bridge | style: intense, dynamic, build]",
   },
   {
     symbol: "*",
@@ -214,6 +215,8 @@ export const promptSymbolOverview = [
 export const promptSymbolUsageTips = [
   "Keep one consistent delimiter style in your personal register (e.g. always ; between tags).",
   "Use parentheses for secondary instructions; use quotes for exact lyric seeds.",
+  "Open Lyrics with [track: genre:, mood:, length:, instruments:] for global defaults before section tags.",
+  "Use pipe notation on a section when it should deviate from global track settings — [chorus | style: hook].",
   "Iterate — long, dense single lines can behave unpredictably in generative models.",
 ];
 
@@ -297,6 +300,20 @@ export const promptSymbolExamples = {
     "loop/variation, lo-fi beat, 85 BPM",
   ],
   pipe: [
+    "[chorus | style: phonk hook, vocals: autotune-light, melodic]",
+    "[bridge | style: intense, dynamic, build]",
+    "[break | instrumental only, no vocals, do not use lyrics as fx]",
+    "[verse | soft, intimate vocal lines over acoustic guitar]",
+    "[drop | full drums and bass impact, side-chain pump]",
+  ],
+  trackContainer: [
+    "[track: genre: phonk drift, mood: gritty night drive, length: 180, instruments: 808 sub-bass]",
+    "[track: genre: lo-fi hip-hop, style: chill ambient, mood: dreamy, length: 240]",
+    "[track: genre: dark techno, mood: warehouse, instruments: analog synth, metallic percussion]",
+    "[track: genre: cinematic orchestral, mood: heroic, length: 210]",
+    "[track: genre: afro house, mood: uplifting, loop-friendly]",
+  ],
+  pipeList: [
     "pop | dance | electronic — multi-tag prompt",
     "lofi | chill | study — playlist mood",
     "cinematic | epic | trailer — orchestral hybrid",

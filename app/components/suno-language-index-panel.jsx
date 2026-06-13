@@ -22,6 +22,16 @@ export function SunoLanguageIndexPanel({ copyToClipboard, onApplyGenreAnchors })
   return (
     <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
       <div className="space-y-3 text-xs text-white/80">
+        {sunoLanguageIndex.catalogSync?.syncedAt ? (
+          <p className="rounded-2xl border border-white/10 bg-black/20 p-2 text-[10px] text-white/45">
+            Catalog synced {new Date(sunoLanguageIndex.catalogSync.syncedAt).toLocaleDateString()} from{" "}
+            {sunoLanguageIndex.catalogSync.metaTagCount} meta-tags
+            {sunoLanguageIndex.catalogSync.upstreamModified
+              ? ` (upstream ${sunoLanguageIndex.catalogSync.upstreamModified})`
+              : ""}
+            . Re-run <code className="text-white/60">npm run sync:suno-catalog</code> to refresh.
+          </p>
+        ) : null}
         <p className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3 text-[11px] text-white/55">
           Browse and add style prompts in <strong className="text-cyan-100">Step 3 → Style prompt library</strong>{" "}
           (section dropdown + multi-select → Add to Styles).

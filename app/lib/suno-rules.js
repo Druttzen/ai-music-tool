@@ -1,4 +1,8 @@
 import { validateSunoFieldLengths } from "./suno-limits";
+import { SUNO_CATALOG_SYNC } from "./suno-catalog-synced";
+
+/** Suno v5.5 community guidance: focused Style tag count. */
+export const SUNO_STYLE_DESCRIPTOR_RANGE = { min: 4, max: 8 };
 
 /** Shared defaults for Suno-like auto-fix and blank-slate guidance. */
 export const SUNO_AUTO_FIX_DEFAULTS = {
@@ -253,6 +257,27 @@ export function validateSunoLikePrompt(params) {
   }
   if (selectedGenres.length > 3) {
     warnings.push("Too many genres may cause style drift; prefer 1-2 core genres.");
+  }
+
+  const moodCount = moodWords ? moodWords.split(/[,+|/]/).map((s) => s.trim()).filter(Boolean).length : 0;
+  const descriptorCount =
+    (selectedGenres?.length || 0) + moodCount + Math.min(selectedSounds?.length || 0, 4);
+  if (descriptorCount > 0 && descriptorCount < SUNO_STYLE_DESCRIPTOR_RANGE.min) {
+    warnings.push(
+      `Style DNA has ~${descriptorCount} strong descriptors — Suno v5.5 guidance suggests ${SUNO_STYLE_DESCRIPTOR_RANGE.min}–${SUNO_STYLE_DESCRIPTOR_RANGE.max} focused Style tags.`,
+    );
+  } else if (descriptorCount > SUNO_STYLE_DESCRIPTOR_RANGE.max + 2) {
+    warnings.push(
+      `Many style descriptors (~${descriptorCount}) may dilute identity — prefer ${SUNO_STYLE_DESCRIPTOR_RANGE.min}–${SUNO_STYLE_DESCRIPTOR_RANGE.max} tags.`,
+    );
+  }
+
+  const genreText = (selectedGenres || []).join(" ").toLowerCase();
+  for (const { term, guidance } of SUNO_CATALOG_SYNC.trademarkSubstitutions) {
+    if (genreText.includes(term.toLowerCase())) {
+      warnings.push(`Style may trigger trademark filter for "${term}" — ${guidance}`);
+      break;
+    }
   }
 
   if (typeof pastedStyleLen === "number" && typeof pastedLyricsLen === "number") {

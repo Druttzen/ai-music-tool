@@ -1,8 +1,9 @@
 // Community-derived, non-official prompt vocabulary index for Suno-style workflows.
-// Synthesized from public guides and community tutorials.
+// Base lists are merged with scripts/sync-suno-catalog.cjs (stayen/suno-reference, MIT).
 
 export { referencePromptBlocks, stylePromptCatalog } from "./style-prompt-catalog";
 
+import { SUNO_CATALOG_SYNC } from "./suno-catalog-synced";
 import {
   formatPromptSymbolGuidePlain,
   formatVocalArtifactGuidePlain,
@@ -14,6 +15,28 @@ import {
 
 import { SUNO_LIMITS_PRINCIPLE } from "./suno-limits";
 
+function mergeUniqueStrings(base, extra) {
+  const seen = new Set(base.map((s) => s.toLowerCase()));
+  const out = [...base];
+  for (const item of extra) {
+    const key = item.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+/** Online catalog sync metadata (stayen/suno-reference + embedded genre wheel). */
+export const sunoCatalogSyncMeta = {
+  syncedAt: SUNO_CATALOG_SYNC.syncedAt,
+  upstreamModified: SUNO_CATALOG_SYNC.upstreamModified,
+  metaTagCount: SUNO_CATALOG_SYNC.metaTags.length,
+  structureTagCount: SUNO_CATALOG_SYNC.structureTags.length,
+  sources: SUNO_CATALOG_SYNC.sources,
+};
+
 export {
   formatPromptSymbolGuidePlain,
   formatVocalArtifactGuidePlain,
@@ -23,39 +46,57 @@ export {
   sunoVocalArtifactGuide,
 };
 
+const BASE_PRINCIPLES = [
+  SUNO_LIMITS_PRINCIPLE,
+  "Keep style prompt focused on sonic palette (genre, mood, instruments, vocal intent).",
+  "Keep lyrics field focused on structure and lyrical content.",
+  "Use clear section tags to reduce arrangement drift.",
+  "Add explicit negative constraints for cleaner control.",
+];
+
+const BASE_STRUCTURE_TAGS = [
+  "Intro",
+  "Verse",
+  "Verse 1",
+  "Verse 2",
+  "Pre-Chorus",
+  "Post-Chorus",
+  "Chorus",
+  "Final Chorus",
+  "Bridge",
+  "Bridge-Drop",
+  "Instrumental",
+  "Instrumental Break",
+  "Break",
+  "Build",
+  "Drop",
+  "Breakdown",
+  "Hook",
+  "Interlude",
+  "Refrain",
+  "Solo",
+  "Spoken Word",
+  "Ad-Lib",
+  "Concert Intro",
+  "Vocal Drone",
+  "Outro",
+  "End",
+  "Fade Out",
+  "Coda",
+  "Announcer",
+  "Call-And-Response",
+];
+
 export const sunoLanguageIndex = {
-  principles: [
-    SUNO_LIMITS_PRINCIPLE,
-    "Keep style prompt focused on sonic palette (genre, mood, instruments, vocal intent).",
-    "Keep lyrics field focused on structure and lyrical content.",
-    "Use clear section tags to reduce arrangement drift.",
-    "Use 4-7 strong descriptors before adding advanced detail.",
-    "Add explicit negative constraints for cleaner control.",
-  ],
-  structureTags: [
-    "Intro",
-    "Verse",
-    "Verse 1",
-    "Verse 2",
-    "Pre-Chorus",
-    "Chorus",
-    "Final Chorus",
-    "Bridge",
-    "Instrumental",
-    "Instrumental Break",
-    "Break",
-    "Build",
-    "Drop",
-    "Breakdown",
-    "Hook",
-    "Interlude",
-    "Spoken Word",
-    "Concert Intro",
-    "Vocal Drone",
-    "Outro",
-    "End",
-    "Fade Out",
-  ],
+  catalogSync: sunoCatalogSyncMeta,
+  principles: mergeUniqueStrings(BASE_PRINCIPLES, SUNO_CATALOG_SYNC.principles),
+  structureTags: mergeUniqueStrings(BASE_STRUCTURE_TAGS, SUNO_CATALOG_SYNC.structureTags),
+  metaTagQuickRef: SUNO_CATALOG_SYNC.metaTags.filter((t) =>
+    /^(intro|verse|chorus|bridge|build|drop|hook|outro|track|vocalist|tempo|style|mood)$/.test(t.slug),
+  ),
+  trademarkSubstitutions: SUNO_CATALOG_SYNC.trademarkSubstitutions,
+  pipeNotation: SUNO_CATALOG_SYNC.pipeNotation,
+  trackContainerTag: SUNO_CATALOG_SYNC.trackContainerTag,
   vocalTags: [
     "female lead vocal",
     "female group harmonies",
@@ -80,6 +121,7 @@ export const sunoLanguageIndex = {
     "autotuned delivery",
     "soulful vocal samples",
     "fictional language snippet (short, pronounceable)",
+    ...SUNO_CATALOG_SYNC.vocalTokens,
   ],
   productionTokens: [
     "compressed vocal",
@@ -100,6 +142,7 @@ export const sunoLanguageIndex = {
     "punchy transient drums",
     "side-chain pump to kick",
     "heavy transient compression",
+    ...SUNO_CATALOG_SYNC.productionTokens,
   ],
   negativePrompting: [
     "no vocals",
@@ -112,6 +155,7 @@ export const sunoLanguageIndex = {
     "no over-compressed radio polish",
     "no genre crossover drift",
     "no abrupt ending",
+    "avoid protected trademark names in Style (use descriptive substitutes)",
   ],
   styleBlueprint: [
     "Genre + subgenre + era anchor",
@@ -260,6 +304,16 @@ REGULAR LINE
       id: "instrumental-break-pipes",
       title: "DnB/Jungle-style break (block vocal-as-texture)",
       body: `[Break | Instrumental Only | No Vocals | Do Not Use Lyrics as FX]`,
+    },
+    {
+      id: "track-container",
+      title: "Global [track] container (top of Lyrics)",
+      body: SUNO_CATALOG_SYNC.trackContainerTag.example,
+    },
+    {
+      id: "section-pipe",
+      title: "Section pipe overrides",
+      body: SUNO_CATALOG_SYNC.pipeNotation.example,
     },
   ],
   promptSymbolOverview,

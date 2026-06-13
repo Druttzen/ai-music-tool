@@ -1,6 +1,7 @@
 /**
  * Expanded community-style prompt vocabulary (genres, textures, fusion labels, references).
- * Deduped from user-supplied lists; used by the Suno Language Index UI and exports.
+ * Genre wheel phrases: app/lib/suno-v55-genre-wheel.js (Suno labs genre wheel).
+ * Meta-tags / structure / trademark guards: npm run sync:suno-catalog → suno-catalog-synced.js
  */
 
 import { sunoV55GenreWheelStyles } from "./suno-v55-genre-wheel";
