@@ -112,11 +112,15 @@ export function normalizeCharacterPresetRecord(preset, fallbackName = "") {
   if (!name || !analysis || typeof analysis !== "object") return null;
   if (!analysis.characterLabel || !preset.voiceStyleLine) return null;
 
+  const textureTags = Array.isArray(analysis.textureTags)
+    ? analysis.textureTags.filter((tag) => typeof tag === "string" && tag.trim())
+    : [];
+
   return {
     id: String(preset.id || `cv_${name.replace(/\s+/g, "_").toLowerCase()}`),
     name,
     createdAt: preset.createdAt || new Date().toISOString(),
-    analysis,
+    analysis: { ...analysis, textureTags },
     source: preset.source && typeof preset.source === "object" ? preset.source : {},
     voiceStyleLine: String(preset.voiceStyleLine),
     voiceStyleCompact:

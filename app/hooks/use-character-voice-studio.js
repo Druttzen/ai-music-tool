@@ -10,6 +10,7 @@ import {
   CHARACTER_VOICE_PRESET_KEY,
   createCharacterVoicePreset,
   mergeCharacterPresetsMaps,
+  normalizeCharacterPresetsMap,
   parseCharacterPresetsImport,
   regenerateCharacterVoicePreset,
   serializeCharacterPresetsExport,
@@ -20,7 +21,7 @@ import { useProjectWorkspace } from "../context/project-workspace-context";
 
 function loadPresetsFromStorage() {
   const raw = safeLocalStorage.getJSON(CHARACTER_VOICE_PRESET_KEY, {});
-  return raw && typeof raw === "object" ? raw : {};
+  return normalizeCharacterPresetsMap(raw);
 }
 
 function savePresetsToStorage(presets) {
@@ -173,6 +174,8 @@ export function useCharacterVoiceStudio() {
           watchUrl: preset.source.youtubeUrl,
           title: preset.source.youtubeTitle,
         });
+      } else {
+        setYoutubeReference(null);
       }
       applyLinesToProject(preset, { appendRules: false });
       ws.setStatusWithTime(`Loaded character preset: ${name}`);

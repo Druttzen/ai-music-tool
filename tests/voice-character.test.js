@@ -96,6 +96,16 @@ describe("voice-character-preset", () => {
     );
     expect(Object.keys(merged).sort()).toEqual(["Keep", "New"]);
   });
+
+  it("normalizeCharacterPresetRecord coerces invalid textureTags to an array", () => {
+    const preset = createCharacterVoicePreset(
+      "Safe",
+      { ...analysis, textureTags: "not-an-array" },
+      buildSunoLinesFromVoiceCharacter(analysis, { characterName: "Safe" }),
+    );
+    const fromMap = parseCharacterPresetsImport({ Safe: preset });
+    expect(fromMap.Safe.analysis.textureTags).toEqual([]);
+  });
 });
 
 describe("youtube-reference", () => {
