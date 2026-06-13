@@ -98,7 +98,11 @@
       "style": "E2E Narrator, baritone register, breathy steady",
       "lyricTag": "[Vocal character: E2E Narrator — breathy, steady pitch; trait-based Suno direction]"
     },
-    "youtubeReference": null,
+    "youtubeReference": {
+      "videoId": "dQw4w9WgXcQ",
+      "watchUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "title": "E2E fixture YouTube reference"
+    },
     "presetName": "E2E Narrator"
   }
 }

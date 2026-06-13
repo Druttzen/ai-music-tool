@@ -10,17 +10,19 @@ import { useProjectWorkspace } from "../context/project-workspace-context";
 export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStudio() {
   const ws = useProjectWorkspace();
   const studio = useCharacterVoiceStudio();
-  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [youtubeDraft, setYoutubeDraft] = useState("");
+  const youtubeInputValue = studio.youtubeReference?.watchUrl ?? youtubeDraft;
 
   const handleLoadPreset = (name) => {
-    const preset = studio.characterPresets[name];
     studio.loadCharacterPreset(name);
-    setYoutubeUrl(preset?.source?.youtubeUrl || "");
+    if (!studio.characterPresets[name]?.source?.youtubeUrl) {
+      setYoutubeDraft("");
+    }
   };
 
   const handleClearStudio = () => {
     studio.clearStudio();
-    setYoutubeUrl("");
+    setYoutubeDraft("");
   };
 
   return (
@@ -38,16 +40,17 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
             YouTube reference (metadata only)
           </div>
           <input
-            value={youtubeUrl}
-            onChange={(e) => setYoutubeUrl(e.target.value)}
+            value={youtubeInputValue}
+            onChange={(e) => setYoutubeDraft(e.target.value)}
+            readOnly={Boolean(studio.youtubeReference)}
             placeholder="https://www.youtube.com/watch?v=…"
-            className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none focus:border-cyan-300"
+            className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none focus:border-cyan-300 read-only:opacity-80"
           />
         </label>
         <button
           type="button"
-          disabled={studio.busy || !youtubeUrl.trim()}
-          onClick={() => studio.linkYoutubeReference(youtubeUrl)}
+          disabled={studio.busy || !youtubeInputValue.trim() || Boolean(studio.youtubeReference)}
+          onClick={() => studio.linkYoutubeReference(youtubeInputValue)}
           className="self-end rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-bold text-white hover:bg-white/15 disabled:opacity-40"
         >
           Link YouTube

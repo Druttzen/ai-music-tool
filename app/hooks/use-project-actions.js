@@ -44,6 +44,7 @@ import {
 } from "../lib/voice-character-preset";
 import {
   attachCharacterVoiceFieldsToProjectExport,
+  clearCharacterVoiceStudioSessionOnReset,
   extractCharacterVoiceStudioSessionFromProject,
   persistCharacterVoiceStudioSession,
 } from "../lib/voice-character-studio-session";
@@ -778,6 +779,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     captureSnapshot("before reset");
     resetBlank();
     resetAnalyzers();
+    clearCharacterVoiceStudioSessionOnReset();
     lastAutosavePayloadRef.current = "";
     safeLocalStorage.remove(STORAGE_KEY);
     safeLocalStorage.remove(HISTORY_KEY);

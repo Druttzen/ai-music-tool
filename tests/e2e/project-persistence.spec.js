@@ -136,6 +136,9 @@ test.describe("Project persistence e2e", () => {
     await studio.scrollIntoViewIfNeeded();
     await expect(studio.locator(".font-bold.text-cyan-200")).toContainText(/baritone register/i);
     await expect(studio.locator('input[placeholder="e.g. Warm baritone narrator"]')).toHaveValue("E2E Narrator");
+    await expect(studio.getByPlaceholder(/youtube\.com\/watch/i)).toHaveValue(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
 
     await page.reload();
     await page.waitForLoadState("networkidle");
@@ -145,5 +148,31 @@ test.describe("Project persistence e2e", () => {
       timeout: 5000,
     });
     await expect(studio.locator('input[placeholder="e.g. Warm baritone narrator"]')).toHaveValue("E2E Narrator");
+    await expect(studio.getByPlaceholder(/youtube\.com\/watch/i)).toHaveValue(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    );
+  });
+
+  test("Reset to Default clears voice studio session but keeps saved character presets", async ({ page }) => {
+    const fixture = "tests/fixtures/e2e-import-project-with-character-presets.json";
+
+    await dismissSplash(page);
+
+    const panel = saveLoadPanel(page);
+    await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(fixture);
+    await expectToast(page, /Imported JSON project/i);
+
+    const studio = voiceCharacterStudioPanel(page);
+    await studio.scrollIntoViewIfNeeded();
+    await expect(studio.locator(".font-bold.text-cyan-200")).toContainText(/baritone register/i);
+    await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Reset to Default" }).click();
+    await expect(page.locator("header").getByText(/blank slate on guided step 1/i)).toBeVisible();
+
+    await expect(studio.locator(".font-bold.text-cyan-200")).toHaveCount(0);
+    await expect(studio.locator('input[placeholder="e.g. Warm baritone narrator"]')).toHaveValue("");
+    await expect(studio.getByPlaceholder(/youtube\.com\/watch/i)).toHaveValue("");
+    await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible();
   });
 });

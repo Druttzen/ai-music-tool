@@ -115,6 +115,11 @@ export function persistCharacterVoiceStudioSession(session) {
   return { ...result, session: normalized };
 }
 
+/** Clear active studio session (analysis, YouTube ref, compact lines) — saved character presets are kept. */
+export function clearCharacterVoiceStudioSessionOnReset() {
+  return persistCharacterVoiceStudioSession({});
+}
+
 /**
  * @param {unknown} raw
  */
