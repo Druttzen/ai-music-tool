@@ -11,6 +11,7 @@ import {
   formatTruePeak,
   STREAMING_TARGET_LUFS,
 } from "../lib/lufs-meter";
+import { clamp } from "../lib/music-helpers";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 
 function TagField({ label, hint, value, onChange, placeholder }) {
@@ -124,7 +125,10 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   const setTags = (key, text) => onChange({ [key]: splitTags(text) });
   const setBpmFromText = (text) => {
     const n = parseInt(String(text).replace(/\D/g, ""), 10);
-    if (!Number.isNaN(n)) onChange({ bpm: clampBpm(n), estimatedBpm: `${clampBpm(n)} BPM` });
+    if (!Number.isNaN(n)) {
+      const bpm = clamp(Math.round(n), 60, 200);
+      onChange({ bpm, estimatedBpm: `${bpm} BPM` });
+    }
   };
 
   return (
@@ -410,7 +414,3 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
     </div>
   );
 });
-
-function clampBpm(n) {
-  return Math.min(200, Math.max(60, Math.round(n)));
-}

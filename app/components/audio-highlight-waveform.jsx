@@ -7,11 +7,9 @@ import {
   sliceWaveformPeaksForRange,
 } from "../lib/audio-analyzer";
 
-const MIN_HIGHLIGHT_SEC = 2;
+import { clamp } from "../lib/music-helpers";
 
-function clamp(n, lo, hi) {
-  return Math.min(hi, Math.max(lo, n));
-}
+const MIN_HIGHLIGHT_SEC = 2;
 
 /**
  * @param {object} props
