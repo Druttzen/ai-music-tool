@@ -136,6 +136,7 @@ export function pickWorkspaceContextExtras(projectState, analyzers, pipeline, sn
     clearAudioAnalysis: analyzers.clearAudioAnalysis,
     clearImageAnalysis: analyzers.clearImageAnalysis,
     exportEnhancedAudio: analyzers.exportEnhancedAudio,
+    openInCanvasTool: analyzers.openInCanvasTool,
     generatedHooks: projectState.generatedHooks,
     generatedHooksStyle: projectState.generatedHooksStyle,
     generatedLyrics: projectState.generatedLyrics,

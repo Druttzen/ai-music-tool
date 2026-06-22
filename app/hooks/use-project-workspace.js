@@ -41,6 +41,8 @@ export function useProjectWorkspaceProvider() {
     setGuidedStep: projectState.setGuidedStep,
     applyAnalyzerPatch,
     setStatusWithTime,
+    idea: projectState.idea,
+    lyricTheme: projectState.lyricTheme,
   });
 
   const snapshotFields = useSnapshotFields(projectState.state, {

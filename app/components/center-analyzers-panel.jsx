@@ -98,6 +98,19 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 className="mx-auto mt-3 max-h-40 rounded-2xl object-contain"
               />
             )}
+            {ws.imagePreview ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  ws.openInCanvasTool();
+                }}
+                className="mt-3 w-full rounded-2xl border border-emerald-400/45 bg-emerald-500/20 py-2.5 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30"
+              >
+                Open in Canvas Tool → Spotify loop
+              </button>
+            ) : null}
             {ws.imageAnalysis ? (
               <div className="mt-3 text-left">
                 <p className="mb-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">

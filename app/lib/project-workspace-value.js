@@ -56,6 +56,7 @@ export function buildProjectWorkspaceValue(s) {
     idea: s.idea,
     imageAnalysis: s.imageAnalysis,
     imagePreview: s.imagePreview,
+    openInCanvasTool: s.openInCanvasTool,
     importProject: s.importProject,
     instrumentalVocalFx: s.instrumentalVocalFx,
     intensityText: s.intensityText,

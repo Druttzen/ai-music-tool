@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
   checkForUpdates: () => ipcRenderer.invoke("app-check-for-updates"),
   quitAndInstall: () => ipcRenderer.invoke("app-quit-and-install"),
+  openInCanvasTool: (payload) => ipcRenderer.invoke("suite:open-canvas", payload),
   onUpdateStatus: (callback) => {
     if (typeof callback !== "function") return () => {};
     const handler = (_event, payload) => callback(payload);

@@ -34,12 +34,19 @@ import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { exportEnhancedInWorker } from "../lib/studio-export-client";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
+import {
+  deriveCanvasMotionHint,
+  deriveCanvasTrackMeta,
+  openImageInCanvasTool,
+} from "../lib/suite-canvas-client";
 
 export function useAnalyzers({
   promptEngine,
   setGuidedStep,
   applyAnalyzerPatch,
   setStatusWithTime,
+  idea = "",
+  lyricTheme = "",
 }) {
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
@@ -52,6 +59,7 @@ export function useAnalyzers({
   const [imagePreview, setImagePreview] = useState(null);
   const canvasRef = useRef(null);
   const imagePreviewUrlRef = useRef(null);
+  const imageFileNameRef = useRef(null);
   const audioPreviewUrlRef = useRef(null);
   const rehydrateGenRef = useRef(0);
   const audioCacheKeyRef = useRef(null);
@@ -121,6 +129,7 @@ export function useAnalyzers({
   const clearImageAnalysis = useCallback(() => {
     setImageAnalysis(null);
     setImagePreview(null);
+    imageFileNameRef.current = null;
     if (imagePreviewUrlRef.current) {
       URL.revokeObjectURL(imagePreviewUrlRef.current);
       imagePreviewUrlRef.current = null;
@@ -389,6 +398,7 @@ export function useAnalyzers({
         const url = URL.createObjectURL(file);
         if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
         imagePreviewUrlRef.current = url;
+        imageFileNameRef.current = file.name;
         setImagePreview(url);
         const img = new Image();
         img.onload = () => {
@@ -411,6 +421,52 @@ export function useAnalyzers({
     },
     [applyAnalyzerPatch, setStatusWithTime],
   );
+
+  const openInCanvasTool = useCallback(async () => {
+    if (!imagePreview) {
+      setStatusWithTime("Drop an image first to open in Canvas Tool");
+      return;
+    }
+    if (!window.electronAPI?.openInCanvasTool) {
+      setStatusWithTime("Install AI Canvas Tool desktop app for Spotify Canvas export");
+      return;
+    }
+    try {
+      setStatusWithTime("Opening AI Canvas Tool…");
+      const { title, artist } = deriveCanvasTrackMeta({
+        idea,
+        lyricTheme,
+        audioAnalysis,
+        imageFileName: imageFileNameRef.current,
+      });
+      const motionHint = deriveCanvasMotionHint(imageAnalysis);
+      const ext = (imageFileNameRef.current || "").split(".").pop() || "png";
+      const result = await openImageInCanvasTool({
+        imagePreviewUrl: imagePreview,
+        title,
+        artist,
+        motionHint,
+        ext,
+      });
+      if (result?.ok) {
+        setStatusWithTime("AI Canvas Tool opened — artwork imported");
+      } else {
+        setStatusWithTime(result?.error || "Could not open Canvas Tool", "error");
+      }
+    } catch (err) {
+      setStatusWithTime(
+        err instanceof Error ? err.message : "Could not open Canvas Tool",
+        "error",
+      );
+    }
+  }, [
+    audioAnalysis,
+    idea,
+    imageAnalysis,
+    imagePreview,
+    lyricTheme,
+    setStatusWithTime,
+  ]);
 
   const exportEnhancedAudio = useCallback(
     async (presetId, opts = {}) => {
@@ -516,6 +572,7 @@ export function useAnalyzers({
     audioPreviewUrl,
     canvasRef,
     exportEnhancedAudio,
+    openInCanvasTool,
     clearAudioAnalysis,
     clearImageAnalysis,
     imageAnalysis,

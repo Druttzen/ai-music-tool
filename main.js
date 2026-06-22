@@ -2,6 +2,7 @@ const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const pkg = require("./package.json");
+const suiteBridge = require("./lib/suite-bridge.cjs");
 
 let mainWindow = null;
 
@@ -85,6 +86,45 @@ function setupAutoUpdater() {
   }
 }
 
+function setupSuiteCanvasBridge() {
+  ipcMain.handle("suite:open-canvas", async (_event, payload) => {
+    try {
+      const {
+        title = "Untitled Track",
+        artist = "Unknown Artist",
+        buffer,
+        ext = "png",
+        motionHint = "cinematic drift, 8 seconds",
+        durationSec = 8,
+      } = payload || {};
+
+      if (!buffer || !(buffer instanceof ArrayBuffer)) {
+        return { ok: false, error: "Missing image data" };
+      }
+
+      suiteBridge.ensureSuiteDirs();
+      const safeExt = String(ext).replace(/[^a-z0-9]/gi, "") || "png";
+      const artPath = path.join(
+        suiteBridge.EXPORTS_DIR,
+        `artwork-handoff-${Date.now()}.${safeExt}`,
+      );
+      fs.writeFileSync(artPath, Buffer.from(buffer));
+
+      const exe = suiteBridge.openInCanvasFromMusic({
+        title,
+        artist,
+        albumArtPath: artPath,
+        motionHint,
+        durationSec,
+      });
+
+      return { ok: true, exe, artPath };
+    } catch (err) {
+      return { ok: false, error: err?.message || "Failed to open Canvas Tool" };
+    }
+  });
+}
+
 function openReadmeOnce() {
   const flagPath = path.join(app.getPath("userData"), "readme-opened.flag");
   if (fs.existsSync(flagPath)) return;
@@ -108,6 +148,7 @@ function openReadmeOnce() {
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
+  setupSuiteCanvasBridge();
 });
 
 app.on("window-all-closed", () => {
