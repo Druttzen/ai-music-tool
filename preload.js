@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("app-update-status", handler);
     return () => ipcRenderer.removeListener("app-update-status", handler);
   },
+  exportVideoHandoff: (payload) => ipcRenderer.invoke("handoff:export-video", payload),
 });

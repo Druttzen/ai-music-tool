@@ -20,7 +20,7 @@ describe("project-bundle", () => {
     );
 
     expect(bundle.bundleFormat).toBe(PROJECT_BUNDLE_FORMAT);
-    expect(bundle.bundleVersion).toBe(1);
+    expect(bundle.bundleVersion).toBe(2);
     expect(bundle.appVersion).toBe("0.9.10");
     expect(bundle.project.idea).toBe("test idea");
     expect(bundle.customPresets["My Techno"].genres).toEqual(["Techno"]);

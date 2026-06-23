@@ -11,6 +11,7 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
     customPresets,
     deleteCustomPreset,
     exportProject,
+    exportVideoHandoff,
     importProject,
     intensityText,
     loadPresetObject,
@@ -95,6 +96,13 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
           </button>
           <button onClick={exportProject} className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200">
             Export Bundle
+          </button>
+          <button
+            onClick={() => exportVideoHandoff()}
+            className="rounded-2xl bg-violet-300 px-4 py-2 font-bold text-black hover:bg-violet-200"
+            title="Bundle v2 handoff for AI Video Creator — Path E when audio + image are analyzed"
+          >
+            Send to Video Creator
           </button>
           <label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">
             Import Bundle

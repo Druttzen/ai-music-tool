@@ -41,6 +41,7 @@ export function buildProjectWorkspaceValue(s) {
     deleteCustomPreset: s.deleteCustomPreset,
     exportEnhancedAudio: s.exportEnhancedAudio,
     exportProject: s.exportProject,
+    exportVideoHandoff: s.exportVideoHandoff,
     fixSunoWarnings: s.fixSunoWarnings,
     generateExampleLyrics: s.generateExampleLyrics,
     generateHooks: s.generateHooks,

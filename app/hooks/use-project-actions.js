@@ -59,6 +59,15 @@ import {
   mergeCustomPresetsMaps,
   parseProjectBundleImport,
 } from "../lib/project-bundle";
+import {
+  buildVideoCreatorDirectorSettings,
+  buildVideoCreatorHandoffBlock,
+  downloadBlobFile,
+  downloadTextFile,
+  resolveHandoffIntent,
+  slugifyHandoffBaseName,
+} from "../lib/video-creator-handoff";
+import { isElectronApp } from "../lib/electron-bridge";
 import { extractLyricsBodyFromPaste } from "../lib/suno-reimport";
 import { collectGenreAnchors } from "../lib/suno-language-index";
 import { buildStyleDnaPatch } from "../lib/track-style-dna";
@@ -282,6 +291,86 @@ export function useProjectActions({
     URL.revokeObjectURL(url);
     setStatusWithTime("Exported project bundle (project + style presets + voice profile)");
   }, [currentState, customPresets, setStatusWithTime]);
+
+  const exportVideoHandoff = useCallback(async () => {
+    const base = slugifyHandoffBaseName(currentState.idea);
+    const bundleFileName = `${base}.aivbundle.json`;
+    let audioSidecarName = null;
+    let audioBlob = null;
+
+    if (audioAnalysis) {
+      const resolved = await resolveAudioCacheBlob(audioAnalysis);
+      audioBlob = resolved?.blob || null;
+      if (audioBlob) {
+        const rawName = String(audioAnalysis.fileName || "track.wav");
+        const ext = rawName.includes(".") ? rawName.split(".").pop() : "wav";
+        audioSidecarName = `${base}.${ext}`;
+      }
+    }
+
+    const handoff = buildVideoCreatorHandoffBlock({
+      appVersion: APP_VERSION,
+      audioAnalysis,
+      imageAnalysis,
+      sunoPasteStyle,
+      sunoPasteLyrics,
+      audioSidecarName,
+      intent: resolveHandoffIntent({ audioAnalysis, imageAnalysis }),
+    });
+    const directorSettings = buildVideoCreatorDirectorSettings({ audioAnalysis, imageAnalysis });
+    const payload = buildProjectBundleExport(currentState, customPresets, APP_VERSION, {
+      handoff,
+      directorSettings,
+      bundleVersion: 2,
+    });
+    const json = JSON.stringify(payload, null, 2);
+
+    if (isElectronApp() && window.electronAPI?.exportVideoHandoff) {
+      const arrayBuffer = audioBlob ? await audioBlob.arrayBuffer() : null;
+      const res = await window.electronAPI.exportVideoHandoff({
+        bundleJson: json,
+        bundleFileName,
+        audioBuffer: arrayBuffer,
+        audioFileName: audioSidecarName,
+      });
+      if (res?.canceled) {
+        setStatusWithTime("Send to Video Creator canceled");
+        return;
+      }
+      if (res?.ok) {
+        setStatusWithTime(
+          res.launched
+            ? `Opened AI Video Creator — ${String(res.path || bundleFileName).split(/[/\\]/).pop()}`
+            : `Saved handoff — open in Video Creator: ${res.path || bundleFileName}`,
+        );
+        return;
+      }
+      setStatusWithTime(res?.error || "Video handoff failed", "error");
+      return;
+    }
+
+    downloadTextFile(json, bundleFileName);
+    if (audioBlob && audioSidecarName) {
+      setTimeout(() => downloadBlobFile(audioBlob, audioSidecarName), 400);
+    }
+    const note =
+      handoff.intent === "music-video-path-e"
+        ? "Path E beat-sync"
+        : handoff.intent === "music-video-track"
+          ? "track analysis"
+          : "project fields";
+    setStatusWithTime(
+      `Exported for Video Creator (${note}) — import ${bundleFileName}${audioSidecarName ? ` + ${audioSidecarName}` : ""} in AI Video Creator`,
+    );
+  }, [
+    audioAnalysis,
+    currentState,
+    customPresets,
+    imageAnalysis,
+    setStatusWithTime,
+    sunoPasteLyrics,
+    sunoPasteStyle,
+  ]);
 
   const importProject = useCallback(
     (event) => {
@@ -965,6 +1054,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     deactivateSunoPasteForCopy,
     deleteCustomPreset,
     exportProject,
+    exportVideoHandoff,
     fixSunoWarnings,
     generateExampleLyrics,
     generateHooks,

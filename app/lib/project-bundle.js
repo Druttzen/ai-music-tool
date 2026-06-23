@@ -14,7 +14,7 @@ import {
 } from "./voice-character-studio-session";
 
 export const PROJECT_BUNDLE_FORMAT = "ai-music-creator-bundle";
-export const PROJECT_BUNDLE_VERSION = 1;
+export const PROJECT_BUNDLE_VERSION = 2;
 
 /**
  * @param {unknown} presets
@@ -35,14 +35,15 @@ export function normalizeCustomPresetsMap(presets) {
  * @param {Record<string, unknown>} project
  * @param {Record<string, object>} [customPresets]
  * @param {string} appVersion
+ * @param {{ handoff?: object, directorSettings?: object, bundleVersion?: number }} [opts]
  */
-export function buildProjectBundleExport(project, customPresets = {}, appVersion = "") {
+export function buildProjectBundleExport(project, customPresets = {}, appVersion = "", opts = {}) {
   const withVoice = attachCharacterVoiceFieldsToProjectExport(project);
   const { characterVoicePresets, characterVoiceStudioSession, ...projectCore } = withVoice;
 
   const bundle = {
     bundleFormat: PROJECT_BUNDLE_FORMAT,
-    bundleVersion: PROJECT_BUNDLE_VERSION,
+    bundleVersion: opts.bundleVersion ?? PROJECT_BUNDLE_VERSION,
     exportedAt: new Date().toISOString(),
     appVersion: appVersion || String(project.appVersion || ""),
     project: projectCore,
@@ -56,6 +57,13 @@ export function buildProjectBundleExport(project, customPresets = {}, appVersion
   }
   if (characterVoiceStudioSession) {
     bundle.characterVoiceStudioSession = characterVoiceStudioSession;
+  }
+
+  if (opts.handoff && typeof opts.handoff === "object") {
+    bundle.handoff = opts.handoff;
+  }
+  if (opts.directorSettings && typeof opts.directorSettings === "object") {
+    bundle.directorSettings = opts.directorSettings;
   }
 
   return bundle;
