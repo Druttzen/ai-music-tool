@@ -17,7 +17,7 @@ foreach ($v in @("3.12", "3.11", "3.10")) {
 }
 
 if (-not $py) {
-  Write-Error "Need Python 3.10–3.12. Run: npm run bootstrap"
+  Write-Error "Need Python 3.10-3.12. Run: npm run bootstrap"
   exit 1
 }
 
