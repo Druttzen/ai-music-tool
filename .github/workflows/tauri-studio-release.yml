@@ -137,7 +137,7 @@ jobs:
           name: AI Music Creator Studio ${{ github.ref_name }}
           generate_release_notes: true
           draft: false
-          overwrite: true
+          overwrite_files: true
           files: release-installers/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
