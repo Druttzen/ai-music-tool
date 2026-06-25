@@ -1,0 +1,44 @@
+[package]
+name = "dsp-core"
+version = "0.1.0"
+edition = "2021"
+description = "Cross-platform audio DSP core for AI Music Creator (loudness, mastering, analysis). Replaces the JS EBU R128 port."
+license = "MIT"
+
+# Standalone library + CLI so the DSP layer can be built and tested before it is
+# wired into the Tauri shell (Phase B2).
+[lib]
+name = "dsp_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "dsp-core"
+path = "src/main.rs"
+
+[dependencies]
+# Same libebur128 origin as the current JS port in app/lib/lufs-meter.js, but
+# maintained and native-speed.
+ebur128 = "0.1"
+hound = "3.5"            # WAV encode + fast WAV decode for the CLI
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+
+# Decode the real uploaded formats (MP3/M4A/OGG/FLAC/WAV) so the native meter
+# can replace the in-browser Web Audio decode path.
+symphonia = { version = "0.5", features = [
+  "mp3",
+  "aac",
+  "isomp4",
+  "ogg",
+  "vorbis",
+  "flac",
+  "wav",
+  "pcm",
+] }
+
+# Reserved for upcoming phases (kept out of [dependencies] until used so the
+# build stays warning-free):
+#   rubato    = "0.15"  # high-quality resampling
+#   rustfft   = "6"     # spectral features (centroid, chroma) for real analysis
+#   fundsp / dasp       # mastering DSP graph (replaces audio-enhancer.js)
