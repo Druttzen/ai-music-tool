@@ -1,9 +1,11 @@
 import { test, expect, request } from "@playwright/test";
-import { analyzerPanel, dismissSplash } from "./helpers.js";
+import { analyzerPanel, dismissSplash, uploadAnalyzerAudioFixture } from "./helpers.js";
 
 const ANALYZER_FIXTURE = "tests/fixtures/e2e-analyzer-tone.wav";
+const FIXTURE_NAME = "e2e-analyzer-tone.wav";
 
 test.describe("Sidecar UI smoke", () => {
+  test.describe.configure({ mode: "serial" });
   test.beforeAll(async () => {
     const ctx = await request.newContext();
     let ok = false;
@@ -28,11 +30,8 @@ test.describe("Sidecar UI smoke", () => {
 
     await expect(panel.getByText("librosa ready")).toBeVisible({ timeout: 20_000 });
 
-    await panel.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(ANALYZER_FIXTURE);
+    await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, FIXTURE_NAME);
 
-    await expect(panel.getByText("e2e-analyzer-tone.wav", { exact: true })).toBeVisible({
-      timeout: 30_000,
-    });
     await expect(panel.getByText(/local librosa analysis \(Python sidecar\)/i)).toBeVisible({
       timeout: 30_000,
     });
@@ -46,11 +45,7 @@ test.describe("Sidecar UI smoke", () => {
 
     await expect(panel.getByText("librosa ready")).toBeVisible({ timeout: 20_000 });
 
-    await panel.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(ANALYZER_FIXTURE);
-
-    await expect(panel.getByText("e2e-analyzer-tone.wav", { exact: true })).toBeVisible({
-      timeout: 30_000,
-    });
+    await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, FIXTURE_NAME);
 
     await panel.getByRole("button", { name: "Separate stems (Demucs)" }).click();
 

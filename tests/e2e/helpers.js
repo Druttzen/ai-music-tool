@@ -37,6 +37,15 @@ export function analyzerPanel(page) {
     .filter({ has: page.getByRole("heading", { name: "Drag & Drop Analyzers" }) });
 }
 
+/** Upload audio fixture and wait for track report UI (sidecar analyze can be slow on CI). */
+export async function uploadAnalyzerAudioFixture(panel, fixturePath, fileName, timeout = 60_000) {
+  await panel.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(fixturePath);
+  await expect(panel.getByText(fileName, { exact: true })).toBeVisible({ timeout });
+  await expect(panel.getByRole("button", { name: "Merge into Suno fields →" })).toBeVisible({
+    timeout: 10_000,
+  });
+}
+
 export function coProducerPanel(page) {
   return page.locator("section").filter({ hasText: "Co‑Producer AI" });
 }

@@ -4,6 +4,7 @@ import {
   dismissSplash,
   expectSunoFieldCopies,
   selectSunoEngine,
+  uploadAnalyzerAudioFixture,
 } from "./helpers.js";
 
 const ANALYZER_FIXTURE = "tests/fixtures/e2e-analyzer-tone.wav";
@@ -16,12 +17,7 @@ test.describe("Audio analyzer e2e", () => {
     const panel = analyzerPanel(page);
     await panel.scrollIntoViewIfNeeded();
 
-    await panel.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(ANALYZER_FIXTURE);
-
-    await expect(panel.getByText("e2e-analyzer-tone.wav", { exact: true })).toBeVisible({
-      timeout: 30000,
-    });
-    await expect(panel.getByRole("button", { name: "Merge into Suno fields →" })).toBeVisible();
+    await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, "e2e-analyzer-tone.wav");
 
     await panel.getByRole("button", { name: "Merge into Suno fields →" }).click();
 
