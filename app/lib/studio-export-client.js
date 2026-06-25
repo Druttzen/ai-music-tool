@@ -5,6 +5,7 @@
 
 import { serializeAudioBuffer } from "./audio-buffer-serialize";
 import { downloadFormatBlob, normalizeStudioExportFormat } from "./audio-export-formats";
+import { isTauriApp, exportMasteredNative } from "./dsp-bridge";
 
 let workerInstance = null;
 let exportInFlight = false;
@@ -58,6 +59,84 @@ export function buildExportFileName(baseFileName, format) {
   if (normalized === "mp3") return `${base}.mp3`;
   if (normalized === "wav24") return `${base}-24bit.wav`;
   return `${base}.wav`;
+}
+
+/**
+ * Studio export from a file/blob. Uses native Rust mastering in Tauri (WAV/WAV24);
+ * falls back to Web Worker / main-thread JS for browser and Electron.
+ *
+ * @param {Blob} blob
+ * @param {string} presetId
+ * @param {string} baseFileName
+ * @param {{ format?: string, onProgress?: (p: { phase: string, pct: number }) => void, startSec?: number, endSec?: number }} [opts]
+ */
+export async function exportEnhancedFromBlob(blob, presetId, baseFileName, opts = {}) {
+  const format = normalizeStudioExportFormat(opts.format);
+
+  if (isTauriApp() && format !== "mp3") {
+    try {
+      return await exportMasteredNativePath(blob, presetId, baseFileName, format, opts);
+    } catch {
+      // Fall through to JS worker path.
+    }
+  }
+
+  const arrayBuffer = await blob.arrayBuffer();
+  const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let sourceBuffer;
+  try {
+    sourceBuffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
+  } finally {
+    try {
+      await decodeCtx.close();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (opts.startSec != null && opts.endSec != null) {
+    const { sliceAudioBuffer } = await import("./audio-buffer-serialize");
+    sourceBuffer = sliceAudioBuffer(
+      sourceBuffer,
+      opts.startSec,
+      Math.max(opts.startSec + 0.5, opts.endSec),
+    );
+  }
+
+  return exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opts);
+}
+
+async function exportMasteredNativePath(blob, presetId, baseFileName, format, opts) {
+  if (exportInFlight) {
+    throw new Error("Another studio export is already running");
+  }
+  exportInFlight = true;
+  try {
+    opts.onProgress?.({ phase: "mastering", pct: 15 });
+    const bytes = await blob.arrayBuffer();
+    const result = await exportMasteredNative(
+      bytes,
+      presetId,
+      format,
+      opts.startSec,
+      opts.endSec,
+    );
+    opts.onProgress?.({ phase: "encoding", pct: 90 });
+    const wavBytes = new Uint8Array(result.wav_bytes);
+    const outBlob = new Blob([wavBytes], { type: "audio/wav" });
+    const fileName = buildExportFileName(baseFileName, format);
+    downloadFormatBlob(outBlob, fileName);
+    opts.onProgress?.({ phase: "done", pct: 100 });
+    return {
+      format,
+      formatFallback: false,
+      afterLufs: result.integrated_lufs ?? undefined,
+      targetLufs: result.target_lufs ?? undefined,
+      engine: "native",
+    };
+  } finally {
+    exportInFlight = false;
+  }
 }
 
 /**

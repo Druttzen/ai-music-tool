@@ -1,0 +1,44 @@
+name: Tauri Studio Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "studio-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build:sidecar
+      - run: npm run tauri:build
+        env:
+          CI: true
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-music-studio-windows
+          path: src-tauri/target/release/bundle/**/*

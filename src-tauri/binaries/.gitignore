@@ -1,0 +1,4 @@
+# PyInstaller outputs are built locally / in CI — never commit platform binaries.
+*
+!.gitignore
+!README.md

@@ -55,3 +55,35 @@ export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness
   }
   return t.core.invoke<Loudness>("measure_loudness_bytes", { bytes });
 }
+
+export interface ExportMasteredResult {
+  wav_bytes: number[];
+  integrated_lufs: number | null;
+  true_peak_dbtp: number;
+  target_lufs: number | null;
+  preset: string;
+  bits_per_sample: number;
+}
+
+/**
+ * Decode, master, and encode to WAV via the native Rust DSP core.
+ */
+export async function exportMasteredNative(
+  bytes: ArrayBuffer,
+  presetId: string,
+  format: "wav" | "wav24",
+  startSec?: number,
+  endSec?: number,
+): Promise<ExportMasteredResult> {
+  const t = tauri();
+  if (!t) {
+    throw new Error("Native export is only available in the Tauri desktop build");
+  }
+  return t.core.invoke<ExportMasteredResult>("export_mastered", {
+    bytes: Array.from(new Uint8Array(bytes)),
+    presetId,
+    format,
+    startSec: startSec ?? null,
+    endSec: endSec ?? null,
+  });
+}

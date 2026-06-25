@@ -7,7 +7,7 @@
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build && npm run build:sidecar"
   },
   "app": {
     "withGlobalTauri": true,
@@ -27,6 +27,12 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["../icon.ico"]
+    "icon": ["../icon.ico"],
+    "externalBin": ["binaries/ai-sidecar"]
+  },
+  "plugins": {
+    "shell": {
+      "open": false
+    }
   }
 }
