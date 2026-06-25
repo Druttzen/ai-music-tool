@@ -1,13 +1,16 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.9.12**
+**Version 0.9.13**
 
-A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and an optional **Electron** Windows installer.
+A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
 
-## Highlights (v0.9.12)
+## Highlights (v0.9.13)
 
-- **CI e2e green again** — Updated Playwright helpers and specs for paste-ready copy buttons, reset blank slate, and Voice Character Studio UI labels.
-- **Version sync** — `package-lock.json`, `APP_VERSION` fallback, and MusicBrainz User-Agent aligned with `0.9.12`.
+- **Tauri studio release** — GitHub Actions builds Windows/macOS/Linux installers; tag `studio-v*` to publish ([studio-v0.9.13](https://github.com/Druttzen/ai-music-tool/releases/tag/studio-v0.9.13)).
+- **Demucs stem separation** — Track analyzer can call the sidecar `/separate` endpoint and download stem WAVs when the `stems` extra is installed.
+- **Native MP3 export (Tauri)** — `dsp-core` encodes MP3 via LAME; Tauri studio export accepts `"mp3"` alongside WAV.
+- **Video Creator handoff (Tauri)** — Parity with Electron for opening exported audio in the video workflow.
+- **Version sync** — `npm run sync:version` aligns Tauri, dsp-core, sidecar, `package-lock.json`, `APP_VERSION` fallback, and MusicBrainz User-Agent from `package.json`.
 
 ## Highlights (v0.9.11)
 
@@ -241,6 +244,22 @@ npm run check
 
 Static export output is written to `out/` (see `next.config.js` — `assetPrefix: "./"` for Electron-friendly relative assets).
 
+## Desktop (Tauri)
+
+Requires **Rust** (`cargo`), **Tauri CLI**, and a Python **3.11–3.12** venv for the sidecar (see `ai-sidecar/README.md`). On first run, `ensure-sidecar-binary.ps1` builds or copies the sidecar binary.
+
+```bash
+npm run tauri:dev
+```
+
+Development with sidecar + Tauri webview (same Next dev server as Electron path).
+
+```bash
+npm run tauri:build
+```
+
+Production installers under `src-tauri/target/release/bundle/`. CI publishes tagged releases as **`studio-v*`** (separate from Electron **`v*`** tags).
+
 ## Desktop (Electron)
 
 ```bash
@@ -274,7 +293,7 @@ If `electron-dist/win-unpacked` is locked, `prepare:electron-dist` automatically
 
 ## Version source of truth
 
-The UI reads **`APP_VERSION`** from `package.json` via `NEXT_PUBLIC_APP_VERSION` in `next.config.js`. Bump **`package.json`** `version` for releases; the fallback in `app/lib/music-config.js` should match for dev without env.
+The UI reads **`APP_VERSION`** from `package.json` via `NEXT_PUBLIC_APP_VERSION` in `next.config.js`. Bump **`package.json`** `version` for releases, then run **`npm run sync:version`** so Tauri, dsp-core, sidecar, lockfile, and JS fallbacks stay aligned.
 
 ## Author
 

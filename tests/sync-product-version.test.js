@@ -25,5 +25,15 @@ describe("sync-product-version", () => {
 
     const pyproject = fs.readFileSync(path.join(root, "ai-sidecar", "pyproject.toml"), "utf8");
     expect(pyproject).toMatch(new RegExp(`^version = "${version.replace(/\./g, "\\.")}"`, "m"));
+
+    const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
+    expect(lock.version).toBe(version);
+    expect(lock.packages[""].version).toBe(version);
+
+    const musicConfig = fs.readFileSync(path.join(root, "app", "lib", "music-config.js"), "utf8");
+    expect(musicConfig).toContain(`: "${version}";`);
+
+    const mb = fs.readFileSync(path.join(root, "app", "lib", "musicbrainz-style-dna.js"), "utf8");
+    expect(mb).toContain(`AI-Music-Creator/${version}`);
   });
 });
