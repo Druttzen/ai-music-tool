@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import io
 import os
+import secrets
 import tempfile
+import time
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from .idle import (
@@ -37,6 +40,30 @@ _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 # Loaded Demucs models are cached per name to avoid reloading on every request.
 _MODEL_CACHE: dict[str, Any] = {}
+
+# Stem download jobs: token -> { paths: dict[str,str], created: float }
+_STEM_JOBS: dict[str, dict[str, Any]] = {}
+_STEM_JOB_TTL_SEC = 3600.0
+
+
+def _prune_stem_jobs() -> None:
+    now = time.time()
+    expired = [t for t, job in _STEM_JOBS.items() if now - job["created"] > _STEM_JOB_TTL_SEC]
+    for token in expired:
+        job = _STEM_JOBS.pop(token, None)
+        if not job:
+            continue
+        out_dir = job.get("out_dir")
+        if out_dir and os.path.isdir(out_dir):
+            for name in os.listdir(out_dir):
+                try:
+                    os.unlink(os.path.join(out_dir, name))
+                except OSError:
+                    pass
+            try:
+                os.rmdir(out_dir)
+            except OSError:
+                pass
 
 
 @asynccontextmanager
@@ -170,13 +197,37 @@ def _load_demucs(model_name: str):
     return _MODEL_CACHE[model_name], torch
 
 
-@app.post("/separate")
-async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
-    """Stem separation via Demucs.
+class StemFile(BaseModel):
+    name: str
+    download_url: str
+    filename: str
 
-    Returns local file paths for each separated stem (the sidecar is a local
-    process, so paths are the cheapest hand-off; the UI reads them directly).
-    """
+
+class SeparateResult(BaseModel):
+    device: str
+    model: str
+    sources: list[str]
+    job_id: str
+    stems: list[StemFile]
+
+
+@app.get("/separate/download/{job_id}/{filename}")
+def separate_download(job_id: str, filename: str):
+    """Download one separated stem WAV by job token."""
+    _prune_stem_jobs()
+    job = _STEM_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="stem job not found or expired")
+    safe = os.path.basename(filename)
+    path = job["paths"].get(safe)
+    if not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="stem file not found")
+    return FileResponse(path, media_type="audio/wav", filename=safe)
+
+
+@app.post("/separate", response_model=SeparateResult)
+async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
+    """Stem separation via Demucs — returns HTTP download URLs for each stem."""
     try:
         from demucs.apply import apply_model  # noqa: PLC0415
         from demucs.audio import AudioFile, save_audio  # noqa: PLC0415
@@ -216,13 +267,28 @@ async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
             save_audio(source, path, samplerate=model.samplerate)
             stems[name] = path
 
-        return {
-            "device": device,
-            "model": model_name,
-            "sources": list(model.sources),
-            "stems": stems,
+        _prune_stem_jobs()
+        job_id = secrets.token_urlsafe(12)
+        _STEM_JOBS[job_id] = {
+            "paths": {f"{name}.wav": p for name, p in stems.items()},
             "out_dir": out_dir,
+            "created": time.time(),
         }
+        stem_files = [
+            StemFile(
+                name=name,
+                filename=f"{name}.wav",
+                download_url=f"/separate/download/{job_id}/{name}.wav",
+            )
+            for name in model.sources
+        ]
+        return SeparateResult(
+            device=device,
+            model=model_name,
+            sources=list(model.sources),
+            job_id=job_id,
+            stems=stem_files,
+        )
     except HTTPException:
         raise
     except Exception as exc:

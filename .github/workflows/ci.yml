@@ -49,6 +49,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install libmp3lame (native MP3 export)
+        run: sudo apt-get update && sudo apt-get install -y libmp3lame-dev
       - run: cd dsp-core && cargo test --locked
 
   sidecar-python:

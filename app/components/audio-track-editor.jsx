@@ -45,7 +45,7 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, onSeparateStems?: () => void, onDownloadStem?: (stem: object) => void, stemSeparationBusy?: boolean, stemSeparationStems?: object[], exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
 export const AudioTrackEditor = memo(function AudioTrackEditor({
   analysis,
@@ -59,6 +59,10 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   onAddLyricsForTrack,
   onAnalyzeVocalCharacter,
   onExportEnhanced,
+  onSeparateStems,
+  onDownloadStem,
+  stemSeparationBusy = false,
+  stemSeparationStems = [],
   exportBusy = false,
   exportProgress = null,
 }) {
@@ -380,6 +384,47 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               Export highlight loop (amber range)
             </button>
           </div>
+        </section>
+      ) : null}
+
+      {onSeparateStems ? (
+        <section className="rounded-2xl border border-fuchsia-400/25 bg-fuchsia-500/10 p-3 space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-100/90">
+            Demucs stem separation
+          </div>
+          <p className="text-[10px] leading-relaxed text-white/45">
+            Requires the Python sidecar with the <code className="text-white/60">stems</code> extra installed
+            (torch + demucs). Returns vocals, drums, bass, and other stems as WAV downloads.
+          </p>
+          <button
+            type="button"
+            disabled={stemSeparationBusy || exportBusy}
+            onClick={(e) => {
+              e.preventDefault();
+              onSeparateStems();
+            }}
+            className="w-full rounded-xl border border-fuchsia-400/35 bg-fuchsia-500/20 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/30 disabled:opacity-50"
+          >
+            {stemSeparationBusy ? "Separating stems…" : "Separate stems (Demucs)"}
+          </button>
+          {stemSeparationStems?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {stemSeparationStems.map((stem) => (
+                <button
+                  key={stem.name}
+                  type="button"
+                  disabled={stemSeparationBusy}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onDownloadStem?.(stem);
+                  }}
+                  className="rounded-lg border border-white/15 bg-black/30 px-2.5 py-1 text-[10px] font-semibold text-white/75 hover:text-white"
+                >
+                  ↓ {stem.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

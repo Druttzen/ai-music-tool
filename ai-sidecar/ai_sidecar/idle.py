@@ -60,4 +60,6 @@ def start_idle_watchdog() -> None:
 
 
 def is_activity_path(path: str) -> bool:
-    return path in _ACTIVITY_PATHS
+    if path in _ACTIVITY_PATHS:
+        return True
+    return path.startswith("/separate/download/")

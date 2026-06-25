@@ -253,6 +253,67 @@ fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32
     Ok(())
 }
 
+fn encode_mp3(samples: &[f32], channels: u32, sample_rate: u32) -> Result<Vec<u8>> {
+    use mp3lame_encoder::{Bitrate, Builder, DualPcm, FlushNoGap, Quality};
+
+    if channels != 2 {
+        return Err(anyhow!("mp3 export requires stereo"));
+    }
+
+    let mut builder = Builder::new().ok_or_else(|| anyhow!("lame init failed"))?;
+    builder
+        .set_num_channels(2)
+        .map_err(|e| anyhow!("lame channels: {e}"))?;
+    builder
+        .set_sample_rate(sample_rate)
+        .map_err(|e| anyhow!("lame sample rate: {e}"))?;
+    builder
+        .set_brate(Bitrate::Kbps320)
+        .map_err(|e| anyhow!("lame bitrate: {e}"))?;
+    builder
+        .set_quality(Quality::Best)
+        .map_err(|e| anyhow!("lame quality: {e}"))?;
+    let mut encoder = builder
+        .build()
+        .map_err(|e| anyhow!("lame build: {e}"))?;
+
+    let frames = samples.len() / 2;
+    let mut left = Vec::with_capacity(frames);
+    let mut right = Vec::with_capacity(frames);
+    for f in 0..frames {
+        left.push((samples[f * 2].clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
+        right.push((samples[f * 2 + 1].clamp(-1.0, 1.0) * i16::MAX as f32) as i16);
+    }
+
+    let mut out = Vec::new();
+    let chunk_size = 1152;
+    let mut offset = 0;
+    while offset < frames {
+        let chunk = (frames - offset).min(chunk_size);
+        out.reserve(mp3lame_encoder::max_required_buffer_size(chunk));
+        let input = DualPcm {
+            left: &left[offset..offset + chunk],
+            right: &right[offset..offset + chunk],
+        };
+        let encoded = encoder
+            .encode(input, out.spare_capacity_mut())
+            .map_err(|e| anyhow!("lame encode: {e}"))?;
+        unsafe {
+            out.set_len(out.len() + encoded);
+        }
+        offset += chunk;
+    }
+
+    out.reserve(mp3lame_encoder::max_required_buffer_size(0));
+    let flushed = encoder
+        .flush::<FlushNoGap>(out.spare_capacity_mut())
+        .map_err(|e| anyhow!("lame flush: {e}"))?;
+    unsafe {
+        out.set_len(out.len() + flushed);
+    }
+    Ok(out)
+}
+
 fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
     use std::io::Cursor;
     let spec = hound::WavSpec {
@@ -300,6 +361,7 @@ pub fn export_mastered_bytes(
     if !matches!(preset_id, "streaming" | "wide" | "punch") {
         return Err(anyhow!("unknown preset: {preset_id}"));
     }
+    let is_mp3 = format == "mp3";
     let bits: u16 = if format == "wav24" { 24 } else { 16 };
 
     let (samples, channels, sample_rate) = decode_interleaved(bytes)?;
@@ -335,7 +397,11 @@ pub fn export_mastered_bytes(
     }
 
     let loudness = measure_interleaved(&samples, channels, sample_rate)?;
-    let wav_bytes = encode_wav(&samples, channels, sample_rate, bits)?;
+    let wav_bytes = if is_mp3 {
+        encode_mp3(&samples, channels, sample_rate)?
+    } else {
+        encode_wav(&samples, channels, sample_rate, bits)?
+    };
 
     Ok(ExportMasteredResult {
         wav_bytes,
@@ -343,7 +409,7 @@ pub fn export_mastered_bytes(
         true_peak_dbtp: loudness.true_peak_dbtp,
         target_lufs,
         preset: preset_id.to_string(),
-        bits_per_sample: bits,
+        bits_per_sample: if is_mp3 { 0 } else { bits },
     })
 }
 
@@ -384,5 +450,13 @@ mod tests {
         let r = export_mastered_bytes(sine_wav_bytes(), "punch", "wav24", None, None).unwrap();
         assert!(r.wav_bytes.len() > 44);
         assert_eq!(r.bits_per_sample, 24);
+    }
+
+    #[test]
+    fn exports_mp3() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "streaming", "mp3", None, None).unwrap();
+        assert!(r.wav_bytes.len() > 128);
+        assert_eq!(r.bits_per_sample, 0);
+        assert!(r.wav_bytes.starts_with(b"ID3") || r.wav_bytes[0] == 0xff);
     }
 }

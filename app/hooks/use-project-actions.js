@@ -68,6 +68,8 @@ import {
   slugifyHandoffBaseName,
 } from "../lib/video-creator-handoff";
 import { isElectronApp } from "../lib/electron-bridge";
+import { isTauriApp } from "../lib/dsp-bridge";
+import { exportVideoHandoffNative } from "../lib/video-handoff-bridge";
 import { extractLyricsBodyFromPaste } from "../lib/suno-reimport";
 import { collectGenreAnchors } from "../lib/suno-language-index";
 import { buildStyleDnaPatch } from "../lib/track-style-dna";
@@ -347,6 +349,34 @@ export function useProjectActions({
       }
       setStatusWithTime(res?.error || "Video handoff failed", "error");
       return;
+    }
+
+    if (isTauriApp()) {
+      try {
+        const res = await exportVideoHandoffNative({
+          bundleJson: json,
+          bundleFileName,
+          audioBytes: audioBlob ? await audioBlob.arrayBuffer() : null,
+          audioFileName: audioSidecarName,
+        });
+        if (res.canceled) {
+          setStatusWithTime("Send to Video Creator canceled");
+          return;
+        }
+        if (res.ok) {
+          setStatusWithTime(
+            res.launched
+              ? `Opened AI Video Creator — ${String(res.path || bundleFileName).split(/[/\\]/).pop()}`
+              : `Saved handoff — open in Video Creator: ${res.path || bundleFileName}`,
+          );
+          return;
+        }
+        setStatusWithTime(res.error || "Video handoff failed", "error");
+        return;
+      } catch (err) {
+        setStatusWithTime(err instanceof Error ? err.message : "Video handoff failed", "error");
+        return;
+      }
     }
 
     downloadTextFile(json, bundleFileName);

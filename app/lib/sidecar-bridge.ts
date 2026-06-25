@@ -119,6 +119,65 @@ export async function isSidecarAvailable(): Promise<boolean> {
   }
 }
 
+export interface SidecarStemFile {
+  name: string;
+  download_url: string;
+  filename: string;
+}
+
+export interface SidecarSeparateResult {
+  device: string;
+  model: string;
+  sources: string[];
+  job_id: string;
+  stems: SidecarStemFile[];
+}
+
+/**
+ * POST audio to /separate and return Demucs stem download URLs.
+ */
+export async function separateStemsViaSidecar(
+  file: Blob,
+  fileName = "audio",
+  modelName = "htdemucs",
+): Promise<SidecarSeparateResult> {
+  const form = new FormData();
+  form.append("file", file, fileName);
+
+  const res = await fetch(`${sidecarBaseUrl()}/separate?model_name=${encodeURIComponent(modelName)}`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar separate failed (${res.status})`);
+  }
+
+  return res.json() as Promise<SidecarSeparateResult>;
+}
+
+/** Download one stem WAV from the sidecar by relative download_url. */
+export async function downloadSidecarStem(relativeUrl: string, saveAs: string): Promise<void> {
+  const url = `${sidecarBaseUrl()}${relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`stem download failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = saveAs;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 /**
  * POST audio file bytes to /analyze and return librosa tempo/key/centroid.
  */

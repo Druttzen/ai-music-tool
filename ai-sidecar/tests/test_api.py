@@ -58,6 +58,11 @@ def test_separate_without_stems_extra_returns_503():
     assert "stems" in res.json()["detail"].lower() or "unavailable" in res.json()["detail"].lower()
 
 
+def test_separate_download_missing_job_returns_404():
+    res = client.get("/separate/download/missing-token/vocals.wav")
+    assert res.status_code == 404
+
+
 def test_analyze_wav_returns_tempo_and_key():
     wav = _make_tone_wav()
     res = client.post(

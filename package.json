@@ -19,6 +19,8 @@
     "test:e2e": "playwright test",
     "test:smoke": "node scripts/run-sidecar-smoke.cjs",
     "sync:suno-catalog": "node scripts/sync-suno-catalog.cjs",
+    "sync:version": "node scripts/sync-product-version.cjs",
+    "prebuild": "node scripts/sync-product-version.cjs",
     "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-toolchains.ps1",
     "bootstrap:buildtools": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-toolchains.ps1 -WithBuildTools",
     "sidecar": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1",

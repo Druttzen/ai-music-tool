@@ -102,6 +102,10 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 loudness={ws.audioLoudness}
                 loudnessBusy={ws.audioLoudnessBusy}
                 onExportEnhanced={ws.exportEnhancedAudio}
+                onSeparateStems={ws.separateStems}
+                onDownloadStem={ws.downloadStem}
+                stemSeparationBusy={ws.stemSeparationBusy}
+                stemSeparationStems={ws.stemSeparationStems}
                 exportBusy={ws.audioExportBusy}
                 exportProgress={ws.audioExportProgress}
               />
