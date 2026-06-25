@@ -3,5 +3,15 @@
 export const AUDIO_ANALYZER_DISCLAIMER =
   "Reference hints only — BPM, key, and genre tags come from a fast local scan (energy, rhythm envelope, brightness). They are not Sonoteller-style ML. Edit tags before merging into Suno.";
 
+export const AUDIO_ANALYZER_DISCLAIMER_SIDECAR =
+  "Tempo and key from local librosa analysis (Python sidecar). Genre/mood tags still use heuristic mapping — edit before merge.";
+
+/** @param {{ analysisEngine?: string }|null|undefined} analysis */
+export function getAudioAnalyzerDisclaimer(analysis) {
+  return analysis?.analysisEngine === "sidecar"
+    ? AUDIO_ANALYZER_DISCLAIMER_SIDECAR
+    : AUDIO_ANALYZER_DISCLAIMER;
+}
+
 export const IMAGE_ANALYZER_DISCLAIMER =
   "Palette-driven suggestions from brightness, contrast, and color — artistic interpretation, not scene recognition. Edit before merge.";

@@ -5,5 +5,11 @@ venv/
 *.egg-info/
 dist/
 build/
+*.spec
 .pytest_cache/
 .ruff_cache/
+.sidecar.pid
+.sidecar-watcher.pid
+.sidecar-watcher.log
+.sidecar.log
+.sidecar.log.err

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, memo } from "react";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { formatTime } from "../lib/audio-analyzer";
-import { AUDIO_ANALYZER_DISCLAIMER } from "../lib/analyzer-disclaimer";
+import { getAudioAnalyzerDisclaimer } from "../lib/analyzer-disclaimer";
 import { isLikelyInstrumentalTrack } from "../lib/instrumental-lyrics-from-track";
 import { STUDIO_EXPORT_PRESETS } from "../lib/audio-enhancer";
 import {
@@ -171,7 +171,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
       </div>
 
       <p className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">
-        {AUDIO_ANALYZER_DISCLAIMER}
+        {getAudioAnalyzerDisclaimer(analysis)}
       </p>
 
       <section className="rounded-2xl border border-amber-400/20 bg-black/30 p-3 space-y-2">

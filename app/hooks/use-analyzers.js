@@ -28,12 +28,13 @@ import {
   patchAudioAnalysis,
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
+import { mergeSidecarAnalysis } from "../lib/audio-analyzer-sidecar";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
-import { sliceAudioBuffer } from "../lib/audio-buffer-serialize";
+import { analyzeAudioViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
-import { exportEnhancedInWorker } from "../lib/studio-export-client";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
+import { exportEnhancedFromBlob } from "../lib/studio-export-client";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 
 export function useAnalyzers({
@@ -211,9 +212,24 @@ export function useAnalyzers({
         }
         syncCacheKeysRef(report);
 
+        let finalReport = report;
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 2_500);
+        if (sidecarReady) {
+          try {
+            const sidecar = await analyzeAudioViaSidecar(file, file.name);
+            finalReport = mergeSidecarAnalysis(report, sidecar);
+          } catch {
+            // Keep heuristic report when sidecar analyze fails.
+          }
+        }
+
         setAudioPreviewFromBlob(file);
-        setAudioAnalysis(report);
-        setStatusWithTime("Track report ready — edit tags, then merge into Suno fields");
+        setAudioAnalysis(finalReport);
+        setStatusWithTime(
+          finalReport.analysisEngine === "sidecar"
+            ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
+            : "Track report ready — edit tags, then merge into Suno fields",
+        );
       } catch {
         setStatusWithTime("Audio analysis failed");
         applyAnalyzerPatch({
@@ -449,7 +465,6 @@ export function useAnalyzers({
       setAudioExportProgress({ phase: "preparing", pct: 0 });
       setStatusWithTime("Studio export started…");
 
-      let audioContext = null;
       try {
         const resolved = await resolveAudioCacheBlob(audioAnalysis);
         let blob = resolved?.blob;
@@ -462,25 +477,20 @@ export function useAnalyzers({
           return;
         }
 
-        const arrayBuffer = await blob.arrayBuffer();
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        let sourceBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-
-        if (scope === "highlight") {
-          const start = Number(audioAnalysis.highlightStart) || 0;
-          const end =
-            Number(audioAnalysis.highlightEnd) ||
-            sourceBuffer.duration ||
-            start + 1;
-          sourceBuffer = sliceAudioBuffer(sourceBuffer, start, Math.max(start + 0.5, end));
-        }
-
         const baseName = String(audioAnalysis.fileName || "track").replace(/\.[^.]+$/, "");
         const suffix =
           scope === "highlight" ? `-highlight-${presetId}` : `-enhanced-${presetId}`;
 
-        const result = await exportEnhancedInWorker(sourceBuffer, presetId, `${baseName}${suffix}`, {
+        const startSec = scope === "highlight" ? Number(audioAnalysis.highlightStart) || 0 : undefined;
+        const endSec =
+          scope === "highlight"
+            ? Number(audioAnalysis.highlightEnd) || audioAnalysis.duration || startSec + 1
+            : undefined;
+
+        const result = await exportEnhancedFromBlob(blob, presetId, `${baseName}${suffix}`, {
           format,
+          startSec,
+          endSec,
           onProgress: (p) => setAudioExportProgress(p),
         });
 
@@ -503,11 +513,6 @@ export function useAnalyzers({
       } finally {
         setAudioExportBusy(false);
         setAudioExportProgress(null);
-        if (audioContext) {
-          try {
-            await audioContext.close();
-          } catch {}
-        }
       }
     },
     [audioAnalysis, audioExportBusy, setStatusWithTime],

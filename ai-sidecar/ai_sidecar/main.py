@@ -18,17 +18,46 @@ from __future__ import annotations
 import io
 import os
 import tempfile
+from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request
 from pydantic import BaseModel
 
-app = FastAPI(title="AI Music Creator — AI Sidecar", version="0.1.0")
+from .idle import (
+    configure_idle_exit,
+    hold_dev_session,
+    is_activity_path,
+    start_idle_watchdog,
+    touch_activity,
+)
 
 _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 # Loaded Demucs models are cached per name to avoid reloading on every request.
 _MODEL_CACHE: dict[str, Any] = {}
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    configure_idle_exit(float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "300")))
+    touch_activity()
+    start_idle_watchdog()
+    yield
+
+
+app = FastAPI(
+    title="AI Music Creator — AI Sidecar",
+    version="0.1.0",
+    lifespan=_lifespan,
+)
+
+
+@app.middleware("http")
+async def _track_sidecar_activity(request: Request, call_next):
+    if is_activity_path(request.url.path):
+        touch_activity()
+    return await call_next(request)
 
 
 def _select_device() -> str:
@@ -65,6 +94,13 @@ def health() -> Health:
     from . import __version__
 
     return Health(status="ok", device=_select_device(), version=__version__)
+
+
+@app.post("/dev-session/ping")
+def dev_session_ping() -> dict[str, bool]:
+    """Keep the sidecar alive while local dev tools (Next/Tauri/Electron) are running."""
+    hold_dev_session(45.0)
+    return {"ok": True}
 
 
 @app.post("/analyze", response_model=Analysis)
