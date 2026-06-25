@@ -15,7 +15,7 @@ PY=""
 for v in python3.12 python3.11 python3.10 python3; do
   if command -v "$v" >/dev/null 2>&1; then PY="$v"; break; fi
 done
-[[ -n "$PY" ]] || { echo "Need Python 3.10–3.12"; exit 1; }
+[[ -n "$PY" ]] || { echo "Need Python 3.10-3.12"; exit 1; }
 
 if [[ ! -d "$VENV" ]]; then
   echo "Creating sidecar venv..."

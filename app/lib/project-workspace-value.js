@@ -85,6 +85,7 @@ export function buildProjectWorkspaceValue(s) {
     saveCustomPreset: s.saveCustomPreset,
     saveProject: s.saveProject,
     scores: s.scores,
+    sidecarAiStatus: s.sidecarAiStatus,
     selectedGenres: s.selectedGenres,
     selectedHistoryId: s.selectedHistoryId,
     selectedRhythms: s.selectedRhythms,

@@ -17,6 +17,7 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"npm run sidecar:stop; npm run sidecar; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; npx playwright test tests/e2e/sidecar-smoke.spec.js\"",
     "sync:suno-catalog": "node scripts/sync-suno-catalog.cjs",
     "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-toolchains.ps1",
     "bootstrap:buildtools": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-toolchains.ps1 -WithBuildTools",

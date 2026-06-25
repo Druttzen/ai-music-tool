@@ -29,9 +29,22 @@ export interface SidecarManagedStatus {
   error: string | null;
 }
 
-const HEALTH_TTL_MS = 15_000;
+export const HEALTH_OK_TTL_MS = 15_000;
+export const HEALTH_FAIL_TTL_MS = 500;
 
 let healthCache: { ok: boolean; at: number } | null = null;
+
+/** @internal Test helper — whether a cached health result should be reused. */
+export function shouldReuseHealthCache(
+  cache: { ok: boolean; at: number } | null,
+  now: number,
+  okTtl = HEALTH_OK_TTL_MS,
+  failTtl = HEALTH_FAIL_TTL_MS,
+): boolean {
+  if (!cache) return false;
+  const ttl = cache.ok ? okTtl : failTtl;
+  return now - cache.at < ttl;
+}
 
 function sidecarBaseUrl(): string {
   if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SIDECAR_URL) {
@@ -74,6 +87,7 @@ export async function ensureManagedSidecar(timeoutMs = 30_000): Promise<boolean>
 
 /** Poll /health until available or timeout. */
 export async function waitForSidecar(timeoutMs = 15_000): Promise<boolean> {
+  resetSidecarHealthCache();
   if (isTauriApp()) {
     const ok = await ensureManagedSidecar(timeoutMs);
     if (ok) return true;
@@ -88,8 +102,8 @@ export async function waitForSidecar(timeoutMs = 15_000): Promise<boolean> {
 
 /** True when the sidecar responds to GET /health within 2s. */
 export async function isSidecarAvailable(): Promise<boolean> {
-  if (healthCache && Date.now() - healthCache.at < HEALTH_TTL_MS) {
-    return healthCache.ok;
+  if (shouldReuseHealthCache(healthCache, Date.now())) {
+    return healthCache!.ok;
   }
   try {
     const ctrl = new AbortController();

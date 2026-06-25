@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Rust / Tauri build output (binary assets break the JS parser after tauri:build)
     "**/target/**",
     "src-tauri/gen/**",
+    "ai-sidecar/.venv/**",
+    "ai-sidecar/**/__pycache__/**",
   ]),
 ]);
 

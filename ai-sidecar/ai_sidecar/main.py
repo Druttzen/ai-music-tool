@@ -22,6 +22,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .idle import (
@@ -50,6 +51,20 @@ app = FastAPI(
     title="AI Music Creator — AI Sidecar",
     version="0.1.0",
     lifespan=_lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:1420",
+        "http://127.0.0.1:1420",
+        "tauri://localhost",
+        "https://tauri.localhost",
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

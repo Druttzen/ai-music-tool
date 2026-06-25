@@ -30,7 +30,7 @@ import {
 } from "../lib/audio-analyzer";
 import { mergeSidecarAnalysis } from "../lib/audio-analyzer-sidecar";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
-import { analyzeAudioViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { analyzeAudioViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
@@ -58,6 +58,45 @@ export function useAnalyzers({
   const rehydrateGenRef = useRef(0);
   const audioCacheKeyRef = useRef(null);
   const audioCacheKeysRef = useRef([]);
+  const [sidecarAiStatus, setSidecarAiStatus] = useState("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer = null;
+
+    const scheduleNext = (status) => {
+      if (cancelled) return;
+      const delay = status === "ready" ? 30_000 : 2_000;
+      timer = setTimeout(() => {
+        void probeSidecar();
+      }, delay);
+    };
+
+    const probeSidecar = async () => {
+      if (cancelled) return;
+      setSidecarAiStatus("checking");
+      let nextStatus = "offline";
+      try {
+        if (isTauriApp()) {
+          const st = await getManagedSidecarStatus();
+          nextStatus = st?.ready ? "ready" : "offline";
+        } else {
+          resetSidecarHealthCache();
+          nextStatus = (await isSidecarAvailable()) ? "ready" : "offline";
+        }
+        if (!cancelled) setSidecarAiStatus(nextStatus);
+      } catch {
+        if (!cancelled) setSidecarAiStatus("offline");
+      }
+      scheduleNext(nextStatus);
+    };
+
+    void probeSidecar();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   const setAudioPreviewFromBlob = useCallback((blob) => {
     if (audioPreviewUrlRef.current) URL.revokeObjectURL(audioPreviewUrlRef.current);
@@ -213,7 +252,7 @@ export function useAnalyzers({
         syncCacheKeysRef(report);
 
         let finalReport = report;
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 2_500);
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
         if (sidecarReady) {
           try {
             const sidecar = await analyzeAudioViaSidecar(file, file.name);
@@ -550,6 +589,7 @@ export function useAnalyzers({
     resetAnalyzers,
     setAudioAnalysis: setAudioAnalysisNormalized,
     setImageAnalysis,
+    sidecarAiStatus,
     updateAudioAnalysis,
   };
 }

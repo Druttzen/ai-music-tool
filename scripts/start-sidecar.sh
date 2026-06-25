@@ -54,4 +54,14 @@ if ! kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   rm -f "$PID_FILE"
   exit 1
 fi
-echo "Ready at http://127.0.0.1:8723"
+if command -v lsof >/dev/null 2>&1; then
+  listener="$(lsof -tiTCP:8723 -sTCP:LISTEN 2>/dev/null | head -n1 || true)"
+  if [[ -n "$listener" ]]; then
+    echo "$listener" >"$PID_FILE"
+    echo "Ready at http://127.0.0.1:8723 (listener PID $listener)"
+  else
+    echo "Ready at http://127.0.0.1:8723"
+  fi
+else
+  echo "Ready at http://127.0.0.1:8723"
+fi

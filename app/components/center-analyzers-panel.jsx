@@ -27,6 +27,25 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
         title="Drag & Drop Analyzers"
         hint="Optional Polish-step tools — track report with waveform, LUFS/dBTP meter, studio WAV export (Streaming −14 LUFS), merge into Suno fields, Goal, and Notes. Image DNA uses compact AUDIO:/IMAGE: lines for the 1000-character Style cap."
       >
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full border px-2.5 py-1 font-mono text-[10px] ${
+              ws.sidecarAiStatus === "ready"
+                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                : ws.sidecarAiStatus === "checking"
+                  ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-100"
+                  : "border-white/15 bg-black/30 text-white/45"
+            }`}
+            title="Local librosa sidecar for tempo/key analysis"
+          >
+            AI sidecar:{" "}
+            {ws.sidecarAiStatus === "ready"
+              ? "librosa ready"
+              : ws.sidecarAiStatus === "checking"
+                ? "checking…"
+                : "offline (heuristic BPM/key)"}
+          </span>
+        </div>
         <div
           className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
             ws.sunoFieldSlices.style.length > SUNO_STYLE_CHAR_CAP

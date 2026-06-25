@@ -127,6 +127,7 @@ export function pickWorkspaceContextExtras(projectState, analyzers, pipeline, sn
     audioLoudness: analyzers.audioLoudness,
     audioLoudnessBusy: analyzers.audioLoudnessBusy,
     audioPreviewUrl: analyzers.audioPreviewUrl,
+    sidecarAiStatus: analyzers.sidecarAiStatus,
     captureSnapshot: snapshot.captureSnapshot,
     coProducerLlmSettings: projectState.coProducerLlmSettings,
     styleDnaSettings: projectState.styleDnaSettings,
