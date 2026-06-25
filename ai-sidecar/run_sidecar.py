@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import multiprocessing
+import os
 import sys
+
+from ai_sidecar.idle import configure_idle_exit
 
 
 def main() -> None:
@@ -11,6 +14,7 @@ def main() -> None:
 
     host = "127.0.0.1"
     port = 8723
+    idle_exit_sec = float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "300"))
     args = sys.argv[1:]
     i = 0
     while i < len(args):
@@ -22,7 +26,14 @@ def main() -> None:
             port = int(args[i + 1])
             i += 2
             continue
+        if args[i] == "--idle-exit-sec" and i + 1 < len(args):
+            idle_exit_sec = float(args[i + 1])
+            i += 2
+            continue
         i += 1
+
+    configure_idle_exit(idle_exit_sec)
+    os.environ["SIDECAR_IDLE_EXIT_SEC"] = str(idle_exit_sec)
 
     uvicorn.run(
         "ai_sidecar.main:app",

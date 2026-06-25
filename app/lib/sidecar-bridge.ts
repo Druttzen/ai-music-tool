@@ -1,8 +1,8 @@
 /**
  * Bridge to the local Python AI sidecar (FastAPI on localhost).
  *
- * In the Tauri build the sidecar is auto-spawned on startup. In browser/dev
- * you can still run it manually via `npm run sidecar`.
+ * In the Tauri build the sidecar is spawned on demand when analysis runs and
+ * auto-stops after idle timeout. In browser/dev you can run it via `npm run sidecar`.
  */
 
 import { isTauriApp } from "./dsp-bridge";

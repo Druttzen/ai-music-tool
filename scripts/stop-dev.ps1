@@ -2,6 +2,7 @@
 # Windows PowerShell. Do not use $pid as a loop variable (reserved).
 
 $ErrorActionPreference = "SilentlyContinue"
+& (Join-Path $PSScriptRoot "stop-sidecar-watcher.ps1") | Out-Null
 $ports = @(3000, 9229, 9230, 9241, 9242, 8723)
 $seen = @{}
 

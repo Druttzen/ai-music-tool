@@ -60,12 +60,6 @@ pub fn run() {
             let sidecar_setup = Arc::clone(&sidecar);
             move |app| {
                 sidecar_setup.set_app_handle(app.handle().clone());
-                let bg = Arc::clone(&sidecar_setup);
-                std::thread::spawn(move || {
-                    bg.ensure_started();
-                    // Packaged PyInstaller cold start can take longer than dev uvicorn.
-                    bg.wait_until_ready(Duration::from_secs(90));
-                });
                 Ok(())
             }
         })

@@ -17,6 +17,8 @@ const SIDECAR_PORT: u16 = 8723;
 const HEALTH_URL: &str = "http://127.0.0.1:8723/health";
 const POLL_INTERVAL: Duration = Duration::from_millis(400);
 const HEALTH_TIMEOUT: Duration = Duration::from_millis(500);
+/// Shut down managed sidecar after this many seconds without /analyze or /separate.
+const SIDECAR_IDLE_EXIT_SEC: &str = "300";
 
 #[derive(Debug, Serialize, Clone)]
 pub struct SidecarStatus {
@@ -42,6 +44,13 @@ impl SidecarChild {
             SidecarChild::Bundled(c) => {
                 let _ = c.kill();
             }
+        }
+    }
+
+    fn has_exited(&mut self) -> bool {
+        match self {
+            SidecarChild::Process(c) => !matches!(c.try_wait(), Ok(None)),
+            SidecarChild::Bundled(_) => false,
         }
     }
 }
@@ -96,13 +105,7 @@ impl SidecarManager {
                 loop {
                     std::thread::sleep(POLL_INTERVAL);
                     if let Ok(mut guard) = manager.inner.lock() {
-                        if guard.ready {
-                            continue;
-                        }
-                        if health_check() {
-                            guard.ready = true;
-                            guard.error = None;
-                        }
+                        reconcile_state(&mut guard);
                     }
                 }
             });
@@ -114,6 +117,8 @@ impl SidecarManager {
             Ok(g) => g,
             Err(_) => return,
         };
+
+        reconcile_state(&mut guard);
 
         if guard.ready || guard.spawned {
             return;
@@ -139,7 +144,8 @@ impl SidecarManager {
         let deadline = Instant::now() + timeout;
 
         while Instant::now() < deadline {
-            if let Ok(guard) = self.inner.lock() {
+            if let Ok(mut guard) = self.inner.lock() {
+                reconcile_state(&mut guard);
                 if guard.ready {
                     return true;
                 }
@@ -190,6 +196,40 @@ impl Drop for SidecarManager {
     }
 }
 
+fn reconcile_state(guard: &mut SidecarInner) {
+    if let Some(ref mut child) = guard.child {
+        if child.has_exited() {
+            guard.child = None;
+            guard.spawned = false;
+            guard.ready = false;
+            guard.bundled = false;
+            return;
+        }
+    }
+
+    let healthy = health_check();
+
+    if guard.spawned {
+        if guard.ready && !healthy {
+            guard.child = None;
+            guard.spawned = false;
+            guard.ready = false;
+            guard.bundled = false;
+        } else if !guard.ready && healthy {
+            guard.ready = true;
+            guard.error = None;
+        }
+        return;
+    }
+
+    if healthy {
+        guard.ready = true;
+        guard.error = None;
+    } else {
+        guard.ready = false;
+    }
+}
+
 fn health_check() -> bool {
     reqwest::blocking::Client::builder()
         .timeout(HEALTH_TIMEOUT)
@@ -206,7 +246,14 @@ fn spawn_bundled_sidecar(app: &AppHandle) -> Result<SidecarChild, String> {
         .shell()
         .sidecar("ai-sidecar")
         .map_err(|e| format!("bundled sidecar missing: {e}"))?
-        .args(["--host", "127.0.0.1", "--port", &port])
+        .args([
+            "--host",
+            "127.0.0.1",
+            "--port",
+            &port,
+            "--idle-exit-sec",
+            SIDECAR_IDLE_EXIT_SEC,
+        ])
         .spawn()
         .map_err(|e| format!("failed to spawn bundled sidecar: {e}"))?;
     Ok(SidecarChild::Bundled(child))
@@ -284,7 +331,7 @@ fn spawn_dev_sidecar() -> Result<SidecarChild, String> {
         .ok_or_else(|| "ai-sidecar directory not found".to_string())?;
 
     let python = resolve_python_executable(&sidecar_dir).ok_or_else(|| {
-        "Python sidecar venv not found — run: npm run sidecar".to_string()
+        "Python sidecar venv not found - run: npm run sidecar".to_string()
     })?;
 
     let has_venv = sidecar_dir.join(".venv").exists();
@@ -298,6 +345,7 @@ fn spawn_dev_sidecar() -> Result<SidecarChild, String> {
         "--port",
         &SIDECAR_PORT.to_string(),
     ])
+    .env("SIDECAR_IDLE_EXIT_SEC", SIDECAR_IDLE_EXIT_SEC)
     .current_dir(&sidecar_dir)
     .stdin(Stdio::null())
     .stdout(Stdio::null())

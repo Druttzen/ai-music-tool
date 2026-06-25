@@ -4,7 +4,8 @@
   Default: detached background process (no terminal hold). Use -Foreground to attach.
 #>
 param(
-  [switch]$Foreground
+  [switch]$Foreground,
+  [int]$IdleExitSec = 300
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +42,11 @@ if ($existing) {
 }
 
 $python = Join-Path $venv "Scripts\python.exe"
+if ($IdleExitSec -le 0) {
+  $env:SIDECAR_IDLE_EXIT_SEC = "0"
+} else {
+  $env:SIDECAR_IDLE_EXIT_SEC = "$IdleExitSec"
+}
 $uvicornArgs = @(
   "-m", "uvicorn", "ai_sidecar.main:app",
   "--host", "127.0.0.1",
@@ -49,13 +55,13 @@ $uvicornArgs = @(
 )
 
 if ($Foreground) {
-  Write-Host "Starting AI sidecar (foreground) on http://127.0.0.1:8723 (py -$py)"
+  Write-Host "Starting AI sidecar (foreground) on http://127.0.0.1:8723 (py -$py, idle-exit ${IdleExitSec}s)"
   $ErrorActionPreference = "Continue"
   & $python @uvicornArgs
   exit $LASTEXITCODE
 }
 
-Write-Host "Starting AI sidecar (background) on http://127.0.0.1:8723 (py -$py)"
+Write-Host "Starting AI sidecar (background) on http://127.0.0.1:8723 (py -$py, idle-exit ${IdleExitSec}s)"
 $proc = Start-Process `
   -FilePath $python `
   -ArgumentList $uvicornArgs `

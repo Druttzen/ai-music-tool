@@ -7,10 +7,17 @@ VENV="$SIDECAR/.venv"
 PID_FILE="$SIDECAR/.sidecar.pid"
 LOG_FILE="$SIDECAR/.sidecar.log"
 FOREGROUND=0
+IDLE_EXIT_SEC=300
 
-if [[ "${1:-}" == "--foreground" || "${1:-}" == "-f" ]]; then
-  FOREGROUND=1
-fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --foreground|-f) FOREGROUND=1; shift ;;
+    --idle-exit-sec) IDLE_EXIT_SEC="${2:-300}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+export SIDECAR_IDLE_EXIT_SEC="$IDLE_EXIT_SEC"
 
 PY=""
 for v in python3.12 python3.11 python3.10 python3; do
