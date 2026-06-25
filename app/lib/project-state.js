@@ -2,6 +2,13 @@ import { BLANK_STATE, DEFAULT_STATE } from "./music-config";
 import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
 import { DEFAULT_STYLE_DNA_SETTINGS } from "./style-dna-settings";
 import { normalizeLyricLanguage } from "./suno-lyric-languages";
+import {
+  PROJECT_PATCH_KEYS,
+  SNAPSHOT_FIELD_KEYS,
+  normalizeLoadPayloadFromFields,
+} from "./project-schema";
+
+export { PROJECT_PATCH_KEYS, SNAPSHOT_FIELD_KEYS };
 
 /** @typedef {typeof DEFAULT_STATE & Record<string, unknown>} ProjectStateShape */
 
@@ -44,53 +51,7 @@ export function createInitialProjectState(overrides = {}) {
  * @param {Record<string, unknown>} data
  */
 export function normalizeLoadPayload(data) {
-  if (!data || typeof data !== "object") return {};
-
-  return {
-    idea: data.idea ?? DEFAULT_STATE.idea,
-    tempo: data.tempo ?? DEFAULT_STATE.tempo,
-    structure: data.structure ?? DEFAULT_STATE.structure,
-    selectedGenres: data.selectedGenres ?? DEFAULT_STATE.selectedGenres,
-    selectedRhythms: data.selectedRhythms ?? DEFAULT_STATE.selectedRhythms,
-    selectedSounds: data.selectedSounds ?? DEFAULT_STATE.selectedSounds,
-    vocal: data.vocal ?? DEFAULT_STATE.vocal,
-    mode: data.mode ?? DEFAULT_STATE.mode,
-    proMode: data.proMode ?? DEFAULT_STATE.proMode,
-    promptIntensity: data.promptIntensity ?? DEFAULT_STATE.promptIntensity,
-    variationCount: data.variationCount ?? DEFAULT_STATE.variationCount,
-    rules: data.rules ?? DEFAULT_STATE.rules,
-    notes: data.notes ?? DEFAULT_STATE.notes,
-    scores: data.scores ?? DEFAULT_STATE.scores,
-    mood: data.mood ?? DEFAULT_STATE.mood,
-    lyricTheme: data.lyricTheme ?? DEFAULT_STATE.lyricTheme,
-    lyricLanguage: normalizeLyricLanguage(data.lyricLanguage ?? DEFAULT_STATE.lyricLanguage),
-    lyricStructure: data.lyricStructure ?? DEFAULT_STATE.lyricStructure,
-    lyricStyle: data.lyricStyle ?? DEFAULT_STATE.lyricStyle,
-    lyricDensity: data.lyricDensity ?? DEFAULT_STATE.lyricDensity,
-    promptFormat: data.promptFormat ?? DEFAULT_STATE.promptFormat,
-    promptEngine: data.promptEngine ?? DEFAULT_STATE.promptEngine ?? "Standard",
-    coProducerOutput: data.coProducerOutput ?? DEFAULT_STATE.coProducerOutput,
-    generatedLyrics: data.generatedLyrics ?? DEFAULT_STATE.generatedLyrics,
-    generatedLyricsStyle: data.generatedLyricsStyle ?? DEFAULT_STATE.generatedLyricsStyle ?? "",
-    generatedHooks: data.generatedHooks ?? DEFAULT_STATE.generatedHooks,
-    generatedHooksStyle: data.generatedHooksStyle ?? DEFAULT_STATE.generatedHooksStyle ?? "",
-    lyricVariantSeed: data.lyricVariantSeed ?? DEFAULT_STATE.lyricVariantSeed ?? 0,
-    lyricMode: data.lyricMode ?? DEFAULT_STATE.lyricMode,
-    voiceRefFirstName: data.voiceRefFirstName ?? DEFAULT_STATE.voiceRefFirstName ?? "",
-    voiceRefLastName: data.voiceRefLastName ?? DEFAULT_STATE.voiceRefLastName ?? "",
-    voiceStyleLine: data.voiceStyleLine ?? DEFAULT_STATE.voiceStyleLine ?? "",
-    instrumentalVocalFx: data.instrumentalVocalFx ?? DEFAULT_STATE.instrumentalVocalFx,
-    sunoPasteStyle: data.sunoPasteStyle ?? DEFAULT_STATE.sunoPasteStyle ?? "",
-    sunoPasteLyrics: data.sunoPasteLyrics ?? DEFAULT_STATE.sunoPasteLyrics ?? "",
-    sunoPasteActive: data.sunoPasteActive ?? DEFAULT_STATE.sunoPasteActive ?? false,
-    guidedStep:
-      typeof data.guidedStep === "number" && !Number.isNaN(data.guidedStep)
-        ? Math.max(0, data.guidedStep)
-        : 0,
-    variations: Array.isArray(data.variations) ? data.variations : [],
-    ...(Array.isArray(data.history) ? { history: data.history } : {}),
-    selectedHistoryId: data.selectedHistoryId ?? null,
-  };
+  return normalizeLoadPayloadFromFields(data);
 }
 
 /**
@@ -128,102 +89,6 @@ export function projectReducer(state, action) {
       return state;
   }
 }
-
-/** Keys exposed as `setX` helpers from {@link useProjectState}. */
-export const PROJECT_PATCH_KEYS = [
-  "idea",
-  "tempo",
-  "structure",
-  "selectedGenres",
-  "selectedRhythms",
-  "selectedSounds",
-  "vocal",
-  "mode",
-  "proMode",
-  "promptIntensity",
-  "variationCount",
-  "rules",
-  "notes",
-  "scores",
-  "mood",
-  "lyricTheme",
-  "lyricLanguage",
-  "lyricStructure",
-  "lyricStyle",
-  "lyricDensity",
-  "promptFormat",
-  "promptEngine",
-  "coProducerOutput",
-  "generatedLyrics",
-  "generatedLyricsStyle",
-  "generatedHooks",
-  "generatedHooksStyle",
-  "lyricVariantSeed",
-  "lyricMode",
-  "voiceRefFirstName",
-  "voiceRefLastName",
-  "voiceStyleLine",
-  "instrumentalVocalFx",
-  "sunoPasteStyle",
-  "sunoPasteLyrics",
-  "sunoPasteActive",
-  "guidedStep",
-  "variations",
-  "history",
-  "selectedHistoryId",
-  "presetName",
-  "customPresets",
-  "copied",
-  "lyricsGenerateBusy",
-  "coProducerLlmSettings",
-  "styleDnaSettings",
-];
-
-/** Project + analyzer keys persisted in autosave / undo snapshots (excludes appVersion). */
-export const SNAPSHOT_FIELD_KEYS = [
-  "idea",
-  "tempo",
-  "structure",
-  "selectedGenres",
-  "selectedRhythms",
-  "selectedSounds",
-  "vocal",
-  "mode",
-  "proMode",
-  "promptIntensity",
-  "variationCount",
-  "rules",
-  "notes",
-  "scores",
-  "mood",
-  "audioAnalysis",
-  "imageAnalysis",
-  "lyricTheme",
-  "lyricLanguage",
-  "lyricStructure",
-  "lyricStyle",
-  "lyricDensity",
-  "promptFormat",
-  "promptEngine",
-  "coProducerOutput",
-  "generatedLyrics",
-  "generatedLyricsStyle",
-  "generatedHooks",
-  "generatedHooksStyle",
-  "lyricVariantSeed",
-  "lyricMode",
-  "voiceRefFirstName",
-  "voiceRefLastName",
-  "voiceStyleLine",
-  "instrumentalVocalFx",
-  "sunoPasteStyle",
-  "sunoPasteLyrics",
-  "sunoPasteActive",
-  "guidedStep",
-  "variations",
-  "history",
-  "selectedHistoryId",
-];
 
 /**
  * Pick snapshot-shaped fields from a flat project + analyzer source object.

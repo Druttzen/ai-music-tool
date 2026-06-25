@@ -31,6 +31,7 @@ import {
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { sliceAudioBuffer } from "../lib/audio-buffer-serialize";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
+import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { exportEnhancedInWorker } from "../lib/studio-export-client";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
@@ -302,13 +303,34 @@ export function useAnalyzers({
         }
         if (!blob || cancelled || gen !== loudnessGenRef.current) return;
 
-        const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const buffer = await decodeCtx.decodeAudioData((await blob.arrayBuffer()).slice(0));
-        try {
-          await decodeCtx.close();
-        } catch {}
+        let stats = null;
 
-        const stats = await measureIntegratedLoudness(buffer);
+        // Native DSP core (Tauri desktop): decode + EBU R128 in Rust straight
+        // from the file bytes. Falls back to the in-browser meter on any error.
+        if (isTauriApp()) {
+          try {
+            const native = await measureLoudnessBytes(await blob.arrayBuffer());
+            stats = {
+              integratedLUFS:
+                typeof native.integrated_lufs === "number" ? native.integrated_lufs : NaN,
+              truePeakDbTP: native.true_peak_dbtp,
+              samplePeakDbFS: native.sample_peak_dbfs,
+              engine: "native",
+            };
+          } catch {
+            stats = null;
+          }
+        }
+
+        if (!stats) {
+          const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const buffer = await decodeCtx.decodeAudioData((await blob.arrayBuffer()).slice(0));
+          try {
+            await decodeCtx.close();
+          } catch {}
+          stats = await measureIntegratedLoudness(buffer);
+        }
+
         if (!cancelled && gen === loudnessGenRef.current) {
           setAudioLoudness(stats);
         }
