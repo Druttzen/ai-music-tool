@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "electron-dist/**",
     "dist/**",
     "next-env.d.ts",
+    // Rust / Tauri build output (binary assets break the JS parser after tauri:build)
+    "**/target/**",
+    "src-tauri/gen/**",
   ]),
 ]);
 
