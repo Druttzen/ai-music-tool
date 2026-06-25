@@ -37,4 +37,25 @@ test.describe("Sidecar UI smoke", () => {
       timeout: 30_000,
     });
   });
+
+  test("Demucs stem separation shows graceful error when stems extra is missing", async ({ page }) => {
+    await dismissSplash(page);
+
+    const panel = analyzerPanel(page);
+    await panel.scrollIntoViewIfNeeded();
+
+    await expect(panel.getByText("librosa ready")).toBeVisible({ timeout: 20_000 });
+
+    await panel.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(ANALYZER_FIXTURE);
+
+    await expect(panel.getByText("e2e-analyzer-tone.wav", { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await panel.getByRole("button", { name: "Separate stems (Demucs)" }).click();
+
+    const toast = page.getByTestId("action-toast");
+    await expect(toast).toBeVisible({ timeout: 15_000 });
+    await expect(toast).toContainText(/stem separation unavailable|stems.*extra/i);
+  });
 });

@@ -8,6 +8,7 @@ import {
   saveLoadPanel,
   skipSplashIfVisible,
   voiceCharacterStudioPanel,
+  waitForAutosavedMarker,
 } from "./helpers.js";
 
 const IMPORT_FIXTURE = "tests/fixtures/e2e-import-project.json";
@@ -68,10 +69,7 @@ test.describe("Project persistence e2e", () => {
     const marker = "Autosave reload marker P14";
     await ideaInput(page).fill(marker);
 
-    await expect(page.locator("header").getByText(/Autosaved at/i)).toBeVisible({ timeout: 5000 });
-
-    const stored = await page.evaluate(() => localStorage.getItem("ai_music_creator_visual_tool_v3"));
-    expect(stored).toContain(marker);
+    await waitForAutosavedMarker(page, marker);
 
     await page.reload();
     await page.waitForLoadState("networkidle");
