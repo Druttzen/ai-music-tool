@@ -77,7 +77,7 @@ if (-not $proc) {
 }
 
 $proc.Id | Out-File -FilePath $pidFile -Encoding ascii -NoNewline
-Write-Host "AI sidecar PID $($proc.Id) (log: $logFile)"
+Write-Host "AI sidecar launcher PID $($proc.Id) (log: $logFile)"
 
 # Wait for bind (uvicorn can take >1s on cold start).
 $bound = $null
@@ -92,8 +92,9 @@ for ($i = 0; $i -lt 15; $i++) {
   Start-Sleep -Milliseconds 200
 }
 
-if (-not $bound) {
-  Write-Warning "Sidecar started but port 8723 not listening yet - check $logFile"
+if ($bound) {
+  $bound.OwningProcess | Out-File -FilePath $pidFile -Encoding ascii -NoNewline
+  Write-Host "Ready at http://127.0.0.1:8723 (listener PID $($bound.OwningProcess))"
 } else {
-  Write-Host "Ready at http://127.0.0.1:8723"
+  Write-Warning "Sidecar started but port 8723 not listening yet - check $logFile"
 }

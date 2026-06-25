@@ -1,6 +1,6 @@
 [package]
 name = "ai-music-studio"
-version = "0.1.0"
+version = "0.9.12"
 edition = "2021"
 description = "Tauri shell for AI Music Creator (Path B). Hosts the web UI and bridges to the native Rust DSP core."
 license = "MIT"
@@ -16,6 +16,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+rfd = "0.15"
+open = "5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["blocking", "json"] }

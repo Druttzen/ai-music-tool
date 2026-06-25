@@ -17,11 +17,13 @@ export async function dismissSplash(page) {
 export async function skipSplashIfVisible(page) {
   const skip = page.getByRole("button", { name: "Skip intro" });
   if (await skip.isVisible().catch(() => false)) {
-    await skip.click();
-  } else {
-    await page.keyboard.press("Escape").catch(() => {});
-    await page.locator("body").click({ position: { x: 8, y: 8 }, force: true }).catch(() => {});
+    await skip.click({ force: true, timeout: 5000 }).catch(async () => {
+      await page.keyboard.press("Escape").catch(() => {});
+    });
+    return;
   }
+  await page.keyboard.press("Escape").catch(() => {});
+  await page.locator("body").click({ position: { x: 8, y: 8 }, force: true }).catch(() => {});
 }
 
 export async function selectSunoEngine(page) {
@@ -95,6 +97,18 @@ export async function expectToast(page, textPattern) {
   await expect(toast).toBeVisible();
   await expect(toast).toContainText(textPattern);
   await expect(toast).toHaveAttribute("data-toast-type", /.+/);
+}
+
+/** Wait until debounced autosave persists `marker` into project localStorage. */
+export async function waitForAutosavedMarker(page, marker, timeout = 8000) {
+  await expect
+    .poll(async () => {
+      const stored = await page.evaluate(() =>
+        localStorage.getItem("ai_music_creator_visual_tool_v3"),
+      );
+      return stored?.includes(marker) ?? false;
+    }, { timeout })
+    .toBe(true);
 }
 
 /** Assert Style + Lyrics copy after analyzer merge (clipboard permissions required). */

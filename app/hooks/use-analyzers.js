@@ -30,7 +30,7 @@ import {
 } from "../lib/audio-analyzer";
 import { mergeSidecarAnalysis } from "../lib/audio-analyzer-sidecar";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
-import { analyzeAudioViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { analyzeAudioViaSidecar, downloadSidecarStem, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
@@ -58,6 +58,54 @@ export function useAnalyzers({
   const rehydrateGenRef = useRef(0);
   const audioCacheKeyRef = useRef(null);
   const audioCacheKeysRef = useRef([]);
+  const [sidecarAiStatus, setSidecarAiStatus] = useState("checking");
+  const [stemSeparationBusy, setStemSeparationBusy] = useState(false);
+  const [stemSeparationStems, setStemSeparationStems] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer = null;
+
+    const scheduleNext = (status) => {
+      if (cancelled) return;
+      const delay = status === "ready" ? 30_000 : status === "standby" ? 5_000 : 2_000;
+      timer = setTimeout(() => {
+        void probeSidecar();
+      }, delay);
+    };
+
+    const probeSidecar = async () => {
+      if (cancelled) return;
+      setSidecarAiStatus("checking");
+      let nextStatus = "offline";
+      try {
+        resetSidecarHealthCache();
+        const httpOk = await isSidecarAvailable();
+        if (httpOk) {
+          nextStatus = "ready";
+        } else if (isTauriApp()) {
+          const st = await getManagedSidecarStatus();
+          if (st?.ready) {
+            nextStatus = "ready";
+          } else if (st?.spawned) {
+            nextStatus = "offline";
+          } else {
+            nextStatus = "standby";
+          }
+        }
+        if (!cancelled) setSidecarAiStatus(nextStatus);
+      } catch {
+        if (!cancelled) setSidecarAiStatus("offline");
+      }
+      scheduleNext(nextStatus);
+    };
+
+    void probeSidecar();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   const setAudioPreviewFromBlob = useCallback((blob) => {
     if (audioPreviewUrlRef.current) URL.revokeObjectURL(audioPreviewUrlRef.current);
@@ -93,6 +141,7 @@ export function useAnalyzers({
     setAudioLoudness(null);
     setImageAnalysis(null);
     setImagePreview(null);
+    setStemSeparationStems([]);
     if (imagePreviewUrlRef.current) {
       URL.revokeObjectURL(imagePreviewUrlRef.current);
       imagePreviewUrlRef.current = null;
@@ -213,22 +262,31 @@ export function useAnalyzers({
         syncCacheKeysRef(report);
 
         let finalReport = report;
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 2_500);
+        let sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        let sidecarStatusMsg = null;
+        let sidecarStatusType = "success";
         if (sidecarReady) {
           try {
             const sidecar = await analyzeAudioViaSidecar(file, file.name);
             finalReport = mergeSidecarAnalysis(report, sidecar);
-          } catch {
-            // Keep heuristic report when sidecar analyze fails.
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Sidecar analyze failed";
+            sidecarStatusMsg = `Heuristic report only — ${msg.slice(0, 80)}`;
+            sidecarStatusType = "warning";
           }
+        } else {
+          sidecarStatusMsg = "Heuristic BPM/key — librosa sidecar unavailable";
+          sidecarStatusType = "warning";
         }
 
         setAudioPreviewFromBlob(file);
         setAudioAnalysis(finalReport);
         setStatusWithTime(
-          finalReport.analysisEngine === "sidecar"
-            ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
-            : "Track report ready — edit tags, then merge into Suno fields",
+          sidecarStatusMsg ??
+            (finalReport.analysisEngine === "sidecar"
+              ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
+              : "Track report ready — edit tags, then merge into Suno fields"),
+          sidecarStatusType,
         );
       } catch {
         setStatusWithTime("Audio analysis failed");
@@ -518,6 +576,68 @@ export function useAnalyzers({
     [audioAnalysis, audioExportBusy, setStatusWithTime],
   );
 
+  const separateStems = useCallback(
+    async (stemName = null) => {
+      if (!audioAnalysis) {
+        setStatusWithTime("No track loaded for stem separation");
+        return;
+      }
+      if (stemSeparationBusy) return;
+
+      setStemSeparationBusy(true);
+      setStemSeparationStems([]);
+      try {
+        setStatusWithTime("Demucs stem separation started…");
+        const resolved = await resolveAudioCacheBlob(audioAnalysis);
+        const blob = resolved?.blob;
+        if (!blob) {
+          setStatusWithTime("Re-attach the audio file before stem separation", "warning");
+          return;
+        }
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        if (!sidecarReady) {
+          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
+          return;
+        }
+        const result = await separateStemsViaSidecar(blob, audioAnalysis.fileName || "track.wav");
+        setStemSeparationStems(result.stems || []);
+        if (stemName) {
+          const stem = result.stems.find((s) => s.name === stemName);
+          if (stem) {
+            const base = String(audioAnalysis.fileName || "track").replace(/\.[^.]+$/, "");
+            await downloadSidecarStem(stem.download_url, `${base}-${stem.filename}`);
+            setStatusWithTime(`Downloaded ${stem.name} stem`);
+            return;
+          }
+        }
+        setStatusWithTime(
+          `Stems ready (${result.sources.join(", ")}) — download individual WAVs below`,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Stem separation failed";
+        setStatusWithTime(msg.slice(0, 100), "warning");
+      } finally {
+        setStemSeparationBusy(false);
+      }
+    },
+    [audioAnalysis, setStatusWithTime, stemSeparationBusy],
+  );
+
+  const downloadStem = useCallback(
+    async (stem) => {
+      if (!stem?.download_url || !audioAnalysis) return;
+      const base = String(audioAnalysis.fileName || "track").replace(/\.[^.]+$/, "");
+      try {
+        await downloadSidecarStem(stem.download_url, `${base}-${stem.filename}`);
+        setStatusWithTime(`Downloaded ${stem.name} stem`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Stem download failed";
+        setStatusWithTime(msg.slice(0, 80), "warning");
+      }
+    },
+    [audioAnalysis, setStatusWithTime],
+  );
+
   const setAudioAnalysisNormalized = useCallback((value) => {
     if (!value) {
       syncCacheKeysRef(null);
@@ -545,11 +665,16 @@ export function useAnalyzers({
     exportEnhancedAudio,
     clearAudioAnalysis,
     clearImageAnalysis,
+    downloadStem,
     imageAnalysis,
     imagePreview,
     resetAnalyzers,
     setAudioAnalysis: setAudioAnalysisNormalized,
     setImageAnalysis,
+    separateStems,
+    sidecarAiStatus,
+    stemSeparationBusy,
+    stemSeparationStems,
     updateAudioAnalysis,
   };
 }

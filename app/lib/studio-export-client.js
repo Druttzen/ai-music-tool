@@ -73,7 +73,7 @@ export function buildExportFileName(baseFileName, format) {
 export async function exportEnhancedFromBlob(blob, presetId, baseFileName, opts = {}) {
   const format = normalizeStudioExportFormat(opts.format);
 
-  if (isTauriApp() && format !== "mp3") {
+  if (isTauriApp()) {
     try {
       return await exportMasteredNativePath(blob, presetId, baseFileName, format, opts);
     } catch {
@@ -122,8 +122,9 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
       opts.endSec,
     );
     opts.onProgress?.({ phase: "encoding", pct: 90 });
-    const wavBytes = new Uint8Array(result.wav_bytes);
-    const outBlob = new Blob([wavBytes], { type: "audio/wav" });
+    const outBytes = new Uint8Array(result.wav_bytes);
+    const mime = format === "mp3" ? "audio/mpeg" : "audio/wav";
+    const outBlob = new Blob([outBytes], { type: mime });
     const fileName = buildExportFileName(baseFileName, format);
     downloadFormatBlob(outBlob, fileName);
     opts.onProgress?.({ phase: "done", pct: 100 });

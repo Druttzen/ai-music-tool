@@ -1,6 +1,6 @@
 [package]
 name = "dsp-core"
-version = "0.1.0"
+version = "0.9.12"
 edition = "2021"
 description = "Cross-platform audio DSP core for AI Music Creator (loudness, mastering, analysis). Replaces the JS EBU R128 port."
 license = "MIT"
@@ -37,8 +37,4 @@ symphonia = { version = "0.5", features = [
   "pcm",
 ] }
 
-# Reserved for upcoming phases (kept out of [dependencies] until used so the
-# build stays warning-free):
-#   rubato    = "0.15"  # high-quality resampling
-#   rustfft   = "6"     # spectral features (centroid, chroma) for real analysis
-#   fundsp / dasp       # mastering DSP graph (replaces audio-enhancer.js)
+mp3lame-encoder = "0.1"

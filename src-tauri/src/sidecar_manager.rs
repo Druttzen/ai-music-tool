@@ -361,8 +361,15 @@ fn spawn_dev_sidecar() -> Result<SidecarChild, String> {
     Ok(SidecarChild::Process(child))
 }
 
-/// Prefer bundled binary in packaged builds; fall back to dev venv.
+/// Prefer dev venv in debug builds; packaged binary in release.
 fn spawn_sidecar_process(app: Option<&AppHandle>) -> Result<(SidecarChild, bool), String> {
+    #[cfg(debug_assertions)]
+    {
+        if let Ok(child) = spawn_dev_sidecar() {
+            return Ok((child, false));
+        }
+    }
+
     if let Some(handle) = app {
         if let Ok(child) = spawn_bundled_sidecar(handle) {
             return Ok((child, true));

@@ -26,7 +26,42 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - run: npm ci
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+      - name: Start AI sidecar for e2e
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ai-sidecar
+          bash scripts/start-sidecar.sh
+          for i in $(seq 1 40); do
+            curl -sf http://127.0.0.1:8723/health >/dev/null && break
+            sleep 0.5
+          done
+          curl -sf http://127.0.0.1:8723/health
       - run: npm run test:e2e
+
+  dsp-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install libmp3lame (native MP3 export)
+        run: sudo apt-get update && sudo apt-get install -y libmp3lame-dev
+      - run: cd dsp-core && cargo test --locked
+
+  sidecar-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install sidecar + test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ai-sidecar pytest httpx
+      - run: pytest ai-sidecar/tests -q
