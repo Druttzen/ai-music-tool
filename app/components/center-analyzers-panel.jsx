@@ -34,7 +34,9 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
                 : ws.sidecarAiStatus === "checking"
                   ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-100"
-                  : "border-white/15 bg-black/30 text-white/45"
+                  : ws.sidecarAiStatus === "standby"
+                    ? "border-amber-400/35 bg-amber-500/10 text-amber-50"
+                    : "border-white/15 bg-black/30 text-white/45"
             }`}
             title="Local librosa sidecar for tempo/key analysis"
           >
@@ -43,7 +45,9 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
               ? "librosa ready"
               : ws.sidecarAiStatus === "checking"
                 ? "checking…"
-                : "offline (heuristic BPM/key)"}
+                : ws.sidecarAiStatus === "standby"
+                  ? "on-demand (starts when you analyze)"
+                  : "offline (heuristic BPM/key)"}
           </span>
         </div>
         <div

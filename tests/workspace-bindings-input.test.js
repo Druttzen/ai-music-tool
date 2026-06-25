@@ -18,6 +18,7 @@ describe("workspace-bindings-input", () => {
     imageAnalysis: null,
     applyAudioToSunoStyle: () => {},
     resetAnalyzers: () => {},
+    sidecarAiStatus: "ready",
   };
   const pipeline = { prompt: "p", lyricPrompt: "lp", moodWords: [], vocalText: "v" };
   const snapshot = {
@@ -47,6 +48,7 @@ describe("workspace-bindings-input", () => {
     expect(extras.idea).toBe("test idea");
     expect(extras.revertSnapshot).toBe(snapshot.revertSnapshot);
     expect(extras.prompt).toBe("p");
+    expect(extras.sidecarAiStatus).toBe("ready");
   });
 
   it("pickPipelineInputFields passes analyzer refs through", () => {

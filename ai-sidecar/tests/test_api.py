@@ -1,5 +1,9 @@
 """Sidecar API tests (no torch/demucs required for analyze)."""
 
+import io
+import math
+import struct
+import wave
 from io import BytesIO
 
 import pytest
@@ -8,6 +12,21 @@ from fastapi.testclient import TestClient
 from ai_sidecar.main import app
 
 client = TestClient(app)
+
+
+def _make_tone_wav(duration_sec=3.0, sample_rate=22050, freq_hz=440.0) -> bytes:
+    n = int(duration_sec * sample_rate)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        frames = bytearray()
+        for i in range(n):
+            sample = int(32767 * 0.25 * math.sin(2 * math.pi * freq_hz * i / sample_rate))
+            frames.extend(struct.pack("<h", sample))
+        wf.writeframes(bytes(frames))
+    return buf.getvalue()
 
 
 def test_health_ok():
@@ -37,3 +56,19 @@ def test_separate_without_stems_extra_returns_503():
     )
     assert res.status_code == 503
     assert "stems" in res.json()["detail"].lower() or "unavailable" in res.json()["detail"].lower()
+
+
+def test_analyze_wav_returns_tempo_and_key():
+    wav = _make_tone_wav()
+    res = client.post(
+        "/analyze",
+        files={"file": ("tone.wav", BytesIO(wav), "audio/wav")},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["duration_sec"] > 0
+    assert isinstance(body["tempo_bpm"], float)
+    assert body["tempo_bpm"] >= 0
+    assert body["key_estimate"]
+    assert body["spectral_centroid_hz"] > 0
+    assert "device" in body

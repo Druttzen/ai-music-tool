@@ -66,7 +66,7 @@ export function useAnalyzers({
 
     const scheduleNext = (status) => {
       if (cancelled) return;
-      const delay = status === "ready" ? 30_000 : 2_000;
+      const delay = status === "ready" ? 30_000 : status === "standby" ? 5_000 : 2_000;
       timer = setTimeout(() => {
         void probeSidecar();
       }, delay);
@@ -77,12 +77,19 @@ export function useAnalyzers({
       setSidecarAiStatus("checking");
       let nextStatus = "offline";
       try {
-        if (isTauriApp()) {
+        resetSidecarHealthCache();
+        const httpOk = await isSidecarAvailable();
+        if (httpOk) {
+          nextStatus = "ready";
+        } else if (isTauriApp()) {
           const st = await getManagedSidecarStatus();
-          nextStatus = st?.ready ? "ready" : "offline";
-        } else {
-          resetSidecarHealthCache();
-          nextStatus = (await isSidecarAvailable()) ? "ready" : "offline";
+          if (st?.ready) {
+            nextStatus = "ready";
+          } else if (st?.spawned) {
+            nextStatus = "offline";
+          } else {
+            nextStatus = "standby";
+          }
         }
         if (!cancelled) setSidecarAiStatus(nextStatus);
       } catch {
@@ -252,22 +259,31 @@ export function useAnalyzers({
         syncCacheKeysRef(report);
 
         let finalReport = report;
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        let sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        let sidecarStatusMsg = null;
+        let sidecarStatusType = "success";
         if (sidecarReady) {
           try {
             const sidecar = await analyzeAudioViaSidecar(file, file.name);
             finalReport = mergeSidecarAnalysis(report, sidecar);
-          } catch {
-            // Keep heuristic report when sidecar analyze fails.
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Sidecar analyze failed";
+            sidecarStatusMsg = `Heuristic report only — ${msg.slice(0, 80)}`;
+            sidecarStatusType = "warning";
           }
+        } else {
+          sidecarStatusMsg = "Heuristic BPM/key — librosa sidecar unavailable";
+          sidecarStatusType = "warning";
         }
 
         setAudioPreviewFromBlob(file);
         setAudioAnalysis(finalReport);
         setStatusWithTime(
-          finalReport.analysisEngine === "sidecar"
-            ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
-            : "Track report ready — edit tags, then merge into Suno fields",
+          sidecarStatusMsg ??
+            (finalReport.analysisEngine === "sidecar"
+              ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
+              : "Track report ready — edit tags, then merge into Suno fields"),
+          sidecarStatusType,
         );
       } catch {
         setStatusWithTime("Audio analysis failed");

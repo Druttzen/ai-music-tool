@@ -42,7 +42,7 @@ async fn ensure_sidecar(
 ) -> Result<SidecarStatus, String> {
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(30_000).min(120_000));
     let mgr = Arc::clone(manager.inner());
-    tauri::async_runtime::spawn_blocking(move || mgr.wait_until_ready(timeout))
+    let _ready = tauri::async_runtime::spawn_blocking(move || mgr.wait_until_ready(timeout))
         .await
         .map_err(|e| e.to_string())?;
     Ok(manager.status())
