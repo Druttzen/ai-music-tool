@@ -2,7 +2,7 @@
 # Windows PowerShell. Do not use $pid as a loop variable (reserved).
 
 $ErrorActionPreference = "SilentlyContinue"
-$ports = @(3000, 9229, 9230, 9241, 9242)
+$ports = @(3000, 9229, 9230, 9241, 9242, 8723)
 $seen = @{}
 
 foreach ($port in $ports) {
@@ -45,3 +45,6 @@ Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyC
 if ($seen.Count -eq 0) {
   Write-Host "No processes were listening on ports: $($ports -join ', ')"
 }
+
+$pidFile = Join-Path (Split-Path -Parent $PSScriptRoot) "ai-sidecar\.sidecar.pid"
+Remove-Item $pidFile -Force -ErrorAction SilentlyContinue

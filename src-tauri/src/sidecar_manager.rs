@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -16,6 +16,7 @@ use tauri_plugin_shell::process::CommandChild;
 const SIDECAR_PORT: u16 = 8723;
 const HEALTH_URL: &str = "http://127.0.0.1:8723/health";
 const POLL_INTERVAL: Duration = Duration::from_millis(400);
+const HEALTH_TIMEOUT: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Serialize, Clone)]
 pub struct SidecarStatus {
@@ -86,23 +87,35 @@ impl SidecarManager {
         }
     }
 
+    /// Start a background thread that polls `/health` without blocking Tauri commands.
+    pub fn start_health_poller(self: &Arc<Self>) {
+        static POLLER: OnceLock<()> = OnceLock::new();
+        let manager = Arc::clone(self);
+        POLLER.get_or_init(|| {
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(POLL_INTERVAL);
+                    if let Ok(mut guard) = manager.inner.lock() {
+                        if guard.ready {
+                            continue;
+                        }
+                        if health_check() {
+                            guard.ready = true;
+                            guard.error = None;
+                        }
+                    }
+                }
+            });
+        });
+    }
+
     pub fn ensure_started(&self) {
         let mut guard = match self.inner.lock() {
             Ok(g) => g,
             Err(_) => return,
         };
 
-        if guard.ready {
-            return;
-        }
-
-        if health_check() {
-            guard.ready = true;
-            guard.error = None;
-            return;
-        }
-
-        if guard.spawned {
+        if guard.ready || guard.spawned {
             return;
         }
 
@@ -120,19 +133,16 @@ impl SidecarManager {
         }
     }
 
+    /// Wait until the sidecar is ready. Network I/O runs only on the background poller.
     pub fn wait_until_ready(&self, timeout: Duration) -> bool {
         self.ensure_started();
         let deadline = Instant::now() + timeout;
 
         while Instant::now() < deadline {
-            if health_check() {
-                if let Ok(mut guard) = self.inner.lock() {
-                    guard.ready = true;
-                    guard.error = None;
-                }
-                return true;
-            }
             if let Ok(guard) = self.inner.lock() {
+                if guard.ready {
+                    return true;
+                }
                 if guard.error.is_some() && !guard.spawned {
                     return false;
                 }
@@ -142,20 +152,15 @@ impl SidecarManager {
 
         if let Ok(mut guard) = self.inner.lock() {
             if !guard.ready && guard.spawned {
-                guard.error = Some(
-                    "AI sidecar did not become ready in time".to_string(),
-                );
+                guard.error = Some("AI sidecar did not become ready in time".to_string());
             }
         }
         false
     }
 
+    /// Snapshot of sidecar state — no blocking HTTP on the command thread.
     pub fn status(&self) -> SidecarStatus {
-        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        if !guard.ready && health_check() {
-            guard.ready = true;
-            guard.error = None;
-        }
+        let guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         SidecarStatus {
             ready: guard.ready,
             spawned: guard.spawned,
@@ -187,7 +192,7 @@ impl Drop for SidecarManager {
 
 fn health_check() -> bool {
     reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(2))
+        .timeout(HEALTH_TIMEOUT)
         .build()
         .ok()
         .and_then(|c| c.get(HEALTH_URL).send().ok())

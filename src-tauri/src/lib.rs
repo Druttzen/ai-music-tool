@@ -36,18 +36,22 @@ fn sidecar_status(manager: tauri::State<'_, Arc<SidecarManager>>) -> SidecarStat
 }
 
 #[tauri::command]
-fn ensure_sidecar(
+async fn ensure_sidecar(
     manager: tauri::State<'_, Arc<SidecarManager>>,
     timeout_ms: Option<u64>,
-) -> SidecarStatus {
+) -> Result<SidecarStatus, String> {
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(30_000).min(120_000));
-    manager.wait_until_ready(timeout);
-    manager.status()
+    let mgr = Arc::clone(manager.inner());
+    tauri::async_runtime::spawn_blocking(move || mgr.wait_until_ready(timeout))
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(manager.status())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let sidecar = Arc::new(SidecarManager::default());
+    sidecar.start_health_poller();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

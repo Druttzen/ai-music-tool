@@ -8,3 +8,6 @@ build/
 *.spec
 .pytest_cache/
 .ruff_cache/
+.sidecar.pid
+.sidecar.log
+.sidecar.log.err

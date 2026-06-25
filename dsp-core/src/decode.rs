@@ -82,18 +82,56 @@ pub fn decode_interleaved(bytes: Vec<u8>) -> Result<(Vec<f32>, u32, u32)> {
     Ok((samples, channels, sample_rate))
 }
 
-/// Up-mix mono interleaved samples to stereo.
+/// Downmix one interleaved multichannel frame to stereo (L, R).
+fn downmix_frame_to_stereo(frame: &[f32]) -> (f32, f32) {
+    match frame.len() {
+        0 => (0.0, 0.0),
+        1 => (frame[0], frame[0]),
+        2 => (frame[0], frame[1]),
+        6 => {
+            // 5.1 layout: FL, FR, FC, LFE, SL, SR (ITU-R BS.775 style).
+            let (fl, fr, fc, lfe, sl, sr) = (frame[0], frame[1], frame[2], frame[3], frame[4], frame[5]);
+            let c = 0.707_f32;
+            let lfe_mix = 0.5_f32;
+            (
+                fl + c * fc + c * sl + lfe_mix * lfe,
+                fr + c * fc + c * sr + lfe_mix * lfe,
+            )
+        }
+        n => {
+            let half = n / 2;
+            let l = frame[..half].iter().sum::<f32>() / half as f32;
+            let r = frame[half..].iter().sum::<f32>() / (n - half) as f32;
+            (l, r)
+        }
+    }
+}
+
+/// Normalize interleaved audio to stereo: up-mix mono, pass through stereo, downmix surround.
 pub fn to_stereo_interleaved(samples: Vec<f32>, channels: u32) -> (Vec<f32>, u32) {
-    if channels >= 2 {
-        return (samples, channels);
+    match channels {
+        0 => (Vec::new(), 2),
+        1 => {
+            let mut stereo = Vec::with_capacity(samples.len() * 2);
+            for s in samples {
+                stereo.push(s);
+                stereo.push(s);
+            }
+            (stereo, 2)
+        }
+        2 => (samples, 2),
+        ch => {
+            let ch = ch as usize;
+            let frames = samples.len() / ch;
+            let mut stereo = Vec::with_capacity(frames * 2);
+            for f in 0..frames {
+                let (l, r) = downmix_frame_to_stereo(&samples[f * ch..(f + 1) * ch]);
+                stereo.push(l);
+                stereo.push(r);
+            }
+            (stereo, 2)
+        }
     }
-    let frames = samples.len();
-    let mut stereo = Vec::with_capacity(frames * 2);
-    for s in samples {
-        stereo.push(s);
-        stereo.push(s);
-    }
-    (stereo, 2)
 }
 
 /// Slice interleaved audio to [start_sec, end_sec).
@@ -112,4 +150,43 @@ pub fn slice_interleaved(
     let end = end.min(frames);
     let start = start.min(end);
     samples[start * ch..end * ch].to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mono_upmixes_to_stereo() {
+        let (out, ch) = to_stereo_interleaved(vec![0.5, -0.5], 1);
+        assert_eq!(ch, 2);
+        assert_eq!(out, vec![0.5, 0.5, -0.5, -0.5]);
+    }
+
+    #[test]
+    fn stereo_passes_through() {
+        let input = vec![1.0, 2.0, 3.0, 4.0];
+        let (out, ch) = to_stereo_interleaved(input.clone(), 2);
+        assert_eq!(ch, 2);
+        assert_eq!(out, input);
+    }
+
+    #[test]
+    fn surround_downmixes_to_stereo() {
+        // One 5.1 frame: energy in front-left only.
+        let samples = vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let (out, ch) = to_stereo_interleaved(samples, 6);
+        assert_eq!(ch, 2);
+        assert_eq!(out.len(), 2);
+        assert!(out[0] > out[1]);
+    }
+
+    #[test]
+    fn eight_channel_downmixes_to_stereo() {
+        let samples = vec![1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let (out, ch) = to_stereo_interleaved(samples, 8);
+        assert_eq!(ch, 2);
+        assert_eq!(out.len(), 2);
+        assert!(out[0].is_finite() && out[1].is_finite());
+    }
 }

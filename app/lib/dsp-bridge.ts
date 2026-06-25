@@ -53,7 +53,9 @@ export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness
   if (!t) {
     throw new Error("Native DSP core is only available in the Tauri desktop build");
   }
-  return t.core.invoke<Loudness>("measure_loudness_bytes", { bytes });
+  return t.core.invoke<Loudness>("measure_loudness_bytes", {
+    bytes: new Uint8Array(bytes),
+  });
 }
 
 export interface ExportMasteredResult {
@@ -80,7 +82,7 @@ export async function exportMasteredNative(
     throw new Error("Native export is only available in the Tauri desktop build");
   }
   return t.core.invoke<ExportMasteredResult>("export_mastered", {
-    bytes: Array.from(new Uint8Array(bytes)),
+    bytes: new Uint8Array(bytes),
     presetId,
     format,
     startSec: startSec ?? null,
