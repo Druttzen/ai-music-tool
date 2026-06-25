@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-python.debugpy",
+    "continue.continue",
+    "ai-driven-dev.ai-driven-dev",
+    "angdrew.openspec-vscode",
+    "mtxr.sqltools",
+    "intersystems-community.sqltools-intersystems-driver"
+  ]
+}
