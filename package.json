@@ -7,6 +7,7 @@
   "main": "main.js",
   "scripts": {
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1",
+    "dev:web": "next dev",
     "debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -Inspect",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
     "cleanup:dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cleanup-locked-electron-dist.ps1",
