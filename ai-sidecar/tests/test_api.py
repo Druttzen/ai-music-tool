@@ -35,6 +35,7 @@ def test_health_ok():
     body = res.json()
     assert body["status"] == "ok"
     assert "device" in body
+    assert isinstance(body["stems_available"], bool)
 
 
 def test_health_allows_local_dev_cors():

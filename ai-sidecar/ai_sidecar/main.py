@@ -121,6 +121,7 @@ class Health(BaseModel):
     status: str
     device: str
     version: str
+    stems_available: bool
 
 
 class Analysis(BaseModel):
@@ -131,11 +132,24 @@ class Analysis(BaseModel):
     device: str
 
 
+def _stems_available() -> bool:
+    try:
+        import demucs  # noqa: F401, PLC0415
+    except Exception:
+        return False
+    return True
+
+
 @app.get("/health", response_model=Health)
 def health() -> Health:
     from . import __version__
 
-    return Health(status="ok", device=_select_device(), version=__version__)
+    return Health(
+        status="ok",
+        device=_select_device(),
+        version=__version__,
+        stems_available=_stems_available(),
+    )
 
 
 @app.post("/dev-session/ping")

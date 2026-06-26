@@ -258,7 +258,18 @@ Development with sidecar + Tauri webview (same Next dev server as Electron path)
 npm run tauri:build
 ```
 
-Production installers under `src-tauri/target/release/bundle/`. CI publishes tagged releases as **`studio-v*`** (separate from Electron **`v*`** tags).
+Production installers under `src-tauri/target/release/bundle/`. CI publishes tagged releases as **`studio-v*`** (separate from Electron **`v*`** tags). Every push to `master` also runs a **`tauri-smoke`** compile check (Linux `cargo build` + sidecar bundle).
+
+### Sidecar + Demucs stems
+
+See [`ai-sidecar/README.md`](ai-sidecar/README.md). Quick path:
+
+```bash
+npm run bootstrap        # Rust + Python 3.12 if missing (Windows)
+npm run sidecar:stems    # one-time torch + demucs install (~2 GB)
+npm run sidecar
+npm run test:smoke:stems # Demucs UI e2e (slow on CPU)
+```
 
 ## Desktop (Electron)
 

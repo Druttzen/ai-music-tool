@@ -1,0 +1,50 @@
+name: Demucs Stems (optional)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sidecar-stems:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install sidecar with stems extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "ai-sidecar[stems]" pytest httpx
+      - name: Python mocked + real Demucs tests
+        env:
+          SIDECAR_TEST_STEMS: "1"
+        run: pytest ai-sidecar/tests/test_separate_mock.py ai-sidecar/tests/test_stems_integration.py -q
+
+  e2e-stems:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Install sidecar stems extra and run Demucs e2e
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/install-sidecar-stems.sh
+          bash scripts/stop-sidecar.sh || true
+          bash scripts/start-sidecar.sh --idle-exit-sec 0
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8723/health | grep -q '"stems_available":true' && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8723/health
+          npx playwright test tests/e2e/sidecar-stems.spec.js

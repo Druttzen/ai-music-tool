@@ -37,6 +37,9 @@
 # Accidental nested folder (not part of this app)
 /Druttzen/
 
+# Local IDE / editor helpers (not part of the product)
+scripts/repair-cursor-*.ps1
+
 # misc
 .DS_Store
 *.pem
