@@ -7,6 +7,7 @@ Local FastAPI service for track analysis (librosa) and optional ML capabilities 
 - **Python 3.10–3.12** (PyTorch/Demucs have no 3.13+ wheels yet)
 - Base install: librosa, FastAPI, soundfile (~100 MB)
 - Optional **`stems`** extra: torch + demucs (~2 GB download)
+- **ffmpeg** on PATH for MP3/M4A uploads (WAV works without it). Windows: `winget install Gyan.FFmpeg`
 
 ## Quick start
 

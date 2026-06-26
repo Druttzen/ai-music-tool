@@ -27,7 +27,7 @@ if (-not (Test-Path $venv)) {
   & "$venv\Scripts\pip" install -e $sidecar
 }
 
-Write-Host "Installing stems extra (torch + demucs) — this may take several minutes..."
+Write-Host "Installing stems extra (torch + demucs) - this may take several minutes..."
 Push-Location $root
 & "$venv\Scripts\pip" install -e ".\ai-sidecar[stems]"
 Pop-Location

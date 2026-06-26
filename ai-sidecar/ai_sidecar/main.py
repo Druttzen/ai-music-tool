@@ -239,12 +239,26 @@ def separate_download(job_id: str, filename: str):
     return FileResponse(path, media_type="audio/wav", filename=safe)
 
 
+def _save_stem_wav(source, path: str, samplerate: int) -> None:
+    """Write a Demucs stem tensor to 16-bit WAV via soundfile (no torchcodec)."""
+    import numpy as np  # noqa: PLC0415
+    import soundfile as sf  # noqa: PLC0415
+
+    if hasattr(source, "detach"):
+        data = source.detach().cpu().numpy()
+    else:
+        data = np.asarray(source)
+    if data.ndim == 2:
+        data = data.T
+    sf.write(path, data, samplerate, subtype="PCM_16")
+
+
 @app.post("/separate", response_model=SeparateResult)
 async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
     """Stem separation via Demucs — returns HTTP download URLs for each stem."""
     try:
         from demucs.apply import apply_model  # noqa: PLC0415
-        from demucs.audio import AudioFile, save_audio  # noqa: PLC0415
+        from demucs.audio import AudioFile  # noqa: PLC0415
     except Exception as exc:
         raise HTTPException(
             status_code=503,
@@ -278,7 +292,7 @@ async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
         stems: dict[str, str] = {}
         for source, name in zip(estimates, model.sources):
             path = os.path.join(out_dir, f"{name}.wav")
-            save_audio(source, path, samplerate=model.samplerate)
+            _save_stem_wav(source, path, model.samplerate)
             stems[name] = path
 
         _prune_stem_jobs()
