@@ -295,15 +295,3 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
     exportInFlight = false;
   }
 }
-
-/** @internal Test hook */
-export function resetStudioExportClientForTests() {
-  terminateWorker();
-  exportInFlight = false;
-  workerDisabled = false;
-}
-
-/** @internal Test hook */
-export function studioExportUsesWorker() {
-  return canUseStudioWorker();
-}

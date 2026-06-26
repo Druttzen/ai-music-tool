@@ -145,16 +145,6 @@ export function usePromptPipeline(input) {
     ],
   );
 
-  const compressedPrompt = useMemo(
-    () => buildStandardPrompt({ ...standardParams, format: "Compressed" }),
-    [standardParams],
-  );
-
-  const detailedPrompt = useMemo(
-    () => buildStandardPrompt({ ...standardParams, format: "Detailed" }),
-    [standardParams],
-  );
-
   const prompt = useMemo(() => {
     if (input.promptEngine === "Suno-like") {
       return buildSunoLikePrompt({
@@ -163,19 +153,18 @@ export function usePromptPipeline(input) {
       });
     }
 
-    if (input.promptFormat === "Compressed") return compressedPrompt;
-    if (input.promptFormat === "Detailed") return detailedPrompt;
+    const format =
+      input.promptFormat === "Compressed"
+        ? "Compressed"
+        : input.promptFormat === "Detailed"
+          ? "Detailed"
+          : "Balanced";
 
-    return buildStandardPrompt({
-      ...standardParams,
-      format: "Balanced",
-    });
+    return buildStandardPrompt({ ...standardParams, format });
   }, [
     input.promptEngine,
     input.promptFormat,
     input.voiceStyleLine,
-    compressedPrompt,
-    detailedPrompt,
     standardParams,
   ]);
 
@@ -364,8 +353,6 @@ export function usePromptPipeline(input) {
     intensityText,
     vocalText,
     lyricPrompt,
-    compressedPrompt,
-    detailedPrompt,
     prompt,
     sunoBuiltFieldSlices,
     sunoFieldSlices,

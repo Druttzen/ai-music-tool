@@ -5,7 +5,6 @@
 
 import {
   applyTargetIntegratedLufs,
-  measureIntegratedLoudness,
   STREAMING_TARGET_LUFS,
 } from "./lufs-meter";
 
@@ -181,25 +180,6 @@ export function downloadAudioBlob(wavBlob, fileName) {
   a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-/**
- * @param {AudioBuffer} source
- * @param {string} presetId
- * @param {string} baseFileName
- * @returns {Promise<{ afterLufs?: number, targetLufs?: number }|void>}
- */
-export async function exportEnhancedWav(source, presetId, baseFileName) {
-  const preset = STUDIO_EXPORT_PRESETS.find((p) => p.id === presetId);
-  const enhanced = await renderEnhancedAudioBuffer(source, presetId);
-  const blob = audioBufferToWavBlob(enhanced);
-  const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
-  downloadAudioBlob(blob, `${base}-enhanced-${preset.fileSuffix}.wav`);
-
-  if (presetId === "streaming") {
-    const after = await measureIntegratedLoudness(enhanced);
-    return { afterLufs: after.integratedLUFS, targetLufs: STREAMING_TARGET_LUFS };
-  }
 }
 
 /**

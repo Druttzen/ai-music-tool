@@ -50,6 +50,7 @@ export function useAnalyzers({
   const [audioLoudness, setAudioLoudness] = useState(null);
   const [audioLoudnessBusy, setAudioLoudnessBusy] = useState(false);
   const loudnessGenRef = useRef(0);
+  const audioAnalysisRef = useRef(null);
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const canvasRef = useRef(null);
@@ -363,7 +364,21 @@ export function useAnalyzers({
   ]);
 
   useEffect(() => {
-    if (!audioAnalysis) return undefined;
+    audioAnalysisRef.current = audioAnalysis;
+  }, [audioAnalysis]);
+
+  // Re-measure loudness only when the underlying audio source changes — keyed
+  // on cache/lookup keys + preview url, NOT on the whole analysis object. This
+  // prevents a full blob decode + EBU R128 re-measurement when an unrelated
+  // patch (e.g. rehydrated waveform peaks) changes the analysis object identity.
+  const loudnessSourceKey = audioAnalysis
+    ? `${audioAnalysis.audioCacheKey || ""}|${audioAnalysis.audioLookupKey || ""}|${audioPreviewUrl || ""}`
+    : "";
+
+  useEffect(() => {
+    if (!loudnessSourceKey) return undefined;
+    const analysis = audioAnalysisRef.current;
+    if (!analysis) return undefined;
 
     const gen = ++loudnessGenRef.current;
     let cancelled = false;
@@ -371,7 +386,7 @@ export function useAnalyzers({
     (async () => {
       setAudioLoudnessBusy(true);
       try {
-        const resolved = await resolveAudioCacheBlob(audioAnalysis);
+        const resolved = await resolveAudioCacheBlob(analysis);
         let blob = resolved?.blob;
         if (!blob && audioPreviewUrlRef.current) {
           const res = await fetch(audioPreviewUrlRef.current);
@@ -420,12 +435,7 @@ export function useAnalyzers({
     return () => {
       cancelled = true;
     };
-  }, [
-    audioAnalysis,
-    audioAnalysis?.audioCacheKey,
-    audioAnalysis?.audioLookupKey,
-    audioPreviewUrl,
-  ]);
+  }, [loudnessSourceKey]);
 
   const navigateToPolishStep = useCallback(() => {
     setGuidedStep(resolvePolishStepIndex());

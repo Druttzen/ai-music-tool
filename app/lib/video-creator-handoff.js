@@ -72,36 +72,6 @@ export function slugifyHandoffBaseName(idea) {
 }
 
 /**
- * @param {object} params
- */
-export function buildVideoCreatorHandoffBundle(params) {
-  const {
-    project,
-    customPresets,
-    appVersion,
-    audioAnalysis,
-    imageAnalysis,
-    sunoPasteStyle,
-    sunoPasteLyrics,
-    audioSidecarName,
-    buildProjectBundleExport,
-  } = params;
-
-  const bundle = buildProjectBundleExport(project, customPresets, appVersion);
-  bundle.bundleVersion = 2;
-  bundle.handoff = buildVideoCreatorHandoffBlock({
-    appVersion,
-    audioAnalysis,
-    imageAnalysis,
-    sunoPasteStyle,
-    sunoPasteLyrics,
-    audioSidecarName,
-  });
-  bundle.directorSettings = buildVideoCreatorDirectorSettings({ audioAnalysis, imageAnalysis });
-  return bundle;
-}
-
-/**
  * @param {string} json
  * @param {string} filename
  */

@@ -10,9 +10,6 @@ import {
 
 /** @typedef {"wav"|"wav24"|"mp3"} StudioExportFormat */
 
-/** @type {StudioExportFormat[]} */
-export const STUDIO_EXPORT_FORMATS = ["wav", "wav24", "mp3"];
-
 /**
  * Normalize legacy/alias format ids to supported studio export formats.
  * @param {string|undefined|null} format
