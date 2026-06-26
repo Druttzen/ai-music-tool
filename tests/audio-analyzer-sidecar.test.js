@@ -45,6 +45,26 @@ describe("mergeSidecarAnalysis", () => {
     expect(merged.summary).toContain("174 BPM");
   });
 
+  it("uses HF genre predictions when sidecar returns them", () => {
+    const merged = mergeSidecarAnalysis(baseReport, {
+      duration_sec: 118.5,
+      tempo_bpm: 128,
+      key_estimate: "A",
+      spectral_centroid_hz: 1800,
+      device: "cpu",
+      genre_model: "dima806/music_genres_classification",
+      genre_predictions: [
+        { label: "hiphop", score: 0.71 },
+        { label: "pop", score: 0.18 },
+      ],
+    });
+
+    expect(merged.analysisEngine).toBe("sidecar+hf-genre");
+    expect(merged.suggestedGenres).toContain("Hip Hop");
+    expect(merged.trackSummary).toContain("HF genre hiphop");
+    expect(merged.hfGenreLabels).toEqual(["hiphop", "pop"]);
+  });
+
   it("clamps extreme tempo values", () => {
     const merged = mergeSidecarAnalysis(baseReport, {
       duration_sec: 60,
@@ -60,6 +80,9 @@ describe("mergeSidecarAnalysis", () => {
 describe("getAudioAnalyzerDisclaimer", () => {
   it("returns sidecar copy when analysisEngine is sidecar", () => {
     expect(getAudioAnalyzerDisclaimer({ analysisEngine: "sidecar" })).toContain("librosa");
+    expect(getAudioAnalyzerDisclaimer({ analysisEngine: "sidecar+hf-genre" })).toContain(
+      "Hugging Face",
+    );
     expect(getAudioAnalyzerDisclaimer({ analysisEngine: "heuristic" })).toContain("local scan");
     expect(getAudioAnalyzerDisclaimer(null)).toContain("local scan");
   });

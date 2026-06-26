@@ -17,8 +17,9 @@ dependencies = [
 # can run before the multi-GB model deps are installed.
 [project.optional-dependencies]
 stems = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0"]
+classify = ["torch>=2.2", "transformers>=4.40"]
 generate = ["torch>=2.2", "audiocraft>=1.3"]   # MusicGen (weights are CC-BY-NC: non-commercial)
-all = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0", "audiocraft>=1.3"]
+all = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0", "transformers>=4.40", "audiocraft>=1.3"]
 
 [build-system]
 requires = ["hatchling"]

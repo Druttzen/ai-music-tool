@@ -28,6 +28,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from .genre_classifier import MODEL_ID as GENRE_MODEL_ID
+from .genre_classifier import classify_music_genres, genre_classification_available
 from .idle import (
     configure_idle_exit,
     hold_dev_session,
@@ -122,6 +124,12 @@ class Health(BaseModel):
     device: str
     version: str
     stems_available: bool
+    genre_available: bool
+
+
+class GenrePrediction(BaseModel):
+    label: str
+    score: float
 
 
 class Analysis(BaseModel):
@@ -130,6 +138,8 @@ class Analysis(BaseModel):
     key_estimate: str
     spectral_centroid_hz: float
     device: str
+    genre_predictions: list[GenrePrediction] | None = None
+    genre_model: str | None = None
 
 
 def _stems_available() -> bool:
@@ -149,6 +159,7 @@ def health() -> Health:
         device=_select_device(),
         version=__version__,
         stems_available=_stems_available(),
+        genre_available=genre_classification_available(),
     )
 
 
@@ -189,12 +200,22 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
     key_idx = int(np.argmax(chroma.mean(axis=1)))
     centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
 
+    device = _select_device()
+    genre_raw = classify_music_genres(y, sr, device=device)
+    genre_predictions = (
+        [GenrePrediction(label=item["label"], score=item["score"]) for item in genre_raw]
+        if genre_raw
+        else None
+    )
+
     return Analysis(
         duration_sec=duration,
         tempo_bpm=tempo_bpm,
         key_estimate=_KEYS[key_idx],
         spectral_centroid_hz=centroid,
-        device=_select_device(),
+        device=device,
+        genre_predictions=genre_predictions,
+        genre_model=GENRE_MODEL_ID if genre_predictions else None,
     )
 
 

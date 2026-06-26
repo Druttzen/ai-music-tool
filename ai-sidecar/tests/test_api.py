@@ -36,6 +36,7 @@ def test_health_ok():
     assert body["status"] == "ok"
     assert "device" in body
     assert isinstance(body["stems_available"], bool)
+    assert isinstance(body["genre_available"], bool)
 
 
 def test_health_allows_local_dev_cors():
@@ -78,3 +79,4 @@ def test_analyze_wav_returns_tempo_and_key():
     assert body["key_estimate"]
     assert body["spectral_centroid_hz"] > 0
     assert "device" in body
+    assert body.get("genre_predictions") is None or isinstance(body["genre_predictions"], list)

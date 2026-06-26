@@ -6,8 +6,14 @@ export const AUDIO_ANALYZER_DISCLAIMER =
 export const AUDIO_ANALYZER_DISCLAIMER_SIDECAR =
   "Tempo and key from local librosa analysis (Python sidecar). Genre/mood tags still use heuristic mapping — edit before merge.";
 
+export const AUDIO_ANALYZER_DISCLAIMER_SIDECAR_HF =
+  "Tempo/key from librosa; genre tags from Hugging Face wav2vec2 (GTzan). Still reference-only — edit before merge.";
+
 /** @param {{ analysisEngine?: string }|null|undefined} analysis */
 export function getAudioAnalyzerDisclaimer(analysis) {
+  if (analysis?.analysisEngine === "sidecar+hf-genre") {
+    return AUDIO_ANALYZER_DISCLAIMER_SIDECAR_HF;
+  }
   return analysis?.analysisEngine === "sidecar"
     ? AUDIO_ANALYZER_DISCLAIMER_SIDECAR
     : AUDIO_ANALYZER_DISCLAIMER;

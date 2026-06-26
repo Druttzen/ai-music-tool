@@ -19,6 +19,8 @@ export interface SidecarAnalysis {
   key_estimate: string;
   spectral_centroid_hz: number;
   device: string;
+  genre_predictions?: { label: string; score: number }[];
+  genre_model?: string;
 }
 
 export interface SidecarManagedStatus {
