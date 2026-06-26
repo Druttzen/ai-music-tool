@@ -283,9 +283,11 @@ export function useAnalyzers({
         setAudioAnalysis(finalReport);
         setStatusWithTime(
           sidecarStatusMsg ??
-            (finalReport.analysisEngine === "sidecar"
-              ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
-              : "Track report ready — edit tags, then merge into Suno fields"),
+            (finalReport.analysisEngine === "sidecar+hf-genre"
+              ? "Track report ready (librosa + HF genre) — edit tags, then merge into Suno fields"
+              : finalReport.analysisEngine === "sidecar"
+                ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
+                : "Track report ready — edit tags, then merge into Suno fields"),
           sidecarStatusType,
         );
       } catch {
