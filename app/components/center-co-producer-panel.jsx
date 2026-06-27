@@ -10,7 +10,10 @@ import { Panel } from "./ui-blocks";
 import { fixes, promptFormatOptions } from "../lib/music-config";
 import { saveCoProducerLlmSettings } from "../lib/co-producer-llm";
 import { getLyricStyleDirection } from "../lib/lyric-generator";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+} from "../context/project-workspace-context";
 
 const CO_PRODUCER_DIRECTIONS = [
   "Make darker",
@@ -21,7 +24,7 @@ const CO_PRODUCER_DIRECTIONS = [
 ];
 
 export const CenterCoProducerQuickPanel = memo(function CenterCoProducerQuickPanel() {
-  const ws = useProjectWorkspace();
+  const { coProducer } = useProjectWorkspaceActions();
 
   return (
     <Panel title="Step 4 — Co‑Producer Buttons" hint="One-click creative direction.">
@@ -29,7 +32,7 @@ export const CenterCoProducerQuickPanel = memo(function CenterCoProducerQuickPan
         {CO_PRODUCER_DIRECTIONS.map((x) => (
           <button
             key={x}
-            onClick={() => ws.coProducer(x)}
+            onClick={() => coProducer(x)}
             className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-black hover:bg-cyan-100"
           >
             {x}
@@ -41,7 +44,31 @@ export const CenterCoProducerQuickPanel = memo(function CenterCoProducerQuickPan
 });
 
 export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
-  const ws = useProjectWorkspace();
+  const {
+    lyricStyle,
+    coProducerLlmSettings,
+    promptFormat,
+    promptEngine,
+    coProducerOutput,
+    generatedHooks,
+    generatedHooksStyle,
+    generatedLyrics,
+    generatedLyricsStyle,
+    lyricsGenerateBusy,
+  } = useProjectWorkspaceProjectState();
+  const {
+    buildCoProducerAI,
+    generateHooks,
+    applyQuickFix,
+    setCoProducerLlmSettings,
+    setStatusWithTime,
+    setPromptFormat,
+    setPromptEngine,
+    setGeneratedLyrics,
+    generateExampleLyrics,
+    shuffleExampleLyrics,
+    copyToClipboard,
+  } = useProjectWorkspaceActions();
 
   return (
     <Panel
@@ -51,24 +78,24 @@ export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
       <p className="mb-3 text-[11px] leading-relaxed text-white/50">
         <strong className="text-white/65">Copy guide:</strong> Lyric Style Generator = bracketed Suno direction only.
         <strong className="text-white/65"> Generate Lyrics</strong> writes draft lyric text matched to{" "}
-        <strong className="text-white/65">{ws.lyricStyle}</strong> ({getLyricStyleDirection(ws.lyricStyle)}). Raw Prompt
+        <strong className="text-white/65">{lyricStyle}</strong> ({getLyricStyleDirection(lyricStyle)}). Raw Prompt
         = bracketed direction; Structured Song / Performance Ready = [Verse]/[Chorus] drafts.
       </p>
       <div className="grid gap-2 md:grid-cols-3">
         <button
-          onClick={ws.buildCoProducerAI}
+          onClick={buildCoProducerAI}
           className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200"
         >
           Improve Prompt
         </button>
         <button
-          onClick={() => ws.generateHooks()}
+          onClick={() => generateHooks()}
           className="rounded-2xl bg-cyan-300 px-4 py-2 font-bold text-black hover:bg-cyan-200"
         >
           Generate Hooks
         </button>
         <button
-          onClick={() => ws.generateHooks(true)}
+          onClick={() => generateHooks(true)}
           className="rounded-2xl border border-cyan-300/40 bg-black/30 px-4 py-2 font-bold text-cyan-100 hover:bg-black/50"
         >
           Another hook take
@@ -83,7 +110,7 @@ export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
               key={label}
               type="button"
               title={fixes[label]}
-              onClick={() => ws.applyQuickFix(label)}
+              onClick={() => applyQuickFix(label)}
               className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-100 hover:bg-amber-500/20"
             >
               {label}
@@ -93,11 +120,11 @@ export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
       </div>
 
       <CoProducerLlmSettings
-        settings={ws.coProducerLlmSettings}
-        onChange={ws.setCoProducerLlmSettings}
+        settings={coProducerLlmSettings}
+        onChange={setCoProducerLlmSettings}
         onSave={() => {
-          saveCoProducerLlmSettings(ws.coProducerLlmSettings);
-          ws.setStatusWithTime("LLM settings saved locally");
+          saveCoProducerLlmSettings(coProducerLlmSettings);
+          setStatusWithTime("LLM settings saved locally");
         }}
       />
 
@@ -105,8 +132,8 @@ export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Prompt Format</div>
           <select
-            value={ws.promptFormat}
-            onChange={(e) => ws.setPromptFormat(e.target.value)}
+            value={promptFormat}
+            onChange={(e) => setPromptFormat(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
             {promptFormatOptions.map((x) => (
@@ -117,8 +144,8 @@ export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Prompt Engine</div>
           <select
-            value={ws.promptEngine}
-            onChange={(e) => ws.setPromptEngine(e.target.value)}
+            value={promptEngine}
+            onChange={(e) => setPromptEngine(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
             <option>Standard</option>
@@ -127,45 +154,45 @@ export const CenterCoProducerPanel = memo(function CenterCoProducerPanel() {
         </label>
       </div>
 
-      {ws.coProducerOutput && (
+      {coProducerOutput && (
         <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-emerald-300/20 bg-black/50 p-4 text-xs leading-relaxed text-emerald-50">
-          {ws.coProducerOutput}
+          {coProducerOutput}
         </pre>
       )}
 
       <CoProducerHooksBlock
-        lyricStyle={ws.lyricStyle}
-        generatedHooks={ws.generatedHooks}
-        generatedHooksStyle={ws.generatedHooksStyle}
+        lyricStyle={lyricStyle}
+        generatedHooks={generatedHooks}
+        generatedHooksStyle={generatedHooksStyle}
       />
 
       <CoProducerLyricsBlock
         className="mt-3"
-        lyricStyle={ws.lyricStyle}
-        generatedLyrics={ws.generatedLyrics}
-        generatedLyricsStyle={ws.generatedLyricsStyle}
-        onLyricsChange={ws.setGeneratedLyrics}
-        onGenerate={ws.generateExampleLyrics}
-        onAnotherTake={ws.shuffleExampleLyrics}
-        generateBusy={ws.lyricsGenerateBusy}
+        lyricStyle={lyricStyle}
+        generatedLyrics={generatedLyrics}
+        generatedLyricsStyle={generatedLyricsStyle}
+        onLyricsChange={setGeneratedLyrics}
+        onGenerate={generateExampleLyrics}
+        onAnotherTake={shuffleExampleLyrics}
+        generateBusy={lyricsGenerateBusy}
         showStyleHint={false}
       />
 
       <div className="mt-3 grid gap-2 md:grid-cols-3">
         <button
-          onClick={() => ws.copyToClipboard(ws.coProducerOutput || "", "Report copied")}
+          onClick={() => copyToClipboard(coProducerOutput || "", "Report copied")}
           className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20"
         >
           Copy Report
         </button>
         <button
-          onClick={() => ws.copyToClipboard(ws.generatedHooks || "", "Hooks copied")}
+          onClick={() => copyToClipboard(generatedHooks || "", "Hooks copied")}
           className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20"
         >
           Copy Hooks
         </button>
         <button
-          onClick={() => ws.copyToClipboard(ws.generatedLyrics || "", "Lyrics copied")}
+          onClick={() => copyToClipboard(generatedLyrics || "", "Lyrics copied")}
           className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20"
         >
           Copy Lyrics

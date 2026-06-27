@@ -3,22 +3,29 @@
 import { memo } from "react";
 import { Panel, Pill, Slider } from "./ui-blocks";
 import { stylePresets } from "../lib/music-config";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+  useProjectWorkspacePromptState,
+} from "../context/project-workspace-context";
 
 export const PageSidebarLeft = memo(function PageSidebarLeft() {
   const {
-    applyPreset,
     customPresets,
-    deleteCustomPreset,
-    exportProject,
-    exportVideoHandoff,
-    importProject,
-    intensityText,
-    loadPresetObject,
     mode,
     presetName,
     proMode,
     promptIntensity,
+    variationCount,
+  } = useProjectWorkspaceProjectState();
+  const { intensityText } = useProjectWorkspacePromptState();
+  const {
+    applyPreset,
+    deleteCustomPreset,
+    exportProject,
+    exportVideoHandoff,
+    importProject,
+    loadPresetObject,
     resetAll,
     revertSnapshot,
     saveCustomPreset,
@@ -29,8 +36,7 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
     setPromptIntensity,
     setStatusWithTime,
     setVariationCount,
-    variationCount,
-  } = useProjectWorkspace();
+  } = useProjectWorkspaceActions();
 
   return (
     <aside className="space-y-4">

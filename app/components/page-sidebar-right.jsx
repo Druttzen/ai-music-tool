@@ -8,7 +8,11 @@ import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
   SUNO_STYLE_CHAR_CAP,
 } from "../lib/suno-limits";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+  useProjectWorkspacePromptState,
+} from "../context/project-workspace-context";
 
 const SunoLanguageIndexPanel = dynamic(
   () =>
@@ -26,24 +30,19 @@ const SunoLanguageIndexPanel = dynamic(
 );
 
 export const PageSidebarRight = memo(function PageSidebarRight() {
+  const { copied, history, promptEngine, scores, selectedHistoryId } =
+    useProjectWorkspaceProjectState();
+  const { prompt, sunoSlices, sunoWarnings } = useProjectWorkspacePromptState();
   const {
     addHistory,
     applyGenreAnchors,
     clearHistory,
-    copied,
     copyPrompt,
     copyToClipboard,
     fixSunoWarnings,
-    history,
-    prompt,
-    promptEngine,
     restoreHistory,
-    scores,
-    selectedHistoryId,
     setScores,
-    sunoSlices,
-    sunoWarnings,
-  } = useProjectWorkspace();
+  } = useProjectWorkspaceActions();
 
   return (
     <aside className="space-y-4">

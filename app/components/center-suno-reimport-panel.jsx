@@ -2,26 +2,40 @@
 
 import { memo, useMemo } from "react";
 import { Panel } from "./ui-blocks";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+  useProjectWorkspacePromptState,
+} from "../context/project-workspace-context";
 import { buildSunoPasteDiff, hasSunoPasteContent } from "../lib/suno-reimport";
 
 export const CenterSunoReimportPanel = memo(function CenterSunoReimportPanel() {
-  const ws = useProjectWorkspace();
+  const { sunoPasteStyle, sunoPasteLyrics, sunoPasteActive } = useProjectWorkspaceProjectState();
+  const { sunoBuiltFieldSlices } = useProjectWorkspacePromptState();
+  const {
+    setSunoPasteStyle,
+    setSunoPasteLyrics,
+    captureSunoPasteFromProject,
+    clearSunoPaste,
+    deactivateSunoPasteForCopy,
+    activateSunoPasteForCopy,
+    applyPastedLyricsToGenerated,
+  } = useProjectWorkspaceActions();
 
   const diffSections = useMemo(
     () =>
       buildSunoPasteDiff({
-        projectStyle: ws.sunoBuiltFieldSlices?.style || "",
-        projectLyrics: ws.sunoBuiltFieldSlices?.lyrics || "",
-        pastedStyle: ws.sunoPasteStyle,
-        pastedLyrics: ws.sunoPasteLyrics,
+        projectStyle: sunoBuiltFieldSlices?.style || "",
+        projectLyrics: sunoBuiltFieldSlices?.lyrics || "",
+        pastedStyle: sunoPasteStyle,
+        pastedLyrics: sunoPasteLyrics,
       }),
-    [ws.sunoBuiltFieldSlices, ws.sunoPasteLyrics, ws.sunoPasteStyle],
+    [sunoBuiltFieldSlices, sunoPasteLyrics, sunoPasteStyle],
   );
 
   const hasPaste = hasSunoPasteContent({
-    pastedStyle: ws.sunoPasteStyle,
-    pastedLyrics: ws.sunoPasteLyrics,
+    pastedStyle: sunoPasteStyle,
+    pastedLyrics: sunoPasteLyrics,
   });
 
   return (
@@ -43,8 +57,8 @@ export const CenterSunoReimportPanel = memo(function CenterSunoReimportPanel() {
           </span>
           <textarea
             data-testid="suno-reimport-style"
-            value={ws.sunoPasteStyle}
-            onChange={(e) => ws.setSunoPasteStyle(e.target.value)}
+            value={sunoPasteStyle}
+            onChange={(e) => setSunoPasteStyle(e.target.value)}
             rows={5}
             placeholder="Paste Suno Style field (comma-separated)…"
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none focus:border-cyan-300/40"
@@ -56,8 +70,8 @@ export const CenterSunoReimportPanel = memo(function CenterSunoReimportPanel() {
           </span>
           <textarea
             data-testid="suno-reimport-lyrics"
-            value={ws.sunoPasteLyrics}
-            onChange={(e) => ws.setSunoPasteLyrics(e.target.value)}
+            value={sunoPasteLyrics}
+            onChange={(e) => setSunoPasteLyrics(e.target.value)}
             rows={5}
             placeholder="Paste Suno Lyrics field (bracketed direction + text)…"
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-sm text-white outline-none focus:border-cyan-300/40"
@@ -68,22 +82,22 @@ export const CenterSunoReimportPanel = memo(function CenterSunoReimportPanel() {
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={ws.captureSunoPasteFromProject}
+          onClick={captureSunoPasteFromProject}
           className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10"
         >
           Capture from project
         </button>
         <button
           type="button"
-          onClick={ws.clearSunoPaste}
+          onClick={clearSunoPaste}
           className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm font-bold text-white/80 hover:bg-white/10"
         >
           Clear paste
         </button>
-        {ws.sunoPasteActive ? (
+        {sunoPasteActive ? (
           <button
             type="button"
-            onClick={ws.deactivateSunoPasteForCopy}
+            onClick={deactivateSunoPasteForCopy}
             className="rounded-2xl bg-amber-300 px-4 py-2 text-sm font-bold text-black hover:bg-amber-200"
           >
             Stop using pasted for copy
@@ -92,7 +106,7 @@ export const CenterSunoReimportPanel = memo(function CenterSunoReimportPanel() {
           <button
             type="button"
             data-testid="suno-reimport-use-for-copy"
-            onClick={ws.activateSunoPasteForCopy}
+            onClick={activateSunoPasteForCopy}
             disabled={!hasPaste}
             className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-black hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -102,15 +116,15 @@ export const CenterSunoReimportPanel = memo(function CenterSunoReimportPanel() {
         <button
           type="button"
           data-testid="suno-reimport-apply-lyrics"
-          onClick={ws.applyPastedLyricsToGenerated}
-          disabled={!ws.sunoPasteLyrics?.trim()}
+          onClick={applyPastedLyricsToGenerated}
+          disabled={!sunoPasteLyrics?.trim()}
           className="rounded-2xl bg-emerald-300 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Apply pasted Lyrics to project
         </button>
       </div>
 
-      {ws.sunoPasteActive && (
+      {sunoPasteActive && (
         <p className="mt-3 rounded-2xl border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-xs font-bold text-cyan-100">
           Prompt Preview and Copy Prompt use pasted Suno fields.
         </p>

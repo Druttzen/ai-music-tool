@@ -1,8 +1,6 @@
 "use client";
 
 import { memo } from "react";
-import { StylePromptPicker } from "./suno-english-style-prompt-picker";
-import { Panel, Pill, SearchablePillGrid } from "./ui-blocks";
 import {
   genreOptions,
   rhythmOptions,
@@ -15,10 +13,25 @@ import {
   SUNO_INSTRUMENT_GROUPS,
   SUNO_RHYTHM_GROUPS,
 } from "../lib/suno-music-styles";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import { StylePromptPicker } from "./suno-english-style-prompt-picker";
+import { Panel, Pill, SearchablePillGrid } from "./ui-blocks";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+} from "../context/project-workspace-context";
 
 export const CenterMusicControlsPanel = memo(function CenterMusicControlsPanel() {
-  const ws = useProjectWorkspace();
+  const { selectedGenres, selectedRhythms, selectedSounds, rules, vocal } =
+    useProjectWorkspaceProjectState();
+  const {
+    toggle,
+    setSelectedGenres,
+    setSelectedRhythms,
+    setSelectedSounds,
+    setRules,
+    setStatusWithTime,
+    setVocal,
+  } = useProjectWorkspaceActions();
 
   return (
     <Panel
@@ -30,37 +43,37 @@ export const CenterMusicControlsPanel = memo(function CenterMusicControlsPanel()
         hint="Strong Suno genres by family — use Style Prompt Library below for fusion / wheel phrases."
         options={genreOptions}
         groups={SUNO_GENRE_GROUPS}
-        selected={ws.selectedGenres}
-        onToggle={(x) => ws.toggle(x, ws.selectedGenres, ws.setSelectedGenres)}
+        selected={selectedGenres}
+        onToggle={(x) => toggle(x, selectedGenres, setSelectedGenres)}
       />
       <StylePromptPicker
-        selectedGenres={ws.selectedGenres}
-        setSelectedGenres={ws.setSelectedGenres}
-        rules={ws.rules}
-        setRules={ws.setRules}
-        setStatusWithTime={ws.setStatusWithTime}
+        selectedGenres={selectedGenres}
+        setSelectedGenres={setSelectedGenres}
+        rules={rules}
+        setRules={setRules}
+        setStatusWithTime={setStatusWithTime}
         defaultOpen
       />
       <SearchablePillGrid
         label="Rhythm"
         options={rhythmOptions}
         groups={SUNO_RHYTHM_GROUPS}
-        selected={ws.selectedRhythms}
-        onToggle={(x) => ws.toggle(x, ws.selectedRhythms, ws.setSelectedRhythms)}
+        selected={selectedRhythms}
+        onToggle={(x) => toggle(x, selectedRhythms, setSelectedRhythms)}
       />
       <SearchablePillGrid
         label="Instruments & textures"
         hint="Core Suno instrument tags plus catalog lines — search e.g. sax, 808, koto."
         options={soundOptions}
         groups={SUNO_INSTRUMENT_GROUPS}
-        selected={ws.selectedSounds}
-        onToggle={(x) => ws.toggle(x, ws.selectedSounds, ws.setSelectedSounds)}
+        selected={selectedSounds}
+        onToggle={(x) => toggle(x, selectedSounds, setSelectedSounds)}
       />
       <div>
         <div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/45">Vocals</div>
         <div className="flex flex-wrap gap-2">
           {vocalOptions.map((x) => (
-            <Pill key={x} active={ws.vocal === x} onClick={() => ws.setVocal(x)}>
+            <Pill key={x} active={vocal === x} onClick={() => setVocal(x)}>
               {x}
             </Pill>
           ))}

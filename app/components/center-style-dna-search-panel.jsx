@@ -2,12 +2,17 @@
 
 import { memo, useCallback, useState } from "react";
 import { Panel } from "./ui-blocks";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+} from "../context/project-workspace-context";
 import { saveStyleDnaSettings, isSpotifyStyleDnaReady } from "../lib/style-dna-settings";
 import { searchTrackStyleDna } from "../lib/track-style-dna";
 
 export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel() {
-  const ws = useProjectWorkspace();
+  const { styleDnaSettings } = useProjectWorkspaceProjectState();
+  const { setStyleDnaSettings, setStatusWithTime, applyStyleDnaToProject, copyToClipboard } =
+    useProjectWorkspaceActions();
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -15,17 +20,17 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
   const [provider, setProvider] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
 
-  const spotifyReady = isSpotifyStyleDnaReady(ws.styleDnaSettings);
+  const spotifyReady = isSpotifyStyleDnaReady(styleDnaSettings);
 
   const runSearch = useCallback(async () => {
     setError("");
     setBusy(true);
     try {
-      const out = await searchTrackStyleDna(query, ws.styleDnaSettings);
+      const out = await searchTrackStyleDna(query, styleDnaSettings);
       setResults(out.mapped);
       setProvider(out.provider);
       setSelectedIdx(0);
-      ws.setStatusWithTime(
+      setStatusWithTime(
         out.resolvedQuery
           ? `Style DNA: ${out.mapped.length} hit(s) via ${out.provider} (YouTube → "${out.resolvedQuery}")`
           : `Style DNA: ${out.mapped.length} hit(s) via ${out.provider}`,
@@ -33,11 +38,11 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
     } catch (err) {
       setResults([]);
       setError(err instanceof Error ? err.message : "Search failed");
-      ws.setStatusWithTime("Style DNA search failed", "error");
+      setStatusWithTime("Style DNA search failed", "error");
     } finally {
       setBusy(false);
     }
-  }, [query, ws]);
+  }, [query, styleDnaSettings, setStatusWithTime]);
 
   const selected = results[selectedIdx] || null;
 
@@ -60,9 +65,9 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
           <label className="block">
             <span className="mb-1 block text-[10px] uppercase text-white/40">Client ID</span>
             <input
-              value={ws.styleDnaSettings.spotifyClientId}
+              value={styleDnaSettings.spotifyClientId}
               onChange={(e) =>
-                ws.setStyleDnaSettings({ ...ws.styleDnaSettings, spotifyClientId: e.target.value })
+                setStyleDnaSettings({ ...styleDnaSettings, spotifyClientId: e.target.value })
               }
               className="w-full rounded-xl border border-white/10 bg-black/30 p-2 text-xs text-white outline-none"
               autoComplete="off"
@@ -72,10 +77,10 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
             <span className="mb-1 block text-[10px] uppercase text-white/40">Client Secret</span>
             <input
               type="password"
-              value={ws.styleDnaSettings.spotifyClientSecret}
+              value={styleDnaSettings.spotifyClientSecret}
               onChange={(e) =>
-                ws.setStyleDnaSettings({
-                  ...ws.styleDnaSettings,
+                setStyleDnaSettings({
+                  ...styleDnaSettings,
                   spotifyClientSecret: e.target.value,
                 })
               }
@@ -87,8 +92,8 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
         <button
           type="button"
           onClick={() => {
-            saveStyleDnaSettings(ws.styleDnaSettings);
-            ws.setStatusWithTime("Style DNA Spotify settings saved");
+            saveStyleDnaSettings(styleDnaSettings);
+            setStatusWithTime("Style DNA Spotify settings saved");
           }}
           className="mt-2 rounded-xl border border-indigo-300/30 bg-indigo-900/40 px-3 py-1.5 text-xs font-bold text-indigo-100 hover:bg-indigo-900/60"
         >
@@ -132,14 +137,14 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
             <button
               type="button"
               data-testid="style-dna-apply-button"
-              onClick={() => ws.applyStyleDnaToProject(selected)}
+              onClick={() => applyStyleDnaToProject(selected)}
               className="rounded-2xl bg-emerald-300 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-200"
             >
               Apply to Suno project
             </button>
             <button
               type="button"
-              onClick={() => ws.copyToClipboard(selected.styleTokens, "Style DNA tokens copied")}
+              onClick={() => copyToClipboard(selected.styleTokens, "Style DNA tokens copied")}
               className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10"
             >
               Copy style tokens

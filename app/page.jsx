@@ -2,7 +2,7 @@
 
 import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { ActionToast } from "./components/action-toast";
-import { ProjectWorkspaceContext } from "./context/project-workspace-context";
+import { ProjectWorkspaceProviders } from "./context/project-workspace-context";
 import { PageSidebarLeft } from "./components/page-sidebar-left";
 import { PageWorkspaceCenter } from "./components/page-workspace-center";
 import { PageSidebarRight } from "./components/page-sidebar-right";
@@ -45,13 +45,13 @@ export default function Page() {
           statusPulseKey={toast?.tick ?? 0}
         />
 
-        <ProjectWorkspaceContext.Provider value={workspace}>
+        <ProjectWorkspaceProviders slices={workspace}>
           <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
             <PageSidebarLeft />
             <PageWorkspaceCenter />
             <PageSidebarRight />
           </div>
-        </ProjectWorkspaceContext.Provider>
+        </ProjectWorkspaceProviders>
 
       </div>
       <div className="fixed bottom-3 left-6 z-50 rounded-full border border-orange-400/30 bg-black/50 px-3 py-1 text-xs font-bold text-orange-300 backdrop-blur">Version {APP_VERSION}</div>

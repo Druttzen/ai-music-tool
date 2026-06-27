@@ -29,13 +29,26 @@ import {
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { fetchYoutubeTitle, parseYoutubeReference } from "../lib/youtube-reference";
 import { APP_VERSION } from "../lib/music-config";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+} from "../context/project-workspace-context";
 
 /**
  * Voice Character Studio — analyze vocal files, optional YouTube reference metadata, character presets.
  */
 export function useCharacterVoiceStudio() {
-  const ws = useProjectWorkspace();
+  const { selectedGenres, mood, promptEngine } = useProjectWorkspaceProjectState();
+  const {
+    setVoiceStyleLine,
+    setVocal,
+    setVoiceRefFirstName,
+    setVoiceRefLastName,
+    setRules,
+    setStatusWithTime,
+    setGuidedStep,
+    captureSnapshot,
+  } = useProjectWorkspaceActions();
   const [characterPresets, setCharacterPresets] = useState({});
   const [voiceAnalysis, setVoiceAnalysis] = useState(null);
   const [youtubeReference, setYoutubeReference] = useState(null);
@@ -82,38 +95,38 @@ export function useCharacterVoiceStudio() {
 
   const projectCtx = useCallback(
     () => ({
-      selectedGenres: ws.selectedGenres,
-      moodWords: buildMoodWords(ws.mood),
+      selectedGenres,
+      moodWords: buildMoodWords(mood),
     }),
-    [ws.selectedGenres, ws.mood],
+    [selectedGenres, mood],
   );
 
   const applyLinesToProject = useCallback(
     (lines, { appendRules = true } = {}) => {
-      ws.setVoiceStyleLine(lines.voiceStyleLine);
-      ws.setVocal(lines.vocalRole);
-      ws.setVoiceRefFirstName("");
-      ws.setVoiceRefLastName("");
+      setVoiceStyleLine(lines.voiceStyleLine);
+      setVocal(lines.vocalRole);
+      setVoiceRefFirstName("");
+      setVoiceRefLastName("");
       setVoiceStyleCompact(
         lines.voiceStyleCompact && typeof lines.voiceStyleCompact === "object"
           ? lines.voiceStyleCompact
           : { style: "", lyricTag: "" },
       );
       if (appendRules && lines.rulesAddition) {
-        ws.setRules((prev) => {
+        setRules((prev) => {
           const p = String(prev || "").trim();
           if (p.includes(lines.rulesAddition.slice(0, 24))) return prev;
           return p ? `${p}\n${lines.rulesAddition}` : lines.rulesAddition;
         });
       }
     },
-    [ws],
+    [setVoiceStyleLine, setVocal, setVoiceRefFirstName, setVoiceRefLastName, setRules],
   );
 
   const analyzeVoiceFile = useCallback(
     async (file) => {
       if (!file || !isSupportedAudioFile(file)) {
-        ws.setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} with a clear lead vocal`, "warning");
+        setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} with a clear lead vocal`, "warning");
         return;
       }
       setBusy(true);
@@ -134,22 +147,22 @@ export function useCharacterVoiceStudio() {
           youtubeTitle: youtubeReference?.title,
         });
         applyLinesToProject(lines);
-        ws.setStatusWithTime(
+        setStatusWithTime(
           analysis.vocalsLikely
             ? "Voice character analyzed — Suno voice block regenerated from traits"
             : "Weak vocal signal — try acapella; draft lines still generated",
           analysis.vocalsLikely ? "success" : "warning",
         );
-        if (ws.promptEngine === "Suno-like") {
-          ws.setGuidedStep(resolvePolishStepIndex());
+        if (promptEngine === "Suno-like") {
+          setGuidedStep(resolvePolishStepIndex());
         }
       } catch {
-        ws.setStatusWithTime("Voice analysis failed — try WAV or MP3 acapella", "error");
+        setStatusWithTime("Voice analysis failed — try WAV or MP3 acapella", "error");
       } finally {
         setBusy(false);
       }
     },
-    [applyLinesToProject, presetName, projectCtx, ws, youtubeReference],
+    [applyLinesToProject, presetName, projectCtx, promptEngine, setGuidedStep, setStatusWithTime, youtubeReference],
   );
 
   useEffect(() => {
@@ -165,31 +178,31 @@ export function useCharacterVoiceStudio() {
     async (url) => {
       const ref = parseYoutubeReference(url);
       if (!ref) {
-        ws.setStatusWithTime("Invalid YouTube link", "error");
+        setStatusWithTime("Invalid YouTube link", "error");
         return;
       }
       setBusy(true);
       const title = await fetchYoutubeTitle(ref.watchUrl);
       setYoutubeReference({ ...ref, title: title || ref.videoId });
       setBusy(false);
-      ws.setStatusWithTime(
+      setStatusWithTime(
         title
           ? `YouTube reference linked: ${title} — now drop exported vocal audio`
           : "YouTube reference linked — drop exported vocal audio for analysis",
         "info",
       );
     },
-    [ws],
+    [setStatusWithTime],
   );
 
   const saveCharacterPreset = useCallback(() => {
     const name = presetName.trim();
     if (!name) {
-      ws.setStatusWithTime("Character preset name missing", "warning");
+      setStatusWithTime("Character preset name missing", "warning");
       return;
     }
     if (!voiceAnalysis) {
-      ws.setStatusWithTime("Analyze a vocal file first", "warning");
+      setStatusWithTime("Analyze a vocal file first", "warning");
       return;
     }
     const lines = buildSunoLinesFromVoiceCharacter(voiceAnalysis, {
@@ -212,13 +225,13 @@ export function useCharacterVoiceStudio() {
     const next = { ...characterPresets, [name]: preset };
     const result = saveCharacterPresetsToStorage(next);
     if (!result.ok) {
-      ws.setStatusWithTime(storageFailureMessage(result), "error");
+      setStatusWithTime(storageFailureMessage(result), "error");
       return;
     }
     setCharacterPresets(next);
     setPresetName("");
-    ws.setStatusWithTime(`Saved character preset: ${name}`);
-  }, [characterPresets, presetName, projectCtx, voiceAnalysis, ws, youtubeReference]);
+    setStatusWithTime(`Saved character preset: ${name}`);
+  }, [characterPresets, presetName, projectCtx, voiceAnalysis, setStatusWithTime, youtubeReference]);
 
   const loadCharacterPreset = useCallback(
     (name) => {
@@ -236,9 +249,9 @@ export function useCharacterVoiceStudio() {
         setYoutubeReference(null);
       }
       applyLinesToProject(preset, { appendRules: false });
-      ws.setStatusWithTime(`Loaded character preset: ${name}`);
+      setStatusWithTime(`Loaded character preset: ${name}`);
     },
-    [applyLinesToProject, characterPresets, ws],
+    [applyLinesToProject, characterPresets, setStatusWithTime],
   );
 
   const regenerateCharacterVoice = useCallback(
@@ -249,7 +262,7 @@ export function useCharacterVoiceStudio() {
           ? { name: presetName || voiceAnalysis.characterLabel, analysis: voiceAnalysis }
           : null);
       if (!base?.analysis) {
-        ws.setStatusWithTime("Nothing to regenerate — analyze or load a character preset", "warning");
+        setStatusWithTime("Nothing to regenerate — analyze or load a character preset", "warning");
         return;
       }
       const regen = regenerateCharacterVoicePreset(
@@ -273,30 +286,30 @@ export function useCharacterVoiceStudio() {
         const next = { ...characterPresets, [name]: updated };
         const result = saveCharacterPresetsToStorage(next);
         if (!result.ok) {
-          ws.setStatusWithTime(storageFailureMessage(result), "error");
+          setStatusWithTime(storageFailureMessage(result), "error");
           return;
         }
         setCharacterPresets(next);
       }
-      ws.setStatusWithTime("Regenerated Suno voice block from character DNA (max trait match)");
+      setStatusWithTime("Regenerated Suno voice block from character DNA (max trait match)");
     },
-    [applyLinesToProject, characterPresets, presetName, projectCtx, voiceAnalysis, ws, youtubeReference],
+    [applyLinesToProject, characterPresets, presetName, projectCtx, voiceAnalysis, setStatusWithTime, youtubeReference],
   );
 
   const deleteCharacterPreset = useCallback(
     (name) => {
-      ws.captureSnapshot(`before delete character preset ${name}`);
+      captureSnapshot(`before delete character preset ${name}`);
       const next = { ...characterPresets };
       delete next[name];
       const result = saveCharacterPresetsToStorage(next);
       if (!result.ok) {
-        ws.setStatusWithTime(storageFailureMessage(result), "error");
+        setStatusWithTime(storageFailureMessage(result), "error");
         return;
       }
       setCharacterPresets(next);
-      ws.setStatusWithTime(`Deleted character preset: ${name}`);
+      setStatusWithTime(`Deleted character preset: ${name}`);
     },
-    [characterPresets, ws],
+    [captureSnapshot, characterPresets, setStatusWithTime],
   );
 
   const clearStudio = useCallback(() => {
@@ -310,13 +323,13 @@ export function useCharacterVoiceStudio() {
       youtubeReference: null,
       presetName: "",
     });
-    ws.setStatusWithTime("Voice character studio cleared");
-  }, [ws]);
+    setStatusWithTime("Voice character studio cleared");
+  }, [setStatusWithTime]);
 
   const exportCharacterPresets = useCallback(() => {
     const count = Object.keys(characterPresets).length;
     if (!count) {
-      ws.setStatusWithTime("No character presets to export", "warning");
+      setStatusWithTime("No character presets to export", "warning");
       return;
     }
     const payload = serializeCharacterPresetsExport(characterPresets, APP_VERSION);
@@ -327,14 +340,14 @@ export function useCharacterVoiceStudio() {
     a.download = "character-voice-presets.json";
     a.click();
     URL.revokeObjectURL(url);
-    ws.setStatusWithTime(`Exported ${count} character preset${count === 1 ? "" : "s"} JSON`);
-  }, [characterPresets, ws]);
+    setStatusWithTime(`Exported ${count} character preset${count === 1 ? "" : "s"} JSON`);
+  }, [characterPresets, setStatusWithTime]);
 
   const importCharacterPresets = useCallback(
     (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
-      ws.captureSnapshot("before character preset import");
+      captureSnapshot("before character preset import");
       const reader = new FileReader();
       reader.onload = () => {
         try {
@@ -342,34 +355,34 @@ export function useCharacterVoiceStudio() {
           const imported = parseCharacterPresetsImport(raw);
           const count = Object.keys(imported).length;
           if (!count) {
-            ws.setStatusWithTime("No valid character presets in file", "error");
+            setStatusWithTime("No valid character presets in file", "error");
             return;
           }
           setCharacterPresets((prev) => {
             const next = mergeCharacterPresetsMaps(prev, imported);
             const result = saveCharacterPresetsToStorage(next);
             if (!result.ok) {
-              queueMicrotask(() => ws.setStatusWithTime(storageFailureMessage(result), "error"));
+              queueMicrotask(() => setStatusWithTime(storageFailureMessage(result), "error"));
               return prev;
             }
             queueMicrotask(() =>
-              ws.setStatusWithTime(`Imported ${count} character preset${count === 1 ? "" : "s"}`),
+              setStatusWithTime(`Imported ${count} character preset${count === 1 ? "" : "s"}`),
             );
             return next;
           });
         } catch {
-          ws.setStatusWithTime("Character preset import failed", "error");
+          setStatusWithTime("Character preset import failed", "error");
         } finally {
           event.target.value = "";
         }
       };
       reader.onerror = () => {
-        ws.setStatusWithTime("Character preset import failed", "error");
+        setStatusWithTime("Character preset import failed", "error");
         event.target.value = "";
       };
       reader.readAsText(file);
     },
-    [ws],
+    [captureSnapshot, setStatusWithTime],
   );
 
   return {

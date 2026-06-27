@@ -6,10 +6,10 @@ import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-f
 import { VOICE_CHARACTER_DISCLAIMER } from "../lib/voice-character-preset";
 import { VOICE_CHARACTER_STUDIO_PANEL_ID } from "../lib/voice-character-handoff";
 import { useCharacterVoiceStudio } from "../hooks/use-character-voice-studio";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import { useProjectWorkspaceActions } from "../context/project-workspace-context";
 
 export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStudio() {
-  const ws = useProjectWorkspace();
+  const { copyToClipboard } = useProjectWorkspaceActions();
   const studio = useCharacterVoiceStudio();
   const [youtubeDraft, setYoutubeDraft] = useState("");
   const youtubeInputValue = studio.youtubeReference?.watchUrl ?? youtubeDraft;
@@ -181,7 +181,7 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
           </pre>
           <button
             type="button"
-            onClick={() => ws.copyToClipboard(studio.voiceStyleCompact.style, "Character style copied")}
+            onClick={() => copyToClipboard(studio.voiceStyleCompact.style, "Character style copied")}
             className="w-full rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-black hover:bg-cyan-200"
           >
             Copy style line
@@ -192,7 +192,7 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
           </pre>
           <button
             type="button"
-            onClick={() => ws.copyToClipboard(studio.voiceStyleCompact.lyricTag, "Character lyric metatag copied")}
+            onClick={() => copyToClipboard(studio.voiceStyleCompact.lyricTag, "Character lyric metatag copied")}
             className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
           >
             Copy lyric metatag

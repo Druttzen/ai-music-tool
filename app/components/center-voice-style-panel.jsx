@@ -3,10 +3,23 @@
 import { memo } from "react";
 import { Panel, Pill } from "./ui-blocks";
 import { FAMOUS_VOICE_PRESETS, formatPublicName } from "../lib/suno-voice-style";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+  useProjectWorkspacePromptState,
+} from "../context/project-workspace-context";
 
 export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
-  const ws = useProjectWorkspace();
+  const { vocal, voiceRefFirstName, voiceRefLastName } = useProjectWorkspaceProjectState();
+  const { voiceStyleCompact } = useProjectWorkspacePromptState();
+  const {
+    setVoiceRefFirstName,
+    setVoiceRefLastName,
+    setVoiceStyleLine,
+    setStatusWithTime,
+    generateVoiceStyleFromNames,
+    copyToClipboard,
+  } = useProjectWorkspaceActions();
 
   return (
     <Panel
@@ -21,8 +34,8 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">First name</div>
           <input
-            value={ws.voiceRefFirstName}
-            onChange={(e) => ws.setVoiceRefFirstName(e.target.value)}
+            value={voiceRefFirstName}
+            onChange={(e) => setVoiceRefFirstName(e.target.value)}
             placeholder="e.g. Freddie"
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-cyan-300"
           />
@@ -30,8 +43,8 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Last name</div>
           <input
-            value={ws.voiceRefLastName}
-            onChange={(e) => ws.setVoiceRefLastName(e.target.value)}
+            value={voiceRefLastName}
+            onChange={(e) => setVoiceRefLastName(e.target.value)}
             placeholder="e.g. Mercury (optional)"
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-cyan-300"
           />
@@ -47,9 +60,9 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
                 key={`voice-preset-${presetIdx}-${p.first}-${p.last}`}
                 active={false}
                 onClick={() => {
-                  ws.setVoiceRefFirstName(p.first);
-                  ws.setVoiceRefLastName(p.last);
-                  ws.setStatusWithTime(`Preset: ${label}`);
+                  setVoiceRefFirstName(p.first);
+                  setVoiceRefLastName(p.last);
+                  setStatusWithTime(`Preset: ${label}`);
                 }}
               >
                 {label}
@@ -61,7 +74,7 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={ws.generateVoiceStyleFromNames}
+          onClick={generateVoiceStyleFromNames}
           className="rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-black hover:bg-cyan-200"
         >
           Generate voice style
@@ -69,42 +82,42 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
         <button
           type="button"
           onClick={() => {
-            ws.setVoiceRefFirstName("");
-            ws.setVoiceRefLastName("");
-            ws.setVoiceStyleLine("");
-            ws.setStatusWithTime("Voice style cleared");
+            setVoiceRefFirstName("");
+            setVoiceRefLastName("");
+            setVoiceStyleLine("");
+            setStatusWithTime("Voice style cleared");
           }}
           className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10"
         >
           Clear
         </button>
       </div>
-      {ws.vocal === "Instrumental" && (
+      {vocal === "Instrumental" && (
         <div className="mt-3 rounded-2xl border border-amber-300/25 bg-amber-300/10 p-3 text-xs text-amber-100">
           Instrumental mode: voice reference is not added to the Suno-like export. Switch vocal preset to hear a lead
           vocal in the prompt.
         </div>
       )}
-      {ws.voiceStyleCompact.style ? (
+      {voiceStyleCompact.style ? (
         <div className="mt-3 space-y-2">
           <div className="text-xs font-bold uppercase tracking-wider text-white/45">Style box</div>
           <pre className="max-h-24 overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-3 text-[11px] text-cyan-50">
-            {ws.voiceStyleCompact.style}
+            {voiceStyleCompact.style}
           </pre>
           <button
             type="button"
-            onClick={() => ws.copyToClipboard(ws.voiceStyleCompact.style, "Voice style copied")}
+            onClick={() => copyToClipboard(voiceStyleCompact.style, "Voice style copied")}
             className="w-full rounded-2xl bg-cyan-300 px-4 py-2 text-sm font-bold text-black hover:bg-cyan-200"
           >
             Copy style line
           </button>
           <div className="text-xs font-bold uppercase tracking-wider text-white/45">Lyric metatag</div>
           <pre className="max-h-20 overflow-auto whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/80">
-            {ws.voiceStyleCompact.lyricTag}
+            {voiceStyleCompact.lyricTag}
           </pre>
           <button
             type="button"
-            onClick={() => ws.copyToClipboard(ws.voiceStyleCompact.lyricTag, "Lyric metatag copied")}
+            onClick={() => copyToClipboard(voiceStyleCompact.lyricTag, "Lyric metatag copied")}
             className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
           >
             Copy lyric metatag

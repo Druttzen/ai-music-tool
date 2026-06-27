@@ -2,7 +2,10 @@
 
 import { memo } from "react";
 import { Panel, Slider } from "./ui-blocks";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+} from "../context/project-workspace-context";
 
 const MOOD_SLIDERS = [
   ["Darkness", "bright", "dark", "darkness"],
@@ -14,7 +17,8 @@ const MOOD_SLIDERS = [
 ];
 
 export const CenterMoodPanel = memo(function CenterMoodPanel() {
-  const ws = useProjectWorkspace();
+  const { mood } = useProjectWorkspaceProjectState();
+  const { setMood } = useProjectWorkspaceActions();
 
   return (
     <Panel title="Step 2 — Mood Sliders" hint="Shape the feeling without typing.">
@@ -23,10 +27,10 @@ export const CenterMoodPanel = memo(function CenterMoodPanel() {
           <Slider
             key={key}
             label={label}
-            value={ws.mood[key]}
+            value={mood[key]}
             left={left}
             right={right}
-            setValue={(v) => ws.setMood({ ...ws.mood, [key]: v })}
+            setValue={(v) => setMood({ ...mood, [key]: v })}
           />
         ))}
       </div>

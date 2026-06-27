@@ -5,10 +5,37 @@ import { CoProducerLyricsBlock } from "./co-producer-lyrics-block";
 import { Panel, Slider } from "./ui-blocks";
 import { lyricModeOptions, lyricStyleOptions } from "../lib/music-config";
 import { SUNO_LYRIC_LANGUAGE_GROUPS } from "../lib/suno-lyric-languages";
-import { useProjectWorkspace } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceProjectState,
+  useProjectWorkspacePromptState,
+} from "../context/project-workspace-context";
 
 export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
-  const ws = useProjectWorkspace();
+  const {
+    lyricTheme,
+    lyricStructure,
+    lyricStyle,
+    lyricLanguage,
+    lyricMode,
+    lyricDensity,
+    generatedLyrics,
+    generatedLyricsStyle,
+    lyricsGenerateBusy,
+  } = useProjectWorkspaceProjectState();
+  const { sunoFieldSlices } = useProjectWorkspacePromptState();
+  const {
+    setLyricTheme,
+    setLyricStructure,
+    setLyricStyle,
+    setLyricLanguage,
+    setLyricMode,
+    setLyricDensity,
+    setGeneratedLyrics,
+    generateExampleLyrics,
+    shuffleExampleLyrics,
+    copyToClipboard,
+  } = useProjectWorkspaceActions();
 
   return (
     <Panel
@@ -19,16 +46,16 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Theme</div>
           <input
-            value={ws.lyricTheme}
-            onChange={(e) => ws.setLyricTheme(e.target.value)}
+            value={lyricTheme}
+            onChange={(e) => setLyricTheme(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-orange-300"
           />
         </label>
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Structure</div>
           <input
-            value={ws.lyricStructure}
-            onChange={(e) => ws.setLyricStructure(e.target.value)}
+            value={lyricStructure}
+            onChange={(e) => setLyricStructure(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none focus:border-orange-300"
           />
         </label>
@@ -38,8 +65,8 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Style</div>
           <select
-            value={ws.lyricStyle}
-            onChange={(e) => ws.setLyricStyle(e.target.value)}
+            value={lyricStyle}
+            onChange={(e) => setLyricStyle(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
             {lyricStyleOptions.map((x) => (
@@ -50,8 +77,8 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Language</div>
           <select
-            value={ws.lyricLanguage}
-            onChange={(e) => ws.setLyricLanguage(e.target.value)}
+            value={lyricLanguage}
+            onChange={(e) => setLyricLanguage(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
             {SUNO_LYRIC_LANGUAGE_GROUPS.map((group) => (
@@ -68,8 +95,8 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
         <label>
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">Lyric Mode</div>
           <select
-            value={ws.lyricMode}
-            onChange={(e) => ws.setLyricMode(e.target.value)}
+            value={lyricMode}
+            onChange={(e) => setLyricMode(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
             {lyricModeOptions.map((x) => (
@@ -79,27 +106,27 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
         </label>
         <Slider
           label="Lyric Density"
-          value={ws.lyricDensity}
+          value={lyricDensity}
           left="minimal"
           right="dense"
-          setValue={ws.setLyricDensity}
+          setValue={setLyricDensity}
         />
       </div>
 
       <CoProducerLyricsBlock
-        lyricStyle={ws.lyricStyle}
-        generatedLyrics={ws.generatedLyrics}
-        generatedLyricsStyle={ws.generatedLyricsStyle}
-        onLyricsChange={ws.setGeneratedLyrics}
-        onGenerate={ws.generateExampleLyrics}
-        onAnotherTake={ws.shuffleExampleLyrics}
-        generateBusy={ws.lyricsGenerateBusy}
+        lyricStyle={lyricStyle}
+        generatedLyrics={generatedLyrics}
+        generatedLyricsStyle={generatedLyricsStyle}
+        onLyricsChange={setGeneratedLyrics}
+        onGenerate={generateExampleLyrics}
+        onAnotherTake={shuffleExampleLyrics}
+        generateBusy={lyricsGenerateBusy}
       />
 
-      {ws.generatedLyrics && (
+      {generatedLyrics && (
         <button
           type="button"
-          onClick={() => ws.copyToClipboard(ws.generatedLyrics, "Generated lyrics copied")}
+          onClick={() => copyToClipboard(generatedLyrics, "Generated lyrics copied")}
           className="mt-2 w-full rounded-2xl border border-orange-300/30 bg-black/30 px-4 py-2 text-sm font-bold text-orange-100 hover:bg-black/50"
         >
           Copy Generated Lyrics
@@ -110,7 +137,7 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
         <div className="mb-1 text-xs font-bold uppercase tracking-wider text-orange-200/80">
           Suno Lyrics field (paste-ready)
         </div>
-        {!ws.sunoFieldSlices?.lyrics ? (
+        {!sunoFieldSlices?.lyrics ? (
           <p className="text-[11px] text-white/45">
             Set vocal mode and theme, or generate lyrics — the box shows only paste-ready text.
           </p>
@@ -119,15 +146,13 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
           data-testid="lyric-field-preview"
           className="mt-1 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-orange-300/20 bg-black/50 p-4 text-xs leading-relaxed text-orange-50"
         >
-          {ws.sunoFieldSlices?.lyrics || ""}
+          {sunoFieldSlices?.lyrics || ""}
         </pre>
       </div>
 
       <button
-        onClick={() =>
-          ws.copyToClipboard(ws.sunoFieldSlices?.lyrics || "", "Suno Lyrics field copied")
-        }
-        disabled={!ws.sunoFieldSlices?.lyrics}
+        onClick={() => copyToClipboard(sunoFieldSlices?.lyrics || "", "Suno Lyrics field copied")}
+        disabled={!sunoFieldSlices?.lyrics}
         className="mt-3 w-full rounded-2xl bg-orange-300 px-4 py-2 font-bold text-black hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Copy Lyrics field
