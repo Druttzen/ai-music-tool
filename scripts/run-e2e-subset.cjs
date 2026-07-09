@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Fast Playwright subset for release gate (base sidecar only — no generate/vocal extras). */
+/** Fast Playwright subset for release gate (base sidecar — Maestro + MusicGen + OpenVPI coach smoke). */
 const { spawnSync } = require("child_process");
 const path = require("path");
 
@@ -7,6 +7,8 @@ const root = path.join(__dirname, "..");
 const specs = [
   "tests/e2e/musicgen-merge.spec.js",
   "tests/e2e/openvpi-ds-export.spec.js",
+  "tests/e2e/maestro-offline.spec.js",
+  "tests/e2e/maestro-coach-musicgen.spec.js",
 ];
 
 const r = spawnSync("npx", ["playwright", "test", ...specs, "--workers=1"], {

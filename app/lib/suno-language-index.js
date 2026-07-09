@@ -3,7 +3,7 @@
 
 export { referencePromptBlocks, stylePromptCatalog } from "./style-prompt-catalog";
 
-import { SUNO_CATALOG_SYNC } from "./suno-catalog-synced";
+import { getSunoCatalogSyncCached } from "./suno-catalog-loader";
 import {
   formatPromptSymbolGuidePlain,
   formatVocalArtifactGuidePlain,
@@ -29,13 +29,25 @@ function mergeUniqueStrings(base, extra) {
 }
 
 /** Online catalog sync metadata (stayen/suno-reference + embedded genre wheel). */
-export const sunoCatalogSyncMeta = {
-  syncedAt: SUNO_CATALOG_SYNC.syncedAt,
-  upstreamModified: SUNO_CATALOG_SYNC.upstreamModified,
-  metaTagCount: SUNO_CATALOG_SYNC.metaTags.length,
-  structureTagCount: SUNO_CATALOG_SYNC.structureTags.length,
-  sources: SUNO_CATALOG_SYNC.sources,
-};
+export function sunoCatalogSyncMeta() {
+  const sync = getSunoCatalogSyncCached();
+  if (!sync) {
+    return {
+      syncedAt: null,
+      upstreamModified: null,
+      metaTagCount: 0,
+      structureTagCount: 0,
+      sources: [],
+    };
+  }
+  return {
+    syncedAt: sync.syncedAt,
+    upstreamModified: sync.upstreamModified,
+    metaTagCount: sync.metaTags.length,
+    structureTagCount: sync.structureTags.length,
+    sources: sync.sources,
+  };
+}
 
 export {
   formatPromptSymbolGuidePlain,
@@ -88,8 +100,21 @@ const BASE_STRUCTURE_TAGS = [
   "Call-And-Response",
 ];
 
-export const sunoLanguageIndex = {
-  catalogSync: sunoCatalogSyncMeta,
+const EMPTY_SUNO_CATALOG_SYNC = {
+  principles: [],
+  structureTags: [],
+  metaTags: [],
+  trademarkSubstitutions: [],
+  pipeNotation: { example: "" },
+  trackContainerTag: { example: "" },
+  vocalTokens: [],
+  productionTokens: [],
+};
+
+export function buildSunoLanguageIndex() {
+  const SUNO_CATALOG_SYNC = getSunoCatalogSyncCached() ?? EMPTY_SUNO_CATALOG_SYNC;
+  return {
+  catalogSync: sunoCatalogSyncMeta(),
   principles: mergeUniqueStrings(BASE_PRINCIPLES, SUNO_CATALOG_SYNC.principles),
   structureTags: mergeUniqueStrings(BASE_STRUCTURE_TAGS, SUNO_CATALOG_SYNC.structureTags),
   metaTagQuickRef: SUNO_CATALOG_SYNC.metaTags.filter((t) =>
@@ -350,7 +375,14 @@ REGULAR LINE
     metal: ["high-gain guitar layers", "double-kick drive when needed", "dense wall of guitars"],
     world: ["regional percussion identity", "modal scales", "earthy acoustic layers"],
   },
-};
+  };
+}
+
+export const sunoLanguageIndex = buildSunoLanguageIndex();
+
+export function getSunoLanguageIndex() {
+  return buildSunoLanguageIndex();
+}
 
 /**
  * Single source of truth for Apply Genre Anchors (sounds, rhythms, optional rule line).

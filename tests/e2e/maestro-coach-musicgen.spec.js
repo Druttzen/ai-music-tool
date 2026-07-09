@@ -2,6 +2,9 @@ import { test, expect } from "@playwright/test";
 import {
   dismissSplash,
   enableGuidedStepCoach,
+  expectToast,
+  maestroChatInput,
+  maestroChatPanel,
   saveLoadPanel,
   selectSunoEngine,
 } from "./helpers.js";
@@ -18,6 +21,7 @@ test.describe("Maestro step coach MusicGen", () => {
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(BUNDLE_FIXTURE);
+    await expectToast(page, /Imported project bundle/i);
 
     await page.evaluate(() => {
       const report = {
@@ -44,9 +48,9 @@ test.describe("Maestro step coach MusicGen", () => {
       .getByRole("button", { name: "Apply" })
       .click();
 
-    const maestro = page.getByTestId("maestro-chat-panel");
+    const maestro = maestroChatPanel(page);
     await expect(maestro).toBeVisible();
-    await expect(maestro.locator("textarea").first()).toHaveValue("Regenerate with melody");
+    await expect(maestroChatInput(page)).toHaveValue("Regenerate with melody", { timeout: 10_000 });
     await expect(page.getByTestId("action-toast")).toContainText(/Maestro prompt ready/i);
   });
 });

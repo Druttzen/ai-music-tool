@@ -23,8 +23,10 @@ import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 import { getStepCount, resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { readStoredVocalAlignPreview } from "../lib/vocal-embed-handoff";
 import { preloadAwesomeSunoCatalog } from "../lib/awesome-suno-catalog-loader";
+import { preloadSunoCatalogSync } from "../lib/suno-catalog-loader";
 import { useGuidedFocus } from "../context/guided-focus-context";
 import { safeLocalStorage } from "../lib/safe-local-storage";
+import { readPendingMaestroPrefill } from "../lib/maestro-prefill";
 
 function loadStoredMessages() {
   const stored = safeLocalStorage.getJSON(MAESTRO_CHAT_STORAGE_KEY, null);
@@ -113,9 +115,15 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   const { audioAnalysis, imageAnalysis, sidecarGenerateAvailable } = useProjectWorkspaceAnalyzerState();
 
   const [messages, setMessages] = useState(loadStoredMessages);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => readPendingMaestroPrefill());
   const [busy, setBusy] = useState(false);
+  /** Avoid SSR/client mismatch when LLM settings hydrate from localStorage. */
+  const [hintMounted, setHintMounted] = useState(false);
   const scrollRef = useRef(null);
+
+  useEffect(() => {
+    queueMicrotask(() => setHintMounted(true));
+  }, []);
 
   const snapshot = useMemo(() => {
     const vocalSession = readStoredVocalAlignPreview();
@@ -196,6 +204,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
 
   useEffect(() => {
     preloadAwesomeSunoCatalog();
+    preloadSunoCatalogSync();
   }, []);
 
   useEffect(() => {
@@ -308,6 +317,11 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   );
 
   const llmReady = isCoProducerLlmReady(coProducerLlmSettings);
+  const maestroHint = !hintMounted
+    ? "Chat co-producer — fully offline. Enable the LLM in Co-Producer AI settings for smarter replies."
+    : llmReady
+      ? "Chat co-producer (LLM mode — falls back to offline engine on errors). Everything you say updates the project."
+      : "Chat co-producer — fully offline. Enable the LLM in Co-Producer AI settings for smarter replies.";
 
   const send = useCallback(
     async (rawText) => {
@@ -378,11 +392,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     <Panel
       title="Maestro — AI Chat Music Creator"
       data-testid="maestro-chat-panel"
-      hint={
-        llmReady
-          ? "Chat co-producer (LLM mode — falls back to offline engine on errors). Everything you say updates the project."
-          : "Chat co-producer — fully offline. Enable the LLM in Co-Producer AI settings for smarter replies."
-      }
+      hint={maestroHint}
     >
       <div
         ref={scrollRef}

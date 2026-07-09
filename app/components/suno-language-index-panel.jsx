@@ -1,13 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Panel } from "./ui-blocks";
 import {
   formatPromptSymbolGuidePlain,
   formatVocalArtifactGuidePlain,
+  getSunoLanguageIndex,
   referencePromptBlocks,
   stylePromptCatalog,
-  sunoLanguageIndex,
 } from "../lib/suno-language-index";
+import { loadSunoCatalogSync, preloadSunoCatalogSync } from "../lib/suno-catalog-loader";
 
 /** Flat catalog lines only — no section headers or UI tips. */
 export function flattenStylePromptCatalogLines(catalog) {
@@ -22,6 +24,21 @@ export function flattenStylePromptCatalogLines(catalog) {
  * Sidebar reference panel: Suno vocabulary, symbol guide, templates, and genre anchors.
  */
 export function SunoLanguageIndexPanel({ copyToClipboard, onApplyGenreAnchors }) {
+  const [sunoLanguageIndex, setSunoLanguageIndex] = useState(() => getSunoLanguageIndex());
+
+  useEffect(() => {
+    let active = true;
+    preloadSunoCatalogSync();
+    void loadSunoCatalogSync()
+      .then(() => {
+        if (active) setSunoLanguageIndex(getSunoLanguageIndex());
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <Panel title="Suno Language Index" hint="Community-derived prompting vocabulary (non-official).">
       <div className="space-y-3 text-xs text-white/80">

@@ -7,6 +7,7 @@ import {
 } from "../lib/suno-guided-step-focus";
 import { getStepCount } from "../lib/suno-guided-workflow";
 import { isCoProducerLlmReady } from "../lib/co-producer-llm";
+import { queueMaestroPrefill } from "../lib/maestro-prefill";
 import { useGuidedFocus } from "../context/guided-focus-context";
 import {
   useProjectWorkspaceActions,
@@ -186,9 +187,7 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
         }, 80);
         const prompt = typeof imp === "object" ? imp.maestroPrompt : "";
         if (prompt) {
-          window.dispatchEvent(
-            new CustomEvent("aimc-maestro-prefill", { detail: { prompt: String(prompt) } }),
-          );
+          queueMaestroPrefill(prompt);
           setStatusWithTime(`Maestro prompt ready — “${prompt}”`, "info");
         } else {
           setStatusWithTime("Scroll to Maestro chat below", "info");
@@ -269,7 +268,7 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
               </div>
               <button
                 type="button"
-                onClick={() => runImprovement(imp.action)}
+                onClick={() => runImprovement(imp)}
                 className="shrink-0 rounded-xl bg-cyan-300 px-3 py-1.5 text-xs font-bold text-black hover:bg-cyan-200"
               >
                 Apply

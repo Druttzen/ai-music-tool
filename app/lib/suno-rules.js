@@ -1,5 +1,5 @@
 import { validateSunoFieldLengths } from "./suno-limits";
-import { SUNO_CATALOG_SYNC } from "./suno-catalog-synced";
+import { getSunoCatalogSyncCached } from "./suno-catalog-loader";
 import { INSTRUMENTAL_LYRICS_SCAFFOLD, selectNegativeGuards } from "./suno-negative-guards";
 import { formatTempoWithDescriptor, tempoAlreadyHasDescriptor } from "./tempo-descriptors";
 
@@ -285,7 +285,7 @@ export function validateSunoLikePrompt(params) {
   }
 
   const genreText = (selectedGenres || []).join(" ").toLowerCase();
-  for (const { term, guidance } of SUNO_CATALOG_SYNC.trademarkSubstitutions) {
+  for (const { term, guidance } of getSunoCatalogSyncCached()?.trademarkSubstitutions ?? []) {
     if (genreText.includes(term.toLowerCase())) {
       warnings.push(`Style may trigger trademark filter for "${term}" — ${guidance}`);
       break;

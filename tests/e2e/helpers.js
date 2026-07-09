@@ -93,6 +93,15 @@ export function coProducerPanel(page) {
   return page.locator("section").filter({ hasText: "Co‑Producer AI" });
 }
 
+export function maestroChatPanel(page) {
+  return page.getByTestId("maestro-chat-panel");
+}
+
+/** Maestro draft field (single-line input). */
+export function maestroChatInput(page) {
+  return maestroChatPanel(page).locator("input").first();
+}
+
 export function saveLoadPanel(page) {
   return page.locator("section").filter({ hasText: "Save / Load" });
 }

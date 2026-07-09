@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Full pre-release check: unit + lint + build + sidecar pytest.
- * Pass --e2e-subset for fast Playwright subset (musicgen + vocal/Maestro smoke).
+ * Pass --e2e-subset for fast Playwright subset (musicgen + Maestro + OpenVPI coach smoke).
  * Pass --e2e for the full Playwright suite (CI parity).
  */
 const { spawnSync } = require("child_process");

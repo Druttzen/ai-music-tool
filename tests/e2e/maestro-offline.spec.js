@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { dismissSplash, enableGuidedShowAll, clearProjectStorage } from "./helpers.js";
+import { dismissSplash, enableGuidedShowAll, clearProjectStorage, maestroChatInput, maestroChatPanel } from "./helpers.js";
 
 test.describe("Maestro offline chat", () => {
   test("offline Maestro replies to show the style prompt", async ({ page }) => {
@@ -9,11 +9,11 @@ test.describe("Maestro offline chat", () => {
     await page.reload();
     await page.waitForLoadState("networkidle");
 
-    const maestro = page.getByTestId("maestro-chat-panel");
+    const maestro = maestroChatPanel(page);
     await expect(maestro).toBeVisible({ timeout: 15_000 });
     await maestro.scrollIntoViewIfNeeded();
 
-    const input = maestro.locator("textarea").first();
+    const input = maestroChatInput(page);
     await input.fill("show the style prompt");
     await maestro.getByRole("button", { name: /^Send$/i }).click();
 

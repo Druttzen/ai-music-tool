@@ -11,6 +11,7 @@ const specs = [
   "tests/e2e/openvpi-ds-export.spec.js",
   "tests/e2e/openvpi-inference-ready.spec.js",
   "tests/e2e/openvpi-inference-live.spec.js",
+  "tests/e2e/openvpi-synth-live.spec.js",
   "tests/e2e/coach-openvpi-ds.spec.js",
   "tests/e2e/coach-maestro-vocal-handoff.spec.js",
   "tests/e2e/maestro-vocal-embed.spec.js",
