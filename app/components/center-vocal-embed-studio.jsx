@@ -56,6 +56,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const guideInputRef = useRef(null);
   const instrumentalRef = useRef(audioAnalysis?.fileName);
   const guideVocalRef = useRef(guideVocalFile);
+  const lyricsRef = useRef(generatedLyrics);
 
   useEffect(() => {
     const stored = readStoredVocalAlignPreview();
@@ -156,6 +157,29 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     }
     guideVocalRef.current = next;
   }, [guideVocalFile, persistAlignPreview]);
+
+  useEffect(() => {
+    const prev = lyricsRef.current;
+    const next = generatedLyrics;
+    if (prev && next && prev !== next && alignPreview) {
+      persistAlignPreview(null);
+    }
+    lyricsRef.current = next;
+  }, [alignPreview, generatedLyrics, persistAlignPreview]);
+
+  useEffect(() => {
+    if (!alignPreview || plan.stage !== "ready") return;
+    const ds = buildOpenvpiDsExport(plan, alignPreview);
+    if (!ds.segments?.length) return;
+    setStoredOpenvpiDs(ds);
+    const stored = readStoredVocalAlignPreview();
+    if (
+      stored?.preview &&
+      stored.instrumentalName === audioAnalysis?.fileName
+    ) {
+      writeStoredVocalAlignPreview({ ...stored, openvpiDs: ds });
+    }
+  }, [alignPreview, audioAnalysis?.fileName, plan]);
 
   const canLyricsOnlySynth =
     plan.sidecarMode === "lyrics-to-vocal-synthesis" &&

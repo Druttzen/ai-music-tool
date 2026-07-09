@@ -6,6 +6,7 @@ import {
   useProjectWorkspaceActions,
   useProjectWorkspaceAnalyzerState,
   useProjectWorkspaceProjectState,
+  useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
 import {
   MAESTRO_CHAT_MAX_MESSAGES,
@@ -20,6 +21,8 @@ import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 import { getStepCount, resolvePolishStepIndex } from "../lib/suno-guided-workflow";
+import { readStoredVocalAlignPreview } from "../lib/vocal-embed-handoff";
+import { useGuidedFocus } from "../context/guided-focus-context";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 
 function loadStoredMessages() {
@@ -78,8 +81,11 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     lyricDensity,
     voiceRefFirstName,
     voiceStyleLine,
+    generatedLyrics,
     coProducerLlmSettings,
   } = useProjectWorkspaceProjectState();
+  const { voiceStyleCompact } = useProjectWorkspacePromptState();
+  const { setShowAll } = useGuidedFocus();
   const {
     setIdea,
     setTempo,
@@ -110,8 +116,13 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef(null);
 
-  const snapshot = useMemo(
-    () => ({
+  const snapshot = useMemo(() => {
+    const vocalSession = readStoredVocalAlignPreview();
+    const vocalMatchesTrack =
+      vocalSession?.preview &&
+      vocalSession.instrumentalName &&
+      vocalSession.instrumentalName === audioAnalysis?.fileName;
+    return {
       idea,
       tempo,
       structure,
@@ -130,14 +141,20 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       lyricDensity,
       voiceRefFirstName,
       voiceStyleLine,
+      voiceStyleCompact,
+      generatedLyrics,
       hasAudioAnalysis: !!audioAnalysis,
       hasImageAnalysis: !!imageAnalysis,
       hasMusicGenSketch: audioAnalysis?.sourceEngine === "musicgen",
       hasHighlightMelody: hasMeaningfulHighlightRange(audioAnalysis),
       musicGenAvailable: !!sidecarGenerateAvailable,
+      hasVocalAlign: !!vocalMatchesTrack,
+      vocalAlignMethod: vocalMatchesTrack ? vocalSession.preview?.align_method : null,
+      vocalAlignWordCount: vocalMatchesTrack ? vocalSession.preview?.word_count : null,
+      openvpiDsSegmentCount: vocalMatchesTrack ? vocalSession.openvpiDs?.segment_count || 0 : 0,
       audioAnalysis,
-    }),
-    [
+    };
+  }, [
       idea,
       tempo,
       structure,
@@ -156,6 +173,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       lyricDensity,
       voiceRefFirstName,
       voiceStyleLine,
+      voiceStyleCompact,
+      generatedLyrics,
       audioAnalysis,
       imageAnalysis,
       sidecarGenerateAvailable,
@@ -225,7 +244,15 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           applyImageToSunoStyle();
         } else if (cmd === "gotoPolish") setGuidedStep(resolvePolishStepIndex());
         else if (cmd === "gotoFinal") setGuidedStep(getStepCount() - 1);
-        else if (cmd === "generateMusicGen" || cmd === "generateMusicGenMelody") {
+        else if (cmd === "focusVocalEmbed") {
+          setShowAll(true);
+          window.setTimeout(() => {
+            document
+              .querySelector('[data-testid="vocal-embed-studio"]')
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 80);
+          setStatusWithTime("Scroll to Vocal Embed Studio below", "info");
+        } else if (cmd === "generateMusicGen" || cmd === "generateMusicGenMelody") {
           const prompt =
             artifacts?.musicGenPrompt ||
             buildMusicGenPrompt({
@@ -260,6 +287,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       selectedRhythms,
       selectedSounds,
       setGuidedStep,
+      setShowAll,
+      setStatusWithTime,
       tempo,
     ],
   );
@@ -381,6 +410,13 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
                     label="Hook ideas"
                     text={m.artifacts.hooks}
                     onCopy={() => copyToClipboard(m.artifacts.hooks, "Hooks copied")}
+                  />
+                  <ArtifactBlock
+                    label="Vocal Embed brief"
+                    text={m.artifacts.vocalEmbedBrief}
+                    onCopy={() =>
+                      copyToClipboard(m.artifacts.vocalEmbedBrief, "Vocal embed brief copied")
+                    }
                   />
                 </>
               )}

@@ -31,7 +31,7 @@ jobs:
           done
           curl -sf http://127.0.0.1:8723/health
           curl -sf http://127.0.0.1:8723/vocal-embed/models
-          npx playwright test tests/e2e/vocal-embed-smoke.spec.js tests/e2e/vocal-embed-align-synthesize.spec.js tests/e2e/project-bundle.spec.js tests/e2e/openvpi-ds-export.spec.js tests/e2e/coach-openvpi-ds.spec.js --grep "vocal align|OpenVPI|openvpi"
+          npx playwright test tests/e2e/vocal-embed-smoke.spec.js tests/e2e/vocal-embed-align-synthesize.spec.js tests/e2e/project-bundle.spec.js tests/e2e/openvpi-ds-export.spec.js tests/e2e/coach-openvpi-ds.spec.js tests/e2e/maestro-vocal-embed.spec.js --grep "vocal align|OpenVPI|openvpi|Vocal Embed"
 
   vocal-ml-stack:
     runs-on: ubuntu-latest

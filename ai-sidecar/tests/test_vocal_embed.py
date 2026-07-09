@@ -76,3 +76,16 @@ def test_vocal_embed_ds_export_from_plan():
     assert body["format"] == "openvpi-ds-segments"
     assert body["segment_count"] >= 1
     assert body["segments"][0]["note_seq"]
+
+
+def test_vocal_embed_plan_reports_openvpi_ds_segments():
+    payload = _ready_plan()
+    payload["openvpiDs"] = {
+        "format": "openvpi-ds-segments",
+        "segment_count": 2,
+        "segments": [{"text": "one"}, {"text": "two"}],
+    }
+    res = client.post("/vocal-embed/plan", json=payload)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["openvpi_ds_segments"] == 2

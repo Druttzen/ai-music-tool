@@ -436,6 +436,24 @@ describe("maestro-chat-llm", () => {
     expect(res.artifacts.useHighlightMelody).toBe(true);
   });
 
+  it("shows vocal embed brief for openvpi ds query when track is analyzed", () => {
+    const res = buildMaestroReply("show openvpi ds", {
+      ...SNAPSHOT,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine one",
+      voiceStyleLine: "warm baritone",
+      hasAudioAnalysis: true,
+      hasVocalAlign: true,
+      vocalAlignMethod: "heuristic",
+      vocalAlignWordCount: 2,
+      openvpiDsSegmentCount: 1,
+      audioAnalysis: { fileName: "beat.wav", duration: 120, estimatedBpm: "120 BPM", estimatedKey: "Am" },
+    });
+    expect(res.commands).toContain("focusVocalEmbed");
+    expect(res.artifacts.vocalEmbedBrief).toContain("Vocal Embed Studio");
+    expect(res.reply).toMatch(/OpenVPI/i);
+  });
+
   it("builds system message containing project state and allowed keys", () => {
     const messages = buildMaestroLlmMessages(
       [{ role: "user", text: "darker" }],

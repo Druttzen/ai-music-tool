@@ -12,6 +12,7 @@ class VocalEmbedPlanEnvelope(BaseModel):
     version: int
     createdAt: str
     plan: dict[str, Any]
+    openvpiDs: dict[str, Any] | None = None
 
 
 class VocalEmbedPlanResponse(BaseModel):
@@ -21,6 +22,9 @@ class VocalEmbedPlanResponse(BaseModel):
     section_count: int
     message: str
     synthesis_available: bool = False
+    align_method: str | None = None
+    align_word_count: int | None = None
+    openvpi_ds_segments: int = 0
     next_steps: list[str] = Field(default_factory=list)
 
 
@@ -51,6 +55,18 @@ def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespo
     warnings = plan.get("warnings") or []
     synthesis_available = vocal_synthesis_available()
     ml_available = vocal_ml_available()
+    align_method = plan.get("alignMethod")
+    if align_method is not None:
+        align_method = str(align_method)
+    align_word_count = plan.get("alignWordCount")
+    if align_word_count is not None:
+        align_word_count = int(align_word_count)
+    openvpi_ds = body.openvpiDs if isinstance(body.openvpiDs, dict) else None
+    openvpi_ds_segments = 0
+    if openvpi_ds and isinstance(openvpi_ds.get("segments"), list):
+        openvpi_ds_segments = len(openvpi_ds["segments"])
+    elif isinstance(plan.get("openvpiDs"), dict) and isinstance(plan["openvpiDs"].get("segments"), list):
+        openvpi_ds_segments = len(plan["openvpiDs"]["segments"])
 
     if stage != "ready":
         missing = warnings if isinstance(warnings, list) and warnings else ["Plan is still in draft mode."]
@@ -77,6 +93,12 @@ def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespo
             "Install sidecar base deps (librosa + soundfile) to enable placement-mix synthesis.",
         )
 
+    if openvpi_ds_segments:
+        next_steps.insert(
+            0,
+            f"OpenVPI .ds export attached ({openvpi_ds_segments} segments) — feed into variance/acoustic inference.",
+        )
+
     return VocalEmbedPlanResponse(
         ok=True,
         stage=stage,
@@ -84,5 +106,8 @@ def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespo
         section_count=section_count,
         message=f"Accepted vocal embed plan ({section_count} sections, mode={mode}).",
         synthesis_available=synthesis_available,
+        align_method=align_method,
+        align_word_count=align_word_count,
+        openvpi_ds_segments=openvpi_ds_segments,
         next_steps=next_steps,
     )
