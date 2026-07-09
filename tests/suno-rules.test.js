@@ -38,9 +38,10 @@ describe("suno-rules", () => {
     expect(s).toContain("Techno");
   });
 
-  it("instrumental lyrics box is fixed string", () => {
+  it("instrumental lyrics box uses v5.5 scaffold", () => {
     const l = buildSunoLyricsBoxPrompt({ vocal: "Instrumental", lyricPrompt: "x" });
-    expect(l).toBe("Instrumental only. No lyrical content.");
+    expect(l).toContain("[No Vocals]");
+    expect(l).toContain("[Instrumental]");
   });
 
   it("validateSunoLikePrompt flags missing genres", () => {

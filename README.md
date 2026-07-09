@@ -1,8 +1,33 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.13.1**
+**Version 0.13.6**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.13.6)
+
+- **Vocal Embed E2E polish** — guide vocal + lyrics defaults to lyric synthesis with optional MFA/OpenVPI timing; OpenVPI status in UI; synthesis engine returned from sidecar header.
+- **Style library quick picks** — Metaphor roll, Era anchors, 2026 trends, and CC0 concept shortcuts in the Style prompt library.
+- **Suno lyric consistency** — instrumental Lyrics box matches the `[Instrumental]` / `[No Vocals]` scaffold everywhere.
+
+## Highlights (v0.13.5)
+
+- **Research roadmap** — BPM evocative descriptors, v5.5 negative guard packs, era-anchored + 2026 trend catalogs, Maestro metaphor surprise rolls.
+- **Sidecar upgrades** — optional DistilHuBERT genre model (`AIMC_GENRE_MODEL`), CLIP zero-shot vision tags on `/analyze-image`, MFA guide-vocal alignment hook for OpenVPI DiffSinger `.ds` timing.
+- **Catalog refresh** — stayen/suno-reference re-sync; awesome-suno import cap raised to 400.
+
+## Highlights (v0.13.4)
+
+- **Maestro catalog grounding** — local retrieval from style catalog + CC0 concepts for LLM prompts (`maestro-catalog-grounding.js`).
+
+## Highlights (v0.13.3)
+
+- **BLIP image captioning** — optional `POST /analyze-image` via sidecar `vision` extra; merged into pixel analyzer.
+- **CC0 awesome-suno concepts** — `npm run import:awesome-suno` into Style Prompt Library.
+
+## Highlights (v0.13.2)
+
+- **OpenVPI DiffSinger** — real inference via `diffsinger_openvpi.py` (variance + acoustic); configure `AIMC_DIFFSINGER_ROOT` + checkpoint exps.
 
 ## Highlights (v0.13.1)
 

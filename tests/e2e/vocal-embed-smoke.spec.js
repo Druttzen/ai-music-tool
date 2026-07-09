@@ -58,4 +58,32 @@ test.describe("Vocal Embed sidecar smoke", () => {
     await vocalEmbed.getByRole("button", { name: /Send plan to sidecar/i }).click();
     await expectToast(page, /Accepted vocal embed plan|Vocal embed|synthesis/i);
   });
+
+  test("synthesizes placement-mix preview with guide vocal + lyrics", async ({ page }) => {
+    await dismissSplash(page);
+
+    const saveLoad = saveLoadPanel(page);
+    await saveLoad.locator('input[type="file"][accept="application/json"]').setInputFiles(PROJECT_FIXTURE);
+    await expectToast(page, /Imported project bundle/i);
+
+    const analyzers = analyzerPanel(page);
+    await analyzers.scrollIntoViewIfNeeded();
+    await expect(analyzers.getByText("librosa ready")).toBeVisible({ timeout: 20_000 });
+    await uploadAnalyzerAudioFixture(analyzers, INSTRUMENTAL_FIXTURE, "e2e-analyzer-tone.wav");
+
+    const vocalEmbed = vocalEmbedStudioPanel(page);
+    await vocalEmbed.scrollIntoViewIfNeeded();
+    await vocalEmbed.getByRole("button", { name: /Attach guide vocal file/i }).click();
+    await vocalEmbed.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(GUIDE_VOCAL_FIXTURE);
+    await vocalEmbed
+      .locator("textarea")
+      .fill("[Verse]\nSmoke test line\n\n[Chorus]\nHook line");
+
+    const synthBtn = vocalEmbed.getByRole("button", {
+      name: /Synthesize (lyrics \+ guide timing|placement-mix preview|lyrics-only preview)/i,
+    });
+    await expect(synthBtn).toBeEnabled({ timeout: 15_000 });
+    await synthBtn.click();
+    await expectToast(page, /Vocal embed preview downloaded/i, 30_000);
+  });
 });

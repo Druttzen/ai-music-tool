@@ -31,7 +31,7 @@ describe("vocal-embed-engine", () => {
     expect(plan.mixPlan.instrumentalDuckDb).toBeLessThan(0);
   });
 
-  it("switches mode when a guide vocal is attached", () => {
+  it("uses lyrics synth with guide timing when guide and lyrics are present", () => {
     const plan = buildVocalEmbedPlan({
       audioAnalysis: AUDIO,
       guideVocalAttached: true,
@@ -39,7 +39,21 @@ describe("vocal-embed-engine", () => {
       voiceStyleLine: "custom warm tenor",
     });
     expect(plan.stage).toBe("ready");
+    expect(plan.sidecarMode).toBe("lyrics-to-vocal-synthesis");
+    expect(plan.guideForLyricTiming).toBe(true);
+    expect(plan.sidecarBrief).toContain("Guide vocal: refines lyric word timing");
+  });
+
+  it("can convert guide vocal instead of lyric timing synthesis", () => {
+    const plan = buildVocalEmbedPlan({
+      audioAnalysis: AUDIO,
+      guideVocalAttached: true,
+      guideForLyricTiming: false,
+      vocalEmbedLyrics: "[Verse]\nGuide me",
+      voiceStyleLine: "custom warm tenor",
+    });
     expect(plan.sidecarMode).toBe("guide-vocal-conversion");
+    expect(plan.guideForLyricTiming).toBe(false);
   });
 
   it("reports missing pieces in draft mode", () => {

@@ -108,9 +108,15 @@ export function buildVocalEmbedPlan(input = {}) {
   if (sections.some((s) => s.lineCount > 8)) warnings.push("Some sections are dense; split long lyric blocks for cleaner vocal timing.");
 
   const stage = hasInstrumental && hasLyrics && hasVoiceStyle ? "ready" : "draft";
-  const sidecarMode = input.guideVocalAttached
-    ? "guide-vocal-conversion"
-    : "lyrics-to-vocal-synthesis";
+  const hasGuide = !!(input.guideVocalAttached || input.guideVocalFile);
+  const guideForLyricTiming =
+    hasGuide && hasLyrics && input.guideForLyricTiming !== false;
+  const sidecarMode =
+    guideForLyricTiming || (hasLyrics && !hasGuide)
+      ? "lyrics-to-vocal-synthesis"
+      : hasGuide
+        ? "guide-vocal-conversion"
+        : "lyrics-to-vocal-synthesis";
   const mixPlan = {
     vocalTargetLufs: -18,
     instrumentalDuckDb: -4,
@@ -123,6 +129,11 @@ export function buildVocalEmbedPlan(input = {}) {
   const sidecarBrief = [
     "Vocal Embed Studio local engine brief",
     `Mode: ${sidecarMode}`,
+    hasGuide && sidecarMode === "lyrics-to-vocal-synthesis"
+      ? "Guide vocal: refines lyric word timing (MFA when configured, onset fallback otherwise)"
+      : hasGuide
+        ? "Guide vocal: conversion + placement-mix overlay"
+        : "",
     `Instrumental: ${input.audioAnalysis?.fileName || "missing"}`,
     `Duration: ${duration ? formatTime(duration) : "unknown"}`,
     `Tempo: ${bpm}`,
@@ -152,6 +163,7 @@ export function buildVocalEmbedPlan(input = {}) {
     sections,
     warnings,
     sidecarMode,
+    guideForLyricTiming: guideForLyricTiming && hasGuide,
     sidecarBrief,
     mixPlan,
   };

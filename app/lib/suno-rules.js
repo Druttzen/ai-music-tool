@@ -1,6 +1,6 @@
 import { validateSunoFieldLengths } from "./suno-limits";
 import { SUNO_CATALOG_SYNC } from "./suno-catalog-synced";
-import { selectNegativeGuards } from "./suno-negative-guards";
+import { INSTRUMENTAL_LYRICS_SCAFFOLD, selectNegativeGuards } from "./suno-negative-guards";
 import { formatTempoWithDescriptor, tempoAlreadyHasDescriptor } from "./tempo-descriptors";
 
 /** Suno v5.5 community guidance: focused Style tag count. */
@@ -177,7 +177,7 @@ ${mode}`;
 /** Text for Suno **Lyrics** field — structure / lyric direction only (no style DNA). */
 export function buildSunoLyricsBoxPrompt({ vocal, lyricPrompt }) {
   if (vocal === "Instrumental") {
-    return "Instrumental only. No lyrical content.";
+    return INSTRUMENTAL_LYRICS_SCAFFOLD;
   }
   const t = (lyricPrompt || "").trim();
   return t || "(Add lyric lines or bracketed sections.)";

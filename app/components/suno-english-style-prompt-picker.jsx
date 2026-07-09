@@ -5,7 +5,14 @@ import {
   buildEnglishSunoStylePromptSections,
   getEnglishSunoStylePromptStats,
 } from "../lib/suno-english-style-index";
+import { generateMetaphorStyle, metaphorToCatalogHints } from "../lib/metaphor-style";
 import { Pill } from "./ui-blocks";
+
+const FEATURED_SECTIONS = [
+  { id: "cat-eraAnchoredGenres", label: "Era anchors" },
+  { id: "cat-trendMicroGenres2026", label: "2026 trends" },
+  { id: "cat-awesomeSunoConcepts", label: "CC0 concepts" },
+];
 
 const VISIBLE_CAP = 150;
 const SEARCH_MIN_ALL = 2;
@@ -183,6 +190,23 @@ export function StylePromptPicker({
     [setSelectedGenres, setStatusWithTime],
   );
 
+  const rollMetaphorStyle = useCallback(() => {
+    const metaphor = generateMetaphorStyle();
+    const hints = metaphorToCatalogHints(metaphor);
+    setSelectedGenres((prev) => mergeUniqueStrings(prev, [metaphor.styleLine, ...hints.genres]));
+    setStatusWithTime("Metaphor roll added to Styles");
+    setOpen(true);
+    setSectionKey("all");
+    setQuery("");
+  }, [setSelectedGenres, setStatusWithTime]);
+
+  const jumpToFeaturedSection = useCallback((sectionId) => {
+    setOpen(true);
+    setSectionKey(sectionId);
+    setQuery("");
+    setStatusWithTime(`Browsing ${FEATURED_SECTIONS.find((s) => s.id === sectionId)?.label || "catalog"}`);
+  }, [setStatusWithTime]);
+
   return (
     <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/5 p-3">
       <button
@@ -209,6 +233,26 @@ export function StylePromptPicker({
           ))}
         </div>
       ) : null}
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={rollMetaphorStyle}
+          className="rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-1 text-[10px] font-bold text-fuchsia-100 hover:bg-fuchsia-500/20"
+        >
+          Metaphor roll
+        </button>
+        {FEATURED_SECTIONS.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            onClick={() => jumpToFeaturedSection(section.id)}
+            className="rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-100 hover:bg-cyan-500/20"
+          >
+            {section.label}
+          </button>
+        ))}
+      </div>
 
       {open ? (
         <div className="mt-3 space-y-3 border-t border-white/10 pt-3">

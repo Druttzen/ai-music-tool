@@ -39,6 +39,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const [draftLyrics, setDraftLyrics] = useState("");
   const [guideVocalAttached, setGuideVocalAttached] = useState(false);
   const [guideVocalFile, setGuideVocalFile] = useState(null);
+  const [guideForLyricTiming, setGuideForLyricTiming] = useState(true);
   const [sidecarBusy, setSidecarBusy] = useState(false);
   const [sidecarHealth, setSidecarHealth] = useState(null);
   const [vocalModels, setVocalModels] = useState(null);
@@ -64,6 +65,8 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         audioAnalysis,
         generatedLyrics,
         guideVocalAttached: guideVocalAttached || !!guideVocalFile,
+        guideVocalFile,
+        guideForLyricTiming,
         lyricStructure,
         lyricTheme,
         selectedGenres,
@@ -79,6 +82,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       generatedLyrics,
       guideVocalAttached,
       guideVocalFile,
+      guideForLyricTiming,
       lyricStructure,
       lyricTheme,
       selectedGenres,
@@ -170,7 +174,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         return;
       }
       const payload = buildVocalEmbedExport(plan);
-      const mixBlob = await synthesizeVocalEmbedViaSidecar(
+      const { blob: mixBlob, engine: responseEngine } = await synthesizeVocalEmbedViaSidecar(
         payload,
         instrumental,
         audioAnalysis?.fileName || "instrumental.wav",
@@ -183,16 +187,22 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       a.download = `vocal-embed-mix-${(audioAnalysis?.fileName || "track").replace(/\.[^.]+$/, "")}.wav`;
       a.click();
       URL.revokeObjectURL(url);
-      const engineLabel = guideVocalFile
-        ? models?.rvc_ready
-          ? "rvc-conversion-v1"
-          : health?.vocal_ml_available
-            ? "guide-conversion-v1"
-            : "placement-mix-v1"
-        : models?.diffsinger_configured
-          ? "diffsinger-v1"
-          : "lyrics-synth-v1";
-      setStatusWithTime(`Vocal embed preview downloaded (${engineLabel})`, "success");
+      const engineLabel =
+        responseEngine ||
+        (guideVocalFile && plan.sidecarMode === "guide-vocal-conversion"
+          ? models?.rvc_ready
+            ? "rvc-conversion-v1"
+            : health?.vocal_ml_available
+              ? "guide-conversion-v1"
+              : "placement-mix-v1"
+          : models?.diffsinger_openvpi?.ready
+            ? "diffsinger-v1"
+            : models?.diffsinger_configured
+              ? "diffsinger-v1"
+              : "lyrics-synth-v1");
+      const timingNote =
+        plan.guideForLyricTiming && guideVocalFile ? " · guide timing on" : "";
+      setStatusWithTime(`Vocal embed preview downloaded (${engineLabel}${timingNote})`, "success");
     } catch (err) {
       setStatusWithTime(err instanceof Error ? err.message : "Vocal synthesis failed", "error");
     } finally {
@@ -273,7 +283,27 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
                 ? "on"
                 : "off"}
           </span>
+          <span
+            className={`rounded-full px-2 py-1 font-bold ${
+              vocalModels?.diffsinger_openvpi?.ready
+                ? "bg-emerald-500/15 text-emerald-100"
+                : "bg-white/10 text-white/45"
+            }`}
+          >
+            OpenVPI {vocalModels?.diffsinger_openvpi?.ready ? "ready" : "off"}
+          </span>
         </div>
+      ) : null}
+
+      {vocalModels?.diffsinger_openvpi?.configured ? (
+        <p className="mb-3 text-[10px] leading-relaxed text-white/40">
+          OpenVPI: {vocalModels.diffsinger_openvpi.root || "root set"} · variance{" "}
+          {vocalModels.diffsinger_openvpi.variance_exp || "—"} · acoustic{" "}
+          {vocalModels.diffsinger_openvpi.acoustic_exp || "—"}.
+          Attach a guide vocal with lyrics to refine `.ds` word timing (MFA via{" "}
+          <span className="text-white/55">AIMC_MFA_MODEL</span> +{" "}
+          <span className="text-white/55">AIMC_MFA_DICT</span>, or librosa onset fallback).
+        </p>
       ) : null}
 
       {vocalModels && !vocalModels.models_ready ? (
@@ -342,6 +372,20 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
             {guideVocalFile ? (
               <div className="mt-1 truncate text-[10px] text-white/45">{guideVocalFile.name}</div>
             ) : null}
+            {guideVocalFile && (draftLyrics.trim() || generatedLyrics) ? (
+              <label className="mt-2 flex items-start gap-2 text-[10px] text-white/55">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={guideForLyricTiming}
+                  onChange={(e) => setGuideForLyricTiming(e.target.checked)}
+                />
+                <span>
+                  Use guide for lyric timing (DiffSinger/MFA). Uncheck to convert the guide vocal
+                  and placement-mix instead.
+                </span>
+              </label>
+            ) : null}
           </div>
         </label>
       </div>
@@ -380,7 +424,10 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-100/80">
             Vocal placement map
           </div>
-          <div className="font-mono text-[10px] text-white/40">{plan.sections.length} sections</div>
+          <div className="font-mono text-[10px] text-white/40">
+            {plan.sections.length} sections · {plan.sidecarMode}
+            {plan.guideForLyricTiming ? " · guide timing" : ""}
+          </div>
         </div>
         <div className="space-y-2">
           {plan.sections.map((section, index) => (
@@ -437,9 +484,11 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         >
           {sidecarBusy
             ? "Synthesizing…"
-            : canLyricsOnlySynth && !guideVocalFile
-              ? "Synthesize lyrics-only preview"
-              : "Synthesize placement-mix preview"}
+            : plan.sidecarMode === "lyrics-to-vocal-synthesis" && guideVocalFile
+              ? "Synthesize lyrics + guide timing"
+              : canLyricsOnlySynth && !guideVocalFile
+                ? "Synthesize lyrics-only preview"
+                : "Synthesize placement-mix preview"}
         </button>
       </div>
       <p className="mt-2 text-[10px] leading-relaxed text-white/40">

@@ -297,7 +297,7 @@ export async function synthesizeVocalEmbedViaSidecar(
   instrumentalName: string,
   guideVocal?: Blob | null,
   guideName = "guide-vocal.wav",
-): Promise<Blob> {
+): Promise<{ blob: Blob; engine: string | null }> {
   const form = new FormData();
   form.append("plan_json", JSON.stringify(envelope));
   form.append("instrumental", instrumental, instrumentalName || "instrumental.wav");
@@ -321,7 +321,10 @@ export async function synthesizeVocalEmbedViaSidecar(
     throw new Error(detail || `vocal embed synthesis failed (${res.status})`);
   }
 
-  return res.blob();
+  return {
+    blob: await res.blob(),
+    engine: res.headers.get("X-Vocal-Embed-Engine"),
+  };
 }
 
 /**

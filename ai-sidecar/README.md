@@ -52,7 +52,7 @@ curl http://127.0.0.1:8723/health
 ```
 
 Drop an image in **Drag & Drop Analyzers** — when the sidecar vision stack is installed, palette
-metrics are merged with a BLIP scene caption and mapped to Suno catalog tags.
+metrics are merged with a BLIP scene caption, CLIP zero-shot visual tags, and mapped to Suno catalog tags.
 
 ## Vocal Embed Studio
 
@@ -91,6 +91,16 @@ python -m venv .venv
 
 Copy `ai-sidecar/env.vocal.example` → `ai-sidecar/.env.vocal`, set `AIMC_DIFFSINGER_ROOT` and experiment names, then restart the sidecar. Vocal Embed plans are converted to OpenVPI `.ds` segments (section timing → `note_seq` / `note_dur`); variance inference fills phonemes and F0 before acoustic synthesis.
 
+**Guide vocal + lyric timing (MFA hook):** when the app sends both lyrics and a guide vocal in `lyrics-to-vocal-synthesis` mode, `vocal_align.py` refines per-word `.ds` timing. Configure Montreal Forced Aligner (optional):
+
+| Variable | Purpose |
+|----------|---------|
+| `AIMC_MFA_BIN` | MFA executable (default `mfa`) |
+| `AIMC_MFA_MODEL` | Acoustic model name (e.g. `english_mfa`) |
+| `AIMC_MFA_DICT` | Pronunciation dictionary |
+
+Without MFA, librosa onset/energy heuristics on the guide vocal segment provide fallback word starts.
+
 Install torch stack:
 
 ```bash
@@ -127,6 +137,7 @@ Playwright (from repo root):
 
 ```bash
 npm run test:smoke              # librosa analyze smoke (no stems)
+npm run test:smoke:vocal        # Vocal Embed plan + synthesis e2e (sidecar required)
 npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 ```
 
@@ -139,5 +150,6 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 | `POST /vocal-embed/plan` | Validate Vocal Embed Studio JSON plan from the app |
 | `GET /vocal-embed/models` | RVC / DiffSinger configuration status |
 | `POST /vocal-embed/synthesize` | Placement-mix + optional RVC/DiffSinger engines → mixed WAV |
+| `POST /analyze-image` | Optional BLIP caption + CLIP zero-shot tags (requires `vision` extra) |
 | `POST /separate` | Demucs stem separation (requires `stems` extra) |
 | `GET /separate/download/{job_id}/{filename}` | Download one stem WAV |
