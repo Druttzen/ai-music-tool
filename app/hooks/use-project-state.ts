@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useMemo, useReducer } from "react";
 import { loadCoProducerLlmSettings } from "../lib/co-producer-llm";
 import { loadStyleDnaSettings } from "../lib/style-dna-settings";
@@ -8,8 +6,11 @@ import {
   createInitialProjectState,
   projectReducer,
 } from "../lib/project-state";
+import type { ProjectState } from "../lib/project-schema";
 
-function capitalize(key) {
+type ProjectPatch = Partial<ProjectState> & Record<string, unknown>;
+
+function capitalize(key: string): string {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
@@ -28,11 +29,11 @@ export function useProjectState() {
     ),
   );
 
-  const patch = useCallback((payload) => {
+  const patch = useCallback((payload: ProjectPatch) => {
     dispatch({ type: "PATCH", payload });
   }, []);
 
-  const load = useCallback((payload) => {
+  const load = useCallback((payload: Record<string, unknown>) => {
     dispatch({ type: "LOAD", payload });
   }, []);
 
@@ -41,10 +42,9 @@ export function useProjectState() {
   }, []);
 
   const setters = useMemo(() => {
-    /** @type {Record<string, (value: unknown) => void>} */
-    const out = {};
+    const out: Record<string, (value: unknown) => void> = {};
     for (const key of PROJECT_PATCH_KEYS) {
-      out[`set${capitalize(key)}`] = (value) => patch({ [key]: value });
+      out[`set${capitalize(key)}`] = (value: unknown) => patch({ [key]: value });
     }
     return out;
   }, [patch]);

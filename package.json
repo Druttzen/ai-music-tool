@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -28,6 +28,7 @@
     "sync:suno-catalog": "node scripts/sync-suno-catalog.cjs",
     "import:awesome-suno": "node scripts/import-awesome-suno-concepts.cjs",
     "sync:version": "node scripts/sync-product-version.cjs",
+    "docs:panels": "node scripts/generate-panel-inventory.cjs",
     "prebuild": "node scripts/sync-product-version.cjs",
     "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-toolchains.ps1",
     "bootstrap:buildtools": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-toolchains.ps1 -WithBuildTools",
@@ -68,6 +69,7 @@
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.2",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -76,6 +78,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.10",
     "fake-indexeddb": "^6.2.5",
+    "happy-dom": "^20.10.6",
     "pdfkit": "^0.19.1",
     "tailwindcss": "^4.3.2",
     "typescript": "^6.0.3",

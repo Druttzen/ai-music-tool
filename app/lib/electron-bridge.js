@@ -1,11 +1,15 @@
 "use client";
 
 /**
- * Safe renderer bridge — no-op in the browser, wired in Electron via preload.js.
+ * Legacy Electron renderer bridge — **deprecated**. Prefer Tauri + `dsp-bridge.ts`.
+ * See docs/desktop.md. No-op in the browser; wired in Electron via preload.js.
  */
 
 /** @returns {boolean} */
 export function isElectronApp() {
+  if (typeof window !== "undefined" && window.__TAURI__) {
+    return false;
+  }
   return typeof window !== "undefined" && !!window.electronAPI;
 }
 

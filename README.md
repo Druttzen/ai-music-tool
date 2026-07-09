@@ -1,8 +1,16 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.39.0**
+**Version 0.40.0**
 
-A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build (primary) with native DSP export and Python sidecar integration. Legacy **Electron** Windows installer remains but is deprecated — see [docs/desktop.md](docs/desktop.md).
+
+## Highlights (v0.40.0)
+
+- **Project actions split** — `use-project-actions` composes domain hooks (presets, export, history, lyrics, Suno, co-producer, voice, reset) under `app/hooks/project-actions/`.
+- **Analyzer testability** — `analyzers-sidecar-probe` pure logic + `use-analyzers` hook tests with mocked sidecar; 332 unit tests.
+- **Tauri-first desktop** — `docs/desktop.md`; Electron deprecated; video handoff prefers Tauri native path.
+- **TypeScript hooks** — `use-project-state.ts` and `use-pipeline-input.ts` typed against `ProjectState` schema.
+- **Panel inventory** — `npm run docs:panels` generates `docs/panel-inventory.md` (GUIDED_PANEL_IDS → components × guided steps).
 
 ## Highlights (v0.39.0)
 
@@ -507,7 +515,9 @@ npm run check
 
 Static export output is written to `out/` (see `next.config.js` — `assetPrefix: "./"` for Electron-friendly relative assets).
 
-## Desktop (Tauri)
+## Desktop (Tauri — primary)
+
+See **[docs/desktop.md](docs/desktop.md)** for Tauri vs legacy Electron. Panel wiring: **[docs/panel-inventory.md](docs/panel-inventory.md)** (`npm run docs:panels`).
 
 Requires **Rust** (`cargo`), **Tauri CLI**, and a Python **3.11–3.12** venv for the sidecar (see `ai-sidecar/README.md`). On first run, `ensure-sidecar-binary.ps1` builds or copies the sidecar binary.
 

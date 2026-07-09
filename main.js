@@ -1,3 +1,7 @@
+/**
+ * Legacy Electron main process — **deprecated**. Primary desktop is Tauri (see docs/desktop.md).
+ * Kept for existing Windows NSIS installs via `npm run dist`.
+ */
 const { app, BrowserWindow, shell, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");

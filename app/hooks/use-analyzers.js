@@ -36,6 +36,11 @@ import {
 } from "../lib/audio-highlight-slice";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
+import {
+  resolveSidecarAiStatus,
+  resolveSidecarGenerateAvailable,
+  sidecarProbeDelayMs,
+} from "../lib/analyzers-sidecar-probe";
 import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
@@ -97,10 +102,9 @@ export function useAnalyzers({
 
     const scheduleNext = (status) => {
       if (cancelled) return;
-      const delay = status === "ready" ? 30_000 : status === "standby" ? 5_000 : 2_000;
       timer = setTimeout(() => {
         void probeSidecar();
-      }, delay);
+      }, sidecarProbeDelayMs(status));
     };
 
     const probeSidecar = async () => {
@@ -110,30 +114,32 @@ export function useAnalyzers({
       try {
         resetSidecarHealthCache();
         const httpOk = await isSidecarAvailable();
+        let health = null;
         if (httpOk) {
-          nextStatus = "ready";
           try {
-            const health = await fetchSidecarHealth();
-            if (!cancelled) {
-              setSidecarGenerateAvailable(!!health?.generate_available);
-            }
+            health = await fetchSidecarHealth();
           } catch {
-            if (!cancelled) setSidecarGenerateAvailable(false);
-          }
-        } else if (isTauriApp()) {
-          const st = await getManagedSidecarStatus();
-          if (st?.ready) {
-            nextStatus = "ready";
-          } else if (st?.spawned) {
-            nextStatus = "offline";
-          } else {
-            nextStatus = "standby";
+            health = null;
           }
         }
-        if (!cancelled) setSidecarAiStatus(nextStatus);
+        let tauriManaged = null;
+        if (!httpOk && isTauriApp()) {
+          tauriManaged = await getManagedSidecarStatus();
+        }
+        nextStatus = resolveSidecarAiStatus({
+          httpOk,
+          tauriManaged,
+          isTauri: isTauriApp(),
+        });
+        if (!cancelled) {
+          setSidecarGenerateAvailable(resolveSidecarGenerateAvailable({ health }));
+          setSidecarAiStatus(nextStatus);
+        }
       } catch {
-        if (!cancelled) setSidecarAiStatus("offline");
-        if (!cancelled) setSidecarGenerateAvailable(false);
+        if (!cancelled) {
+          setSidecarAiStatus("offline");
+          setSidecarGenerateAvailable(false);
+        }
       }
       scheduleNext(nextStatus);
     };
