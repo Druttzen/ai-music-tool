@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   DEFAULT_LLM_SETTINGS,
+  LLM_PROVIDER_PRESETS,
+  applyLlmProviderPreset,
   buildCoProducerLlmMessages,
   generateLyricsWithLlm,
   isCoProducerLlmReady,
@@ -17,6 +19,28 @@ describe("co-producer-llm", () => {
         apiKey: "sk-test",
       }),
     ).toBe(true);
+  });
+
+  it("provider presets are valid and applying one enables the backend", () => {
+    for (const preset of LLM_PROVIDER_PRESETS) {
+      expect(preset.apiUrl).toMatch(/^https?:\/\/.+\/chat\/completions$/);
+      expect(preset.model.length).toBeGreaterThan(0);
+    }
+    const applied = applyLlmProviderPreset(DEFAULT_LLM_SETTINGS, LLM_PROVIDER_PRESETS[0]);
+    expect(applied.enabled).toBe(true);
+    expect(applied.apiUrl).toBe(LLM_PROVIDER_PRESETS[0].apiUrl);
+  });
+
+  it("local provider presets are ready without a real key; cloud presets keep the user's key", () => {
+    const local = LLM_PROVIDER_PRESETS.find((p) => p.local);
+    const applied = applyLlmProviderPreset(DEFAULT_LLM_SETTINGS, local);
+    expect(isCoProducerLlmReady(applied)).toBe(true);
+
+    const cloud = LLM_PROVIDER_PRESETS.find((p) => !p.local);
+    const withKey = applyLlmProviderPreset({ ...DEFAULT_LLM_SETTINGS, apiKey: "sk-mine" }, cloud);
+    expect(withKey.apiKey).toBe("sk-mine");
+    const noKey = applyLlmProviderPreset(DEFAULT_LLM_SETTINGS, cloud);
+    expect(isCoProducerLlmReady(noKey)).toBe(false);
   });
 
   it("buildCoProducerLlmMessages includes Spanish language rules and section tags", () => {

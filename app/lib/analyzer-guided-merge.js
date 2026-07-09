@@ -62,11 +62,6 @@ export function truncateAnalyzerRuleLine(s, max = GUIDED_ANALYZER_RULE_MAX) {
   return `${cut}…`;
 }
 
-/** @deprecated use truncateAnalyzerRuleLine */
-export function truncateRuleLine(s, max = GUIDED_ANALYZER_RULE_MAX) {
-  return truncateAnalyzerRuleLine(s, max);
-}
-
 /**
  * Remove previous analyzer line of this kind from Rules (one line each for audio / image).
  * Supports current compact prefixes and legacy verbose lines from older sessions.

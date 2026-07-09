@@ -23,6 +23,62 @@ export const DEFAULT_LLM_SETTINGS = {
   model: "gpt-4o-mini",
 };
 
+/**
+ * One-click provider presets (OpenAI-compatible chat completions endpoints).
+ * Local providers (Ollama, LM Studio) ignore the API key but the ready-check
+ * needs a non-empty value — presets fill "local" when the key is blank.
+ */
+export const LLM_PROVIDER_PRESETS = [
+  {
+    name: "OpenAI",
+    apiUrl: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-4o-mini",
+    local: false,
+  },
+  {
+    name: "OpenRouter",
+    apiUrl: "https://openrouter.ai/api/v1/chat/completions",
+    model: "openai/gpt-4o-mini",
+    local: false,
+  },
+  {
+    name: "Groq",
+    apiUrl: "https://api.groq.com/openai/v1/chat/completions",
+    model: "llama-3.3-70b-versatile",
+    local: false,
+  },
+  {
+    name: "Mistral",
+    apiUrl: "https://api.mistral.ai/v1/chat/completions",
+    model: "mistral-small-latest",
+    local: false,
+  },
+  {
+    name: "Ollama (local)",
+    apiUrl: "http://localhost:11434/v1/chat/completions",
+    model: "llama3.1",
+    local: true,
+  },
+  {
+    name: "LM Studio (local)",
+    apiUrl: "http://localhost:1234/v1/chat/completions",
+    model: "local-model",
+    local: true,
+  },
+];
+
+/** Apply a provider preset onto current settings (keeps the user's key when set). */
+export function applyLlmProviderPreset(settings, preset) {
+  return {
+    ...DEFAULT_LLM_SETTINGS,
+    ...settings,
+    apiUrl: preset.apiUrl,
+    model: preset.model,
+    apiKey: String(settings?.apiKey || "").trim() || (preset.local ? "local" : ""),
+    enabled: true,
+  };
+}
+
 export function loadCoProducerLlmSettings() {
   if (typeof window === "undefined") return { ...DEFAULT_LLM_SETTINGS };
   const parsed = safeLocalStorage.getJSON(LLM_SETTINGS_KEY, null);

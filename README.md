@@ -1,8 +1,22 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.9.13**
+**Version 0.11.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.11.0)
+
+- **Maestro workspace commands** — chat can now run the app: "use the track analysis" / "use the image analysis" merges analyzer DNA into Suno fields, "take me to polish" / "final step" jumps the guided path. Works offline and via the LLM backend (sanitized command whitelist).
+- **Remix & extend in chat** — "remix it" rerolls groove/palette/mood while keeping your genre identity; "extend the track" lengthens the structure (bridge → final chorus → outro) to match Suno's Extend workflow.
+- **LLM provider presets** — one-click OpenAI, OpenRouter, Groq, Mistral, Ollama (local), and LM Studio (local) setup in Co-Producer settings; local providers work without an API key. The same backend powers Maestro Chat.
+- **Analyzer-aware suggestions** — when a track or image analysis exists, Maestro proactively suggests merging it.
+
+## Highlights (v0.10.0)
+
+- **Maestro — AI Chat Music Creator** — a conversational co-producer panel: describe the track ("dark techno at 140 bpm with whispered vocals") and Maestro sets genres, tempo, mood sliders, vocals, sounds, and lyric direction in the project as you talk. Ask for lyrics, hooks, the ≤1000-char Suno style prompt, or "surprise me". Fully offline heuristic engine with an optional OpenAI-compatible LLM mode (reuses Co-Producer settings); all LLM patches are sanitized to a key whitelist before touching project state. Chat history persists locally (60 turns).
+- **Performance & dead-code pass** — loudness re-measurement now keys on the audio source (no full blob re-decode on unrelated edits); removed redundant memoized prompts and unused exports across audio-enhancer, export formats, studio export client, and video handoff.
+- **Dependency refresh** — Next, ESLint config, Tailwind, Vitest, Electron 43, and friends bumped to latest patch/minor releases.
+- **24 new unit tests** for the Maestro engine (parsing, replies, patch sanitizing, LLM protocol).
 
 ## Highlights (v0.9.13)
 

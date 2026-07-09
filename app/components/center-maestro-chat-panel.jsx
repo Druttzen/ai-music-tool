@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "./ui-blocks";
 import {
   useProjectWorkspaceActions,
+  useProjectWorkspaceAnalyzerState,
   useProjectWorkspaceProjectState,
 } from "../context/project-workspace-context";
 import {
@@ -15,6 +16,7 @@ import {
 } from "../lib/maestro-chat-engine";
 import { sendMaestroChatToLlm } from "../lib/maestro-chat-llm";
 import { isCoProducerLlmReady } from "../lib/co-producer-llm";
+import { getStepCount, resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 
 function loadStoredMessages() {
@@ -90,9 +92,14 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     setLyricLanguage,
     setLyricStyle,
     setGeneratedLyrics,
+    setGuidedStep,
+    applyAudioToSunoStyle,
+    applyImageToSunoStyle,
+    captureSnapshot,
     setStatusWithTime,
     copyToClipboard,
   } = useProjectWorkspaceActions();
+  const { audioAnalysis, imageAnalysis } = useProjectWorkspaceAnalyzerState();
 
   const [messages, setMessages] = useState(loadStoredMessages);
   const [draft, setDraft] = useState("");
@@ -119,6 +126,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       lyricDensity,
       voiceRefFirstName,
       voiceStyleLine,
+      hasAudioAnalysis: !!audioAnalysis,
+      hasImageAnalysis: !!imageAnalysis,
     }),
     [
       idea,
@@ -139,6 +148,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       lyricDensity,
       voiceRefFirstName,
       voiceStyleLine,
+      audioAnalysis,
+      imageAnalysis,
     ],
   );
 
@@ -194,6 +205,22 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     ],
   );
 
+  const runCommands = useCallback(
+    (commands) => {
+      for (const cmd of commands || []) {
+        if (cmd === "mergeAudio") {
+          captureSnapshot("before Maestro audio merge");
+          applyAudioToSunoStyle();
+        } else if (cmd === "mergeImage") {
+          captureSnapshot("before Maestro image merge");
+          applyImageToSunoStyle();
+        } else if (cmd === "gotoPolish") setGuidedStep(resolvePolishStepIndex());
+        else if (cmd === "gotoFinal") setGuidedStep(getStepCount() - 1);
+      }
+    },
+    [applyAudioToSunoStyle, applyImageToSunoStyle, captureSnapshot, setGuidedStep],
+  );
+
   const llmReady = isCoProducerLlmReady(coProducerLlmSettings);
 
   const send = useCallback(
@@ -213,6 +240,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           const llm = await sendMaestroChatToLlm(history, snapshot, coProducerLlmSettings);
           const patch = sanitizeMaestroPatch(llm.patch, snapshot);
           if (patch) applyPatch(patch);
+          if (llm.commands?.length) runCommands(llm.commands);
           assistantTurn = { role: "assistant", text: llm.reply, source: "llm" };
           if (patch) setStatusWithTime("Maestro (LLM) updated the project");
         } else {
@@ -224,6 +252,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           applyPatch(local.patch);
           setStatusWithTime("Maestro updated the project");
         }
+        if (local.commands?.length) runCommands(local.commands);
         const fallbackNote =
           llmReady && err?.message !== "__use_heuristic__"
             ? `(LLM unavailable — answered locally: ${String(err?.message || "error").slice(0, 80)})\n\n`
@@ -239,7 +268,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       setMessages((prev) => [...prev, assistantTurn].slice(-MAESTRO_CHAT_MAX_MESSAGES));
       setBusy(false);
     },
-    [applyPatch, busy, coProducerLlmSettings, draft, llmReady, messages, setStatusWithTime, snapshot],
+    [applyPatch, busy, coProducerLlmSettings, draft, llmReady, messages, runCommands, setStatusWithTime, snapshot],
   );
 
   const clearChat = useCallback(() => {

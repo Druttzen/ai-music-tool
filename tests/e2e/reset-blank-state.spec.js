@@ -1,14 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { dismissSplash, lyricStylePanel, musicControlsPanel } from "./helpers.js";
+import { dismissSplash, ideaInput as ideaInputLocator, lyricStylePanel, musicControlsPanel } from "./helpers.js";
 
 test("Reset to Default clears preselected prompts to blank slate", async ({ page }) => {
   await dismissSplash(page);
 
-  const ideaInput = page
-    .locator("section")
-    .filter({ hasText: "Step 1 — Idea Input" })
-    .locator("input")
-    .first();
+  const ideaInput = ideaInputLocator(page);
 
   await ideaInput.fill("My custom idea before reset");
 

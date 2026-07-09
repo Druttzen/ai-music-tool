@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAESTRO_COMMANDS,
+  buildExtendedStructure,
   buildMaestroReply,
   buildMaestroStylePreview,
+  buildRemixPatch,
   buildSurprisePatch,
   createMaestroGreeting,
   matchCatalogOptions,
@@ -127,6 +130,58 @@ describe("maestro-chat-engine replies", () => {
     expect(res.patch).toBeNull();
     expect(res.reply).toMatch(/didn't catch/i);
   });
+
+  it("remix keeps genres but rerolls groove and palette", () => {
+    const res = buildMaestroReply("remix it", SNAPSHOT, { rng: () => 0.4 });
+    expect(res.patch.selectedGenres).toBeUndefined();
+    expect(res.patch.selectedSounds.length).toBeGreaterThan(0);
+    expect(res.patch.mood).toBeTruthy();
+    expect(res.artifacts.stylePrompt).toBeTruthy();
+  });
+
+  it("extend lengthens the structure", () => {
+    const res = buildMaestroReply("extend the track", SNAPSHOT);
+    expect(res.patch.structure).toMatch(/final chorus → outro$/i);
+  });
+
+  it("buildExtendedStructure replaces trailing outro", () => {
+    expect(buildExtendedStructure("intro → drop → outro")).toMatch(/^intro → drop → verse/);
+    expect(buildExtendedStructure("")).toMatch(/^intro/);
+  });
+
+  it("merge audio analysis emits mergeAudio command when analysis exists", () => {
+    const res = buildMaestroReply("use the track analysis", { ...SNAPSHOT, hasAudioAnalysis: true });
+    expect(res.commands).toContain("mergeAudio");
+  });
+
+  it("merge audio analysis without analysis explains what to do", () => {
+    const res = buildMaestroReply("use the track analysis", SNAPSHOT);
+    expect(res.commands).toEqual([]);
+    expect(res.reply).toMatch(/no track analysis yet/i);
+  });
+
+  it("merge image analysis emits mergeImage command when analysis exists", () => {
+    const res = buildMaestroReply("merge the image analysis", { ...SNAPSHOT, hasImageAnalysis: true });
+    expect(res.commands).toContain("mergeImage");
+  });
+
+  it("navigation requests emit guided-path commands", () => {
+    expect(buildMaestroReply("take me to polish", SNAPSHOT).commands).toContain("gotoPolish");
+    const final = buildMaestroReply("go to the final step", SNAPSHOT);
+    expect(final.commands).toContain("gotoFinal");
+    expect(final.artifacts.stylePrompt).toBeTruthy();
+  });
+
+  it("suggests analyzer merge when analysis is present", () => {
+    const res = buildMaestroReply("make it darker", { ...SNAPSHOT, hasAudioAnalysis: true });
+    expect(res.suggestions).toContain("Use the track analysis");
+  });
+
+  it("buildRemixPatch caps sounds and rhythms", () => {
+    const remix = buildRemixPatch(SNAPSHOT, () => 0.1);
+    expect(remix.patch.selectedSounds.length).toBeLessThanOrEqual(8);
+    expect(remix.patch.selectedRhythms.length).toBeLessThanOrEqual(4);
+  });
 });
 
 describe("maestro-chat-engine safety", () => {
@@ -186,6 +241,16 @@ describe("maestro-chat-llm", () => {
     );
     expect(res.reply).toBe("Done.");
     expect(res.patch.tempo).toBe("140 BPM");
+    expect(res.commands).toEqual([]);
+  });
+
+  it("parses and filters commands to the allowed set", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Merging.","patch":null,"commands":["mergeAudio","rm -rf","gotoFinal"]}',
+      SNAPSHOT,
+    );
+    expect(res.commands).toEqual(["mergeAudio", "gotoFinal"]);
+    for (const c of res.commands) expect(MAESTRO_COMMANDS).toContain(c);
   });
 
   it("extracts JSON from fenced/prose responses", () => {

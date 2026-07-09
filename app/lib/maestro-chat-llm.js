@@ -6,7 +6,7 @@
  */
 
 import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
-import { MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
+import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
 
 export const MAESTRO_LLM_TIMEOUT_MS = 45_000;
 
@@ -29,6 +29,8 @@ export function buildMaestroLlmMessages(history, snapshot) {
       lyricLanguage: snapshot.lyricLanguage,
       structure: snapshot.structure,
       rules: snapshot.rules,
+      hasAudioAnalysis: !!snapshot.hasAudioAnalysis,
+      hasImageAnalysis: !!snapshot.hasImageAnalysis,
     },
     null,
     0,
@@ -36,12 +38,15 @@ export function buildMaestroLlmMessages(history, snapshot) {
 
   const system = `You are Maestro, an expert music co-producer inside the "AI Music Creator" app. The user is building a Suno prompt project. Current project state: ${projectBrief}
 
-Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch": object|null}
+Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch": object|null, "commands": string[]|null}
 - "reply": short, friendly producer-speak (2-4 sentences max). You may include lyrics or hooks inside reply when asked.
 - "patch": fields to update, or null. Allowed keys: ${MAESTRO_PATCHABLE_KEYS.join(", ")}.
   - selectedGenres/selectedRhythms/selectedSounds: string arrays (genres max 3).
   - mood: object with any of darkness/energy/aggression/emotion/complexity/space as 0-100 numbers.
   - tempo: like "128 BPM". vocal: a vocal role label. Others: strings.
+- "commands": optional app actions, allowed values: ${MAESTRO_COMMANDS.join(", ")}.
+  - mergeAudio/mergeImage: merge the user's analyzer results into the Suno fields (only when hasAudioAnalysis/hasImageAnalysis is true and the user asks to use them).
+  - gotoPolish/gotoFinal: jump the guided path to the Polish or final copy step when the user asks to move on.
 Only patch what the user asked to change. Never invent fields outside the allowed keys.`;
 
   const messages = [{ role: "system", content: system }];
@@ -60,16 +65,20 @@ export function parseMaestroLlmResponse(raw, snapshot) {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end <= start) {
-    return { reply: text || "…", patch: null };
+    return { reply: text || "…", patch: null, commands: [] };
   }
   try {
     const parsed = JSON.parse(text.slice(start, end + 1));
+    const commands = Array.isArray(parsed.commands)
+      ? parsed.commands.filter((c) => MAESTRO_COMMANDS.includes(c))
+      : [];
     return {
       reply: String(parsed.reply || "").trim() || "…",
       patch: sanitizeMaestroPatch(parsed.patch, snapshot),
+      commands,
     };
   } catch {
-    return { reply: text, patch: null };
+    return { reply: text, patch: null, commands: [] };
   }
 }
 
@@ -78,7 +87,7 @@ export function parseMaestroLlmResponse(raw, snapshot) {
  * @param {object} snapshot
  * @param {{ apiUrl?: string, apiKey?: string, model?: string }} settings
  * @param {{ timeoutMs?: number }} [options]
- * @returns {Promise<{ reply: string, patch: Record<string, unknown>|null }>}
+ * @returns {Promise<{ reply: string, patch: Record<string, unknown>|null, commands: string[] }>}
  */
 export async function sendMaestroChatToLlm(history, snapshot, settings, options = {}) {
   const timeoutMs = options.timeoutMs ?? MAESTRO_LLM_TIMEOUT_MS;

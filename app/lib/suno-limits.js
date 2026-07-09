@@ -6,18 +6,12 @@
 /** Hard cap for the Style field (characters). Confirmed in Suno chat — treat as authoritative for this app. */
 export const SUNO_STYLE_CHAR_CAP = 1000;
 
-/** @deprecated alias — use SUNO_STYLE_CHAR_CAP */
-export const SUNO_STYLE_CHAR_TYPICAL_MAX = SUNO_STYLE_CHAR_CAP;
-
 /** Warn when approaching the Style cap so users can trim before truncation. */
 export const SUNO_STYLE_CHAR_WARN = 900;
 
 /** Lyrics field cap varies less predictably across builds; typical upper bound ~5000 (not confirmed like Style). */
 export const SUNO_LYRICS_CHAR_TYPICAL_MAX = 5000;
 export const SUNO_LYRICS_CHAR_WARN = 4800;
-
-/** Song title — often cited ~80–120 in docs; not chat-confirmed here. */
-export const SUNO_TITLE_CHAR_TYPICAL_MAX = 100;
 
 export const SUNO_LIMITS_PRINCIPLE =
   "Suno Style field is limited to 1000 characters (confirmed). Put genre, vocal role, BPM, and strongest mood tokens first — overflow truncates silently. Lyrics field limits may differ by version.";

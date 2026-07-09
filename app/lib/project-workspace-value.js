@@ -177,12 +177,3 @@ export function buildProjectWorkspacePromptState(s) {
   };
 }
 
-/** @param {Record<string, unknown>} s */
-export function buildProjectWorkspaceValue(s) {
-  return {
-    ...buildProjectWorkspaceActions(s),
-    ...buildProjectWorkspaceProjectState(s),
-    ...buildProjectWorkspaceAnalyzerState(s),
-    ...buildProjectWorkspacePromptState(s),
-  };
-}

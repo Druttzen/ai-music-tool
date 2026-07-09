@@ -39,7 +39,15 @@ function createWindow() {
 }
 
 function setupAutoUpdater() {
-  if (!app.isPackaged) return;
+  if (!app.isPackaged) {
+    // Register stubs so dev-Electron renderer invokes don't reject with "No handler".
+    ipcMain.handle("app-check-for-updates", async () => ({
+      ok: false,
+      error: "Updates are only available in packaged builds.",
+    }));
+    ipcMain.handle("app-quit-and-install", () => {});
+    return;
+  }
 
   try {
     const { autoUpdater } = require("electron-updater");

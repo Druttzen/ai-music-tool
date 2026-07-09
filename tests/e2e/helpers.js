@@ -56,8 +56,8 @@ export function saveLoadPanel(page) {
 
 export function ideaInput(page) {
   return page
-    .locator("section")
-    .filter({ hasText: "Step 1 — Idea Input" })
+    .locator("section.rounded-3xl")
+    .filter({ has: page.getByRole("heading", { name: "Step 1 — Idea Input" }) })
     .locator("input")
     .first();
 }

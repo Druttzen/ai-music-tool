@@ -18,6 +18,13 @@ import { generateCoProducerHooks, generateCoProducerLyrics } from "./lyric-gener
 import { buildSunoPastedStyleLine } from "./suno-guided-workflow";
 import { SUNO_STYLE_CHAR_CAP } from "./suno-limits";
 
+/**
+ * Workspace commands Maestro can request; the chat panel maps them to actions:
+ * - "mergeAudio" / "mergeImage": run the analyzer → Suno merge (same as the panel buttons)
+ * - "gotoPolish" / "gotoFinal": jump the guided path to Polish or the final copy step
+ */
+export const MAESTRO_COMMANDS = ["mergeAudio", "mergeImage", "gotoPolish", "gotoFinal"];
+
 export const MAESTRO_CHAT_STORAGE_KEY = "ai_music_creator_maestro_chat_v1";
 export const MAESTRO_CHAT_MAX_MESSAGES = 60;
 
@@ -199,6 +206,45 @@ export function buildSurprisePatch(rng = Math.random) {
 }
 
 /**
+ * Suno-style "remix": keep the genre identity, reroll groove/palette/mood
+ * from a random factory preset so the track gets a fresh take.
+ * @param {object} snapshot
+ * @param {() => number} [rng]
+ */
+export function buildRemixPatch(snapshot, rng = Math.random) {
+  const names = Object.keys(stylePresets);
+  const name = pickRandom(names, rng);
+  const p = stylePresets[name];
+  const mood = { ...(snapshot.mood || {}) };
+  for (const k of ["energy", "complexity", "space"]) {
+    const jitter = Math.round((rng() - 0.5) * 30);
+    mood[k] = clamp((mood[k] ?? 50) + jitter, 0, 100);
+  }
+  return {
+    presetName: name,
+    patch: {
+      selectedSounds: uniq([...(p.sounds || []), ...(snapshot.selectedSounds || [])]).slice(0, 8),
+      selectedRhythms: uniq([...(p.rhythms || []), ...(snapshot.selectedRhythms || [])]).slice(0, 4),
+      mood,
+    },
+  };
+}
+
+/**
+ * Suno-style "extend": lengthen the section map so the track continues.
+ * @param {string} structure - current structure text
+ */
+export function buildExtendedStructure(structure) {
+  const base = String(structure || "").trim();
+  const tail = "bridge → final chorus → outro";
+  if (!base) return `intro → verse → chorus → verse → chorus → ${tail}`;
+  if (/outro\s*$/i.test(base)) {
+    return base.replace(/outro\s*$/i, `verse → chorus → ${tail}`);
+  }
+  return `${base} → ${tail}`;
+}
+
+/**
  * Snapshot merged with a pending patch (for artifact building).
  */
 function mergeSnapshot(snapshot, patch) {
@@ -242,21 +288,25 @@ const HELP_TEXT = `I'm Maestro — your chat co-producer. Talk to me like a band
 • "make it darker and more minimal"
 • "write lyrics about neon rain in Spanish"
 • "give me hooks" / "show the style prompt"
-• "surprise me" for a fresh direction
+• "surprise me" for a fresh direction, "remix it" to reroll the groove, "extend the track" for a longer form
+• "use the track analysis" / "use the image analysis" to merge analyzer DNA
+• "take me to polish" / "final step" to jump the guided path
 Everything I set lands in your project instantly — then copy the Style & Lyrics fields straight into Suno.`;
 
 /**
  * Heuristic chat turn: message + project snapshot → reply, patch, artifacts.
  * @param {string} message
  * @param {object} snapshot - current project fields (idea, tempo, mood, selections, lyric fields)
+ *   plus optional analyzer flags: hasAudioAnalysis, hasImageAnalysis
  * @param {{ rng?: () => number }} [options]
- * @returns {{ reply: string, patch: Record<string, unknown>|null, artifacts: { stylePrompt?: string, lyrics?: string, hooks?: string }, suggestions: string[] }}
+ * @returns {{ reply: string, patch: Record<string, unknown>|null, artifacts: { stylePrompt?: string, lyrics?: string, hooks?: string }, suggestions: string[], commands: string[] }}
  */
 export function buildMaestroReply(message, snapshot, options = {}) {
   const rng = options.rng || Math.random;
   const text = String(message || "").trim();
   const lower = text.toLowerCase();
   const artifacts = {};
+  const commands = [];
   let patch = {};
   let replyParts = [];
   let suggestions = [];
@@ -267,6 +317,7 @@ export function buildMaestroReply(message, snapshot, options = {}) {
       patch: null,
       artifacts,
       suggestions: ["Surprise me", "Show the style prompt", "Write lyrics about the night"],
+      commands,
     };
   }
 
@@ -281,6 +332,84 @@ export function buildMaestroReply(message, snapshot, options = {}) {
       patch,
       artifacts,
       suggestions: ["Make it darker", "Write lyrics about power", "Show the style prompt"],
+      commands,
+    };
+  }
+
+  if (/\b(remix (?:it|this|the track)?|reroll (?:the )?(?:groove|sound|palette)|fresh take)\b/i.test(lower)) {
+    const remix = buildRemixPatch(snapshot, rng);
+    patch = remix.patch;
+    artifacts.stylePrompt = buildMaestroStylePreview(mergeSnapshot(snapshot, patch));
+    return {
+      reply: `Remixed — kept your genre identity (${(snapshot.selectedGenres || []).join(" + ") || "current"}) but pulled fresh groove & palette from a “${remix.presetName}” angle and nudged the mood. Style preview below.`,
+      patch,
+      artifacts,
+      suggestions: ["Remix it again", "Make it darker", "Show the style prompt"],
+      commands,
+    };
+  }
+
+  if (/\b(extend (?:it|this|the track|the song)|make it longer|longer (?:version|track|form)|add more sections)\b/i.test(lower)) {
+    patch = { structure: buildExtendedStructure(snapshot.structure) };
+    return {
+      reply: `Extended the form: ${patch.structure}. In Suno you can also use "Extend" on the generated track — this structure keeps the prompt aligned with the longer arc.`,
+      patch,
+      artifacts,
+      suggestions: ["Write lyrics for the new sections", "Show the style prompt"],
+      commands,
+    };
+  }
+
+  const asksAudioMerge = /\b(?:use|merge|apply)\b.*\b(?:track|audio|song) (?:analysis|dna|scan)\b|\bmerge the track\b/i.test(lower);
+  const asksImageMerge = /\b(?:use|merge|apply)\b.*\b(?:image|picture|photo|cover) (?:analysis|dna|scan)\b|\bmerge the image\b/i.test(lower);
+  if (asksAudioMerge || asksImageMerge) {
+    const parts = [];
+    if (asksAudioMerge) {
+      if (snapshot.hasAudioAnalysis) {
+        commands.push("mergeAudio");
+        parts.push("merging the track analysis into your Suno fields (tempo, genres, sounds, mood + a compact AUDIO: rule line)");
+      } else {
+        parts.push("no track analysis yet — drop an audio file (WAV/MP3/OGG/M4A) on the Track Analyzer first");
+      }
+    }
+    if (asksImageMerge) {
+      if (snapshot.hasImageAnalysis) {
+        commands.push("mergeImage");
+        parts.push("merging the image analysis (palette mood, genres, sounds + an IMAGE: rule line)");
+      } else {
+        parts.push("no image analysis yet — drop a JPG/PNG on the Image Analyzer first");
+      }
+    }
+    return {
+      reply: `${parts.join("; ")}.${commands.length ? " Say \"show the style prompt\" to see the merged result." : ""}`,
+      patch: null,
+      artifacts,
+      suggestions: commands.length
+        ? ["Show the style prompt", "Take me to polish", "Write lyrics"]
+        : ["Help", "Show the style prompt"],
+      commands,
+    };
+  }
+
+  if (/\b(?:go|jump|take me|open|move)\b.*\b(?:polish|analyzer step)\b/i.test(lower)) {
+    commands.push("gotoPolish");
+    return {
+      reply: "Jumping the guided path to the Polish step — Voice Character Studio, analyzers, and Co-Producer live there. All optional; press Next when ready to copy.",
+      patch: null,
+      artifacts,
+      suggestions: ["Take me to the final step", "Show the style prompt"],
+      commands,
+    };
+  }
+  if (/\b(?:go|jump|take me|open|move)\b.*\b(?:final|copy|last) step\b|\bready to copy\b|\bfinish (?:the )?track\b/i.test(lower)) {
+    commands.push("gotoFinal");
+    artifacts.stylePrompt = buildMaestroStylePreview(snapshot);
+    return {
+      reply: `Opening the final copy step. Your Style line is ${artifacts.stylePrompt.length}/${SUNO_STYLE_CHAR_CAP} characters — copy Style and Lyrics from the two blocks straight into Suno.`,
+      patch: null,
+      artifacts,
+      suggestions: ["Show the style prompt", "Write lyrics"],
+      commands,
     };
   }
 
@@ -392,6 +521,8 @@ export function buildMaestroReply(message, snapshot, options = {}) {
     suggestions = ["Help", "Surprise me", "Show the style prompt"];
   } else if (!suggestions.length) {
     suggestions = ["Make it darker", "Write lyrics", "Show the style prompt", "Surprise me"];
+    if (snapshot.hasAudioAnalysis) suggestions.unshift("Use the track analysis");
+    else if (snapshot.hasImageAnalysis) suggestions.unshift("Use the image analysis");
   }
 
   return {
@@ -399,6 +530,7 @@ export function buildMaestroReply(message, snapshot, options = {}) {
     patch: Object.keys(patch).length ? patch : null,
     artifacts,
     suggestions: suggestions.slice(0, 4),
+    commands,
   };
 }
 

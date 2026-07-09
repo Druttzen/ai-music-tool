@@ -4,7 +4,6 @@ import {
   buildProjectWorkspaceAnalyzerState,
   buildProjectWorkspaceProjectState,
   buildProjectWorkspacePromptState,
-  buildProjectWorkspaceValue,
 } from "../app/lib/project-workspace-value.js";
 
 describe("project-workspace-value slices", () => {
@@ -17,17 +16,6 @@ describe("project-workspace-value slices", () => {
     sunoSlices: { style: "a", lyrics: "b" },
     intensityText: "balanced",
   };
-
-  it("merged value equals spread of all slices", () => {
-    const merged = buildProjectWorkspaceValue(source);
-    const slices = {
-      ...buildProjectWorkspaceActions(source),
-      ...buildProjectWorkspaceProjectState(source),
-      ...buildProjectWorkspaceAnalyzerState(source),
-      ...buildProjectWorkspacePromptState(source),
-    };
-    expect(slices).toEqual(merged);
-  });
 
   it("slices only expose their domain keys", () => {
     const actions = buildProjectWorkspaceActions(source);

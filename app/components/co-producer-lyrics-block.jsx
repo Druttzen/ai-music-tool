@@ -4,6 +4,7 @@ import {
   formatLyricsCharBudget,
   getLyricStyleDirection,
 } from "../lib/lyric-generator";
+import { LLM_PROVIDER_PRESETS, applyLlmProviderPreset } from "../lib/co-producer-llm";
 
 /**
  * Shared Co-Producer lyrics editor: generate, shuffle, edit, char budget, stale-style warning.
@@ -110,7 +111,6 @@ export function CoProducerHooksBlock({
   lyricStyle,
   generatedHooks,
   generatedHooksStyle,
-  hooksCharLabel,
 }) {
   const stale =
     !!generatedHooks && !!generatedHooksStyle && generatedHooksStyle !== lyricStyle;
@@ -127,7 +127,6 @@ export function CoProducerHooksBlock({
         <>
           <div className="mt-3 text-xs text-cyan-200/75">
             Hook style: <strong className="text-cyan-100">{generatedHooksStyle || lyricStyle}</strong>
-            {hooksCharLabel ? ` · ${hooksCharLabel}` : ""}
           </div>
           <pre className="mt-2 max-h-52 overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-4 text-xs leading-relaxed text-cyan-50">
             {generatedHooks}
@@ -150,8 +149,24 @@ export function CoProducerLlmSettings({
       </div>
       <p className="mb-3 text-[11px] text-white/45">
         OpenAI-compatible API. Key stored locally in your browser only. Falls back to built-in
-        templates if disabled or on error.
+        templates if disabled or on error. Also powers Maestro Chat when enabled.
       </p>
+      <div className="mb-3">
+        <div className="mb-1 text-[10px] uppercase text-white/40">Provider presets</div>
+        <div className="flex flex-wrap gap-1.5">
+          {LLM_PROVIDER_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              title={`${preset.apiUrl} · ${preset.model}${preset.local ? " · no key needed" : ""}`}
+              onClick={() => onChange(applyLlmProviderPreset(settings, preset))}
+              className="rounded-xl border border-violet-300/25 bg-violet-900/30 px-2.5 py-1 text-[10px] font-bold text-violet-100 hover:bg-violet-900/60"
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
       <label className="mb-2 flex items-center gap-2 text-sm text-white/70">
         <input
           type="checkbox"
