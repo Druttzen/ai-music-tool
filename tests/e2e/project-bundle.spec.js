@@ -77,4 +77,46 @@ test.describe("project bundle e2e", () => {
     expect(raw.project.idea).toBe("Export bundle marker");
     expect(raw.customPresets["E2E Saved Preset"]).toBeTruthy();
   });
+
+  test("Export Bundle includes vocalEmbed when align preview is stored", async ({ page }) => {
+    await dismissSplash(page);
+
+    await page.evaluate(() => {
+      localStorage.setItem(
+        "ai_music_creator_vocal_align_preview",
+        JSON.stringify({
+          instrumentalName: "beat.wav",
+          guideName: "guide.wav",
+          preview: { align_method: "heuristic", word_count: 3, sections: [] },
+        }),
+      );
+    });
+
+    const panel = saveLoadPanel(page);
+    const downloadPromise = page.waitForEvent("download");
+    await panel.getByRole("button", { name: "Export Bundle" }).click();
+    await expectToast(page, /includes vocal align preview/i);
+
+    const download = await downloadPromise;
+    const raw = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
+    expect(raw.vocalEmbed?.preview?.align_method).toBe("heuristic");
+    expect(raw.vocalEmbed?.instrumentalName).toBe("beat.wav");
+  });
+
+  test("Import Bundle restores vocal align preview to localStorage", async ({ page }) => {
+    await dismissSplash(page);
+
+    const panel = saveLoadPanel(page);
+    await panel
+      .locator('input[type="file"][accept="application/json"]')
+      .setInputFiles("tests/fixtures/e2e-import-project-bundle-vocal-align.json");
+
+    await expectToast(page, /includes vocal align preview/i);
+
+    const stored = await page.evaluate(() =>
+      localStorage.getItem("ai_music_creator_vocal_align_preview"),
+    );
+    expect(stored).toContain("heuristic");
+    expect(stored).toContain("e2e-analyzer-tone.wav");
+  });
 });

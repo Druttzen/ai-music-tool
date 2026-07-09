@@ -51,6 +51,8 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const [vocalModels, setVocalModels] = useState(null);
   const [alignPreview, setAlignPreview] = useState(null);
   const guideInputRef = useRef(null);
+  const instrumentalRef = useRef(audioAnalysis?.fileName);
+  const guideVocalRef = useRef(guideVocalFile);
 
   const persistAlignPreview = useCallback(
     (preview) => {
@@ -78,6 +80,24 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       setAlignPreview(stored.preview);
     }
   }, [audioAnalysis?.fileName]);
+
+  useEffect(() => {
+    const prev = instrumentalRef.current;
+    const next = audioAnalysis?.fileName;
+    if (prev && next && prev !== next) {
+      persistAlignPreview(null);
+    }
+    instrumentalRef.current = next;
+  }, [audioAnalysis?.fileName, persistAlignPreview]);
+
+  useEffect(() => {
+    const prev = guideVocalRef.current;
+    const next = guideVocalFile;
+    if (prev && next && prev !== next) {
+      persistAlignPreview(null);
+    }
+    guideVocalRef.current = next;
+  }, [guideVocalFile, persistAlignPreview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +166,11 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     a.download = "vocal-embed-plan.json";
     a.click();
     URL.revokeObjectURL(url);
-    setStatusWithTime("Vocal embed plan exported");
+    setStatusWithTime(
+      alignPreview
+        ? "Vocal embed plan exported (includes alignment timing)"
+        : "Vocal embed plan exported",
+    );
   };
 
   const exportAlignJson = () => {
@@ -682,7 +706,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           onClick={exportPlan}
           className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
         >
-          Export vocal embed plan JSON
+          {alignPreview ? "Export plan JSON (with alignment)" : "Export vocal embed plan JSON"}
         </button>
         <button
           type="button"

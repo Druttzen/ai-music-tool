@@ -81,5 +81,16 @@ describe("project-bundle", () => {
     expect(summary.customPresetCount).toBe(1);
     expect(summary.characterPresetCount).toBe(1);
     expect(summary.guidedStep).toBe(4);
+    expect(summary.hasVocalAlign).toBe(false);
+  });
+
+  it("summarizeProjectBundle reports vocal align in bundle", () => {
+    const summary = summarizeProjectBundle({
+      bundleFormat: PROJECT_BUNDLE_FORMAT,
+      appVersion: "0.24.0",
+      project: { idea: "x" },
+      vocalEmbed: { preview: { align_method: "mfa" } },
+    });
+    expect(summary.hasVocalAlign).toBe(true);
   });
 });

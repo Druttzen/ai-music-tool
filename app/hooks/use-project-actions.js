@@ -19,6 +19,7 @@ import { generateCoProducerAdvisoryWithLlm } from "../lib/co-producer-advisory-l
 import {
   readStoredVocalAlignPreview,
   writeStoredVocalAlignPreview,
+  buildVocalEmbedBundleSession,
 } from "../lib/vocal-embed-handoff";
 import {
   buildInstrumentalLyricsScaffold,
@@ -289,8 +290,15 @@ export function useProjectActions({
 
   const exportProject = useCallback(() => {
     const storedAlign = readStoredVocalAlignPreview();
+    const vocalEmbed = storedAlign?.preview
+      ? buildVocalEmbedBundleSession(
+          storedAlign.preview,
+          storedAlign.instrumentalName,
+          storedAlign.guideName,
+        )
+      : undefined;
     const payload = buildProjectBundleExport(currentState, customPresets, APP_VERSION, {
-      vocalEmbed: storedAlign?.preview ? storedAlign : undefined,
+      vocalEmbed,
     });
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
@@ -301,7 +309,11 @@ export function useProjectActions({
     a.download = "ai-music-bundle.json";
     a.click();
     URL.revokeObjectURL(url);
-    setStatusWithTime("Exported project bundle (project + style presets + voice profile)");
+    setStatusWithTime(
+      vocalEmbed
+        ? "Exported project bundle (includes vocal align preview)"
+        : "Exported project bundle (project + style presets + voice profile)",
+    );
   }, [currentState, customPresets, setStatusWithTime]);
 
   const exportVideoHandoff = useCallback(async () => {
