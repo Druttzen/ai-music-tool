@@ -14,6 +14,7 @@ describe("project bundle vocal embed", () => {
       { align_method: "heuristic", word_count: 4, sections: [] },
       "track.wav",
       "guide.wav",
+      { format: "openvpi-ds-segments", segment_count: 1, segments: [{ text: "hi" }] },
     );
     const bundle = buildProjectBundleExport({ idea: "test" }, {}, "0.22.0", {
       vocalEmbed: session,
@@ -21,7 +22,9 @@ describe("project bundle vocal embed", () => {
     const parsed = parseProjectBundleImport(bundle);
     expect(parsed.vocalEmbed?.preview?.align_method).toBe("heuristic");
     expect(parsed.vocalEmbed?.instrumentalName).toBe("track.wav");
+    expect(parsed.vocalEmbed?.openvpiDs?.segment_count).toBe(1);
     const summary = summarizeProjectBundle(bundle);
     expect(summary.hasVocalAlign).toBe(true);
+    expect(summary.hasOpenvpiDs).toBe(true);
   });
 });

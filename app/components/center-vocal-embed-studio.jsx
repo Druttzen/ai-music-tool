@@ -246,6 +246,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       return;
     }
     const instrumental = await resolveInstrumentalBlob();
+    const openvpiDs = buildOpenvpiDsExport(plan, alignPreview);
     await exportVocalEmbedHandoffPack({
       planEnvelope: buildSidecarEnvelope(true),
       instrumental,
@@ -253,8 +254,14 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       guideVocal: guideVocalFile,
       guideName: guideVocalFile?.name || "guide-vocal.wav",
       alignPreview,
+      openvpiDs: openvpiDs.segments?.length ? openvpiDs : null,
     });
-    setStatusWithTime("Vocal embed handoff pack downloaded (plan + README + audio files)", "success");
+    setStatusWithTime(
+      openvpiDs.segments?.length
+        ? "Vocal embed handoff pack downloaded (plan + OpenVPI .ds + audio)"
+        : "Vocal embed handoff pack downloaded (plan + README + audio files)",
+      "success",
+    );
   }, [alignPreview, audioAnalysis?.fileName, buildSidecarEnvelope, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
 
   const alignAndExportHandoffPack = useCallback(async () => {
@@ -281,16 +288,19 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       );
       persistAlignPreview(preview);
       const instrumental = await resolveInstrumentalBlob();
+      const mergedEnvelope = buildVocalEmbedExportEnvelope(plan, preview);
+      const openvpiDs = buildOpenvpiDsExport(mergedEnvelope.plan, preview);
       await exportVocalEmbedHandoffPack({
-        planEnvelope: buildVocalEmbedExportEnvelope(plan, preview),
+        planEnvelope: mergedEnvelope,
         instrumental,
         instrumentalName: audioAnalysis?.fileName || "instrumental.wav",
         guideVocal: guideVocalFile,
         guideName: guideVocalFile?.name || "guide-vocal.wav",
         alignPreview: preview,
+        openvpiDs: openvpiDs.segments?.length ? openvpiDs : null,
       });
       setStatusWithTime(
-        `Handoff pack downloaded (${preview.align_method} align · ${preview.word_count} words)`,
+        `Handoff pack downloaded (${preview.align_method} align · ${preview.word_count} words${openvpiDs.segments?.length ? " · OpenVPI .ds" : ""})`,
         "success",
       );
     } catch (err) {

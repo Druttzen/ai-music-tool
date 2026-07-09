@@ -93,4 +93,17 @@ describe("project-bundle", () => {
     });
     expect(summary.hasVocalAlign).toBe(true);
   });
+
+  it("summarizeProjectBundle reports OpenVPI ds in bundle", () => {
+    const summary = summarizeProjectBundle({
+      bundleFormat: PROJECT_BUNDLE_FORMAT,
+      appVersion: "0.26.0",
+      project: { idea: "x" },
+      vocalEmbed: {
+        preview: { align_method: "mfa" },
+        openvpiDs: { segments: [{ text: "one" }] },
+      },
+    });
+    expect(summary.hasOpenvpiDs).toBe(true);
+  });
 });

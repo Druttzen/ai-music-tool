@@ -141,6 +141,7 @@ export function summarizeProjectBundle(raw) {
       ),
       exportedAt: bundleMeta?.exportedAt ?? null,
       hasVocalAlign: !!(vocalEmbed?.preview),
+      hasOpenvpiDs: !!(vocalEmbed?.openvpiDs?.segments?.length),
     };
   } catch {
     return { ok: false };

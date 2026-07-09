@@ -345,6 +345,15 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
       });
     }
 
+    if (hasTrack && hasVoiceStyle && !instrumental && generatedLyrics) {
+      improvements.push({
+        id: "openvpi-ds-export",
+        title: "Export OpenVPI .ds for DiffSinger",
+        description: "Download segment JSON from Vocal Embed Studio for external OpenVPI inference.",
+        action: "focusVocalEmbed",
+      });
+    }
+
     if (sunoWarnings.length) {
       improvements.push({
         id: "fix-warnings",

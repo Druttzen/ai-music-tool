@@ -21,6 +21,7 @@ import {
   writeStoredVocalAlignPreview,
   buildVocalEmbedBundleSession,
 } from "../lib/vocal-embed-handoff";
+import { tryBuildOpenvpiDsForWorkspace } from "../lib/openvpi-ds-export";
 import {
   buildInstrumentalLyricsScaffold,
   buildLyricThemeFromAnalysis,
@@ -290,11 +291,28 @@ export function useProjectActions({
 
   const exportProject = useCallback(() => {
     const storedAlign = readStoredVocalAlignPreview();
+    let openvpiDs = null;
+    if (storedAlign?.preview && audioAnalysis) {
+      openvpiDs = tryBuildOpenvpiDsForWorkspace(
+        {
+          audioAnalysis,
+          generatedLyrics: currentState.generatedLyrics,
+          lyricStructure: currentState.lyricStructure,
+          selectedGenres: currentState.selectedGenres,
+          tempo: currentState.tempo,
+          vocal: currentState.vocal,
+          voiceStyleLine,
+          voiceStyleCompact,
+        },
+        storedAlign.preview,
+      );
+    }
     const vocalEmbed = storedAlign?.preview
       ? buildVocalEmbedBundleSession(
           storedAlign.preview,
           storedAlign.instrumentalName,
           storedAlign.guideName,
+          openvpiDs,
         )
       : undefined;
     const payload = buildProjectBundleExport(currentState, customPresets, APP_VERSION, {
@@ -311,10 +329,19 @@ export function useProjectActions({
     URL.revokeObjectURL(url);
     setStatusWithTime(
       vocalEmbed
-        ? "Exported project bundle (includes vocal align preview)"
+        ? openvpiDs
+          ? "Exported project bundle (vocal align + OpenVPI .ds)"
+          : "Exported project bundle (includes vocal align preview)"
         : "Exported project bundle (project + style presets + voice profile)",
     );
-  }, [currentState, customPresets, setStatusWithTime]);
+  }, [
+    audioAnalysis,
+    currentState,
+    customPresets,
+    setStatusWithTime,
+    voiceStyleCompact,
+    voiceStyleLine,
+  ]);
 
   const exportVideoHandoff = useCallback(async () => {
     const base = slugifyHandoffBaseName(currentState.idea);
@@ -464,9 +491,11 @@ export function useProjectActions({
             });
           }
           setStatusWithTime(
-            vocalEmbed?.preview
-              ? "Imported project bundle (includes vocal align preview)"
-              : "Imported project bundle",
+            vocalEmbed?.openvpiDs?.segments?.length
+              ? "Imported project bundle (vocal align + OpenVPI .ds)"
+              : vocalEmbed?.preview
+                ? "Imported project bundle (includes vocal align preview)"
+                : "Imported project bundle",
           );
         } catch {
           setStatusWithTime("Import failed", "error");

@@ -1,3 +1,5 @@
+import { buildVocalEmbedPlan } from "./vocal-embed-engine.js";
+
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
 
@@ -210,4 +212,16 @@ export function buildOpenvpiDsExport(plan, alignPreview = null) {
     segment_count: segments.length,
     segments,
   };
+}
+
+/**
+ * Build OpenVPI DS export when workspace has a ready vocal embed plan.
+ * @param {object} input — buildVocalEmbedPlan input
+ * @param {object|null} alignPreview
+ */
+export function tryBuildOpenvpiDsForWorkspace(input, alignPreview = null) {
+  const plan = buildVocalEmbedPlan(input);
+  if (plan.stage !== "ready") return null;
+  const ds = buildOpenvpiDsExport(plan, alignPreview);
+  return ds.segments?.length ? ds : null;
 }

@@ -115,6 +115,18 @@ describe("suno-guided-step-focus", () => {
     expect(report.improvements.some((x) => x.id === "maestro-musicgen")).toBe(true);
   });
 
+  it("suggests OpenVPI ds export on polish step when lyrics and voice are ready", () => {
+    const report = evaluateGuidedStepCoach({
+      guidedStep: 6,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine one",
+      audioAnalysis: { fileName: "beat.wav", duration: 120 },
+      voiceStyleLine: "warm baritone",
+      sunoWarnings: [],
+    });
+    expect(report.improvements.some((x) => x.id === "openvpi-ds-export")).toBe(true);
+  });
+
   it("builds stable coach fingerprints", () => {
     const report = evaluateGuidedStepCoach({
       guidedStep: 7,
