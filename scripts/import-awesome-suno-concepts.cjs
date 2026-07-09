@@ -29,6 +29,9 @@ const SOURCE = {
     "examples/before-after.md",
     "examples/common-mistakes.md",
     "examples/viral-hits.md",
+    "PROJECT_CONTEXT.md",
+    "PROMOTION_TEMPLATES.md",
+    "CONTRIBUTING.md",
   ],
 };
 
@@ -125,8 +128,13 @@ async function main() {
   const supplemental = {
     eraAnchoredGenres: readExportedStringArray(EXTENSIONS_JS, "eraAnchoredGenres"),
     trendMicroGenres2026: readExportedStringArray(EXTENSIONS_JS, "trendMicroGenres2026"),
+    communityStyleSeeds: readExportedStringArray(EXTENSIONS_JS, "communityStyleSeeds"),
   };
-  for (const block of [...supplemental.eraAnchoredGenres, ...supplemental.trendMicroGenres2026]) {
+  for (const block of [
+    ...supplemental.eraAnchoredGenres,
+    ...supplemental.trendMicroGenres2026,
+    ...supplemental.communityStyleSeeds,
+  ]) {
     addLine(block, "style-catalog-extensions");
   }
 
@@ -142,7 +150,7 @@ async function main() {
 
   fs.writeFileSync(OUT_JS, emitJs(payload), "utf8");
   console.log(
-    `Wrote ${OUT_JS} (${capped.length} concepts — CC0 blocks + ${supplemental.eraAnchoredGenres.length} era + ${supplemental.trendMicroGenres2026.length} trend)`,
+    `Wrote ${OUT_JS} (${capped.length} concepts — CC0 blocks + ${supplemental.eraAnchoredGenres.length} era + ${supplemental.trendMicroGenres2026.length} trend + ${supplemental.communityStyleSeeds.length} community seeds)`,
   );
 }
 

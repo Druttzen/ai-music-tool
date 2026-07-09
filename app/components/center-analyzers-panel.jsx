@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { AudioTrackEditor } from "./audio-track-editor";
 import { DropBox, Panel } from "./ui-blocks";
 import { getImageAnalyzerDisclaimer } from "../lib/analyzer-disclaimer";
@@ -10,6 +10,8 @@ import {
   SUPPORTED_IMAGE_ACCEPT,
   SUPPORTED_IMAGE_LABEL,
 } from "../lib/analyzer-file-types";
+import { buildMoodWords } from "../lib/music-helpers";
+import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
   SUNO_LYRICS_CHAR_WARN,
@@ -24,10 +26,12 @@ import {
 } from "../context/project-workspace-context";
 
 export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
-  const { promptEngine } = useProjectWorkspaceProjectState();
+  const { promptEngine, idea, mood, selectedGenres, selectedSounds, selectedRhythms, tempo } =
+    useProjectWorkspaceProjectState();
   const { sunoFieldSlices, sourcePrompt } = useProjectWorkspacePromptState();
   const {
     sidecarAiStatus,
+    sidecarGenerateAvailable,
     audioAnalysis,
     audioPreviewUrl,
     audioLoudness,
@@ -38,6 +42,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     imagePreview,
     stemSeparationBusy,
     stemSeparationStems,
+    generateMusicBusy,
   } = useProjectWorkspaceAnalyzerState();
   const {
     analyzeAudioFile,
@@ -52,9 +57,24 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     exportEnhancedAudio,
     separateStems,
     downloadStem,
+    generateMusicFromPrompt,
     applyImageToSunoStyle,
     copyToClipboard,
   } = useProjectWorkspaceActions();
+
+  const defaultMusicGenPrompt = useMemo(
+    () =>
+      buildMusicGenPrompt({
+        selectedGenres,
+        selectedSounds,
+        selectedRhythms,
+        tempo,
+        idea,
+        moodWords: buildMoodWords(mood),
+        audioAnalysis,
+      }),
+    [audioAnalysis, idea, mood, selectedGenres, selectedRhythms, selectedSounds, tempo],
+  );
 
   return (
     <>
@@ -83,6 +103,23 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 : sidecarAiStatus === "standby"
                   ? "on-demand (starts when you analyze)"
                   : "offline (heuristic BPM/key)"}
+          </span>
+          <span
+            className={`rounded-full border px-2.5 py-1 font-mono text-[10px] ${
+              sidecarGenerateAvailable
+                ? "border-violet-400/40 bg-violet-500/15 text-violet-100"
+                : sidecarAiStatus === "ready"
+                  ? "border-amber-400/35 bg-amber-500/10 text-amber-50"
+                  : "border-white/15 bg-black/30 text-white/45"
+            }`}
+            title="MusicGen preview via sidecar POST /generate (npm run sidecar:generate)"
+          >
+            MusicGen:{" "}
+            {sidecarGenerateAvailable
+              ? "ready"
+              : sidecarAiStatus === "ready"
+                ? "install extra (sidecar:generate)"
+                : "needs sidecar"}
           </span>
         </div>
         <div
@@ -141,6 +178,10 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 onDownloadStem={downloadStem}
                 stemSeparationBusy={stemSeparationBusy}
                 stemSeparationStems={stemSeparationStems}
+                onGenerateMusic={generateMusicFromPrompt}
+                generateMusicBusy={generateMusicBusy}
+                sidecarGenerateAvailable={sidecarGenerateAvailable}
+                defaultMusicGenPrompt={defaultMusicGenPrompt}
                 exportBusy={audioExportBusy}
                 exportProgress={audioExportProgress}
               />

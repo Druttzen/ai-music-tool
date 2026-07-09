@@ -31,7 +31,7 @@ import {
 import { mergeSidecarAnalysis, buildSidecarFallbackReport } from "../lib/audio-analyzer-sidecar";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
-import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
@@ -61,8 +61,10 @@ export function useAnalyzers({
   const audioCacheKeyRef = useRef(null);
   const audioCacheKeysRef = useRef([]);
   const [sidecarAiStatus, setSidecarAiStatus] = useState("checking");
+  const [sidecarGenerateAvailable, setSidecarGenerateAvailable] = useState(false);
   const [stemSeparationBusy, setStemSeparationBusy] = useState(false);
   const [stemSeparationStems, setStemSeparationStems] = useState([]);
+  const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +87,14 @@ export function useAnalyzers({
         const httpOk = await isSidecarAvailable();
         if (httpOk) {
           nextStatus = "ready";
+          try {
+            const health = await fetchSidecarHealth();
+            if (!cancelled) {
+              setSidecarGenerateAvailable(!!health?.generate_available);
+            }
+          } catch {
+            if (!cancelled) setSidecarGenerateAvailable(false);
+          }
         } else if (isTauriApp()) {
           const st = await getManagedSidecarStatus();
           if (st?.ready) {
@@ -98,6 +108,7 @@ export function useAnalyzers({
         if (!cancelled) setSidecarAiStatus(nextStatus);
       } catch {
         if (!cancelled) setSidecarAiStatus("offline");
+        if (!cancelled) setSidecarGenerateAvailable(false);
       }
       scheduleNext(nextStatus);
     };
@@ -698,6 +709,53 @@ export function useAnalyzers({
     [audioAnalysis, setStatusWithTime, stemSeparationBusy],
   );
 
+  const generateMusicFromPrompt = useCallback(
+    async (prompt, durationSec = 10) => {
+      const text = String(prompt || "").trim();
+      if (!text) {
+        setStatusWithTime("Enter a MusicGen prompt first", "warning");
+        return;
+      }
+      if (generateMusicBusy) return;
+
+      setGenerateMusicBusy(true);
+      try {
+        setStatusWithTime("MusicGen generation started (this may take a minute)…");
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        if (!sidecarReady) {
+          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
+          return;
+        }
+        const health = await fetchSidecarHealth();
+        if (!health?.generate_available) {
+          setStatusWithTime(
+            "MusicGen not installed — run npm run sidecar:generate (CC-BY-NC weights)",
+            "warning",
+          );
+          setSidecarGenerateAvailable(false);
+          return;
+        }
+        const { blob, model, durationSec: dur } = await generateMusicViaSidecar(text, durationSec);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `musicgen-preview-${Date.now()}.wav`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatusWithTime(
+          `MusicGen preview downloaded (${model || "musicgen"} · ${dur || durationSec}s)`,
+          "success",
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "MusicGen generation failed";
+        setStatusWithTime(msg.slice(0, 120), "warning");
+      } finally {
+        setGenerateMusicBusy(false);
+      }
+    },
+    [generateMusicBusy, setStatusWithTime],
+  );
+
   const downloadStem = useCallback(
     async (stem) => {
       if (!stem?.download_url || !audioAnalysis) return;
@@ -741,6 +799,8 @@ export function useAnalyzers({
     clearAudioAnalysis,
     clearImageAnalysis,
     downloadStem,
+    generateMusicBusy,
+    generateMusicFromPrompt,
     imageAnalysis,
     imagePreview,
     resetAnalyzers,
@@ -748,6 +808,7 @@ export function useAnalyzers({
     setImageAnalysis,
     separateStems,
     sidecarAiStatus,
+    sidecarGenerateAvailable,
     stemSeparationBusy,
     stemSeparationStems,
     updateAudioAnalysis,
