@@ -22,6 +22,7 @@ import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 import { getStepCount, resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { readStoredVocalAlignPreview } from "../lib/vocal-embed-handoff";
+import { preloadAwesomeSunoCatalog } from "../lib/awesome-suno-catalog-loader";
 import { useGuidedFocus } from "../context/guided-focus-context";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 
@@ -192,6 +193,10 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
+
+  useEffect(() => {
+    preloadAwesomeSunoCatalog();
+  }, []);
 
   useEffect(() => {
     const onPrefill = (event) => {

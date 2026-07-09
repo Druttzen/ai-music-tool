@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildEnglishSunoStylePromptSections,
+  buildAwesomeSunoConceptSection,
   getEnglishSunoStylePromptStats,
+  mergeAwesomeSunoConceptSection,
 } from "../lib/suno-english-style-index";
-import { awesomeSunoConceptTags } from "../lib/awesome-suno-concepts-synced";
+import { loadAwesomeSunoCatalog } from "../lib/awesome-suno-catalog-loader";
 import { generateMetaphorStyle, metaphorToCatalogHints } from "../lib/metaphor-style";
 import { Pill } from "./ui-blocks";
 
@@ -56,10 +58,37 @@ export function StylePromptPicker({
   setStatusWithTime,
   defaultOpen = false,
 }) {
-  const sections = useMemo(() => buildEnglishSunoStylePromptSections(), []);
-  const stats = useMemo(() => getEnglishSunoStylePromptStats(), []);
-
+  const baseSections = useMemo(() => buildEnglishSunoStylePromptSections(), []);
+  const baseStats = useMemo(() => getEnglishSunoStylePromptStats(), []);
   const [open, setOpen] = useState(defaultOpen);
+  const [awesomeTags, setAwesomeTags] = useState({});
+  const [awesomeSection, setAwesomeSection] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void loadAwesomeSunoCatalog().then(({ lines, tags }) => {
+      if (cancelled) return;
+      setAwesomeTags(tags || {});
+      setAwesomeSection(buildAwesomeSunoConceptSection(lines, tags));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const sections = useMemo(
+    () => mergeAwesomeSunoConceptSection(baseSections, awesomeSection),
+    [awesomeSection, baseSections],
+  );
+  const stats = useMemo(() => {
+    const awesomeCount = awesomeSection?.items?.length || 0;
+    return {
+      sectionCount: baseStats.sectionCount + (awesomeCount ? 1 : 0),
+      lineCount: baseStats.lineCount + awesomeCount,
+    };
+  }, [awesomeSection, baseStats]);
+
   const [sectionKey, setSectionKey] = useState("all");
   const [query, setQuery] = useState("");
   const [cc0TagFilter, setCc0TagFilter] = useState("all");
@@ -67,9 +96,9 @@ export function StylePromptPicker({
   const [selected, setSelected] = useState(() => new Set());
 
   const cc0TagOptions = useMemo(() => {
-    const tags = new Set(Object.values(awesomeSunoConceptTags || {}));
+    const tags = new Set(Object.values(awesomeTags || {}));
     return ["all", ...Array.from(tags).sort()];
-  }, []);
+  }, [awesomeTags]);
 
   const idToItem = useMemo(() => {
     const m = new Map();
@@ -90,12 +119,12 @@ export function StylePromptPicker({
         if (
           sectionKey === "cat-awesomeSunoConcepts" &&
           cc0TagFilter !== "all" &&
-          awesomeSunoConceptTags?.[it.text] !== cc0TagFilter
+          awesomeTags?.[it.text] !== cc0TagFilter
         ) {
           continue;
         }
         if (sectionKey === "cat-awesomeSunoConcepts" && cc0ActiveTags.size > 0) {
-          const tag = awesomeSunoConceptTags?.[it.text];
+          const tag = awesomeTags?.[it.text];
           if (!tag || !cc0ActiveTags.has(tag)) continue;
         }
         if (q) {
@@ -112,7 +141,7 @@ export function StylePromptPicker({
     const needsSearch = sectionKey === "all" && q.length < SEARCH_MIN_ALL;
 
     return { visibleItems: needsSearch ? [] : out, visibleTotal: total, searchRequired: needsSearch };
-  }, [sections, sectionKey, query, cc0TagFilter, cc0ActiveTags]);
+  }, [sections, sectionKey, query, cc0TagFilter, cc0ActiveTags, awesomeTags]);
 
   const toggle = useCallback((id) => {
     setSelected((prev) => {
@@ -217,14 +246,14 @@ export function StylePromptPicker({
     setOpen(true);
     setSectionKey("all");
     setQuery("");
-  }, [setSelectedGenres, setStatusWithTime]);
+  }, [setOpen, setSelectedGenres, setStatusWithTime]);
 
   const jumpToFeaturedSection = useCallback((sectionId) => {
     setOpen(true);
     setSectionKey(sectionId);
     setQuery("");
     setStatusWithTime(`Browsing ${FEATURED_SECTIONS.find((s) => s.id === sectionId)?.label || "catalog"}`);
-  }, [setStatusWithTime]);
+  }, [setOpen, setStatusWithTime]);
 
   return (
     <div className="rounded-2xl border border-cyan-400/25 bg-cyan-500/5 p-3">

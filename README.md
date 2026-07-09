@@ -1,8 +1,16 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.34.0**
+**Version 0.35.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.35.0)
+
+- **Vocal Embed Studio hook split** — `useVocalEmbedStudio` + `vocal-embed-studio-utils` (testable capabilities/engine labels).
+- **CC0 catalog lazy-load** — `awesome-suno-catalog-loader` dynamic import; Maestro preloads on mount; picker loads on open.
+- **CI-only release path** — `npm run ship:tag` pushes tag; `release.yml` builds and publishes installer (no local `gh release create`).
+- **OpenVPI live e2e** — `openvpi-inference-live.spec.js` hits real `/vocal-embed/models` (skips when OpenVPI not configured).
+- **MusicGen e2e on every push** — completed in v0.34 (`e2e-musicgen` CI job + weekly live runner).
 
 ## Highlights (v0.34.0)
 

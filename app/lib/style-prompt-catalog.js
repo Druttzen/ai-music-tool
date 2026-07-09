@@ -2,10 +2,9 @@
  * Expanded community-style prompt vocabulary (genres, textures, fusion labels, references).
  * Genre wheel phrases: app/lib/suno-v55-genre-wheel.js (Suno labs genre wheel).
  * Meta-tags / structure / trademark guards: npm run sync:suno-catalog → suno-catalog-synced.js
- * CC0 community concepts: npm run import:awesome-suno → awesome-suno-concepts-synced.js
+ * CC0 community concepts: npm run import:awesome-suno → awesome-suno-concepts-synced.js (lazy-loaded)
  */
 
-import { awesomeSunoConceptLines } from "./awesome-suno-concepts-synced";
 import { eraAnchoredGenres, trendMicroGenres2026 } from "./style-catalog-extensions";
 import { sunoV55GenreWheelStyles } from "./suno-v55-genre-wheel";
 
@@ -655,8 +654,6 @@ export const stylePromptCatalog = {
     "pre-storm wind leaves rustle",
     "after-rain gutter drip calm tail",
   ],
-
-  awesomeSunoConcepts: awesomeSunoConceptLines,
 
   eraAnchoredGenres,
 

@@ -234,3 +234,45 @@ export function getEnglishSunoStylePromptStats() {
 export function clearEnglishSunoStylePromptCache() {
   _cached = null;
 }
+
+/**
+ * Build CC0 awesome-suno section (lazy-loaded catalog chunk).
+ * @param {string[]} lines
+ * @param {Record<string, string>} [tags]
+ */
+export function buildAwesomeSunoConceptSection(lines, tags = {}) {
+  if (!Array.isArray(lines) || !lines.length) return null;
+  const items = [];
+  let serial = 0;
+  const seen = new Set();
+  for (const raw of lines) {
+    const t = String(raw).trim();
+    if (!t || !isEnglishOnlyPromptLine(t)) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    serial += 1;
+    const tag = tags[t];
+    items.push({
+      id: `cat-awesomeSunoConcepts--${serial}`,
+      text: t,
+      label: tag || undefined,
+      isLong: t.length > 240,
+    });
+  }
+  if (!items.length) return null;
+  return {
+    sectionId: "cat-awesomeSunoConcepts",
+    sectionTitle: CATALOG_LABELS.awesomeSunoConcepts,
+    items,
+  };
+}
+
+/**
+ * @param {{ sectionId: string, sectionTitle: string, items: object[] }[]} baseSections
+ * @param {{ sectionId: string, sectionTitle: string, items: object[] }|null} awesomeSection
+ */
+export function mergeAwesomeSunoConceptSection(baseSections, awesomeSection) {
+  if (!awesomeSection) return baseSections;
+  return [...baseSections, awesomeSection];
+}

@@ -22,6 +22,18 @@ jobs:
           python-version: "3.11"
       - run: npm ci
       - run: npm run check:full
+      - name: Extract release notes from README
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            /^## Highlights \(v/ { if ($0 ~ "v" ver ") show=1; else show=0 }
+            show && /^## Highlights \(v/ && $0 !~ "v" ver ")" { exit }
+            show { print }
+          ' README.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "Release ${GITHUB_REF_NAME}" > release-notes.md
+          fi
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
       - name: Build and publish Windows installer
         env:

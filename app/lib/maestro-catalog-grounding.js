@@ -4,7 +4,7 @@
  */
 
 import { matchCatalogOptions } from "./maestro-chat-engine";
-import { awesomeSunoConceptLines } from "./awesome-suno-concepts-synced";
+import { getAwesomeSunoConceptLinesSync } from "./awesome-suno-catalog-loader";
 import { stylePromptCatalog } from "./style-prompt-catalog";
 import { generateMetaphorStyle, metaphorToCatalogHints } from "./metaphor-style";
 import { genreOptions, rhythmOptions, soundOptions } from "./suno-music-styles";
@@ -52,7 +52,8 @@ function getCatalogPool() {
   for (const value of Object.values(stylePromptCatalog)) {
     if (Array.isArray(value)) lines.push(...value);
   }
-  lines.push(...awesomeSunoConceptLines);
+  const awesome = getAwesomeSunoConceptLinesSync();
+  if (awesome.length) lines.push(...awesome);
   catalogPool = lines.filter(
     (line) => isEnglishOnlyPromptLine(line) && line.length >= 12 && line.length <= 280,
   );
