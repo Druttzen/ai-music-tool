@@ -334,6 +334,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   return (
     <Panel
       title="Maestro — AI Chat Music Creator"
+      data-testid="maestro-chat-panel"
       hint={
         llmReady
           ? "Chat co-producer (LLM mode — falls back to offline engine on errors). Everything you say updates the project."

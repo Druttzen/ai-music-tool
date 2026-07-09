@@ -63,5 +63,6 @@ test.describe("MusicGen highlight melody e2e", () => {
 
     const validator = page.locator("section").filter({ hasText: "Suno-like Validator" });
     await expect(validator).toContainText(/MG:/);
+    await expect(validator).toContainText(/·HL/);
   });
 });

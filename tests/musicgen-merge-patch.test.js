@@ -41,4 +41,30 @@ describe("buildAudioAnalyzerPatch musicgen merge", () => {
     expect(next.selectedGenres).toContain("Techno");
     expect(next.tempo).toBe("128 BPM");
   });
+
+  it("tags highlight melody on MG merge line", () => {
+    const report = {
+      estimatedBpm: "128 BPM",
+      energy: 62,
+      aggression: 40,
+      brightness: 55,
+      suggestedGenres: ["Techno"],
+      sourceEngine: "musicgen",
+      musicGenPrompt: "dark driving techno",
+      musicGenMode: "melody",
+      musicGenHighlightMelody: true,
+    };
+    const base = {
+      rules: "",
+      selectedGenres: [],
+      selectedSounds: [],
+      selectedRhythms: [],
+      idea: "",
+      notes: "",
+      tempo: "120 BPM",
+      mood: { darkness: 50, energy: 50, aggression: 30, emotion: 50, complexity: 50, space: 50 },
+    };
+    const next = applyPatch(base, buildAudioAnalyzerPatch(report, (s) => `${s}s`));
+    expect(next.rules).toMatch(/·HL/);
+  });
 });

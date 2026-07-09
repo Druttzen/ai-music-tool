@@ -17,6 +17,10 @@ import {
 } from "../lib/co-producer-llm";
 import { generateCoProducerAdvisoryWithLlm } from "../lib/co-producer-advisory-llm";
 import {
+  readStoredVocalAlignPreview,
+  writeStoredVocalAlignPreview,
+} from "../lib/vocal-embed-handoff";
+import {
   buildInstrumentalLyricsScaffold,
   buildLyricThemeFromAnalysis,
   getGuidedLyricsStepIndex,
@@ -284,7 +288,10 @@ export function useProjectActions({
   }, [currentState, lastAutosavePayloadRef, setStatusWithTime]);
 
   const exportProject = useCallback(() => {
-    const payload = buildProjectBundleExport(currentState, customPresets, APP_VERSION);
+    const storedAlign = readStoredVocalAlignPreview();
+    const payload = buildProjectBundleExport(currentState, customPresets, APP_VERSION, {
+      vocalEmbed: storedAlign?.preview ? storedAlign : undefined,
+    });
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
@@ -414,7 +421,7 @@ export function useProjectActions({
         try {
           captureSnapshot("before import");
           const raw = JSON.parse(String(reader.result));
-          const { project, customPresets: importedPresets } = parseProjectBundleImport(raw);
+          const { project, customPresets: importedPresets, vocalEmbed } = parseProjectBundleImport(raw);
           const cvPresets = extractCharacterVoicePresetsFromProject(project);
           if (cvPresets && Object.keys(cvPresets).length > 0) {
             const presetResult = persistCharacterVoicePresets(cvPresets, { merge: true });
@@ -437,7 +444,18 @@ export function useProjectActions({
             });
           }
           loadState(migrateImportedProject(project, APP_VERSION));
-          setStatusWithTime("Imported project bundle");
+          if (vocalEmbed?.preview) {
+            writeStoredVocalAlignPreview({
+              instrumentalName: vocalEmbed.instrumentalName || "",
+              guideName: vocalEmbed.guideName || "",
+              preview: vocalEmbed.preview,
+            });
+          }
+          setStatusWithTime(
+            vocalEmbed?.preview
+              ? "Imported project bundle (includes vocal align preview)"
+              : "Imported project bundle",
+          );
         } catch {
           setStatusWithTime("Import failed", "error");
         }

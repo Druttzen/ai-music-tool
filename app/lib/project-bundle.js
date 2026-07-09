@@ -35,7 +35,7 @@ export function normalizeCustomPresetsMap(presets) {
  * @param {Record<string, unknown>} project
  * @param {Record<string, object>} [customPresets]
  * @param {string} appVersion
- * @param {{ handoff?: object, directorSettings?: object, bundleVersion?: number }} [opts]
+ * @param {{ handoff?: object, directorSettings?: object, vocalEmbed?: object, bundleVersion?: number }} [opts]
  */
 export function buildProjectBundleExport(project, customPresets = {}, appVersion = "", opts = {}) {
   const withVoice = attachCharacterVoiceFieldsToProjectExport(project);
@@ -65,6 +65,9 @@ export function buildProjectBundleExport(project, customPresets = {}, appVersion
   if (opts.directorSettings && typeof opts.directorSettings === "object") {
     bundle.directorSettings = opts.directorSettings;
   }
+  if (opts.vocalEmbed && typeof opts.vocalEmbed === "object") {
+    bundle.vocalEmbed = opts.vocalEmbed;
+  }
 
   return bundle;
 }
@@ -92,6 +95,7 @@ export function parseProjectBundleImport(raw) {
     return {
       project,
       customPresets: normalizeCustomPresetsMap(raw.customPresets),
+      vocalEmbed: raw.vocalEmbed && typeof raw.vocalEmbed === "object" ? raw.vocalEmbed : null,
       bundleMeta: {
         exportedAt: raw.exportedAt || null,
         bundleVersion: raw.bundleVersion ?? PROJECT_BUNDLE_VERSION,
@@ -103,6 +107,7 @@ export function parseProjectBundleImport(raw) {
   return {
     project: { ...raw },
     customPresets: normalizeCustomPresetsMap(raw.customPresets),
+    vocalEmbed: null,
     bundleMeta: null,
   };
 }
@@ -121,7 +126,7 @@ export function mergeCustomPresetsMaps(existing, incoming) {
  */
 export function summarizeProjectBundle(raw) {
   try {
-    const { project, customPresets, bundleMeta } = parseProjectBundleImport(raw);
+    const { project, customPresets, vocalEmbed, bundleMeta } = parseProjectBundleImport(raw);
     const cvPresets = extractCharacterVoicePresetsFromProject(project);
     const cvSession = extractCharacterVoiceStudioSessionFromProject(project);
     return {
@@ -135,6 +140,7 @@ export function summarizeProjectBundle(raw) {
         cvSession && normalizeCharacterVoiceStudioSession(cvSession).voiceAnalysis,
       ),
       exportedAt: bundleMeta?.exportedAt ?? null,
+      hasVocalAlign: !!(vocalEmbed?.preview),
     };
   } catch {
     return { ok: false };

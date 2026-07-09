@@ -105,7 +105,7 @@ export function buildCoProducerAdvisoryLlmMessages(input) {
 - "addSounds" / "addRhythms": optional tokens to auto-merge (max 8 sounds, 4 rhythms). Empty arrays if none.
 - "suggestMode": only when mode is Control and prompt intensity is high (>75); otherwise null.
 - "musicGenSketch": true when genre identity is thin AND musicGenAvailable is true — mention the sketch in output.
-When musicGenSketch in the project brief is non-null, reference the loaded local sketch (prompt, BPM, key) in your report.`;
+When musicGenSketch in the project brief is non-null, reference the loaded local sketch (prompt, BPM, key, melody/highlight mode) in your report.`;
 
   const user = `Project: ${brief}`;
   return { system, user };

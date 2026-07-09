@@ -22,11 +22,12 @@ import {
   synthesizeVocalEmbedViaSidecar,
   waitForSidecar,
 } from "../lib/sidecar-bridge";
-import { exportVocalEmbedHandoffPack } from "../lib/vocal-embed-handoff";
-import { safeLocalStorage } from "../lib/safe-local-storage";
+import {
+  exportVocalEmbedHandoffPack,
+  readStoredVocalAlignPreview,
+  writeStoredVocalAlignPreview,
+} from "../lib/vocal-embed-handoff";
 import { Panel } from "./ui-blocks";
-
-const VOCAL_ALIGN_PREVIEW_KEY = "ai_music_creator_vocal_align_preview";
 
 export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const {
@@ -55,10 +56,10 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     (preview) => {
       setAlignPreview(preview);
       if (!preview) {
-        safeLocalStorage.remove(VOCAL_ALIGN_PREVIEW_KEY);
+        writeStoredVocalAlignPreview(null);
         return;
       }
-      safeLocalStorage.setJSON(VOCAL_ALIGN_PREVIEW_KEY, {
+      writeStoredVocalAlignPreview({
         instrumentalName: audioAnalysis?.fileName || "",
         guideName: guideVocalFile?.name || "",
         preview,
@@ -68,7 +69,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   );
 
   useEffect(() => {
-    const stored = safeLocalStorage.getJSON(VOCAL_ALIGN_PREVIEW_KEY, null);
+    const stored = readStoredVocalAlignPreview();
     if (
       stored?.preview &&
       stored.instrumentalName &&

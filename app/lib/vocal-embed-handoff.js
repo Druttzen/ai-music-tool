@@ -2,6 +2,40 @@
  * Multi-file vocal embed handoff export (no zip dependency).
  */
 
+import { safeLocalStorage } from "./safe-local-storage";
+
+export const VOCAL_ALIGN_PREVIEW_STORAGE_KEY = "ai_music_creator_vocal_align_preview";
+
+/** @returns {{ instrumentalName?: string, guideName?: string, preview?: object }|null} */
+export function readStoredVocalAlignPreview() {
+  return safeLocalStorage.getJSON(VOCAL_ALIGN_PREVIEW_STORAGE_KEY, null);
+}
+
+/** @param {{ instrumentalName?: string, guideName?: string, preview: object }|null} session */
+export function writeStoredVocalAlignPreview(session) {
+  if (!session?.preview) {
+    safeLocalStorage.remove(VOCAL_ALIGN_PREVIEW_STORAGE_KEY);
+    return;
+  }
+  safeLocalStorage.setJSON(VOCAL_ALIGN_PREVIEW_STORAGE_KEY, session);
+}
+
+/**
+ * @param {object|null} alignPreview
+ * @param {string} [instrumentalName]
+ * @param {string} [guideName]
+ */
+export function buildVocalEmbedBundleSession(alignPreview, instrumentalName = "", guideName = "") {
+  if (!alignPreview) return null;
+  return {
+    instrumentalName,
+    guideName,
+    preview: alignPreview,
+    alignMethod: alignPreview.align_method || null,
+    wordCount: alignPreview.word_count ?? null,
+  };
+}
+
 function triggerDownload(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

@@ -188,6 +188,18 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
         <div className="mt-0.5 text-[11px] text-white/50">
           {formatTime(0)} – {formatTime(analysis.duration)} · Local scan (edit before merge)
         </div>
+        {analysis.sourceEngine === "musicgen" ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-violet-400/35 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-100">
+              MusicGen sketch
+            </span>
+            {analysis.musicGenMode === "melody" ? (
+              <span className="rounded-full border border-cyan-400/35 bg-cyan-500/15 px-2 py-0.5 text-[10px] font-bold text-cyan-100">
+                {analysis.musicGenHighlightMelody ? "Highlight melody" : "Melody mode"}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <p className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">

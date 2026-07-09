@@ -167,6 +167,14 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
             ?.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 80);
         setStatusWithTime("Scroll to Vocal Embed Studio below", "info");
+      } else if (action === "focusMaestro") {
+        setShowAll(true);
+        window.setTimeout(() => {
+          document
+            .querySelector('[data-testid="maestro-chat-panel"]')
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+        setStatusWithTime("Scroll to Maestro chat below", "info");
       }
       dismiss();
     },
