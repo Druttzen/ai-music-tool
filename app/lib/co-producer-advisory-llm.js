@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { uniq } from "./music-helpers";
 import { buildMusicGenPrompt } from "./musicgen-prompt";
+import { appendMusicGenSketchToReport, formatMusicGenSketchBrief } from "./co-producer-engine";
 import { DEFAULT_LLM_SETTINGS, LLM_REQUEST_TIMEOUT_MS } from "./co-producer-llm";
 
 const AdvisoryLlmSchema = z
@@ -67,6 +68,7 @@ export function coProducerAdvisoryLlmToPatch(advisory, ctx = {}) {
  * @param {object} input — same shape as buildCoProducerAdvisoryReport
  */
 export function buildCoProducerAdvisoryLlmMessages(input) {
+  const musicGenSketch = formatMusicGenSketchBrief(input.audioAnalysis);
   const brief = JSON.stringify(
     {
       genres: input.selectedGenres,
@@ -88,8 +90,10 @@ export function buildCoProducerAdvisoryLlmMessages(input) {
             tempo: input.tempo,
             idea: input.idea,
             moodWords: input.moodWords,
+            audioAnalysis: input.audioAnalysis,
           })
         : "",
+      musicGenSketch,
     },
     null,
     0,
@@ -100,7 +104,8 @@ export function buildCoProducerAdvisoryLlmMessages(input) {
 - "output": multi-line report starting with "CO-PRODUCER AI REPORT" — concise producer advice (fixes, direction, tempo/mood translation). Plain text with newlines.
 - "addSounds" / "addRhythms": optional tokens to auto-merge (max 8 sounds, 4 rhythms). Empty arrays if none.
 - "suggestMode": only when mode is Control and prompt intensity is high (>75); otherwise null.
-- "musicGenSketch": true when genre identity is thin AND musicGenAvailable is true — mention the sketch in output.`;
+- "musicGenSketch": true when genre identity is thin AND musicGenAvailable is true — mention the sketch in output.
+When musicGenSketch in the project brief is non-null, reference the loaded local sketch (prompt, BPM, key) in your report.`;
 
   const user = `Project: ${brief}`;
   return { system, user };
@@ -146,8 +151,11 @@ export async function generateCoProducerAdvisoryWithLlm(input, settings, options
     if (!content) throw new Error("Co-Producer LLM returned empty content");
 
     const advisory = parseCoProducerAdvisoryLlmResponse(content);
-    let output = advisory.output.trim();
-    if (advisory.musicGenSketch && input.musicGenAvailable) {
+    let output = appendMusicGenSketchToReport(
+      advisory.output.trim(),
+      formatMusicGenSketchBrief(input.audioAnalysis),
+    );
+    if (advisory.musicGenSketch && input.musicGenAvailable && !formatMusicGenSketchBrief(input.audioAnalysis)) {
       if (!/musicgen sketch/i.test(output)) {
         output += `\n\nTip: Genre identity is thin — try MusicGen sketch (Co-Producer buttons or Polish analyzers) for a local reference loop before Suno.`;
       }

@@ -1,6 +1,30 @@
 import { uniq } from "./music-helpers";
 
 /**
+ * @param {object|null|undefined} audioAnalysis
+ */
+export function formatMusicGenSketchBrief(audioAnalysis) {
+  if (!audioAnalysis || audioAnalysis.sourceEngine !== "musicgen") return null;
+  return {
+    prompt: audioAnalysis.musicGenPrompt || "",
+    bpm: audioAnalysis.estimatedBpm || "",
+    key: audioAnalysis.estimatedKey || "",
+    summary: audioAnalysis.trackSummary || "",
+    model: audioAnalysis.musicGenModel || "",
+    mode: audioAnalysis.musicGenMode || "",
+  };
+}
+
+/** @param {string} output @param {ReturnType<typeof formatMusicGenSketchBrief>} sketch */
+export function appendMusicGenSketchToReport(output, sketch) {
+  if (!sketch) return output;
+  const modeNote = sketch.mode === "melody" ? " · melody-conditioned" : "";
+  const line = `Local MusicGen sketch${modeNote}: “${(sketch.prompt || sketch.summary || "preview").slice(0, 120)}” (${sketch.bpm || "?"}, ${sketch.key || "?"}). Treat AUDIO/MG rule lines as groove reference before Suno.`;
+  if (output.includes("Local MusicGen sketch")) return output;
+  return `${output.trim()}\n\n${line}`;
+}
+
+/**
  * One-click Co-Producer mood/style tweaks from the guided workspace.
  * @param {string} action
  * @returns {Record<string, unknown>} patch for project reducer
@@ -57,9 +81,11 @@ export function buildCoProducerAdvisoryReport({
   promptIntensity,
   mode,
   musicGenAvailable = false,
+  audioAnalysis = null,
 }) {
   const suggestions = [];
   const fixesToApply = [];
+  const musicGenSketch = formatMusicGenSketchBrief(audioAnalysis);
 
   if (selectedGenres.length > 3) {
     suggestions.push(
@@ -95,9 +121,14 @@ export function buildCoProducerAdvisoryReport({
   if (promptIntensity > 75 && mode === "Control") {
     suggestions.push("Prompt intensity is high but mode is Control. Switch to Hybrid or lower intensity.");
   }
-  if (musicGenAvailable && selectedGenres.length < 2) {
+  if (musicGenAvailable && selectedGenres.length < 2 && !musicGenSketch) {
     suggestions.push(
       "Genre identity is thin — try MusicGen sketch (Co-Producer buttons or Polish analyzers) for a local reference loop before Suno.",
+    );
+  }
+  if (musicGenSketch) {
+    suggestions.push(
+      `MusicGen sketch loaded (${musicGenSketch.bpm || "?"}, ${musicGenSketch.key || "?"}). Merge is in AUDIO/MG — align Suno tempo and genre anchors to the sketch.`,
     );
   }
 
@@ -106,7 +137,8 @@ export function buildCoProducerAdvisoryReport({
       ? "Lean into dark imagery, low-end pressure, shadowy atmosphere, and mechanical tension."
       : "Keep the mood brighter, clearer, and more open.";
 
-  const output = `CO-PRODUCER AI REPORT
+  const output = appendMusicGenSketchToReport(
+    `CO-PRODUCER AI REPORT
 Main identity: ${selectedGenres[0] || "Electronic"} with ${selectedGenres[1] || "modern"} influence.
 Best tempo target: ${tempo}
 Mood translation: ${moodWords}
@@ -119,7 +151,9 @@ Fixes:
 ${suggestions.length ? suggestions.map((x, i) => `${i + 1}. ${x}`).join("\n") : "Prompt is balanced. Generate 3 variations and score the strongest one."}
 
 Auto-added sound ideas:
-${fixesToApply.length ? fixesToApply.join(", ") : "No extra sound modules needed."}`;
+${fixesToApply.length ? fixesToApply.join(", ") : "No extra sound modules needed."}`,
+    musicGenSketch,
+  );
 
   /** @type {Record<string, unknown>} */
   const patch = {};

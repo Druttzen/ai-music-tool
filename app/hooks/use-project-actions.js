@@ -12,6 +12,7 @@ import {
 } from "../lib/lyric-generator";
 import {
   generateLyricsWithLlm,
+  generateHooksWithLlm,
   isCoProducerLlmReady,
 } from "../lib/co-producer-llm";
 import { generateCoProducerAdvisoryWithLlm } from "../lib/co-producer-advisory-llm";
@@ -671,6 +672,7 @@ export function useProjectActions({
       mode,
       idea,
       musicGenAvailable: !!sidecarGenerateAvailable,
+      audioAnalysis,
     };
 
     let output;
@@ -718,46 +720,69 @@ export function useProjectActions({
     setCoProducerOutput,
     setNotes,
     sidecarGenerateAvailable,
+    audioAnalysis,
     setStatusWithTime,
     tempo,
     vocal,
   ]);
 
   const generateHooks = useCallback(
-    (bumpVariant = false) => {
+    async (bumpVariant = false) => {
       const nextSeed = bumpVariant ? lyricVariantSeed + 1 : lyricVariantSeed;
       if (bumpVariant) setLyricVariantSeed(nextSeed);
-      const result = generateCoProducerHooks({
+      const input = {
         vocal,
         lyricStyle,
         lyricTheme,
         lyricLanguage,
         mood,
         idea,
+        moodWords,
         variantSeed: nextSeed,
         ...coProducerVoiceFields(),
-      });
-      setGeneratedHooks(result.hooks);
-      setGeneratedHooksStyle(result.styleLabel);
+      };
       if (vocal === "Instrumental") {
+        setGeneratedHooks(
+          generateCoProducerHooks(input).hooks,
+        );
         setStatusWithTime("Hooks skipped in instrumental mode");
         return;
       }
-      setStatusWithTime(`Generated ${result.styleLabel} hook ideas`);
+
+      let result;
+      if (isCoProducerLlmReady(coProducerLlmSettings)) {
+        try {
+          result = await generateHooksWithLlm(input, coProducerLlmSettings);
+        } catch {
+          result = generateCoProducerHooks(input);
+        }
+      } else {
+        result = generateCoProducerHooks(input);
+      }
+
+      setGeneratedHooks(result.hooks);
+      setGeneratedHooksStyle(result.styleLabel);
+      setStatusWithTime(
+        result.source === "llm"
+          ? `Co-Producer (LLM) generated ${result.styleLabel} hook ideas`
+          : `Generated ${result.styleLabel} hook ideas`,
+      );
     },
     [
+      coProducerLlmSettings,
+      coProducerVoiceFields,
       idea,
       lyricLanguage,
       lyricStyle,
       lyricTheme,
       lyricVariantSeed,
       mood,
+      moodWords,
       setGeneratedHooks,
       setGeneratedHooksStyle,
       setLyricVariantSeed,
       setStatusWithTime,
       vocal,
-      coProducerVoiceFields,
     ],
   );
 

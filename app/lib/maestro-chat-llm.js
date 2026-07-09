@@ -8,9 +8,10 @@
 import { z } from "zod";
 import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
 import { formatMaestroCatalogGrounding, latestMaestroUserMessage } from "./maestro-catalog-grounding";
-import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, defaultMaestroSuggestions, sanitizeMaestroPatch } from "./maestro-chat-engine";
-import { buildMusicGenPrompt } from "./musicgen-prompt";
-import { buildMoodWords } from "./music-helpers";
+import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
+import { enrichMaestroLlmResult } from "./maestro-chat-llm-enrich";
+
+export { enrichMaestroLlmResult } from "./maestro-chat-llm-enrich";
 
 export const MAESTRO_LLM_TIMEOUT_MS = 45_000;
 
@@ -44,7 +45,10 @@ const MaestroPatchSchema = z
 
 const MaestroArtifactsSchema = z
   .object({
-    musicGenPrompt: z.coerce.string().optional(),
+    musicGenPrompt: z.coerce.string().max(480).optional(),
+    stylePrompt: z.coerce.string().max(1000).optional(),
+    lyrics: z.coerce.string().max(4000).optional(),
+    hooks: z.coerce.string().max(2000).optional(),
   })
   .strict();
 
@@ -68,36 +72,6 @@ const MaestroLlmResponseSchema = z
       ),
   })
   .strict();
-
-/**
- * Fill MusicGen prompt artifact and suggestion chips when the LLM omits them.
- * @param {{ reply: string, patch: object|null, commands: string[], artifacts?: object|null, suggestions?: string[] }} result
- * @param {object} snapshot
- */
-export function enrichMaestroLlmResult(result, snapshot) {
-  const commands = result.commands || [];
-  let artifacts = result.artifacts ? { ...result.artifacts } : null;
-  if (commands.includes("generateMusicGen")) {
-    artifacts = artifacts || {};
-    if (!String(artifacts.musicGenPrompt || "").trim()) {
-      artifacts.musicGenPrompt = buildMusicGenPrompt({
-        selectedGenres: snapshot.selectedGenres,
-        selectedSounds: snapshot.selectedSounds,
-        selectedRhythms: snapshot.selectedRhythms,
-        tempo: snapshot.tempo,
-        idea: snapshot.idea,
-        moodWords: buildMoodWords(snapshot.mood),
-        audioAnalysis: snapshot.audioAnalysis,
-      });
-    }
-  }
-  const suggestions = (result.suggestions || []).filter(Boolean).slice(0, 4);
-  return {
-    ...result,
-    artifacts,
-    suggestions: suggestions.length ? suggestions : defaultMaestroSuggestions(snapshot),
-  };
-}
 
 /**
  * @param {Array<{ role: string, text: string }>} history - prior chat turns (oldest first)
@@ -140,7 +114,7 @@ Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch":
   - mergeAudio/mergeImage: merge the user's analyzer results into the Suno fields (only when hasAudioAnalysis/hasImageAnalysis is true and the user asks to use them).
   - gotoPolish/gotoFinal: jump the guided path to the Polish or final copy step when the user asks to move on.
   - generateMusicGen: render a short MusicGen WAV preview from the current project style (only when musicGenAvailable is true and the user asks for a demo/preview/sketch). Often pair with gotoPolish.
-- "artifacts": optional { "musicGenPrompt": string } when emitting generateMusicGen — a concise MusicGen text prompt (max 480 chars, instrumental groove description).
+- "artifacts": optional { "musicGenPrompt"?: string, "stylePrompt"?: string (≤1000 chars), "lyrics"?: string, "hooks"?: string }. Include stylePrompt when the user asks to see/copy the Suno style or you applied a meaningful patch. Include lyrics/hooks when the user asked for them.
 - "suggestions": optional string[] (max 4 short follow-up chips, e.g. "Make it darker", "Show the style prompt", "Generate a MusicGen preview").
 Only patch what the user asked to change. Never invent fields outside the allowed keys.`;
 
@@ -155,7 +129,7 @@ Only patch what the user asked to change. Never invent fields outside the allowe
 }
 
 /** Extract the first JSON object from an LLM response (tolerates fences/prose). */
-export function parseMaestroLlmResponse(raw, snapshot) {
+export function parseMaestroLlmResponse(raw, snapshot, userMessage = "") {
   const text = String(raw || "").trim();
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -182,7 +156,7 @@ export function parseMaestroLlmResponse(raw, snapshot) {
       artifacts: validated.artifacts || null,
       suggestions: validated.suggestions || [],
     };
-    return enrichMaestroLlmResult(base, snapshot);
+    return enrichMaestroLlmResult(base, snapshot, userMessage);
   } catch {
     return { reply: text, patch: null, commands: [], artifacts: null, suggestions: [] };
   }
@@ -223,7 +197,9 @@ export async function sendMaestroChatToLlm(history, snapshot, settings, options 
     const data = await res.json();
     const content = String(data?.choices?.[0]?.message?.content || "").trim();
     if (!content) throw new Error("Maestro LLM returned an empty reply");
-    return parseMaestroLlmResponse(content, snapshot);
+    const userMessage =
+      [...history].reverse().find((turn) => turn.role === "user")?.text || "";
+    return parseMaestroLlmResponse(content, snapshot, userMessage);
   } catch (err) {
     if (err?.name === "AbortError") {
       throw new Error(`Maestro LLM timed out after ${Math.round(timeoutMs / 1000)}s`);

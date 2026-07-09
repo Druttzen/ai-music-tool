@@ -338,6 +338,24 @@ describe("maestro-chat-llm", () => {
     expect(res.suggestions).toEqual(["Make it darker", "Show the style prompt"]);
   });
 
+  it("enriches stylePrompt when user asks to show style", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Here you go.","patch":null,"commands":[],"artifacts":null,"suggestions":[]}',
+      SNAPSHOT,
+      "show the style prompt",
+    );
+    expect(res.artifacts?.stylePrompt).toMatch(/Techno/i);
+  });
+
+  it("parses stylePrompt lyrics hooks artifacts from LLM JSON", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Hooks.","patch":null,"commands":[],"artifacts":{"hooks":"[HOOK IDEAS]","stylePrompt":"Techno, 128 bpm"},"suggestions":[]}',
+      SNAPSHOT,
+    );
+    expect(res.artifacts?.hooks).toBe("[HOOK IDEAS]");
+    expect(res.artifacts?.stylePrompt).toBe("Techno, 128 bpm");
+  });
+
   it("builds system message containing project state and allowed keys", () => {
     const messages = buildMaestroLlmMessages(
       [{ role: "user", text: "darker" }],

@@ -4,6 +4,7 @@
  */
 
 import { getLyricStyleDirection, prependVoiceCharacterToLyrics, resolveVoiceLyricContext } from "./lyric-generator";
+import { bracketizeSunoPromptLine } from "./music-helpers";
 import { safeLocalStorage } from "./safe-local-storage";
 import {
   formatSunoLyricSectionTag,
@@ -209,6 +210,105 @@ export async function generateLyricsWithLlm(input, settings, options = {}) {
         : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`;
     return {
       lyrics: prependVoiceCharacterToLyrics(body, voiceCtx),
+      styleLabel,
+      styleDirection,
+      source: "llm",
+    };
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(`LLM request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * @param {object} input — same shape as generateCoProducerHooks input
+ */
+export function buildCoProducerHooksLlmMessages(input) {
+  const styleLabel = input.lyricStyle || "Dark poetic";
+  const styleDirection = getLyricStyleDirection(styleLabel);
+  const theme = String(input.lyricTheme || input.idea || "the night").trim();
+  const language = input.lyricLanguage || "English";
+
+  const system = `You write singable hook sketches for Suno AI music generation.
+Style: ${styleLabel} — ${styleDirection}
+Language: ${language}
+Rules:
+- Output exactly 3 numbered hook ideas (short, singable lines).
+- Start with a bracketed title line [HOOK IDEAS · ${styleLabel}] then [Style: ...] then the three ideas.
+- Do not explain your choices; output hook text only.`;
+
+  const user = `Theme: ${theme}
+Mood: ${input.moodWords || "neutral"}
+Genres: ${(input.selectedGenres || []).join(", ") || "electronic"}
+Vocal: ${input.vocal || "Female Lead"}
+
+Write 3 hook sketches in ${language}.`;
+
+  return { system, user, styleLabel, styleDirection };
+}
+
+/**
+ * @param {object} input
+ * @param {object} settings
+ * @param {{ timeoutMs?: number, signal?: AbortSignal }} [options]
+ * @returns {Promise<{ hooks: string, styleLabel: string, styleDirection: string, source: "llm" }>}
+ */
+export async function generateHooksWithLlm(input, settings, options = {}) {
+  const { system, user, styleLabel, styleDirection } = buildCoProducerHooksLlmMessages(input);
+  const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort();
+    } else {
+      options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
+
+  try {
+    const res = await fetch(String(settings.apiUrl).trim(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${String(settings.apiKey).trim()}`,
+      },
+      body: JSON.stringify({
+        model: settings.model || DEFAULT_LLM_SETTINGS.model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.9,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`LLM request failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+    }
+
+    const data = await res.json();
+    let hooks = String(data?.choices?.[0]?.message?.content || "").trim();
+    if (!hooks) throw new Error("LLM returned empty hooks");
+
+    if (!hooks.includes("HOOK IDEAS")) {
+      hooks = `${bracketizeSunoPromptLine(`HOOK IDEAS · ${styleLabel}`)}
+${bracketizeSunoPromptLine(`Style: ${styleDirection}`)}
+
+${hooks}`;
+    }
+
+    const voiceCtx = resolveVoiceLyricContext(input);
+    return {
+      hooks: prependVoiceCharacterToLyrics(hooks, voiceCtx),
       styleLabel,
       styleDirection,
       source: "llm",

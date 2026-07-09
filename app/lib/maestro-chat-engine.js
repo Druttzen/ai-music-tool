@@ -273,8 +273,13 @@ export function buildExtendedStructure(structure) {
 /**
  * Snapshot merged with a pending patch (for artifact building).
  */
-function mergeSnapshot(snapshot, patch) {
+export function mergeMaestroSnapshot(snapshot, patch) {
   return { ...snapshot, ...(patch || {}) };
+}
+
+/** @deprecated internal alias */
+function mergeSnapshot(snapshot, patch) {
+  return mergeMaestroSnapshot(snapshot, patch);
 }
 
 /** Build the ≤1000-char Suno Style line from a (possibly patched) snapshot. */
