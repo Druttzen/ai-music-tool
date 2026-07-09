@@ -8,9 +8,25 @@ export const CHARACTER_VOICE_PRESET_KEY = "ai_music_creator_character_voice_pres
 export const CHARACTER_VOICE_PRESETS_CHANGED_EVENT = "character-voice-presets-changed";
 
 export const VOICE_CHARACTER_DISCLAIMER =
-  "Analyzes delivery traits (register, breath, vibrato, dynamics) for Suno Style/Lyrics direction only. " +
-  "Not voice cloning or impersonation. Use only material you have rights to reference. " +
+  "Analyzes delivery traits (register, range, articulation, breath, vibrato, dynamics, resonance) for Suno Style/Lyrics direction only. " +
+  "Mimics vocal style traits, not voice identity; not voice cloning or impersonation. Use only material you have rights to reference. " +
   "YouTube links store metadata — upload exported audio for analysis.";
+
+function compactTraitTokens(analysis) {
+  const tags = analysis?.textureTags || [];
+  return [
+    analysis?.registerLabel,
+    analysis?.rangeLabel,
+    analysis?.toneFocus,
+    analysis?.vibratoLabel,
+    analysis?.articulation || analysis?.deliveryPace,
+    ...tags.slice(0, 5),
+  ]
+    .filter(Boolean)
+    .join(", ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /**
  * @param {object} analysis
@@ -22,6 +38,10 @@ export function buildSunoLinesFromVoiceCharacter(analysis, ctx = {}) {
 
   const traitLine = [
     analysis?.registerLabel,
+    analysis?.rangeLabel,
+    analysis?.toneFocus,
+    analysis?.vibratoLabel,
+    analysis?.articulation,
     ...(analysis?.textureTags || []).slice(0, 4),
     analysis?.deliveryPace,
   ]
@@ -29,23 +49,38 @@ export function buildSunoLinesFromVoiceCharacter(analysis, ctx = {}) {
     .join(", ");
 
   const compactStyle = [
-    name,
+    `mimic vocal style traits of ${name}`,
     analysis?.registerLabel,
-    (analysis?.textureTags || []).slice(0, 2).join(" "),
+    analysis?.rangeLabel,
+    analysis?.toneFocus,
+    analysis?.vibratoLabel,
+    (analysis?.textureTags || []).slice(0, 3).join(" "),
     genres[0] || "track",
   ]
     .filter(Boolean)
     .join(", ")
-    .slice(0, 120);
+    .slice(0, 190);
 
   const lyricTag =
-    `[Vocal character: ${name} — ${(analysis?.textureTags || ["studio lead"]).slice(0, 2).join(", ")}]`;
+    `[Vocal character: ${name} — mimic style traits: ${compactTraitTokens(analysis).slice(0, 180)}]`;
+
+  const precisionLine = [
+    analysis?.pitchMedianHz ? `median ${analysis.pitchMedianHz} Hz` : "",
+    analysis?.pitchRangeSemitones ? `range ${analysis.pitchRangeSemitones} st` : "",
+    typeof analysis?.pitchStability === "number" ? `pitch stability ${analysis.pitchStability}` : "",
+    typeof analysis?.breathiness === "number" ? `breath ${analysis.breathiness}` : "",
+    typeof analysis?.roughness === "number" ? `rasp ${analysis.roughness}` : "",
+    typeof analysis?.sibilance === "number" ? `sibilance ${analysis.sibilance}` : "",
+    typeof analysis?.dynamics === "number" ? `dynamics ${analysis.dynamics}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return {
     voiceStyleLine: compactStyle,
     voiceStyleCompact: { style: compactStyle, lyricTag },
     vocalRole: analysis?.suggestedVocalRole || "Male Lead",
-    rulesAddition: `Match lead vocal to analyzed character: ${traitLine}.`,
+    rulesAddition: `Mimic lead vocal style traits, not identity: ${traitLine}. ${precisionLine}`.slice(0, 360),
   };
 }
 

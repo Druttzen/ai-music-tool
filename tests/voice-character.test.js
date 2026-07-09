@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  analyzeVoiceCharacter,
   buildCharacterLabel,
   estimateF0Hz,
   registerFromPitchHz,
@@ -18,6 +19,24 @@ import {
 import { parseYoutubeReference } from "../app/lib/youtube-reference.js";
 
 describe("voice-character-analyzer", () => {
+  function makeBuffer({ sampleRate = 44100, duration = 1.2, freq = 220 } = {}) {
+    const n = Math.floor(sampleRate * duration);
+    const channel = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / sampleRate;
+      const vibrato = Math.sin(2 * Math.PI * 5.5 * t) * 3;
+      const amp = 0.22 + 0.08 * Math.sin(2 * Math.PI * 2 * t);
+      channel[i] =
+        Math.sin((2 * Math.PI * (freq + vibrato) * i) / sampleRate) * amp +
+        Math.sin((2 * Math.PI * 4200 * i) / sampleRate) * 0.015;
+    }
+    return {
+      sampleRate,
+      duration,
+      getChannelData: () => channel,
+    };
+  }
+
   it("estimateF0Hz finds low tone near 120 Hz", () => {
     const sampleRate = 44100;
     const slice = new Float32Array(sampleRate / 10);
@@ -44,6 +63,23 @@ describe("voice-character-analyzer", () => {
       "tenor register",
     );
   });
+
+  it("analyzeVoiceCharacter extracts high-precision mimic style traits", () => {
+    const analysis = analyzeVoiceCharacter(makeBuffer(), "voice.wav");
+    expect(analysis.pitchMedianHz).toBeGreaterThan(170);
+    expect(analysis.pitchMedianHz).toBeLessThan(270);
+    expect(analysis.pitchRangeSemitones).toBeGreaterThanOrEqual(0);
+    expect(analysis.pitchStability).toBeGreaterThanOrEqual(0);
+    expect(analysis.vibratoRateHz).toBeGreaterThanOrEqual(0);
+    expect(analysis.jitter).toBeGreaterThanOrEqual(0);
+    expect(analysis.shimmer).toBeGreaterThanOrEqual(0);
+    expect(analysis.roughness).toBeGreaterThanOrEqual(0);
+    expect(analysis.sibilance).toBeGreaterThanOrEqual(0);
+    expect(analysis.articulation).toMatch(/articulation/);
+    expect(analysis.rangeLabel).toMatch(/range|focus/);
+    expect(analysis.toneFocus).toMatch(/resonance/);
+    expect(analysis.summary).toContain("semitone range");
+  });
 });
 
 describe("voice-character-preset", () => {
@@ -51,6 +87,16 @@ describe("voice-character-preset", () => {
     characterLabel: "baritone register, breathy, moderate phrasing",
     registerLabel: "baritone register",
     pitchMedianHz: 180,
+    pitchRangeSemitones: 9,
+    pitchStability: 82,
+    rangeLabel: "moderate melodic range",
+    toneFocus: "warm chest resonance",
+    vibratoLabel: "gentle vibrato",
+    articulation: "smooth legato articulation",
+    roughness: 24,
+    sibilance: 31,
+    breathiness: 62,
+    dynamics: 48,
     textureTags: ["breathy", "steady pitch"],
     deliveryPace: "moderate phrasing",
     suggestedVocalRole: "Male Lead",
@@ -62,9 +108,13 @@ describe("voice-character-preset", () => {
       selectedGenres: ["Techno"],
     });
     expect(lines.voiceStyleLine).not.toMatch(/trait map|not impersonation|Vocal character \(/i);
-    expect(lines.voiceStyleLine).toContain("Night narrator");
+    expect(lines.voiceStyleLine).toContain("mimic vocal style traits of Night narrator");
+    expect(lines.voiceStyleLine).toContain("moderate melodic range");
     expect(lines.vocalRole).toBe("Male Lead");
     expect(lines.voiceStyleCompact.lyricTag).toContain("[Vocal character:");
+    expect(lines.voiceStyleCompact.lyricTag).toContain("mimic style traits");
+    expect(lines.rulesAddition).toContain("Mimic lead vocal style traits, not identity");
+    expect(lines.rulesAddition).toContain("median 180 Hz");
   });
 
   it("regenerateCharacterVoicePreset refreshes lines with new genres", () => {

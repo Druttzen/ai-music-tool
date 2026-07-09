@@ -76,6 +76,24 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
             <div className="mt-3 space-y-2 text-left text-xs text-white/75">
               <div className="font-bold text-cyan-200">{studio.voiceAnalysis.characterLabel}</div>
               <div className="font-mono text-[10px] text-white/50">{studio.voiceAnalysis.summary}</div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[
+                  ["Pitch", studio.voiceAnalysis.pitchMedianHz ? `${studio.voiceAnalysis.pitchMedianHz} Hz` : "unclear"],
+                  ["Range", studio.voiceAnalysis.pitchRangeSemitones ? `${studio.voiceAnalysis.pitchRangeSemitones} st` : "unclear"],
+                  ["Stability", `${studio.voiceAnalysis.pitchStability ?? 0}/100`],
+                  ["Vibrato", studio.voiceAnalysis.vibratoLabel || `${studio.voiceAnalysis.vibratoStrength}/100`],
+                  ["Articulation", studio.voiceAnalysis.articulation || studio.voiceAnalysis.deliveryPace],
+                  ["Tone", studio.voiceAnalysis.toneFocus || "balanced"],
+                  ["Breath", `${studio.voiceAnalysis.breathiness}/100`],
+                  ["Rasp", `${studio.voiceAnalysis.roughness ?? 0}/100`],
+                  ["Dynamics", `${studio.voiceAnalysis.dynamics}/100`],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-white/10 bg-black/35 px-2 py-1.5">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-white/35">{label}</div>
+                    <div className="mt-0.5 text-[10px] text-cyan-50">{value}</div>
+                  </div>
+                ))}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {studio.voiceAnalysis.textureTags.map((tag) => (
                   <span
