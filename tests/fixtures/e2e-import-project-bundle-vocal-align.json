@@ -59,6 +59,19 @@
       "sections": [{ "alignedWords": [{ "word": "line", "start": 0, "end": 0.4 }] }]
     },
     "alignMethod": "heuristic",
-    "wordCount": 2
+    "wordCount": 2,
+    "openvpiDs": {
+      "format": "openvpi-ds-segments",
+      "segment_count": 1,
+      "segments": [
+        {
+          "offset": 0,
+          "text": "line",
+          "note_seq": "A3",
+          "note_dur": "0.4000",
+          "note_slur": "0"
+        }
+      ]
+    }
   }
 }

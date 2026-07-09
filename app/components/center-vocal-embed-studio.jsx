@@ -52,25 +52,10 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const [sidecarHealth, setSidecarHealth] = useState(null);
   const [vocalModels, setVocalModels] = useState(null);
   const [alignPreview, setAlignPreview] = useState(null);
+  const [storedOpenvpiDs, setStoredOpenvpiDs] = useState(null);
   const guideInputRef = useRef(null);
   const instrumentalRef = useRef(audioAnalysis?.fileName);
   const guideVocalRef = useRef(guideVocalFile);
-
-  const persistAlignPreview = useCallback(
-    (preview) => {
-      setAlignPreview(preview);
-      if (!preview) {
-        writeStoredVocalAlignPreview(null);
-        return;
-      }
-      writeStoredVocalAlignPreview({
-        instrumentalName: audioAnalysis?.fileName || "",
-        guideName: guideVocalFile?.name || "",
-        preview,
-      });
-    },
-    [audioAnalysis?.fileName, guideVocalFile?.name],
-  );
 
   useEffect(() => {
     const stored = readStoredVocalAlignPreview();
@@ -80,26 +65,9 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       stored.instrumentalName === audioAnalysis?.fileName
     ) {
       setAlignPreview(stored.preview);
+      setStoredOpenvpiDs(stored.openvpiDs || null);
     }
   }, [audioAnalysis?.fileName]);
-
-  useEffect(() => {
-    const prev = instrumentalRef.current;
-    const next = audioAnalysis?.fileName;
-    if (prev && next && prev !== next) {
-      persistAlignPreview(null);
-    }
-    instrumentalRef.current = next;
-  }, [audioAnalysis?.fileName, persistAlignPreview]);
-
-  useEffect(() => {
-    const prev = guideVocalRef.current;
-    const next = guideVocalFile;
-    if (prev && next && prev !== next) {
-      persistAlignPreview(null);
-    }
-    guideVocalRef.current = next;
-  }, [guideVocalFile, persistAlignPreview]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +117,46 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     ],
   );
 
+  const persistAlignPreview = useCallback(
+    (preview) => {
+      setAlignPreview(preview);
+      if (!preview) {
+        setStoredOpenvpiDs(null);
+        writeStoredVocalAlignPreview(null);
+        return;
+      }
+      const openvpiDs =
+        plan.stage === "ready" ? buildOpenvpiDsExport(plan, preview) : null;
+      const dsPayload = openvpiDs?.segments?.length ? openvpiDs : null;
+      setStoredOpenvpiDs(dsPayload);
+      writeStoredVocalAlignPreview({
+        instrumentalName: audioAnalysis?.fileName || "",
+        guideName: guideVocalFile?.name || "",
+        preview,
+        openvpiDs: dsPayload,
+      });
+    },
+    [audioAnalysis?.fileName, guideVocalFile?.name, plan],
+  );
+
+  useEffect(() => {
+    const prev = instrumentalRef.current;
+    const next = audioAnalysis?.fileName;
+    if (prev && next && prev !== next) {
+      persistAlignPreview(null);
+    }
+    instrumentalRef.current = next;
+  }, [audioAnalysis?.fileName, persistAlignPreview]);
+
+  useEffect(() => {
+    const prev = guideVocalRef.current;
+    const next = guideVocalFile;
+    if (prev && next && prev !== next) {
+      persistAlignPreview(null);
+    }
+    guideVocalRef.current = next;
+  }, [guideVocalFile, persistAlignPreview]);
+
   const canLyricsOnlySynth =
     plan.sidecarMode === "lyrics-to-vocal-synthesis" &&
     (!!sidecarHealth?.vocal_ml_available || !!vocalModels?.diffsinger_configured);
@@ -157,8 +165,19 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     plan.stage === "ready" && (!!guideVocalFile || canLyricsOnlySynth || hasStoredAlign);
 
   const buildSidecarEnvelope = useCallback(
-    (withAlign = true) => buildVocalEmbedExportEnvelope(plan, withAlign ? alignPreview : null),
-    [alignPreview, plan],
+    (withAlign = true) => {
+      const ds =
+        storedOpenvpiDs ||
+        (withAlign && alignPreview && plan.stage === "ready"
+          ? buildOpenvpiDsExport(plan, alignPreview)
+          : null);
+      return buildVocalEmbedExportEnvelope(
+        plan,
+        withAlign ? alignPreview : null,
+        ds?.segments?.length ? ds : null,
+      );
+    },
+    [alignPreview, plan, storedOpenvpiDs],
   );
 
   const exportPlan = () => {
@@ -172,7 +191,9 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     URL.revokeObjectURL(url);
     setStatusWithTime(
       alignPreview
-        ? "Vocal embed plan exported (includes alignment timing)"
+        ? storedOpenvpiDs?.segment_count
+          ? `Vocal embed plan exported (alignment + ${storedOpenvpiDs.segment_count} OpenVPI segments)`
+          : "Vocal embed plan exported (includes alignment timing)"
         : "Vocal embed plan exported",
     );
   };
@@ -566,6 +587,9 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           <p className="flex-1 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-100/90">
             Last alignment preview: <strong>{alignPreview.align_method}</strong> — {alignPreview.word_count}{" "}
             aligned words across {alignPreview.sections?.length || 0} sections.
+            {storedOpenvpiDs?.segment_count
+              ? ` · OpenVPI .ds ready (${storedOpenvpiDs.segment_count} segments)`
+              : ""}
             {alignPreview.align_method === "heuristic" ? " Install MFA env vars for tighter timing." : ""}
           </p>
           <button

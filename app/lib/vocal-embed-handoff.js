@@ -6,12 +6,12 @@ import { safeLocalStorage } from "./safe-local-storage";
 
 export const VOCAL_ALIGN_PREVIEW_STORAGE_KEY = "ai_music_creator_vocal_align_preview";
 
-/** @returns {{ instrumentalName?: string, guideName?: string, preview?: object }|null} */
+/** @returns {{ instrumentalName?: string, guideName?: string, preview?: object, openvpiDs?: object }|null} */
 export function readStoredVocalAlignPreview() {
   return safeLocalStorage.getJSON(VOCAL_ALIGN_PREVIEW_STORAGE_KEY, null);
 }
 
-/** @param {{ instrumentalName?: string, guideName?: string, preview: object }|null} session */
+/** @param {{ instrumentalName?: string, guideName?: string, preview: object, openvpiDs?: object|null }|null} session */
 export function writeStoredVocalAlignPreview(session) {
   if (!session?.preview) {
     safeLocalStorage.remove(VOCAL_ALIGN_PREVIEW_STORAGE_KEY);

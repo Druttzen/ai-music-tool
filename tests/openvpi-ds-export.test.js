@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildOpenvpiDsExport, buildOpenvpiDsSegmentsFromPlan, tryBuildOpenvpiDsForWorkspace } from "../app/lib/openvpi-ds-export.js";
+import { buildOpenvpiDsExport, buildOpenvpiDsSegmentsFromPlan } from "../app/lib/openvpi-ds-export.js";
 import { buildVocalEmbedPlan } from "../app/lib/vocal-embed-engine.js";
 
 const AUDIO = {
@@ -45,6 +45,9 @@ describe("openvpi-ds-export", () => {
   });
 
   it("tryBuildOpenvpiDsForWorkspace returns null when plan is draft", () => {
-    expect(tryBuildOpenvpiDsForWorkspace({ generatedLyrics: "" }, null)).toBeNull();
+    const plan = buildVocalEmbedPlan({ generatedLyrics: "" });
+    expect(plan.stage).toBe("draft");
+    const ds = buildOpenvpiDsExport(plan, null);
+    expect(ds.segment_count).toBe(0);
   });
 });

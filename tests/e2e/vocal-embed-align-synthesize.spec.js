@@ -73,6 +73,6 @@ test.describe("Vocal Embed align & synthesize e2e", () => {
     const alignExport = vocalEmbed.getByRole("button", { name: /Align & export handoff/i });
     await expect(alignExport).toBeEnabled({ timeout: 15_000 });
     await alignExport.click();
-    await expectToast(page, /Handoff pack downloaded.*align/i, 45_000);
+    await expectToast(page, /Handoff pack downloaded.*OpenVPI \.ds/i, 45_000);
   });
 });

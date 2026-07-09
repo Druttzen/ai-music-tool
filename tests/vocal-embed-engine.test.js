@@ -97,5 +97,11 @@ describe("vocal-embed-engine", () => {
       sections: [{ alignedWords: [{ word: "hook", start: 1, end: 1.2 }] }],
     });
     expect(envelope.plan.sections[0].alignedWords?.[0]?.word).toBe("hook");
+    const withDs = buildVocalEmbedExportEnvelope(plan, null, {
+      format: "openvpi-ds-segments",
+      segment_count: 1,
+      segments: [{ text: "hook" }],
+    });
+    expect(withDs.openvpiDs?.segment_count).toBe(1);
   });
 });

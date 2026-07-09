@@ -21,7 +21,8 @@ import {
   writeStoredVocalAlignPreview,
   buildVocalEmbedBundleSession,
 } from "../lib/vocal-embed-handoff";
-import { tryBuildOpenvpiDsForWorkspace } from "../lib/openvpi-ds-export";
+import { buildVocalEmbedPlan } from "../lib/vocal-embed-engine";
+import { buildOpenvpiDsExport } from "../lib/openvpi-ds-export";
 import {
   buildInstrumentalLyricsScaffold,
   buildLyricThemeFromAnalysis,
@@ -291,21 +292,22 @@ export function useProjectActions({
 
   const exportProject = useCallback(() => {
     const storedAlign = readStoredVocalAlignPreview();
-    let openvpiDs = null;
-    if (storedAlign?.preview && audioAnalysis) {
-      openvpiDs = tryBuildOpenvpiDsForWorkspace(
-        {
-          audioAnalysis,
-          generatedLyrics: currentState.generatedLyrics,
-          lyricStructure: currentState.lyricStructure,
-          selectedGenres: currentState.selectedGenres,
-          tempo: currentState.tempo,
-          vocal: currentState.vocal,
-          voiceStyleLine,
-          voiceStyleCompact,
-        },
-        storedAlign.preview,
-      );
+    let openvpiDs = storedAlign?.openvpiDs;
+    if (!openvpiDs?.segments?.length && storedAlign?.preview && audioAnalysis) {
+      const plan = buildVocalEmbedPlan({
+        audioAnalysis,
+        generatedLyrics: currentState.generatedLyrics,
+        lyricStructure: currentState.lyricStructure,
+        selectedGenres: currentState.selectedGenres,
+        tempo: currentState.tempo,
+        vocal: currentState.vocal,
+        voiceStyleLine,
+        voiceStyleCompact,
+      });
+      if (plan.stage === "ready") {
+        const ds = buildOpenvpiDsExport(plan, storedAlign.preview);
+        openvpiDs = ds.segments?.length ? ds : null;
+      }
     }
     const vocalEmbed = storedAlign?.preview
       ? buildVocalEmbedBundleSession(
@@ -488,6 +490,7 @@ export function useProjectActions({
               instrumentalName: vocalEmbed.instrumentalName || "",
               guideName: vocalEmbed.guideName || "",
               preview: vocalEmbed.preview,
+              openvpiDs: vocalEmbed.openvpiDs || null,
             });
           }
           setStatusWithTime(

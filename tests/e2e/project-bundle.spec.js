@@ -111,12 +111,44 @@ test.describe("project bundle e2e", () => {
       .locator('input[type="file"][accept="application/json"]')
       .setInputFiles("tests/fixtures/e2e-import-project-bundle-vocal-align.json");
 
-    await expectToast(page, /includes vocal align preview/i);
+    await expectToast(page, /vocal align preview/i);
 
     const stored = await page.evaluate(() =>
       localStorage.getItem("ai_music_creator_vocal_align_preview"),
     );
     expect(stored).toContain("heuristic");
     expect(stored).toContain("e2e-analyzer-tone.wav");
+    expect(stored).toContain("openvpi-ds-segments");
+  });
+
+  test("Export Bundle includes openvpiDs when align and analyzed track are ready", async ({ page }) => {
+    await dismissSplash(page);
+
+    const panel = saveLoadPanel(page);
+    await panel
+      .locator('input[type="file"][accept="application/json"]')
+      .setInputFiles("tests/fixtures/e2e-import-project-bundle-vocal-align.json");
+
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new CustomEvent("aimc-e2e-set-audio-analysis", {
+          detail: {
+            fileName: "e2e-analyzer-tone.wav",
+            duration: 120,
+            estimatedBpm: "120 BPM",
+            estimatedKey: "Am",
+            peaks: Array.from({ length: 32 }, (_, i) => Math.sin(i / 6)),
+          },
+        }),
+      );
+    });
+
+    const downloadPromise = page.waitForEvent("download");
+    await panel.getByRole("button", { name: "Export Bundle" }).click();
+    await expectToast(page, /OpenVPI \.ds/i);
+
+    const download = await downloadPromise;
+    const raw = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
+    expect(raw.vocalEmbed?.openvpiDs?.segment_count).toBeGreaterThan(0);
   });
 });

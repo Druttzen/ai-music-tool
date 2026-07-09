@@ -201,10 +201,15 @@ export function mergeAlignPreviewIntoPlan(plan, alignPreview) {
 /**
  * @param {object} plan
  * @param {{ sections?: object[] }|null} [alignPreview]
+ * @param {object|null} [openvpiDs]
  */
-export function buildVocalEmbedExportEnvelope(plan, alignPreview = null) {
+export function buildVocalEmbedExportEnvelope(plan, alignPreview = null, openvpiDs = null) {
   const merged = alignPreview ? mergeAlignPreviewIntoPlan(plan, alignPreview) : plan;
-  return buildVocalEmbedExport(merged);
+  const envelope = buildVocalEmbedExport(merged);
+  if (openvpiDs?.segments?.length) {
+    envelope.openvpiDs = openvpiDs;
+  }
+  return envelope;
 }
 
 export { formatTime as formatVocalEmbedTime };
