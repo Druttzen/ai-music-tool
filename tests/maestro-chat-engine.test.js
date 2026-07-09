@@ -7,6 +7,7 @@ import {
   buildRemixPatch,
   buildSurprisePatch,
   createMaestroGreeting,
+  defaultMaestroSuggestions,
   matchCatalogOptions,
   parseLanguage,
   parseLyricTheme,
@@ -264,10 +265,10 @@ describe("maestro-chat-llm", () => {
 
   it("parses and filters commands to the allowed set", () => {
     const res = parseMaestroLlmResponse(
-      '{"reply":"Merging.","patch":null,"commands":["mergeAudio","rm -rf","gotoFinal"]}',
+      '{"reply":"Merging.","patch":null,"commands":["mergeAudio","generateMusicGenMelody","rm -rf","gotoFinal"]}',
       SNAPSHOT,
     );
-    expect(res.commands).toEqual(["mergeAudio", "gotoFinal"]);
+    expect(res.commands).toEqual(["mergeAudio", "generateMusicGenMelody", "gotoFinal"]);
     for (const c of res.commands) expect(MAESTRO_COMMANDS).toContain(c);
   });
 
@@ -354,6 +355,25 @@ describe("maestro-chat-llm", () => {
     );
     expect(res.artifacts?.hooks).toBe("[HOOK IDEAS]");
     expect(res.artifacts?.stylePrompt).toBe("Techno, 128 bpm");
+  });
+
+  it("regenerate with melody emits generateMusicGenMelody when track + sidecar ready", () => {
+    const res = buildMaestroReply("Regenerate with melody", {
+      ...SNAPSHOT,
+      musicGenAvailable: true,
+      hasAudioAnalysis: true,
+      hasMusicGenSketch: true,
+    });
+    expect(res.commands).toContain("generateMusicGenMelody");
+  });
+
+  it("defaultMaestroSuggestions offers melody regenerate when sketch loaded", () => {
+    const chips = defaultMaestroSuggestions({
+      hasMusicGenSketch: true,
+      musicGenAvailable: true,
+      hasAudioAnalysis: true,
+    });
+    expect(chips[0]).toBe("Regenerate with melody");
   });
 
   it("builds system message containing project state and allowed keys", () => {

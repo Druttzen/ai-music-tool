@@ -5,6 +5,7 @@
 
 import { getLyricStyleDirection, prependVoiceCharacterToLyrics, resolveVoiceLyricContext } from "./lyric-generator";
 import { bracketizeSunoPromptLine } from "./music-helpers";
+import { formatMusicGenSketchBrief } from "./co-producer-engine";
 import { safeLocalStorage } from "./safe-local-storage";
 import {
   formatSunoLyricSectionTag,
@@ -232,6 +233,7 @@ export function buildCoProducerHooksLlmMessages(input) {
   const styleDirection = getLyricStyleDirection(styleLabel);
   const theme = String(input.lyricTheme || input.idea || "the night").trim();
   const language = input.lyricLanguage || "English";
+  const musicGenSketch = formatMusicGenSketchBrief(input.audioAnalysis);
 
   const system = `You write singable hook sketches for Suno AI music generation.
 Style: ${styleLabel} — ${styleDirection}
@@ -245,6 +247,7 @@ Rules:
 Mood: ${input.moodWords || "neutral"}
 Genres: ${(input.selectedGenres || []).join(", ") || "electronic"}
 Vocal: ${input.vocal || "Female Lead"}
+${musicGenSketch ? `Local MusicGen sketch: ${JSON.stringify(musicGenSketch)}` : ""}
 
 Write 3 hook sketches in ${language}.`;
 

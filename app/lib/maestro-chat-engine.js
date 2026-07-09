@@ -32,6 +32,7 @@ export const MAESTRO_COMMANDS = [
   "gotoPolish",
   "gotoFinal",
   "generateMusicGen",
+  "generateMusicGenMelody",
 ];
 
 export const MAESTRO_CHAT_STORAGE_KEY = "ai_music_creator_maestro_chat_v1";
@@ -434,6 +435,33 @@ export function buildMaestroReply(message, snapshot, options = {}) {
     };
   }
 
+  const asksMusicGenMelody =
+    /\b(regenerate|remix|retry).*\b(melody|music\s*gen)\b/i.test(lower) ||
+    /\bmelody\b.*\b(music\s*gen|musicgen|preview|sketch)\b/i.test(lower);
+  if (asksMusicGenMelody) {
+    if (snapshot.musicGenAvailable && snapshot.hasAudioAnalysis) {
+      const musicGenPrompt = buildMusicGenPrompt({
+        selectedGenres: snapshot.selectedGenres,
+        selectedSounds: snapshot.selectedSounds,
+        selectedRhythms: snapshot.selectedRhythms,
+        tempo: snapshot.tempo,
+        idea: snapshot.idea,
+        moodWords: buildMoodWords(snapshot.mood || {}),
+        audioAnalysis: snapshot.audioAnalysis,
+      });
+      artifacts.musicGenPrompt = musicGenPrompt;
+      commands.push("generateMusicGenMelody", "gotoPolish");
+      return {
+        reply:
+          "Regenerating a MusicGen sketch conditioned on your current track audio — opening Polish when the WAV lands.",
+        patch: null,
+        artifacts,
+        suggestions: ["Show the style prompt", "Merge the track analysis", "Make it darker"],
+        commands,
+      };
+    }
+  }
+
   const asksMusicGen =
     /\b(music\s*gen|musicgen)\b/i.test(lower) ||
     /\b(generate|make|render|create)\b.*\b(?:quick )?(?:demo|preview|sketch|mockup)\b/i.test(lower) ||
@@ -455,7 +483,7 @@ export function buildMaestroReply(message, snapshot, options = {}) {
         reply: `Generating a MusicGen sketch from your current style — prompt: “${musicGenPrompt.slice(0, 120)}${musicGenPrompt.length > 120 ? "…" : ""}”. Opening Polish so you can play it in the waveform and merge into Suno.`,
         patch: null,
         artifacts,
-        suggestions: ["Regenerate MusicGen preview", "Merge the track analysis", "Show the style prompt", "Make it darker"],
+        suggestions: ["Regenerate with melody", "Regenerate MusicGen preview", "Merge the track analysis", "Show the style prompt", "Make it darker"],
         commands,
       };
     }
@@ -639,9 +667,16 @@ export function sanitizeMaestroPatch(patch, snapshot) {
 /** Default follow-up chips when Maestro LLM omits suggestions. */
 export function defaultMaestroSuggestions(snapshot = {}) {
   const suggestions = [];
-  if (snapshot.hasAudioAnalysis) suggestions.push("Use the track analysis");
-  else if (snapshot.hasImageAnalysis) suggestions.push("Use the image analysis");
-  if (snapshot.musicGenAvailable) suggestions.push("Generate a MusicGen preview");
+  if (snapshot.hasMusicGenSketch && snapshot.musicGenAvailable && snapshot.hasAudioAnalysis) {
+    suggestions.push("Regenerate with melody");
+  } else if (snapshot.hasAudioAnalysis) {
+    suggestions.push("Use the track analysis");
+  } else if (snapshot.hasImageAnalysis) {
+    suggestions.push("Use the image analysis");
+  }
+  if (!snapshot.hasMusicGenSketch && snapshot.musicGenAvailable) {
+    suggestions.push("Generate a MusicGen preview");
+  }
   suggestions.push("Make it darker", "Show the style prompt", "Write lyrics");
   return suggestions.slice(0, 4);
 }

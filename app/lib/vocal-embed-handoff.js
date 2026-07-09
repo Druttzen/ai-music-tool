@@ -18,6 +18,7 @@ function triggerDownload(blob, fileName) {
  * @param {string} [opts.instrumentalName]
  * @param {Blob|null} [opts.guideVocal]
  * @param {string} [opts.guideName]
+ * @param {object|null} [opts.alignPreview]
  */
 export async function exportVocalEmbedHandoffPack({
   planEnvelope,
@@ -25,6 +26,7 @@ export async function exportVocalEmbedHandoffPack({
   instrumentalName = "instrumental.wav",
   guideVocal = null,
   guideName = "guide-vocal.wav",
+  alignPreview = null,
 }) {
   const stamp = Date.now();
   const base = `vocal-embed-handoff-${stamp}`;
@@ -40,6 +42,9 @@ export async function exportVocalEmbedHandoffPack({
     `- ${base}-plan.json — sidecar-ready vocal embed plan`,
     instrumental ? `- ${base}-instrumental.wav` : "(re-export instrumental from analyzer if missing)",
     guideVocal ? `- ${base}-guide-vocal.wav` : "(no guide vocal attached)",
+    alignPreview
+      ? `- ${base}-align-preview.json — MFA/heuristic word alignment (${alignPreview.align_method || "?"})`
+      : "(run Align preview in the app for timing JSON)",
     "",
     "Next steps:",
     "1. npm run sidecar (and sidecar:vocal-ml if using RVC/DiffSinger)",
@@ -47,6 +52,13 @@ export async function exportVocalEmbedHandoffPack({
     "3. Configure MFA via ai-sidecar/.env.vocal for tighter lyric timing",
   ].join("\n");
   triggerDownload(new Blob([readme], { type: "text/plain" }), `${base}-README.txt`);
+  if (alignPreview) {
+    triggerDownload(
+      new Blob([JSON.stringify(alignPreview, null, 2)], { type: "application/json" }),
+      `${base}-align-preview.json`,
+    );
+    await new Promise((r) => setTimeout(r, 120));
+  }
   if (instrumental) {
     await new Promise((r) => setTimeout(r, 120));
     triggerDownload(instrumental, `${base}-instrumental.wav`);

@@ -135,9 +135,10 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       instrumentalName: audioAnalysis?.fileName || "instrumental.wav",
       guideVocal: guideVocalFile,
       guideName: guideVocalFile?.name || "guide-vocal.wav",
+      alignPreview,
     });
     setStatusWithTime("Vocal embed handoff pack downloaded (plan + README + audio files)", "success");
-  }, [audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
+  }, [alignPreview, audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
 
   const previewAlignment = useCallback(async () => {
     if (!guideVocalFile) {
@@ -195,28 +196,8 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     }
   }, [plan, setStatusWithTime]);
 
-  const synthesizePreview = useCallback(async () => {
-    if (plan.stage !== "ready") {
-      setStatusWithTime("Complete the plan first (instrumental, lyrics, voice style)", "warning");
-      return;
-    }
-    if (!guideVocalFile && !canLyricsOnlySynth) {
-      setStatusWithTime(
-        guideVocalAttached
-          ? "Choose a guide vocal file below, or install sidecar vocal DSP for lyrics-only synthesis"
-          : "Attach a guide vocal file, or enable lyrics-only mode with pip install -e ai-sidecar[vocal]",
-        "warning",
-      );
-      return;
-    }
-
-    setSidecarBusy(true);
-    try {
-      const ready = await waitForSidecar(20_000);
-      if (!ready) {
-        setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
-        return;
-      }
+  const runSynthesizeMix = useCallback(
+    async (alignNote = "") => {
       const health = await fetchSidecarHealth();
       const models = await fetchVocalEmbedModels();
       setSidecarHealth(health);
@@ -255,21 +236,74 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
               : "lyrics-synth-v1");
       const timingNote =
         plan.guideForLyricTiming && guideVocalFile ? " · guide timing on" : "";
-      setStatusWithTime(`Vocal embed preview downloaded (${engineLabel}${timingNote})`, "success");
+      setStatusWithTime(
+        `Vocal embed preview downloaded (${engineLabel}${timingNote}${alignNote})`,
+        "success",
+      );
+    },
+    [audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime],
+  );
+
+  const alignAndSynthesizePreview = useCallback(async () => {
+    if (!guideVocalFile) {
+      setStatusWithTime("Attach a guide vocal for align & synthesize", "warning");
+      return;
+    }
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete the plan first (instrumental, lyrics, voice style)", "warning");
+      return;
+    }
+    setSidecarBusy(true);
+    try {
+      const ready = await waitForSidecar(20_000);
+      if (!ready) {
+        setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
+        return;
+      }
+      const payload = buildVocalEmbedExport(plan);
+      const preview = await previewVocalAlignViaSidecar(
+        payload,
+        guideVocalFile,
+        guideVocalFile.name,
+      );
+      setAlignPreview(preview);
+      await runSynthesizeMix(` · ${preview.align_method} align`);
+    } catch (err) {
+      setStatusWithTime(err instanceof Error ? err.message : "Align & synthesize failed", "error");
+    } finally {
+      setSidecarBusy(false);
+    }
+  }, [guideVocalFile, plan, runSynthesizeMix, setStatusWithTime]);
+
+  const synthesizePreview = useCallback(async () => {
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete the plan first (instrumental, lyrics, voice style)", "warning");
+      return;
+    }
+    if (!guideVocalFile && !canLyricsOnlySynth) {
+      setStatusWithTime(
+        guideVocalAttached
+          ? "Choose a guide vocal file below, or install sidecar vocal DSP for lyrics-only synthesis"
+          : "Attach a guide vocal file, or enable lyrics-only mode with pip install -e ai-sidecar[vocal]",
+        "warning",
+      );
+      return;
+    }
+
+    setSidecarBusy(true);
+    try {
+      const ready = await waitForSidecar(20_000);
+      if (!ready) {
+        setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
+        return;
+      }
+      await runSynthesizeMix();
     } catch (err) {
       setStatusWithTime(err instanceof Error ? err.message : "Vocal synthesis failed", "error");
     } finally {
       setSidecarBusy(false);
     }
-  }, [
-    audioAnalysis?.fileName,
-    canLyricsOnlySynth,
-    guideVocalAttached,
-    guideVocalFile,
-    plan,
-    resolveInstrumentalBlob,
-    setStatusWithTime,
-  ]);
+  }, [canLyricsOnlySynth, guideVocalAttached, guideVocalFile, plan, runSynthesizeMix, setStatusWithTime]);
 
   return (
     <Panel
@@ -554,6 +588,14 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           className="rounded-2xl border border-violet-400/35 bg-violet-500/15 px-4 py-2 text-sm font-bold text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
         >
           Export handoff pack
+        </button>
+        <button
+          type="button"
+          disabled={sidecarBusy || !guideVocalFile || plan.stage !== "ready"}
+          onClick={() => void alignAndSynthesizePreview()}
+          className="rounded-2xl border border-emerald-400/40 bg-emerald-500/15 px-4 py-2 text-sm font-bold text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-40 md:col-span-2"
+        >
+          {sidecarBusy ? "Working…" : "Align & synthesize preview"}
         </button>
         <button
           type="button"

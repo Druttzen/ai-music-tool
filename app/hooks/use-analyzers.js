@@ -30,6 +30,10 @@ import {
 } from "../lib/audio-analyzer";
 import { mergeSidecarAnalysis, buildSidecarFallbackReport } from "../lib/audio-analyzer-sidecar";
 import { buildMusicGenAnalysisReport, downloadMusicGenBlob, enrichMusicGenReportWithSidecar } from "../lib/musicgen-preview";
+import {
+  hasMeaningfulHighlightRange,
+  sliceAudioBlobToHighlightRange,
+} from "../lib/audio-highlight-slice";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
 import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
@@ -759,6 +763,18 @@ export function useAnalyzers({
               }
               if (!melodyBlob) {
                 throw new Error("No melody reference — load a track in the analyzer first");
+              }
+              if (
+                options.useHighlightMelody &&
+                audioAnalysis &&
+                hasMeaningfulHighlightRange(audioAnalysis)
+              ) {
+                melodyBlob = await sliceAudioBlobToHighlightRange(
+                  melodyBlob,
+                  audioAnalysis.highlightStart,
+                  audioAnalysis.highlightEnd,
+                  `highlight-${audioAnalysis.fileName || "melody.wav"}`,
+                );
               }
               return generateMusicWithMelodyViaSidecar(
                 text,

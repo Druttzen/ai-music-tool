@@ -131,6 +131,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       voiceStyleLine,
       hasAudioAnalysis: !!audioAnalysis,
       hasImageAnalysis: !!imageAnalysis,
+      hasMusicGenSketch: audioAnalysis?.sourceEngine === "musicgen",
       musicGenAvailable: !!sidecarGenerateAvailable,
       audioAnalysis,
     }),
@@ -222,7 +223,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           applyImageToSunoStyle();
         } else if (cmd === "gotoPolish") setGuidedStep(resolvePolishStepIndex());
         else if (cmd === "gotoFinal") setGuidedStep(getStepCount() - 1);
-        else if (cmd === "generateMusicGen") {
+        else if (cmd === "generateMusicGen" || cmd === "generateMusicGenMelody") {
           const prompt =
             artifacts?.musicGenPrompt ||
             buildMusicGenPrompt({
@@ -234,7 +235,14 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
               moodWords: buildMoodWords(mood),
               audioAnalysis,
             });
-          void generateMusicFromPrompt(prompt, 10, { attach: true });
+          void generateMusicFromPrompt(prompt, 10, {
+            attach: true,
+            useMelodyReference: cmd === "generateMusicGenMelody",
+            useHighlightMelody:
+              cmd === "generateMusicGenMelody" &&
+              audioAnalysis?.highlightStart != null &&
+              audioAnalysis?.highlightEnd != null,
+          });
         }
       }
     },

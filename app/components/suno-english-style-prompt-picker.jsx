@@ -63,6 +63,7 @@ export function StylePromptPicker({
   const [sectionKey, setSectionKey] = useState("all");
   const [query, setQuery] = useState("");
   const [cc0TagFilter, setCc0TagFilter] = useState("all");
+  const [cc0ActiveTags, setCc0ActiveTags] = useState(() => new Set());
   const [selected, setSelected] = useState(() => new Set());
 
   const cc0TagOptions = useMemo(() => {
@@ -93,6 +94,10 @@ export function StylePromptPicker({
         ) {
           continue;
         }
+        if (sectionKey === "cat-awesomeSunoConcepts" && cc0ActiveTags.size > 0) {
+          const tag = awesomeSunoConceptTags?.[it.text];
+          if (!tag || !cc0ActiveTags.has(tag)) continue;
+        }
         if (q) {
           const hay = `${it.text} ${it.label || ""} ${sec.sectionTitle}`.toLowerCase();
           if (!hay.includes(q)) continue;
@@ -107,7 +112,7 @@ export function StylePromptPicker({
     const needsSearch = sectionKey === "all" && q.length < SEARCH_MIN_ALL;
 
     return { visibleItems: needsSearch ? [] : out, visibleTotal: total, searchRequired: needsSearch };
-  }, [sections, sectionKey, query, cc0TagFilter]);
+  }, [sections, sectionKey, query, cc0TagFilter, cc0ActiveTags]);
 
   const toggle = useCallback((id) => {
     setSelected((prev) => {
@@ -300,21 +305,60 @@ export function StylePromptPicker({
           </div>
 
           {sectionKey === "cat-awesomeSunoConcepts" ? (
-            <div className="flex flex-wrap gap-1.5">
-              {cc0TagOptions.slice(0, 24).map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setCc0TagFilter(tag)}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                    cc0TagFilter === tag
-                      ? "bg-violet-500/25 text-violet-100"
-                      : "bg-white/5 text-white/50 hover:bg-white/10"
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                {cc0TagOptions.slice(0, 24).map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      if (tag === "all") {
+                        setCc0TagFilter("all");
+                        setCc0ActiveTags(new Set());
+                        return;
+                      }
+                      setCc0TagFilter(tag);
+                      setCc0ActiveTags((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(tag)) next.delete(tag);
+                        else next.add(tag);
+                        return next;
+                      });
+                    }}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      cc0TagFilter === tag || cc0ActiveTags.has(tag)
+                        ? "bg-violet-500/25 text-violet-100"
+                        : "bg-white/5 text-white/50 hover:bg-white/10"
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const pool = visibleItems.length
+                    ? visibleItems
+                    : sections
+                        .find((s) => s.sectionId === "cat-awesomeSunoConcepts")
+                        ?.items.filter((it) => {
+                          if (cc0ActiveTags.size === 0) return true;
+                          return cc0ActiveTags.has(awesomeSunoConceptTags?.[it.text]);
+                        }) || [];
+                  if (!pool.length) {
+                    setStatusWithTime("No CC0 concepts match the active tags");
+                    return;
+                  }
+                  const pick = pool[Math.floor(Math.random() * pool.length)];
+                  if (!pick?.text) return;
+                  setSelectedGenres((prev) => mergeUniqueStrings(prev, [pick.text]));
+                  setStatusWithTime(`Surprise CC0 pick: ${previewLine(pick.text, 72)}`);
+                }}
+                className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-2 py-1 text-[10px] font-bold text-violet-100 hover:bg-violet-500/20"
+              >
+                Surprise from tag filter
+              </button>
             </div>
           ) : null}
 

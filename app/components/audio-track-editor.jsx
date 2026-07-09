@@ -15,6 +15,7 @@ import { clamp } from "../lib/music-helpers";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
+import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 
 const ENABLE_WAVESURFER_DEFAULT = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE !== "0";
 const WAVESURFER_CLASSIC_LS_KEY = "aimc-classic-waveform";
@@ -479,6 +480,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           busy={generateMusicBusy || exportBusy}
           available={sidecarGenerateAvailable}
           canUseMelodyReference={!!audioUrl}
+          canUseHighlightMelody={hasMeaningfulHighlightRange(analysis)}
           onGenerate={onGenerateMusic}
         />
       ) : null}

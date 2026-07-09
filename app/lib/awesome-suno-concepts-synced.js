@@ -3,12 +3,12 @@
  * Re-run: npm run import:awesome-suno
  *
  * Source: https://github.com/naqashmunir21/awesome-suno-prompts (CC0-1.0)
- * Synced at: 2026-07-09T12:54:10.284Z
+ * Synced at: 2026-07-09T13:18:55.579Z
  * Concept count: 400
  */
 
 export const AWESOME_SUNO_CONCEPTS_SYNC = {
-  "syncedAt": "2026-07-09T12:54:10.284Z",
+  "syncedAt": "2026-07-09T13:18:55.579Z",
   "source": {
     "repo": "https://github.com/naqashmunir21/awesome-suno-prompts",
     "license": "CC0-1.0",
@@ -304,6 +304,16 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
       "black metal frost, tremolo guitars, blast beats, icy atmosphere",
       "tropical house sunset, marimba hook, soft kick, beach club breeze",
       "art rock experimental, odd time signatures, angular guitars, cerebral tension"
+    ],
+    "referencePromptBlocks": [
+      "Viking folk-electronic hybrid (heroic)",
+      "Genre / style cloud (dense list)",
+      "Electronic rock blend (D minor 133 BPM template)",
+      "Viking / worship / Atmos collage",
+      "1997 Thunderdome-style hardcore techno",
+      "organic-vs-dubstep-verses",
+      "Organic vs dubstep alternating verses",
+      "Dry hand-percussion (tambourine) study"
     ]
   },
   "skippedFiles": [
@@ -316,7 +326,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
   ],
   "rotationOffset": 0,
   "conceptCap": 400,
-  "poolSize": 401,
+  "poolSize": 409,
   "lines": [
     "**Use Case:** [When/why to use this prompt], **Suno Version:** [V4.5, V5, or Both], **Energy:** [1-10 scale], **Notable Feature:** [Optional: What makes this prompt special], **Example Song:** [Optional: Link to song created with this prompt]",
     "**Use Case:** [When/why to use this], **Suno Version:** [V4.5, V5, or Both], **Energy:** [1-10 scale]",
@@ -326,6 +336,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "1970s disco four-on-the-floor, string stabs, falsetto hooks",
     "1980s gated reverb snare, DX7 electric piano, synth-pop sheen",
     "1990s boom-bap drums, dusty samples, SP-1200 crunch",
+    "1997 Thunderdome-style hardcore techno",
     "2000s garage rock revival, tight room drums, gritty guitars",
     "2010s EDM festival drop energy, sidechain pump, supersaw leads",
     "2020s hyperpop maximalism, pitched vocals, glitchy layers",
@@ -464,6 +475,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Dream pop, lush reverb-drenched guitars, airy vocals,, shimmering textures, slow tempo, romantic atmosphere,, Cocteau Twins/Beach House vibe, ethereal beauty,",
     "drill and bass hybrid, fast breaks, sub pressure, dark synth stabs",
     "Drum and bass, rapid breakbeat (160-180 BPM), rolling bassline,, amen break influences, jungle vibes, liquid DnB melodic elements,, atmospheric pads, high-energy tempo,",
+    "Dry hand-percussion (tambourine) study",
     "dub techno cavern, echo delays, chord dub swells, sub-heavy pulse",
     "East Coast boom bap, aggressive drums, gritty street samples,, hard snare hits, deep kick, minimal melodic elements,, raw New York energy, scratching elements,",
     "electro house festival, big room drop, sidechain pump, crowd chant hook",
@@ -473,6 +485,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "electroclash neon, distorted synth bass, deadpan vocal, 2000s club attitude",
     "electroclash neon, distorted synth bass, shout vocal, early-2000s club",
     "Electronic R&B fusion, synth-heavy production,, auto-tuned vocals as instrument, EDM influences,, futuristic sound design, pop-R&B crossover,",
+    "Electronic rock blend (D minor 133 BPM template)",
     "emo pop confessional, mid-tempo drums, jangly guitar, vulnerable vocal",
     "emo pop punk, crunchy guitars, confessional vocals, driving chorus",
     "Emo rap, guitar-driven trap beat, auto-tuned emotional vocals,, 808 bass with melodic lead, reverb-heavy production,, vulnerable lyrics mood, sad-boy aesthetic, modern melancholy,",
@@ -505,6 +518,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "garage punk raw, distorted guitar, fast tempo, basement show energy",
     "garage rock grit, room drums, fuzzy guitars, raw energy",
     "Garage rock rawness, fuzzy vintage amps, simple chord progressions,, energetic sloppy drums, distorted shouted vocals,, DIY recording aesthetic, White Stripes energy,",
+    "Genre / style cloud (dense list)",
     "glitch electronica, stuttering beats, granular textures, experimental edits",
     "Golden era hip-hop, drum machine beats (808/909), funky bass lines,, disco/funk samples, scratching techniques, party vibe energy,, vintage production, BPM: 105, Key: G Major",
     "gospel choir power, organ foundation, claps, spiritual uplift",
@@ -618,6 +632,8 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "orchestral mystery intrigue, pizzicato strings, clarinet motif, suspense arc",
     "orchestral romance waltz, sweeping strings, gentle harp, ballroom elegance",
     "orchestral romance waltz, sweeping strings, gentle harp, graceful melody",
+    "Organic vs dubstep alternating verses",
+    "organic-vs-dubstep-verses",
     "Outlaw country, gruff weathered vocals, electric guitar-driven,, rebellious attitude, vintage amp distortion, harmonica accents,, Waylon/Willie vibe, raw authentic production,",
     "PBR&B, lo-fi aesthetic, indie-R&B crossover,, bedroom production, vulnerable vocals, minimalist beats,, atmospheric soundscapes, introspective mood,",
     "Peak-time techno, driving 4/4 kick, industrial sound design,, hypnotic acid bassline, minimal melodic elements, relentless energy,, warehouse rave atmosphere, Berlin techno vibe,",
@@ -711,13 +727,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Ultra-catchy teen pop, bubblegum melodies,, bright shiny production, youthful energy vocals,, simple but effective hooks, colorful sound palette,, maximum radio-friendliness, BPM: 125, Key: C Major",
     "Upbeat bedroom pop, jangly guitars, catchy vocal melodies,, lo-fi drums, warm analog synths, nostalgic 80s influence,, bedroom production charm with pop hooks,",
     "Upbeat dream pop, jangly guitars meet synths,, bright shimmering production, catchy melodies,, optimistic energy, indie-pop crossover appeal,",
-    "Upbeat modern R&B, bouncy trap-influenced beat,, catchy vocal melodies, bright synths, rhythmic guitar,, pop-R&B crossover appeal, radio-friendly production,",
-    "Upbeat smooth jazz, funky bass line, bright horn section,, Latin percussion influences, feel-good energy,, radio-friendly groove, sophisticated pop-jazz,",
-    "Uplifting synth-pop, bright major key melodies,, sparkling arpeggiated synths, optimistic vocals,, 80s nostalgia with modern production,, feel-good energy, radio-friendly, BPM: 124, Key: F Major",
-    "Uplifting trance, soaring lead synth melody, euphoric breakdown,, driving 4/4 kick, rolling bassline, orchestral elements,, emotional piano in breakdown, epic buildup and release,",
-    "vaporwave mall soft, slowed samples, nostalgic synth pads, lo-fi sheen",
-    "Vintage 70s rock, bluesy guitar riffs, Hammond organ layers,, groovy bass lines, powerful raspy vocals, analog tape warmth,, vintage tube amp distortion, extended guitar solo,",
-    "witch house occult, pitched-down vocals, trap hats, eerie pads"
+    "Upbeat modern R&B, bouncy trap-influenced beat,, catchy vocal melodies, bright synths, rhythmic guitar,, pop-R&B crossover appeal, radio-friendly production,"
   ],
   "tags": {
     "**Use Case:** [When/why to use this prompt], **Suno Version:** [V4.5, V5, or Both], **Energy:** [1-10 scale], **Notable Feature:** [Optional: What makes this prompt special], **Example Song:** [Optional: Link to song created with this prompt]": "**use",
@@ -728,6 +738,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "1970s disco four-on-the-floor, string stabs, falsetto hooks": "1970s",
     "1980s gated reverb snare, DX7 electric piano, synth-pop sheen": "1980s",
     "1990s boom-bap drums, dusty samples, SP-1200 crunch": "1990s",
+    "1997 Thunderdome-style hardcore techno": "1997",
     "2000s garage rock revival, tight room drums, gritty guitars": "2000s",
     "2010s EDM festival drop energy, sidechain pump, supersaw leads": "2010s",
     "2020s hyperpop maximalism, pitched vocals, glitchy layers": "2020s",
@@ -866,6 +877,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Dream pop, lush reverb-drenched guitars, airy vocals,, shimmering textures, slow tempo, romantic atmosphere,, Cocteau Twins/Beach House vibe, ethereal beauty,": "dream",
     "drill and bass hybrid, fast breaks, sub pressure, dark synth stabs": "drill",
     "Drum and bass, rapid breakbeat (160-180 BPM), rolling bassline,, amen break influences, jungle vibes, liquid DnB melodic elements,, atmospheric pads, high-energy tempo,": "drum",
+    "Dry hand-percussion (tambourine) study": "dry",
     "dub techno cavern, echo delays, chord dub swells, sub-heavy pulse": "dub",
     "East Coast boom bap, aggressive drums, gritty street samples,, hard snare hits, deep kick, minimal melodic elements,, raw New York energy, scratching elements,": "east",
     "electro house festival, big room drop, sidechain pump, crowd chant hook": "electro",
@@ -875,6 +887,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "electroclash neon, distorted synth bass, deadpan vocal, 2000s club attitude": "electroclash",
     "electroclash neon, distorted synth bass, shout vocal, early-2000s club": "electroclash",
     "Electronic R&B fusion, synth-heavy production,, auto-tuned vocals as instrument, EDM influences,, futuristic sound design, pop-R&B crossover,": "electronic",
+    "Electronic rock blend (D minor 133 BPM template)": "electronic",
     "emo pop confessional, mid-tempo drums, jangly guitar, vulnerable vocal": "emo",
     "emo pop punk, crunchy guitars, confessional vocals, driving chorus": "emo",
     "Emo rap, guitar-driven trap beat, auto-tuned emotional vocals,, 808 bass with melodic lead, reverb-heavy production,, vulnerable lyrics mood, sad-boy aesthetic, modern melancholy,": "emo",
@@ -907,6 +920,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "garage punk raw, distorted guitar, fast tempo, basement show energy": "garage",
     "garage rock grit, room drums, fuzzy guitars, raw energy": "garage",
     "Garage rock rawness, fuzzy vintage amps, simple chord progressions,, energetic sloppy drums, distorted shouted vocals,, DIY recording aesthetic, White Stripes energy,": "garage",
+    "Genre / style cloud (dense list)": "genre",
     "glitch electronica, stuttering beats, granular textures, experimental edits": "glitch",
     "Golden era hip-hop, drum machine beats (808/909), funky bass lines,, disco/funk samples, scratching techniques, party vibe energy,, vintage production, BPM: 105, Key: G Major": "golden",
     "gospel choir power, organ foundation, claps, spiritual uplift": "gospel",
@@ -1020,6 +1034,8 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "orchestral mystery intrigue, pizzicato strings, clarinet motif, suspense arc": "orchestral",
     "orchestral romance waltz, sweeping strings, gentle harp, ballroom elegance": "orchestral",
     "orchestral romance waltz, sweeping strings, gentle harp, graceful melody": "orchestral",
+    "Organic vs dubstep alternating verses": "organic",
+    "organic-vs-dubstep-verses": "organic-vs-dubstep-verses",
     "Outlaw country, gruff weathered vocals, electric guitar-driven,, rebellious attitude, vintage amp distortion, harmonica accents,, Waylon/Willie vibe, raw authentic production,": "outlaw",
     "PBR&B, lo-fi aesthetic, indie-R&B crossover,, bedroom production, vulnerable vocals, minimalist beats,, atmospheric soundscapes, introspective mood,": "pbr&b",
     "Peak-time techno, driving 4/4 kick, industrial sound design,, hypnotic acid bassline, minimal melodic elements, relentless energy,, warehouse rave atmosphere, Berlin techno vibe,": "peak-time",
@@ -1113,13 +1129,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Ultra-catchy teen pop, bubblegum melodies,, bright shiny production, youthful energy vocals,, simple but effective hooks, colorful sound palette,, maximum radio-friendliness, BPM: 125, Key: C Major": "ultra-catchy",
     "Upbeat bedroom pop, jangly guitars, catchy vocal melodies,, lo-fi drums, warm analog synths, nostalgic 80s influence,, bedroom production charm with pop hooks,": "upbeat",
     "Upbeat dream pop, jangly guitars meet synths,, bright shimmering production, catchy melodies,, optimistic energy, indie-pop crossover appeal,": "upbeat",
-    "Upbeat modern R&B, bouncy trap-influenced beat,, catchy vocal melodies, bright synths, rhythmic guitar,, pop-R&B crossover appeal, radio-friendly production,": "upbeat",
-    "Upbeat smooth jazz, funky bass line, bright horn section,, Latin percussion influences, feel-good energy,, radio-friendly groove, sophisticated pop-jazz,": "upbeat",
-    "Uplifting synth-pop, bright major key melodies,, sparkling arpeggiated synths, optimistic vocals,, 80s nostalgia with modern production,, feel-good energy, radio-friendly, BPM: 124, Key: F Major": "uplifting",
-    "Uplifting trance, soaring lead synth melody, euphoric breakdown,, driving 4/4 kick, rolling bassline, orchestral elements,, emotional piano in breakdown, epic buildup and release,": "uplifting",
-    "vaporwave mall soft, slowed samples, nostalgic synth pads, lo-fi sheen": "vaporwave",
-    "Vintage 70s rock, bluesy guitar riffs, Hammond organ layers,, groovy bass lines, powerful raspy vocals, analog tape warmth,, vintage tube amp distortion, extended guitar solo,": "vintage",
-    "witch house occult, pitched-down vocals, trap hats, eerie pads": "witch"
+    "Upbeat modern R&B, bouncy trap-influenced beat,, catchy vocal melodies, bright synths, rhythmic guitar,, pop-R&B crossover appeal, radio-friendly production,": "upbeat"
   }
 };
 

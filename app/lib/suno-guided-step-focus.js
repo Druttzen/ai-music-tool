@@ -315,6 +315,13 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
 
     if (hasTrack && hasVoiceStyle && (instrumental || generatedLyrics)) {
       improvements.push({
+        id: "vocal-embed-align-synth",
+        title: "Align & synthesize vocal preview",
+        description:
+          "Attach a guide vocal in Vocal Embed Studio, then run Align & synthesize for a local WAV with timing.",
+        action: "focusVocalEmbed",
+      });
+      improvements.push({
         id: "vocal-embed-preview",
         title: "Try Vocal Embed preview mix",
         description: "Open Vocal Embed Studio, attach a guide vocal if needed, and synthesize a local WAV.",

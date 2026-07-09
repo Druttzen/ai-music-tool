@@ -12,6 +12,7 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const OUT_JS = path.join(ROOT, "app", "lib", "awesome-suno-concepts-synced.js");
 const EXTENSIONS_JS = path.join(ROOT, "app", "lib", "style-catalog-extensions.js");
+const CATALOG_JS = path.join(ROOT, "app", "lib", "style-prompt-catalog.js");
 
 const CONCEPT_CAP = 400;
 
@@ -167,11 +168,13 @@ async function main() {
     eraAnchoredGenres: readExportedStringArray(EXTENSIONS_JS, "eraAnchoredGenres"),
     trendMicroGenres2026: readExportedStringArray(EXTENSIONS_JS, "trendMicroGenres2026"),
     communityStyleSeeds: readExportedStringArray(EXTENSIONS_JS, "communityStyleSeeds"),
+    referencePromptBlocks: readExportedStringArray(CATALOG_JS, "referencePromptBlocks"),
   };
   for (const block of [
     ...supplemental.eraAnchoredGenres,
     ...supplemental.trendMicroGenres2026,
     ...supplemental.communityStyleSeeds,
+    ...supplemental.referencePromptBlocks,
   ]) {
     addLine(block, "style-catalog-extensions");
   }
@@ -196,7 +199,7 @@ async function main() {
 
   fs.writeFileSync(OUT_JS, emitJs(payload), "utf8");
   console.log(
-    `Wrote ${OUT_JS} (${capped.length} concepts — pool ${lines.length}, rotation ${rotationOffset} — CC0 blocks + ${supplemental.eraAnchoredGenres.length} era + ${supplemental.trendMicroGenres2026.length} trend + ${supplemental.communityStyleSeeds.length} community seeds)`,
+    `Wrote ${OUT_JS} (${capped.length} concepts — pool ${lines.length}, rotation ${rotationOffset} — CC0 blocks + ${supplemental.eraAnchoredGenres.length} era + ${supplemental.trendMicroGenres2026.length} trend + ${supplemental.communityStyleSeeds.length} community + ${supplemental.referencePromptBlocks.length} reference blocks)`,
   );
 }
 

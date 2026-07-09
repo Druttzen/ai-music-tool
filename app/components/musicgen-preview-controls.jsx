@@ -4,13 +4,14 @@ import { memo, useState } from "react";
 
 /**
  * Shared MusicGen prompt + duration controls.
- * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, canUseMelodyReference?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: { attach?: boolean, download?: boolean, mergeAfterGenerate?: boolean, useMelodyReference?: boolean }) => void, compact?: boolean }} props
+ * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, canUseMelodyReference?: boolean, canUseHighlightMelody?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: { attach?: boolean, download?: boolean, mergeAfterGenerate?: boolean, useMelodyReference?: boolean, useHighlightMelody?: boolean }) => void, compact?: boolean }} props
  */
 export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   defaultPrompt = "",
   busy = false,
   available = false,
   canUseMelodyReference = false,
+  canUseHighlightMelody = false,
   onGenerate,
   compact = false,
 }) {
@@ -18,6 +19,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   const [durationSec, setDurationSec] = useState(10);
   const [mergeAfterGenerate, setMergeAfterGenerate] = useState(true);
   const [useMelodyReference, setUseMelodyReference] = useState(false);
+  const [useHighlightMelody, setUseHighlightMelody] = useState(false);
   const prompt = promptOverride ?? defaultPrompt ?? "";
 
   if (!onGenerate) return null;
@@ -25,6 +27,8 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   const genOptions = (extra = {}) => ({
     mergeAfterGenerate,
     useMelodyReference: canUseMelodyReference && useMelodyReference,
+    useHighlightMelody:
+      canUseMelodyReference && useMelodyReference && canUseHighlightMelody && useHighlightMelody,
     ...extra,
   });
 
@@ -85,6 +89,17 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
             onChange={(e) => setUseMelodyReference(e.target.checked)}
           />
           Condition on current track audio (melody mode)
+        </label>
+      ) : null}
+      {canUseMelodyReference && canUseHighlightMelody ? (
+        <label className="flex items-center gap-2 text-[10px] text-white/55">
+          <input
+            type="checkbox"
+            checked={useHighlightMelody}
+            disabled={busy || !useMelodyReference}
+            onChange={(e) => setUseHighlightMelody(e.target.checked)}
+          />
+          Use waveform highlight region only
         </label>
       ) : null}
       <div className="flex flex-wrap gap-2">

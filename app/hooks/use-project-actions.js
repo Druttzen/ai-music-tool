@@ -739,6 +739,7 @@ export function useProjectActions({
         idea,
         moodWords,
         variantSeed: nextSeed,
+        audioAnalysis,
         ...coProducerVoiceFields(),
       };
       if (vocal === "Instrumental") {
@@ -771,6 +772,7 @@ export function useProjectActions({
     [
       coProducerLlmSettings,
       coProducerVoiceFields,
+      audioAnalysis,
       idea,
       lyricLanguage,
       lyricStyle,
