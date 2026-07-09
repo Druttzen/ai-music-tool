@@ -4,6 +4,7 @@ import {
   buildExtendedStructure,
   buildMaestroReply,
   buildMaestroStylePreview,
+  buildMaestroVocalEmbedTurn,
   buildRemixPatch,
   buildSurprisePatch,
   createMaestroGreeting,
@@ -15,6 +16,7 @@ import {
   parseTempo,
   parseVocal,
   sanitizeMaestroPatch,
+  wantsVocalEmbedQuery,
 } from "../app/lib/maestro-chat-engine.js";
 import { parseMaestroLlmResponse, buildMaestroLlmMessages, enrichMaestroLlmResult } from "../app/lib/maestro-chat-llm.js";
 import { SUNO_STYLE_CHAR_CAP } from "../app/lib/suno-limits.js";
@@ -452,6 +454,74 @@ describe("maestro-chat-llm", () => {
     expect(res.commands).toContain("focusVocalEmbed");
     expect(res.artifacts.vocalEmbedBrief).toContain("Vocal Embed Studio");
     expect(res.reply).toMatch(/OpenVPI/i);
+  });
+
+  it("wantsVocalEmbedQuery matches openvpi and navigation phrasing", () => {
+    expect(wantsVocalEmbedQuery("show openvpi ds")).toBe(true);
+    expect(wantsVocalEmbedQuery("take me to vocal embed studio")).toBe(true);
+    expect(wantsVocalEmbedQuery("make it darker")).toBe(false);
+  });
+
+  it("buildMaestroVocalEmbedTurn reports missing analysis", () => {
+    const turn = buildMaestroVocalEmbedTurn(SNAPSHOT, "show vocal embed plan");
+    expect(turn.commands).toContain("gotoPolish");
+    expect(turn.reply).toMatch(/Analyze your instrumental/i);
+  });
+
+  it("enriches vocalEmbedBrief when LLM emits focusVocalEmbed only", () => {
+    const snapshot = {
+      ...SNAPSHOT,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine one",
+      hasAudioAnalysis: true,
+      audioAnalysis: { fileName: "beat.wav", duration: 120, estimatedBpm: "120 BPM", estimatedKey: "Am" },
+    };
+    const res = enrichMaestroLlmResult(
+      {
+        reply: "Opening Vocal Embed Studio.",
+        patch: null,
+        commands: ["focusVocalEmbed"],
+        artifacts: null,
+        suggestions: [],
+      },
+      snapshot,
+      "show vocal embed plan",
+    );
+    expect(res.commands).toContain("focusVocalEmbed");
+    expect(res.artifacts?.vocalEmbedBrief).toContain("Vocal Embed Studio");
+  });
+
+  it("parses vocalEmbedBrief artifact from LLM JSON", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Brief ready.","patch":null,"commands":["focusVocalEmbed"],"artifacts":{"vocalEmbedBrief":"Custom brief line"},"suggestions":[]}',
+      SNAPSHOT,
+    );
+    expect(res.artifacts?.vocalEmbedBrief).toBe("Custom brief line");
+  });
+
+  it("buildMaestroLlmMessages includes vocal embed snapshot fields", () => {
+    const messages = buildMaestroLlmMessages(
+      [{ role: "user", text: "show openvpi ds" }],
+      {
+        ...SNAPSHOT,
+        hasAudioAnalysis: true,
+        hasVocalAlign: true,
+        vocalAlignMethod: "heuristic",
+        vocalAlignWordCount: 4,
+        openvpiDsSegmentCount: 2,
+      },
+    );
+    expect(messages[0].content).toMatch(/hasVocalAlign/);
+    expect(messages[0].content).toMatch(/openvpiDsSegmentCount/);
+    expect(messages[0].content).toMatch(/focusVocalEmbed/);
+  });
+
+  it("defaultMaestroSuggestions offers vocal embed when track and vocals ready", () => {
+    const chips = defaultMaestroSuggestions({
+      hasAudioAnalysis: true,
+      vocal: "Female Lead",
+    });
+    expect(chips).toContain("Show vocal embed plan");
   });
 
   it("builds system message containing project state and allowed keys", () => {

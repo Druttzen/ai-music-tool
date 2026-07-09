@@ -322,11 +322,89 @@ const HELP_TEXT = `I'm Maestro — your chat co-producer. Talk to me like a band
 • "make it darker and more minimal"
 • "write lyrics about neon rain in Spanish"
 • "give me hooks" / "show the style prompt"
+• "show openvpi ds" / "vocal embed plan" for local DiffSinger handoff status
 • "surprise me" for a fresh direction, "remix it" to reroll the groove, "extend the track" for a longer form
 • "use the track analysis" / "use the image analysis" to merge analyzer DNA
 • "take me to polish" / "final step" to jump the guided path
 • "generate a musicgen preview" / "quick demo" for a short local WAV sketch (needs MusicGen sidecar extra)
 Everything I set lands in your project instantly — then copy the Style & Lyrics fields straight into Suno.`;
+
+/** @param {string} message */
+export function wantsVocalEmbedQuery(message) {
+  const lower = String(message || "").toLowerCase();
+  return (
+    /\b(show|preview|status|export)\b.*\b(vocal embed|openvpi|diffsinger|\.ds)\b/i.test(lower) ||
+    /\bopenvpi\s*\.?ds\b/i.test(lower) ||
+    /\bvocal embed (?:plan|studio|status)\b/i.test(lower) ||
+    /\b(?:go|jump|take me|open)\b.*\b(vocal embed|vocal studio)\b/i.test(lower)
+  );
+}
+
+/**
+ * Build vocal embed status / navigation turn (offline + LLM enrich).
+ * @param {object} snapshot
+ * @param {string} [userMessage]
+ */
+export function buildMaestroVocalEmbedTurn(snapshot, userMessage = "") {
+  const lower = String(userMessage || "").toLowerCase();
+  const navigateOnly =
+    /\b(?:go|jump|take me|open)\b.*\b(vocal embed|vocal studio)\b/i.test(lower) &&
+    !/\b(show|preview|status|export|openvpi|\.ds|plan)\b/i.test(lower);
+
+  if (!snapshot.hasAudioAnalysis) {
+    return {
+      reply:
+        "Analyze your instrumental in Drag & Drop Analyzers first — Vocal Embed needs section timing from the track.",
+      patch: null,
+      artifacts: {},
+      suggestions: ["Take me to polish", "Show the style prompt"],
+      commands: ["gotoPolish"],
+    };
+  }
+
+  if (navigateOnly) {
+    return {
+      reply: "Scrolling to Vocal Embed Studio — attach a guide vocal or use saved alignment for local synth.",
+      patch: null,
+      artifacts: {},
+      suggestions: ["Show vocal embed plan", "Show the style prompt"],
+      commands: ["focusVocalEmbed"],
+    };
+  }
+
+  const embedPlan = buildVocalEmbedPlan({
+    audioAnalysis: snapshot.audioAnalysis,
+    generatedLyrics: snapshot.generatedLyrics,
+    lyricStructure: snapshot.lyricStructure,
+    lyricTheme: snapshot.lyricTheme,
+    selectedGenres: snapshot.selectedGenres,
+    tempo: snapshot.tempo,
+    vocal: snapshot.vocal,
+    voiceStyleLine: snapshot.voiceStyleLine,
+    voiceStyleCompact: snapshot.voiceStyleCompact,
+  });
+  const alignBits = [];
+  if (snapshot.hasVocalAlign) {
+    alignBits.push(
+      `stored alignment: ${snapshot.vocalAlignMethod || "?"}${
+        snapshot.vocalAlignWordCount != null ? ` · ${snapshot.vocalAlignWordCount} words` : ""
+      }`,
+    );
+  }
+  if (snapshot.openvpiDsSegmentCount > 0) {
+    alignBits.push(`OpenVPI .ds: ${snapshot.openvpiDsSegmentCount} segment(s) ready to export`);
+  }
+  const alignNote = alignBits.length
+    ? ` ${alignBits.join(" · ")}.`
+    : " Run alignment in Vocal Embed Studio for tighter DiffSinger timing.";
+  return {
+    reply: `Vocal Embed plan is ${embedPlan.stage}.${alignNote} Brief below — export .ds JSON or handoff pack from the studio panel.`,
+    patch: null,
+    artifacts: { vocalEmbedBrief: embedPlan.sidecarBrief },
+    suggestions: ["Take me to polish", "Show the style prompt", "Write lyrics"],
+    commands: ["focusVocalEmbed"],
+  };
+}
 
 /**
  * Heuristic chat turn: message + project snapshot → reply, patch, artifacts.
@@ -539,64 +617,9 @@ export function buildMaestroReply(message, snapshot, options = {}) {
     };
   }
 
-  const asksVocalEmbed =
-    /\b(show|preview|status|export)\b.*\b(vocal embed|openvpi|diffsinger|\.ds)\b/i.test(lower) ||
-    /\bopenvpi\s*\.?ds\b/i.test(lower) ||
-    /\bvocal embed (?:plan|studio|status)\b/i.test(lower);
+  const asksVocalEmbed = wantsVocalEmbedQuery(text);
   if (asksVocalEmbed) {
-    if (!snapshot.hasAudioAnalysis) {
-      return {
-        reply:
-          "Analyze your instrumental in Drag & Drop Analyzers first — Vocal Embed needs section timing from the track.",
-        patch: null,
-        artifacts,
-        suggestions: ["Take me to polish", "Show the style prompt"],
-        commands: ["gotoPolish"],
-      };
-    }
-    const embedPlan = buildVocalEmbedPlan({
-      audioAnalysis: snapshot.audioAnalysis,
-      generatedLyrics: snapshot.generatedLyrics,
-      lyricStructure: snapshot.lyricStructure,
-      lyricTheme: snapshot.lyricTheme,
-      selectedGenres: snapshot.selectedGenres,
-      tempo: snapshot.tempo,
-      vocal: snapshot.vocal,
-      voiceStyleLine: snapshot.voiceStyleLine,
-      voiceStyleCompact: snapshot.voiceStyleCompact,
-    });
-    artifacts.vocalEmbedBrief = embedPlan.sidecarBrief;
-    const alignBits = [];
-    if (snapshot.hasVocalAlign) {
-      alignBits.push(
-        `stored alignment: ${snapshot.vocalAlignMethod || "?"}${
-          snapshot.vocalAlignWordCount != null ? ` · ${snapshot.vocalAlignWordCount} words` : ""
-        }`,
-      );
-    }
-    if (snapshot.openvpiDsSegmentCount > 0) {
-      alignBits.push(`OpenVPI .ds: ${snapshot.openvpiDsSegmentCount} segment(s) ready to export`);
-    }
-    const alignNote = alignBits.length ? ` ${alignBits.join(" · ")}.` : " Run alignment in Vocal Embed Studio for tighter DiffSinger timing.";
-    commands.push("focusVocalEmbed");
-    return {
-      reply: `Vocal Embed plan is ${embedPlan.stage}.${alignNote} Brief below — export .ds JSON or handoff pack from the studio panel.`,
-      patch: null,
-      artifacts,
-      suggestions: ["Take me to polish", "Show the style prompt", "Write lyrics"],
-      commands,
-    };
-  }
-
-  if (/\b(?:go|jump|take me|open)\b.*\b(vocal embed|vocal studio)\b/i.test(lower)) {
-    commands.push("focusVocalEmbed");
-    return {
-      reply: "Scrolling to Vocal Embed Studio — attach a guide vocal or use saved alignment for local synth.",
-      patch: null,
-      artifacts,
-      suggestions: ["Show vocal embed plan", "Show the style prompt"],
-      commands,
-    };
+    return buildMaestroVocalEmbedTurn(snapshot, text);
   }
 
   const wantsStyle = /\b(show|preview|build|give me|copy)\b.*\b(style|prompt)\b|\bstyle prompt\b/i.test(lower);
@@ -769,6 +792,9 @@ export function defaultMaestroSuggestions(snapshot = {}) {
   }
   if (!snapshot.hasMusicGenSketch && snapshot.musicGenAvailable) {
     suggestions.push("Generate a MusicGen preview");
+  }
+  if (snapshot.hasAudioAnalysis && snapshot.vocal && snapshot.vocal !== "Instrumental") {
+    suggestions.push("Show vocal embed plan");
   }
   suggestions.push("Make it darker", "Show the style prompt", "Write lyrics");
   return suggestions.slice(0, 4);

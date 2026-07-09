@@ -7,8 +7,10 @@ import { buildMoodWords } from "./music-helpers";
 import { buildMusicGenPrompt } from "./musicgen-prompt";
 import {
   buildMaestroStylePreview,
+  buildMaestroVocalEmbedTurn,
   defaultMaestroSuggestions,
   mergeMaestroSnapshot,
+  wantsVocalEmbedQuery,
 } from "./maestro-chat-engine";
 import { SUNO_STYLE_CHAR_CAP } from "./suno-limits";
 
@@ -34,10 +36,11 @@ function wantsHooksArtifact(text) {
  * @param {string} [userMessage]
  */
 export function enrichMaestroLlmResult(result, snapshot, userMessage = "") {
-  const commands = result.commands || [];
+  const commands = [...(result.commands || [])];
   const merged = mergeMaestroSnapshot(snapshot, result.patch);
   const artifacts = { ...(result.artifacts || {}) };
   const lower = String(userMessage || "").toLowerCase();
+  let reply = result.reply;
 
   if (
     (commands.includes("generateMusicGen") || commands.includes("generateMusicGenMelody")) &&
@@ -104,11 +107,28 @@ export function enrichMaestroLlmResult(result, snapshot, userMessage = "") {
     artifacts.hooks = hookResult.hooks;
   }
 
+  const asksVocalEmbed =
+    wantsVocalEmbedQuery(lower) || commands.includes("focusVocalEmbed");
+  if (asksVocalEmbed && !String(artifacts.vocalEmbedBrief || "").trim()) {
+    const embedTurn = buildMaestroVocalEmbedTurn(snapshot, userMessage);
+    if (embedTurn.artifacts?.vocalEmbedBrief) {
+      artifacts.vocalEmbedBrief = embedTurn.artifacts.vocalEmbedBrief;
+    }
+    if (!commands.includes("focusVocalEmbed") && embedTurn.commands?.includes("focusVocalEmbed")) {
+      commands.push("focusVocalEmbed");
+    }
+    if (!String(reply || "").trim() || reply === "…") {
+      reply = embedTurn.reply;
+    }
+  }
+
   const suggestions = (result.suggestions || []).filter(Boolean).slice(0, 4);
   const hasArtifacts = Object.values(artifacts).some((v) => String(v || "").trim());
 
   return {
     ...result,
+    reply,
+    commands,
     artifacts: hasArtifacts ? artifacts : null,
     suggestions: suggestions.length ? suggestions : defaultMaestroSuggestions(snapshot),
   };

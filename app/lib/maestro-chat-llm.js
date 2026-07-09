@@ -50,6 +50,7 @@ const MaestroArtifactsSchema = z
     lyrics: z.coerce.string().max(4000).optional(),
     hooks: z.coerce.string().max(2000).optional(),
     useHighlightMelody: z.coerce.boolean().optional(),
+    vocalEmbedBrief: z.coerce.string().max(4000).optional(),
   })
   .strict();
 
@@ -100,6 +101,10 @@ export function buildMaestroLlmMessages(history, snapshot) {
       musicGenAvailable: !!snapshot.musicGenAvailable,
       hasMusicGenSketch: !!snapshot.hasMusicGenSketch,
       hasHighlightMelody: !!snapshot.hasHighlightMelody,
+      hasVocalAlign: !!snapshot.hasVocalAlign,
+      vocalAlignMethod: snapshot.vocalAlignMethod || null,
+      vocalAlignWordCount: snapshot.vocalAlignWordCount ?? null,
+      openvpiDsSegmentCount: snapshot.openvpiDsSegmentCount ?? 0,
     },
     null,
     0,
@@ -118,7 +123,8 @@ Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch":
   - gotoPolish/gotoFinal: jump the guided path to the Polish or final copy step when the user asks to move on.
   - generateMusicGen: render a short MusicGen WAV preview from the current project style (only when musicGenAvailable is true and the user asks for a demo/preview/sketch). Often pair with gotoPolish.
   - generateMusicGenMelody: same as generateMusicGen but conditions on the loaded track audio (melody mode). Use when the user asks to regenerate with melody or has a MusicGen sketch loaded.
-- "artifacts": optional { "musicGenPrompt"?: string, "stylePrompt"?: string (≤1000 chars), "lyrics"?: string, "hooks"?: string, "useHighlightMelody"?: boolean }. When the user asks to see/copy style, lyrics, or hooks, populate these fields directly in JSON (do not leave null and rely on offline fill). Set useHighlightMelody true with generateMusicGenMelody when the user wants the waveform highlight region only.
+  - focusVocalEmbed: scroll to Vocal Embed Studio when the user asks about vocal embed, OpenVPI, DiffSinger, or .ds export (requires hasAudioAnalysis for a useful brief).
+- "artifacts": optional { "musicGenPrompt"?: string, "stylePrompt"?: string (≤1000 chars), "lyrics"?: string, "hooks"?: string, "useHighlightMelody"?: boolean, "vocalEmbedBrief"?: string }. When the user asks to see/copy style, lyrics, or hooks, populate these fields directly in JSON (do not leave null and rely on offline fill). Set useHighlightMelody true with generateMusicGenMelody when the user wants the waveform highlight region only. For vocal embed / OpenVPI questions, set focusVocalEmbed in commands and optionally include vocalEmbedBrief (short studio status); the app can fill the brief offline when omitted.
 - "suggestions": optional string[] (max 4 short follow-up chips, e.g. "Make it darker", "Show the style prompt", "Generate a MusicGen preview").
 Only patch what the user asked to change. Never invent fields outside the allowed keys.`;
 
