@@ -174,7 +174,12 @@ export function compactAudioStyleRule(a) {
   ].filter(Boolean);
 
   const core = parts.join(" │ ");
-  return truncateAnalyzerRuleLine(`AUDIO: ${core}`);
+  let rule = truncateAnalyzerRuleLine(`AUDIO: ${core}`);
+  const mgPrompt = normalizeSpace(a.musicGenPrompt || "");
+  if (a.sourceEngine === "musicgen" && mgPrompt) {
+    rule = truncateAnalyzerRuleLine(`${rule} │ MG:${mgPrompt.slice(0, 120)}`);
+  }
+  return rule;
 }
 
 /**

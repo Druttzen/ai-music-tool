@@ -64,6 +64,7 @@ def generate_music_wav(
     prompt: str,
     *,
     duration_sec: float = 10.0,
+    melody_wav: bytes | None = None,
     device: str = "cpu",
 ) -> tuple[bytes, dict[str, Any]]:
     """Return WAV bytes and metadata for a text prompt."""
@@ -81,7 +82,23 @@ def generate_music_wav(
     import torch  # noqa: PLC0415
 
     with torch.inference_mode():
-        wav = model.generate([text], progress=False)
+        if melody_wav:
+            import io as _io  # noqa: PLC0415
+
+            import librosa  # noqa: PLC0415
+
+            y, melody_sr = librosa.load(_io.BytesIO(melody_wav), sr=None, mono=True)
+            melody_tensor = torch.from_numpy(y).float().unsqueeze(0)
+            wav = model.generate_with_chroma(
+                [text],
+                melody_tensor,
+                melody_sr,
+                progress=False,
+            )
+            mode = "melody"
+        else:
+            wav = model.generate([text], progress=False)
+            mode = "text"
 
     import numpy as np  # noqa: PLC0415
     import soundfile as sf  # noqa: PLC0415
@@ -103,5 +120,6 @@ def generate_music_wav(
         "duration_sec": duration,
         "sample_rate": _TARGET_SR,
         "device": _select_torch_device(device),
+        "mode": mode,
     }
     return buf.getvalue(), meta

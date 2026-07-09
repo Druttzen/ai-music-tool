@@ -346,6 +346,11 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
                     onCopy={() => copyToClipboard(m.artifacts.stylePrompt, "Style prompt copied")}
                   />
                   <ArtifactBlock
+                    label="MusicGen prompt"
+                    text={m.artifacts.musicGenPrompt}
+                    onCopy={() => copyToClipboard(m.artifacts.musicGenPrompt, "MusicGen prompt copied")}
+                  />
+                  <ArtifactBlock
                     label="Lyrics draft"
                     text={m.artifacts.lyrics}
                     onCopy={() => copyToClipboard(m.artifacts.lyrics, "Lyrics copied")}

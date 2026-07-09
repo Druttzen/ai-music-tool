@@ -17,10 +17,12 @@ import {
 import {
   fetchSidecarHealth,
   fetchVocalEmbedModels,
+  previewVocalAlignViaSidecar,
   submitVocalEmbedPlanToSidecar,
   synthesizeVocalEmbedViaSidecar,
   waitForSidecar,
 } from "../lib/sidecar-bridge";
+import { exportVocalEmbedHandoffPack } from "../lib/vocal-embed-handoff";
 import { Panel } from "./ui-blocks";
 
 export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
@@ -43,6 +45,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const [sidecarBusy, setSidecarBusy] = useState(false);
   const [sidecarHealth, setSidecarHealth] = useState(null);
   const [vocalModels, setVocalModels] = useState(null);
+  const [alignPreview, setAlignPreview] = useState(null);
   const guideInputRef = useRef(null);
 
   useEffect(() => {
@@ -119,6 +122,56 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     }
     return null;
   }, [audioAnalysis, audioPreviewUrl]);
+
+  const exportHandoffPack = useCallback(async () => {
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete the plan before exporting handoff pack", "warning");
+      return;
+    }
+    const instrumental = await resolveInstrumentalBlob();
+    await exportVocalEmbedHandoffPack({
+      planEnvelope: buildVocalEmbedExport(plan),
+      instrumental,
+      instrumentalName: audioAnalysis?.fileName || "instrumental.wav",
+      guideVocal: guideVocalFile,
+      guideName: guideVocalFile?.name || "guide-vocal.wav",
+    });
+    setStatusWithTime("Vocal embed handoff pack downloaded (plan + README + audio files)", "success");
+  }, [audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
+
+  const previewAlignment = useCallback(async () => {
+    if (!guideVocalFile) {
+      setStatusWithTime("Attach a guide vocal to preview word alignment", "warning");
+      return;
+    }
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete lyrics and voice style first", "warning");
+      return;
+    }
+    setSidecarBusy(true);
+    try {
+      const ready = await waitForSidecar(15_000);
+      if (!ready) {
+        setStatusWithTime("Start the sidecar first", "warning");
+        return;
+      }
+      const payload = buildVocalEmbedExport(plan);
+      const preview = await previewVocalAlignViaSidecar(
+        payload,
+        guideVocalFile,
+        guideVocalFile.name,
+      );
+      setAlignPreview(preview);
+      setStatusWithTime(
+        `Alignment preview: ${preview.align_method} · ${preview.word_count} words`,
+        preview.align_method === "mfa" ? "success" : "info",
+      );
+    } catch (err) {
+      setStatusWithTime(err instanceof Error ? err.message : "Alignment preview failed", "error");
+    } finally {
+      setSidecarBusy(false);
+    }
+  }, [guideVocalFile, plan, setStatusWithTime]);
 
   const submitToSidecar = useCallback(async () => {
     if (plan.stage !== "ready") {
@@ -292,7 +345,24 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           >
             OpenVPI {vocalModels?.diffsinger_openvpi?.ready ? "ready" : "off"}
           </span>
+          <span
+            className={`rounded-full px-2 py-1 font-bold ${
+              vocalModels?.align?.mfa_configured
+                ? "bg-amber-500/15 text-amber-100"
+                : "bg-white/10 text-white/45"
+            }`}
+          >
+            MFA {vocalModels?.align?.mfa_configured ? "configured" : "heuristic"}
+          </span>
         </div>
+      ) : null}
+
+      {alignPreview ? (
+        <p className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-100/90">
+          Last alignment preview: <strong>{alignPreview.align_method}</strong> — {alignPreview.word_count}{" "}
+          aligned words across {alignPreview.sections?.length || 0} sections.
+          {alignPreview.align_method === "heuristic" ? " Install MFA env vars for tighter timing." : ""}
+        </p>
       ) : null}
 
       {vocalModels?.diffsinger_openvpi?.configured ? (
@@ -439,6 +509,15 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
                 </span>
               </div>
               <div className="mt-1 text-[10px] text-white/40">{section.lineCount} singable lines</div>
+              {alignPreview?.sections?.[index]?.alignedWords?.length ? (
+                <div className="mt-1 text-[10px] text-amber-100/80">
+                  {alignPreview.sections[index].alignedWords
+                    .slice(0, 6)
+                    .map((w) => w.word)
+                    .join(" ")}
+                  {alignPreview.sections[index].alignedWords.length > 6 ? "…" : ""}
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -467,6 +546,22 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
         >
           Export vocal embed plan JSON
+        </button>
+        <button
+          type="button"
+          disabled={sidecarBusy || plan.stage !== "ready"}
+          onClick={() => void exportHandoffPack()}
+          className="rounded-2xl border border-violet-400/35 bg-violet-500/15 px-4 py-2 text-sm font-bold text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+        >
+          Export handoff pack
+        </button>
+        <button
+          type="button"
+          disabled={sidecarBusy || !guideVocalFile || plan.stage !== "ready"}
+          onClick={() => void previewAlignment()}
+          className="rounded-2xl border border-amber-400/35 bg-amber-500/15 px-4 py-2 text-sm font-bold text-amber-100 hover:bg-amber-500/25 disabled:opacity-40"
+        >
+          Preview MFA / heuristic alignment
         </button>
         <button
           type="button"

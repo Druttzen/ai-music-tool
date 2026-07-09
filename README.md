@@ -1,8 +1,21 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.13.7**
+**Version 0.14.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.14.0)
+
+- **MusicGen → Suno loop** — generate & play merges into Suno fields (AUDIO + MG prompt line); librosa re-analyze on generated WAV; melody conditioning from current track (`POST /generate/melody`).
+- **WaveSurfer default** — pro waveform editor on by default (classic highlight editor opt-out via localStorage).
+- **Vocal Embed depth** — MFA/heuristic alignment preview, handoff pack export, RVC smoke spec (skips unless configured).
+- **CC0 tag filters** — filter 400 community concepts by genre keyword in Style Prompt Library.
+- **Co-producer / Maestro** — MusicGen sketch hints and Maestro `musicGenPrompt` artifact.
+
+## Highlights (v0.13.9)
+
+- **MusicGen playback** — Generate & play loads WAV into track analyzer waveform; Maestro/co-producer can trigger sketches.
+- **CC0 library** — **400 concepts** (cap reached).
 
 ## Highlights (v0.13.7)
 

@@ -450,7 +450,7 @@ export function buildMaestroReply(message, snapshot, options = {}) {
         reply: `Generating a MusicGen sketch from your current style — prompt: “${musicGenPrompt.slice(0, 120)}${musicGenPrompt.length > 120 ? "…" : ""}”. Opening Polish so you can play it in the waveform and merge into Suno.`,
         patch: null,
         artifacts,
-        suggestions: ["Merge the track analysis", "Show the style prompt", "Make it darker"],
+        suggestions: ["Regenerate MusicGen preview", "Merge the track analysis", "Show the style prompt", "Make it darker"],
         commands,
       };
     }

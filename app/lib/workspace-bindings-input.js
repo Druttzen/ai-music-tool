@@ -14,6 +14,7 @@ export function pickProjectActionInput(projectState, analyzers, pipeline, snapsh
     applyAudioToSunoStyle: analyzers.applyAudioToSunoStyle,
     audioAnalysis: analyzers.audioAnalysis,
     audioPreviewUrl: analyzers.audioPreviewUrl,
+    sidecarGenerateAvailable: analyzers.sidecarGenerateAvailable,
     avgScore: externals.avgScore,
     captureSnapshot: snapshot.captureSnapshot,
     coProducerLlmSettings: projectState.coProducerLlmSettings,

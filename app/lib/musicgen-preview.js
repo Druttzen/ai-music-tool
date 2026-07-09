@@ -6,7 +6,7 @@ import { analyzeAudioBuffer } from "./audio-analyzer";
 
 /**
  * @param {Blob|File} blob
- * @param {{ prompt?: string, model?: string, durationSec?: number, fileName?: string }} meta
+ * @param {{ prompt?: string, model?: string, durationSec?: number, fileName?: string, mode?: string }} meta
  */
 export async function buildMusicGenAnalysisReport(blob, meta = {}) {
   const fileName = meta.fileName || `musicgen-preview-${Date.now()}.wav`;
@@ -35,11 +35,34 @@ export async function buildMusicGenAnalysisReport(blob, meta = {}) {
     musicGenPrompt: prompt,
     musicGenModel: model,
     musicGenDurationSec: durationSec,
+    musicGenMode: meta.mode || "text",
     trackSummary: prompt
       ? `MusicGen preview (${model}, ${durationSec}s): ${prompt.slice(0, 160)}`
       : report.trackSummary,
     vocals: "Instrumental (MusicGen)",
   };
+}
+
+export async function enrichMusicGenReportWithSidecar(file, report) {
+  try {
+    const { analyzeAudioViaSidecar } = await import("./sidecar-bridge");
+    const { mergeSidecarAnalysis } = await import("./audio-analyzer-sidecar");
+    const sidecar = await analyzeAudioViaSidecar(file, file.name);
+    const merged = mergeSidecarAnalysis(report, sidecar);
+    return {
+      ...merged,
+      sourceEngine: "musicgen",
+      musicGenPrompt: report.musicGenPrompt,
+      musicGenModel: report.musicGenModel,
+      musicGenDurationSec: report.musicGenDurationSec,
+      musicGenMode: report.musicGenMode,
+      analysisEngine: "musicgen+sidecar",
+      trackSummary: report.trackSummary,
+      vocals: report.vocals,
+    };
+  } catch {
+    return report;
+  }
 }
 
 /** @param {Blob|File} blob @param {string} [fileName] */

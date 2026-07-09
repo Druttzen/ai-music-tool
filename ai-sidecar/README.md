@@ -73,6 +73,24 @@ curl -X POST http://127.0.0.1:8723/generate \
 
 Override model: `AIMC_MUSICGEN_MODEL=facebook/musicgen-medium` (default: `facebook/musicgen-small`).
 
+Melody conditioning (continue from a reference clip):
+
+```bash
+curl -X POST http://127.0.0.1:8723/generate/melody \
+  -F "prompt=dark techno continuation, 128 bpm" \
+  -F "duration_sec=10" \
+  -F "melody=@reference.wav" \
+  --output musicgen-melody-preview.wav
+```
+
+Alignment preview for Vocal Embed (MFA or heuristic):
+
+```bash
+curl -X POST http://127.0.0.1:8723/vocal-embed/align-preview \
+  -F "plan_json=@vocal-embed-plan.json" \
+  -F "guide_vocal=@guide.wav"
+```
+
 ## Vocal Embed Studio
 
 The app's **Vocal Embed Studio** creates a local handoff plan for adding vocals to an

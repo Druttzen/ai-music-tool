@@ -4,20 +4,29 @@ import { memo, useState } from "react";
 
 /**
  * Shared MusicGen prompt + duration controls.
- * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: { attach?: boolean, download?: boolean }) => void, compact?: boolean }} props
+ * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, canUseMelodyReference?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: { attach?: boolean, download?: boolean, mergeAfterGenerate?: boolean, useMelodyReference?: boolean }) => void, compact?: boolean }} props
  */
 export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   defaultPrompt = "",
   busy = false,
   available = false,
+  canUseMelodyReference = false,
   onGenerate,
   compact = false,
 }) {
   const [promptOverride, setPromptOverride] = useState(null);
   const [durationSec, setDurationSec] = useState(10);
+  const [mergeAfterGenerate, setMergeAfterGenerate] = useState(true);
+  const [useMelodyReference, setUseMelodyReference] = useState(false);
   const prompt = promptOverride ?? defaultPrompt ?? "";
 
   if (!onGenerate) return null;
+
+  const genOptions = (extra = {}) => ({
+    mergeAfterGenerate,
+    useMelodyReference: canUseMelodyReference && useMelodyReference,
+    ...extra,
+  });
 
   return (
     <section
@@ -58,13 +67,33 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           ))}
         </select>
       </label>
+      <label className="flex items-center gap-2 text-[10px] text-white/55">
+        <input
+          type="checkbox"
+          checked={mergeAfterGenerate}
+          disabled={busy}
+          onChange={(e) => setMergeAfterGenerate(e.target.checked)}
+        />
+        Merge into Suno fields after generate
+      </label>
+      {canUseMelodyReference ? (
+        <label className="flex items-center gap-2 text-[10px] text-white/55">
+          <input
+            type="checkbox"
+            checked={useMelodyReference}
+            disabled={busy}
+            onChange={(e) => setUseMelodyReference(e.target.checked)}
+          />
+          Condition on current track audio (melody mode)
+        </label>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           disabled={busy || !available}
           onClick={(e) => {
             e.preventDefault();
-            onGenerate(prompt, durationSec, { attach: true });
+            onGenerate(prompt, durationSec, { attach: true, ...genOptions() });
           }}
           className="min-w-[140px] flex-1 rounded-xl border border-violet-400/35 bg-violet-500/20 py-2 text-xs font-bold text-violet-50 hover:bg-violet-500/30 disabled:opacity-50"
         >
@@ -75,7 +104,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           disabled={busy || !available}
           onClick={(e) => {
             e.preventDefault();
-            onGenerate(prompt, durationSec, { attach: false, download: true });
+            onGenerate(prompt, durationSec, { attach: false, download: true, ...genOptions() });
           }}
           className="rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-[10px] font-semibold text-white/70 hover:text-white disabled:opacity-50"
         >

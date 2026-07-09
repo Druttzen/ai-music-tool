@@ -16,12 +16,12 @@ import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 
-const ENABLE_WAVESURFER_PROTOTYPE = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE === "1";
-const WAVESURFER_LS_KEY = "aimc-wavesurfer-prototype";
+const ENABLE_WAVESURFER_DEFAULT = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE !== "0";
+const WAVESURFER_CLASSIC_LS_KEY = "aimc-classic-waveform";
 
-function readWaveSurferPrototypePref() {
-  if (typeof window === "undefined") return ENABLE_WAVESURFER_PROTOTYPE;
-  return ENABLE_WAVESURFER_PROTOTYPE || window.localStorage.getItem(WAVESURFER_LS_KEY) === "1";
+function readWaveSurferPref() {
+  if (typeof window === "undefined") return ENABLE_WAVESURFER_DEFAULT;
+  return window.localStorage.getItem(WAVESURFER_CLASSIC_LS_KEY) !== "1";
 }
 
 function TagField({ label, hint, value, onChange, placeholder }) {
@@ -84,7 +84,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   const [playhead, setPlayhead] = useState(null);
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
-  const [waveSurferPrototype, setWaveSurferPrototype] = useState(() => readWaveSurferPrototypePref());
+  const [waveSurferPrototype, setWaveSurferPrototype] = useState(() => readWaveSurferPref());
   const rafRef = useRef(null);
 
   const seekAudio = useCallback(
@@ -202,8 +202,8 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               setWaveSurferPrototype((on) => {
                 const next = !on;
                 if (typeof window !== "undefined") {
-                  if (next) window.localStorage.setItem(WAVESURFER_LS_KEY, "1");
-                  else window.localStorage.removeItem(WAVESURFER_LS_KEY);
+                  if (next) window.localStorage.removeItem(WAVESURFER_CLASSIC_LS_KEY);
+                  else window.localStorage.setItem(WAVESURFER_CLASSIC_LS_KEY, "1");
                 }
                 return next;
               });
@@ -214,7 +214,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
                 : "border-white/15 bg-white/5 text-white/55 hover:bg-white/10"
             }`}
           >
-            {waveSurferPrototype ? "WaveSurfer prototype on" : "Try WaveSurfer prototype"}
+            {waveSurferPrototype ? "WaveSurfer editor on" : "Use classic highlight editor"}
           </button>
         </div>
         <p className="text-xs text-white/75">{analysis.highlightLabel}</p>
@@ -478,6 +478,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           defaultPrompt={defaultMusicGenPrompt}
           busy={generateMusicBusy || exportBusy}
           available={sidecarGenerateAvailable}
+          canUseMelodyReference={!!audioUrl}
           onGenerate={onGenerateMusic}
         />
       ) : null}

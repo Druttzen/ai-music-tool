@@ -41,6 +41,7 @@ from .vocal_ml_models import (
     rvc_ready,
     vocal_model_status,
 )
+from .vocal_align import align_plan_with_guide, mfa_configured
 from .vocal_synth import (
     parse_plan_envelope,
     synthesis_stack_available,
@@ -435,8 +436,92 @@ async def generate_music(body: GenerateRequest):
         headers={
             "X-MusicGen-Model": str(meta.get("model") or active_musicgen_model_id()),
             "X-MusicGen-Duration-Sec": str(meta.get("duration_sec") or body.duration_sec),
+            "X-MusicGen-Mode": str(meta.get("mode") or "text"),
         },
     )
+
+
+@app.post("/generate/melody")
+async def generate_music_with_melody(
+    prompt: str = Form(...),
+    duration_sec: float = Form(10.0),
+    melody: UploadFile = File(...),
+):
+    """MusicGen with melody conditioning from a reference WAV/MP3 clip."""
+    if not generation_available():
+        raise HTTPException(
+            status_code=503,
+            detail="generation deps missing — pip install -e ai-sidecar[generate]",
+        )
+
+    text = str(prompt or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    melody_raw = await melody.read()
+    if not melody_raw:
+        raise HTTPException(status_code=400, detail="empty melody upload")
+
+    device = _select_device()
+    try:
+        wav_bytes, meta = generate_music_wav(
+            text,
+            duration_sec=duration_sec,
+            melody_wav=melody_raw,
+            device=device,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.write(wav_bytes)
+    tmp.close()
+    return FileResponse(
+        tmp.name,
+        media_type="audio/wav",
+        filename="musicgen-melody-preview.wav",
+        headers={
+            "X-MusicGen-Model": str(meta.get("model") or active_musicgen_model_id()),
+            "X-MusicGen-Duration-Sec": str(meta.get("duration_sec") or duration_sec),
+            "X-MusicGen-Mode": "melody",
+        },
+    )
+
+
+@app.post("/vocal-embed/align-preview")
+async def vocal_embed_align_preview(
+    plan_json: str = Form(...),
+    guide_vocal: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Preview per-section word alignment from a guide vocal (MFA or heuristic)."""
+    try:
+        plan = parse_plan_envelope(plan_json)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    guide_raw = await guide_vocal.read()
+    if not guide_raw:
+        raise HTTPException(status_code=400, detail="empty guide vocal upload")
+
+    try:
+        import librosa  # noqa: PLC0415
+        import numpy as np  # noqa: PLC0415
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"alignment deps missing: {exc}") from exc
+
+    y, sr = librosa.load(io.BytesIO(guide_raw), sr=None, mono=True)
+    aligned_plan = align_plan_with_guide(plan, np.asarray(y, dtype=np.float32), int(sr))
+    method = "mfa" if mfa_configured() else "heuristic"
+    sections = aligned_plan.get("sections") or []
+    word_count = sum(len(s.get("alignedWords") or []) for s in sections if isinstance(s, dict))
+    return {
+        "align_method": method,
+        "mfa_configured": mfa_configured(),
+        "word_count": word_count,
+        "sections": sections,
+    }
 
 
 def _load_demucs(model_name: str):

@@ -394,7 +394,7 @@ export async function analyzeImageViaSidecar(
 export async function generateMusicViaSidecar(
   prompt: string,
   durationSec = 10,
-): Promise<{ blob: Blob; model: string | null; durationSec: number | null }> {
+): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const res = await fetch(`${sidecarBaseUrl()}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -416,5 +416,77 @@ export async function generateMusicViaSidecar(
     blob: await res.blob(),
     model: res.headers.get("X-MusicGen-Model"),
     durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
+    mode: res.headers.get("X-MusicGen-Mode"),
   };
+}
+
+/** POST prompt + melody reference clip to /generate/melody. */
+export async function generateMusicWithMelodyViaSidecar(
+  prompt: string,
+  durationSec: number,
+  melody: Blob,
+  melodyName = "melody-reference.wav",
+): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
+  const form = new FormData();
+  form.append("prompt", prompt);
+  form.append("duration_sec", String(durationSec));
+  form.append("melody", melody, melodyName);
+
+  const res = await fetch(`${sidecarBaseUrl()}/generate/melody`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar melody generate failed (${res.status})`);
+  }
+
+  return {
+    blob: await res.blob(),
+    model: res.headers.get("X-MusicGen-Model"),
+    durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
+    mode: res.headers.get("X-MusicGen-Mode") || "melody",
+  };
+}
+
+export interface VocalAlignPreviewResponse {
+  align_method: string;
+  mfa_configured: boolean;
+  word_count: number;
+  sections: object[];
+}
+
+export async function previewVocalAlignViaSidecar(
+  envelope: Record<string, unknown>,
+  guideVocal: Blob,
+  guideName = "guide-vocal.wav",
+): Promise<VocalAlignPreviewResponse> {
+  const form = new FormData();
+  form.append("plan_json", JSON.stringify(envelope));
+  form.append("guide_vocal", guideVocal, guideName);
+
+  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/align-preview`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `align preview failed (${res.status})`);
+  }
+
+  return res.json() as Promise<VocalAlignPreviewResponse>;
 }

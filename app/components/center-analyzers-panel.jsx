@@ -165,6 +165,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                   defaultPrompt={defaultMusicGenPrompt}
                   busy={generateMusicBusy}
                   available={sidecarGenerateAvailable}
+                  canUseMelodyReference={!!audioPreviewUrl}
                   onGenerate={generateMusicFromPrompt}
                   compact
                 />

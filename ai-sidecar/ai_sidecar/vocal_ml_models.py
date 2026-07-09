@@ -72,6 +72,8 @@ def full_ml_vocal_models_available() -> bool:
 
 
 def vocal_model_status() -> dict[str, Any]:
+    from .vocal_align import mfa_configured as mfa_align_ready  # noqa: PLC0415
+
     model_path = _env_path("AIMC_RVC_MODEL")
     index_path = _env_path("AIMC_RVC_INDEX")
     return {
@@ -90,6 +92,9 @@ def vocal_model_status() -> dict[str, Any]:
         "diffsinger_model_dir": os.environ.get("AIMC_DIFFSINGER_MODEL_DIR", "").strip() or None,
         "diffsinger_openvpi": openvpi_status(),
         "models_ready": full_ml_vocal_models_available(),
+        "align": {
+            "mfa_configured": mfa_align_ready(),
+        },
     }
 
 

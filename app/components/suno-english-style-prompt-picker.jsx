@@ -5,6 +5,7 @@ import {
   buildEnglishSunoStylePromptSections,
   getEnglishSunoStylePromptStats,
 } from "../lib/suno-english-style-index";
+import { awesomeSunoConceptTags } from "../lib/awesome-suno-concepts-synced";
 import { generateMetaphorStyle, metaphorToCatalogHints } from "../lib/metaphor-style";
 import { Pill } from "./ui-blocks";
 
@@ -61,7 +62,13 @@ export function StylePromptPicker({
   const [open, setOpen] = useState(defaultOpen);
   const [sectionKey, setSectionKey] = useState("all");
   const [query, setQuery] = useState("");
+  const [cc0TagFilter, setCc0TagFilter] = useState("all");
   const [selected, setSelected] = useState(() => new Set());
+
+  const cc0TagOptions = useMemo(() => {
+    const tags = new Set(Object.values(awesomeSunoConceptTags || {}));
+    return ["all", ...Array.from(tags).sort()];
+  }, []);
 
   const idToItem = useMemo(() => {
     const m = new Map();
@@ -79,6 +86,13 @@ export function StylePromptPicker({
     for (const sec of sections) {
       if (sectionKey !== "all" && sec.sectionId !== sectionKey) continue;
       for (const it of sec.items) {
+        if (
+          sectionKey === "cat-awesomeSunoConcepts" &&
+          cc0TagFilter !== "all" &&
+          awesomeSunoConceptTags?.[it.text] !== cc0TagFilter
+        ) {
+          continue;
+        }
         if (q) {
           const hay = `${it.text} ${it.label || ""} ${sec.sectionTitle}`.toLowerCase();
           if (!hay.includes(q)) continue;
@@ -93,7 +107,7 @@ export function StylePromptPicker({
     const needsSearch = sectionKey === "all" && q.length < SEARCH_MIN_ALL;
 
     return { visibleItems: needsSearch ? [] : out, visibleTotal: total, searchRequired: needsSearch };
-  }, [sections, sectionKey, query]);
+  }, [sections, sectionKey, query, cc0TagFilter]);
 
   const toggle = useCallback((id) => {
     setSelected((prev) => {
@@ -284,6 +298,25 @@ export function StylePromptPicker({
               />
             </label>
           </div>
+
+          {sectionKey === "cat-awesomeSunoConcepts" ? (
+            <div className="flex flex-wrap gap-1.5">
+              {cc0TagOptions.slice(0, 24).map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setCc0TagFilter(tag)}
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    cc0TagFilter === tag
+                      ? "bg-violet-500/25 text-violet-100"
+                      : "bg-white/5 text-white/50 hover:bg-white/10"
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <button

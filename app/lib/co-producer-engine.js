@@ -56,6 +56,7 @@ export function buildCoProducerAdvisoryReport({
   lyricTheme,
   promptIntensity,
   mode,
+  musicGenAvailable = false,
 }) {
   const suggestions = [];
   const fixesToApply = [];
@@ -93,6 +94,11 @@ export function buildCoProducerAdvisoryReport({
   }
   if (promptIntensity > 75 && mode === "Control") {
     suggestions.push("Prompt intensity is high but mode is Control. Switch to Hybrid or lower intensity.");
+  }
+  if (musicGenAvailable && selectedGenres.length < 2) {
+    suggestions.push(
+      "Genre identity is thin — try MusicGen sketch (Co-Producer buttons or Polish analyzers) for a local reference loop before Suno.",
+    );
   }
 
   const moodDirective =

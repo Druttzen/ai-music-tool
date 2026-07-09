@@ -84,6 +84,7 @@ import { buildSunoVoiceStyleLine, formatPublicName } from "../lib/suno-voice-sty
 export function useProjectActions({
   audioAnalysis,
   audioPreviewUrl,
+  sidecarGenerateAvailable,
   avgScore,
   captureSnapshot,
   coProducerLlmSettings,
@@ -667,6 +668,7 @@ export function useProjectActions({
       lyricTheme,
       promptIntensity,
       mode,
+      musicGenAvailable: !!sidecarGenerateAvailable,
     });
     patch(coPatch);
     setCoProducerOutput(output);
@@ -687,6 +689,7 @@ export function useProjectActions({
     selectedSounds,
     setCoProducerOutput,
     setNotes,
+    sidecarGenerateAvailable,
     setStatusWithTime,
     tempo,
     vocal,

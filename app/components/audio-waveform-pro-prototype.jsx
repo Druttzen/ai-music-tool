@@ -4,8 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { formatTime } from "../lib/audio-analyzer";
 
 /**
- * Disabled-by-default wavesurfer.js prototype. The stable custom editor remains
- * authoritative; this component exists to evaluate Regions/Timeline UX safely.
+ * WaveSurfer.js highlight editor (default). Classic canvas editor available via toggle.
  */
 export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype({
   audioUrl,

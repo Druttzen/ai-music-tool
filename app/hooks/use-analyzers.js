@@ -29,10 +29,10 @@ import {
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
 import { mergeSidecarAnalysis, buildSidecarFallbackReport } from "../lib/audio-analyzer-sidecar";
-import { buildMusicGenAnalysisReport, downloadMusicGenBlob } from "../lib/musicgen-preview";
+import { buildMusicGenAnalysisReport, downloadMusicGenBlob, enrichMusicGenReportWithSidecar } from "../lib/musicgen-preview";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
-import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
@@ -739,26 +739,57 @@ export function useAnalyzers({
           setSidecarGenerateAvailable(false);
           return;
         }
-        const { blob, model, durationSec: dur } = await generateMusicViaSidecar(text, durationSec);
+        const { blob, model, durationSec: dur, mode } = options.useMelodyReference
+          ? await (async () => {
+              let melodyBlob = options.melodyBlob;
+              if (!melodyBlob && audioPreviewUrlRef.current) {
+                const res = await fetch(audioPreviewUrlRef.current);
+                melodyBlob = await res.blob();
+              }
+              if (!melodyBlob) {
+                throw new Error("No melody reference — load a track in the analyzer first");
+              }
+              return generateMusicWithMelodyViaSidecar(
+                text,
+                durationSec,
+                melodyBlob,
+                audioAnalysis?.fileName || "melody-reference.wav",
+              );
+            })()
+          : await generateMusicViaSidecar(text, durationSec);
         const resolvedDuration = dur || durationSec;
         const fileName = `musicgen-preview-${Date.now()}.wav`;
         const file =
           blob instanceof File ? blob : new File([blob], fileName, { type: blob.type || "audio/wav" });
 
         if (attach) {
-          const report = await buildMusicGenAnalysisReport(file, {
+          let report = await buildMusicGenAnalysisReport(file, {
             prompt: text,
             model,
             durationSec: resolvedDuration,
             fileName,
+            mode: mode || (options.useMelodyReference ? "melody" : "text"),
           });
+          report = await enrichMusicGenReportWithSidecar(file, report);
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
           syncCacheKeysRef(report);
-          setStatusWithTime(
-            `MusicGen preview loaded in player (${model || "musicgen"} · ${resolvedDuration}s) — merge into Suno or export WAV`,
-            "success",
-          );
+
+          if (options.mergeAfterGenerate !== false) {
+            applyAnalyzerPatch(buildAudioAnalyzerPatch(report, formatTime));
+            if (promptEngine === "Suno-like") {
+              navigateToPolishStep();
+            }
+            setStatusWithTime(
+              `MusicGen preview merged into Suno fields (${model || "musicgen"} · ${resolvedDuration}s${mode === "melody" ? " · melody" : ""})`,
+              "success",
+            );
+          } else {
+            setStatusWithTime(
+              `MusicGen preview loaded in player (${model || "musicgen"} · ${resolvedDuration}s) — merge when ready`,
+              "success",
+            );
+          }
         }
 
         if (download) {
@@ -777,7 +808,7 @@ export function useAnalyzers({
         setGenerateMusicBusy(false);
       }
     },
-    [generateMusicBusy, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
+    [applyAnalyzerPatch, generateMusicBusy, navigateToPolishStep, promptEngine, audioAnalysis, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
   );
 
   const downloadStem = useCallback(
