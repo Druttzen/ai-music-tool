@@ -14,6 +14,7 @@ import {
 import { clamp } from "../lib/music-helpers";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
+import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 
 const ENABLE_WAVESURFER_PROTOTYPE = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE === "1";
 const WAVESURFER_LS_KEY = "aimc-wavesurfer-prototype";
@@ -54,7 +55,7 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, onSeparateStems?: () => void, onDownloadStem?: (stem: object) => void, stemSeparationBusy?: boolean, stemSeparationStems?: object[], onGenerateMusic?: (prompt: string, durationSec?: number) => void, generateMusicBusy?: boolean, sidecarGenerateAvailable?: boolean, defaultMusicGenPrompt?: string, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, onSeparateStems?: () => void, onDownloadStem?: (stem: object) => void, stemSeparationBusy?: boolean, stemSeparationStems?: object[], onGenerateMusic?: (prompt: string, durationSec?: number, options?: { attach?: boolean, download?: boolean }) => void, generateMusicBusy?: boolean, sidecarGenerateAvailable?: boolean, defaultMusicGenPrompt?: string, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
 export const AudioTrackEditor = memo(function AudioTrackEditor({
   analysis,
@@ -83,9 +84,6 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   const [playhead, setPlayhead] = useState(null);
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
-  const [musicGenOverride, setMusicGenOverride] = useState(null);
-  const [musicGenDuration, setMusicGenDuration] = useState(10);
-  const musicGenPrompt = musicGenOverride ?? defaultMusicGenPrompt ?? "";
   const [waveSurferPrototype, setWaveSurferPrototype] = useState(() => readWaveSurferPrototypePref());
   const rafRef = useRef(null);
 
@@ -476,56 +474,12 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
       ) : null}
 
       {onGenerateMusic ? (
-        <section className="rounded-2xl border border-violet-400/25 bg-violet-500/10 p-3 space-y-2">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-violet-100/90">
-            MusicGen preview
-          </div>
-          <p className="text-[10px] leading-relaxed text-white/45">
-            Generates a short WAV from your project style via the Python sidecar (
-            <code className="text-white/60">npm run sidecar:generate</code>
-            ). CC-BY-NC weights — preview only, not for commercial release.
-          </p>
-          <label className="block text-[10px] text-white/50">
-            Prompt
-            <textarea
-              value={musicGenPrompt}
-              onChange={(e) => setMusicGenOverride(e.target.value)}
-              rows={3}
-              placeholder="Electronic, 128 bpm, dark mood…"
-              className="mt-1 w-full resize-y rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-xs text-white outline-none focus:border-violet-400/50"
-            />
-          </label>
-          <label className="block text-[10px] text-white/50">
-            Duration
-            <select
-              value={musicGenDuration}
-              disabled={generateMusicBusy}
-              onChange={(e) => setMusicGenDuration(Number(e.target.value))}
-              className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
-            >
-              {[5, 10, 15, 20, 30].map((sec) => (
-                <option key={sec} value={sec}>
-                  {sec}s
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            disabled={generateMusicBusy || exportBusy || !sidecarGenerateAvailable}
-            onClick={(e) => {
-              e.preventDefault();
-              onGenerateMusic(musicGenPrompt, musicGenDuration);
-            }}
-            className="w-full rounded-xl border border-violet-400/35 bg-violet-500/20 py-2 text-xs font-bold text-violet-50 hover:bg-violet-500/30 disabled:opacity-50"
-          >
-            {generateMusicBusy
-              ? "Generating MusicGen preview…"
-              : sidecarGenerateAvailable
-                ? "Generate MusicGen preview"
-                : "MusicGen not available"}
-          </button>
-        </section>
+        <MusicGenPreviewControls
+          defaultPrompt={defaultMusicGenPrompt}
+          busy={generateMusicBusy || exportBusy}
+          available={sidecarGenerateAvailable}
+          onGenerate={onGenerateMusic}
+        />
       ) : null}
 
       <section className="rounded-2xl border border-emerald-400/20 bg-black/30 p-3 space-y-2">

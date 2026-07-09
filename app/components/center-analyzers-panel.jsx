@@ -12,6 +12,7 @@ import {
 } from "../lib/analyzer-file-types";
 import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
+import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
   SUNO_LYRICS_CHAR_WARN,
@@ -158,6 +159,17 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             accept={SUPPORTED_AUDIO_ACCEPT}
             onFile={analyzeAudioFile}
           >
+            {!audioAnalysis ? (
+              <div className="mt-3">
+                <MusicGenPreviewControls
+                  defaultPrompt={defaultMusicGenPrompt}
+                  busy={generateMusicBusy}
+                  available={sidecarGenerateAvailable}
+                  onGenerate={generateMusicFromPrompt}
+                  compact
+                />
+              </div>
+            ) : null}
             {audioAnalysis ? (
               <AudioTrackEditor
                 analysis={audioAnalysis}

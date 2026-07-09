@@ -16,6 +16,8 @@ import {
 } from "../lib/maestro-chat-engine";
 import { sendMaestroChatToLlm } from "../lib/maestro-chat-llm";
 import { isCoProducerLlmReady } from "../lib/co-producer-llm";
+import { buildMoodWords } from "../lib/music-helpers";
+import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { getStepCount, resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 
@@ -98,8 +100,9 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     captureSnapshot,
     setStatusWithTime,
     copyToClipboard,
+    generateMusicFromPrompt,
   } = useProjectWorkspaceActions();
-  const { audioAnalysis, imageAnalysis } = useProjectWorkspaceAnalyzerState();
+  const { audioAnalysis, imageAnalysis, sidecarGenerateAvailable } = useProjectWorkspaceAnalyzerState();
 
   const [messages, setMessages] = useState(loadStoredMessages);
   const [draft, setDraft] = useState("");
@@ -128,6 +131,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       voiceStyleLine,
       hasAudioAnalysis: !!audioAnalysis,
       hasImageAnalysis: !!imageAnalysis,
+      musicGenAvailable: !!sidecarGenerateAvailable,
+      audioAnalysis,
     }),
     [
       idea,
@@ -150,6 +155,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       voiceStyleLine,
       audioAnalysis,
       imageAnalysis,
+      sidecarGenerateAvailable,
     ],
   );
 
@@ -206,7 +212,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   );
 
   const runCommands = useCallback(
-    (commands) => {
+    (commands, artifacts) => {
       for (const cmd of commands || []) {
         if (cmd === "mergeAudio") {
           captureSnapshot("before Maestro audio merge");
@@ -216,9 +222,36 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           applyImageToSunoStyle();
         } else if (cmd === "gotoPolish") setGuidedStep(resolvePolishStepIndex());
         else if (cmd === "gotoFinal") setGuidedStep(getStepCount() - 1);
+        else if (cmd === "generateMusicGen") {
+          const prompt =
+            artifacts?.musicGenPrompt ||
+            buildMusicGenPrompt({
+              selectedGenres,
+              selectedSounds,
+              selectedRhythms,
+              tempo,
+              idea,
+              moodWords: buildMoodWords(mood),
+              audioAnalysis,
+            });
+          void generateMusicFromPrompt(prompt, 10, { attach: true });
+        }
       }
     },
-    [applyAudioToSunoStyle, applyImageToSunoStyle, captureSnapshot, setGuidedStep],
+    [
+      applyAudioToSunoStyle,
+      applyImageToSunoStyle,
+      audioAnalysis,
+      captureSnapshot,
+      generateMusicFromPrompt,
+      idea,
+      mood,
+      selectedGenres,
+      selectedRhythms,
+      selectedSounds,
+      setGuidedStep,
+      tempo,
+    ],
   );
 
   const llmReady = isCoProducerLlmReady(coProducerLlmSettings);
@@ -240,7 +273,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           const llm = await sendMaestroChatToLlm(history, snapshot, coProducerLlmSettings);
           const patch = sanitizeMaestroPatch(llm.patch, snapshot);
           if (patch) applyPatch(patch);
-          if (llm.commands?.length) runCommands(llm.commands);
+          if (llm.commands?.length) runCommands(llm.commands, llm.artifacts);
           assistantTurn = { role: "assistant", text: llm.reply, source: "llm" };
           if (patch) setStatusWithTime("Maestro (LLM) updated the project");
         } else {
@@ -252,7 +285,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           applyPatch(local.patch);
           setStatusWithTime("Maestro updated the project");
         }
-        if (local.commands?.length) runCommands(local.commands);
+        if (local.commands?.length) runCommands(local.commands, local.artifacts);
         const fallbackNote =
           llmReady && err?.message !== "__use_heuristic__"
             ? `(LLM unavailable — answered locally: ${String(err?.message || "error").slice(0, 80)})\n\n`

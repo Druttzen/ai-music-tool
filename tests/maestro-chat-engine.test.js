@@ -154,6 +154,24 @@ describe("maestro-chat-engine replies", () => {
     expect(res.commands).toContain("mergeAudio");
   });
 
+  it("musicgen preview emits generateMusicGen when sidecar extra is available", () => {
+    const res = buildMaestroReply("generate a quick demo", {
+      ...SNAPSHOT,
+      musicGenAvailable: true,
+      selectedGenres: ["Techno"],
+      tempo: "128 BPM",
+    });
+    expect(res.commands).toContain("generateMusicGen");
+    expect(res.commands).toContain("gotoPolish");
+    expect(res.artifacts.musicGenPrompt).toMatch(/Techno/);
+  });
+
+  it("musicgen preview explains install when unavailable", () => {
+    const res = buildMaestroReply("musicgen preview please", { ...SNAPSHOT, musicGenAvailable: false });
+    expect(res.commands).not.toContain("generateMusicGen");
+    expect(res.reply).toMatch(/sidecar:generate/i);
+  });
+
   it("merge audio analysis without analysis explains what to do", () => {
     const res = buildMaestroReply("use the track analysis", SNAPSHOT);
     expect(res.commands).toEqual([]);

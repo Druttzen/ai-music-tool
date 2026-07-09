@@ -15,6 +15,7 @@ import {
 } from "./music-config";
 import { buildMoodWords, clamp, uniq } from "./music-helpers";
 import { generateCoProducerHooks, generateCoProducerLyrics } from "./lyric-generator";
+import { buildMusicGenPrompt } from "./musicgen-prompt";
 import { buildSunoPastedStyleLine } from "./suno-guided-workflow";
 import { generateMetaphorStyle, metaphorToCatalogHints } from "./metaphor-style";
 import { SUNO_STYLE_CHAR_CAP } from "./suno-limits";
@@ -23,8 +24,15 @@ import { SUNO_STYLE_CHAR_CAP } from "./suno-limits";
  * Workspace commands Maestro can request; the chat panel maps them to actions:
  * - "mergeAudio" / "mergeImage": run the analyzer → Suno merge (same as the panel buttons)
  * - "gotoPolish" / "gotoFinal": jump the guided path to Polish or the final copy step
+ * - "generateMusicGen": run MusicGen preview from the current project style (needs musicGenAvailable)
  */
-export const MAESTRO_COMMANDS = ["mergeAudio", "mergeImage", "gotoPolish", "gotoFinal"];
+export const MAESTRO_COMMANDS = [
+  "mergeAudio",
+  "mergeImage",
+  "gotoPolish",
+  "gotoFinal",
+  "generateMusicGen",
+];
 
 export const MAESTRO_CHAT_STORAGE_KEY = "ai_music_creator_maestro_chat_v1";
 export const MAESTRO_CHAT_MAX_MESSAGES = 60;
@@ -309,6 +317,7 @@ const HELP_TEXT = `I'm Maestro — your chat co-producer. Talk to me like a band
 • "surprise me" for a fresh direction, "remix it" to reroll the groove, "extend the track" for a longer form
 • "use the track analysis" / "use the image analysis" to merge analyzer DNA
 • "take me to polish" / "final step" to jump the guided path
+• "generate a musicgen preview" / "quick demo" for a short local WAV sketch (needs MusicGen sidecar extra)
 Everything I set lands in your project instantly — then copy the Style & Lyrics fields straight into Suno.`;
 
 /**
@@ -419,6 +428,42 @@ export function buildMaestroReply(message, snapshot, options = {}) {
       commands,
     };
   }
+
+  const asksMusicGen =
+    /\b(music\s*gen|musicgen)\b/i.test(lower) ||
+    /\b(generate|make|render|create)\b.*\b(?:quick )?(?:demo|preview|sketch|mockup)\b/i.test(lower) ||
+    /\b(?:quick )?(?:demo|preview|sketch)\b.*\b(?:track|beat|loop|audio)\b/i.test(lower);
+  if (asksMusicGen) {
+    if (snapshot.musicGenAvailable) {
+      const musicGenPrompt = buildMusicGenPrompt({
+        selectedGenres: snapshot.selectedGenres,
+        selectedSounds: snapshot.selectedSounds,
+        selectedRhythms: snapshot.selectedRhythms,
+        tempo: snapshot.tempo,
+        idea: snapshot.idea,
+        moodWords: buildMoodWords(snapshot.mood || {}),
+        audioAnalysis: snapshot.audioAnalysis,
+      });
+      artifacts.musicGenPrompt = musicGenPrompt;
+      commands.push("generateMusicGen", "gotoPolish");
+      return {
+        reply: `Generating a MusicGen sketch from your current style — prompt: “${musicGenPrompt.slice(0, 120)}${musicGenPrompt.length > 120 ? "…" : ""}”. Opening Polish so you can play it in the waveform and merge into Suno.`,
+        patch: null,
+        artifacts,
+        suggestions: ["Merge the track analysis", "Show the style prompt", "Make it darker"],
+        commands,
+      };
+    }
+    return {
+      reply:
+        "MusicGen isn't available yet — start the sidecar and run npm run sidecar:generate (CC-BY-NC weights). Then ask again for a quick demo.",
+      patch: null,
+      artifacts,
+      suggestions: ["Show the style prompt", "Help"],
+      commands,
+    };
+  }
+
   if (/\b(?:go|jump|take me|open|move)\b.*\b(?:final|copy|last) step\b|\bready to copy\b|\bfinish (?:the )?track\b/i.test(lower)) {
     commands.push("gotoFinal");
     artifacts.stylePrompt = buildMaestroStylePreview(snapshot);

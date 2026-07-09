@@ -91,6 +91,7 @@ Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch":
 - "commands": optional app actions, allowed values: ${MAESTRO_COMMANDS.join(", ")}.
   - mergeAudio/mergeImage: merge the user's analyzer results into the Suno fields (only when hasAudioAnalysis/hasImageAnalysis is true and the user asks to use them).
   - gotoPolish/gotoFinal: jump the guided path to the Polish or final copy step when the user asks to move on.
+  - generateMusicGen: render a short MusicGen WAV preview from the current project style (only when musicGenAvailable is true and the user asks for a demo/preview/sketch). Often pair with gotoPolish.
 Only patch what the user asked to change. Never invent fields outside the allowed keys.`;
 
   const messages = [{ role: "system", content: system }];

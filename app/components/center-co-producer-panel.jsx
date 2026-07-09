@@ -10,8 +10,11 @@ import { Panel } from "./ui-blocks";
 import { fixes, promptFormatOptions } from "../lib/music-config";
 import { saveCoProducerLlmSettings } from "../lib/co-producer-llm";
 import { getLyricStyleDirection } from "../lib/lyric-generator";
+import { buildMoodWords } from "../lib/music-helpers";
+import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import {
   useProjectWorkspaceActions,
+  useProjectWorkspaceAnalyzerState,
   useProjectWorkspaceProjectState,
 } from "../context/project-workspace-context";
 
@@ -24,7 +27,19 @@ const CO_PRODUCER_DIRECTIONS = [
 ];
 
 export const CenterCoProducerQuickPanel = memo(function CenterCoProducerQuickPanel() {
-  const { coProducer } = useProjectWorkspaceActions();
+  const { idea, mood, selectedGenres, selectedSounds, selectedRhythms, tempo } =
+    useProjectWorkspaceProjectState();
+  const { sidecarGenerateAvailable } = useProjectWorkspaceAnalyzerState();
+  const { coProducer, generateMusicFromPrompt } = useProjectWorkspaceActions();
+
+  const musicGenPrompt = buildMusicGenPrompt({
+    selectedGenres,
+    selectedSounds,
+    selectedRhythms,
+    tempo,
+    idea,
+    moodWords: buildMoodWords(mood),
+  });
 
   return (
     <Panel title="Step 4 — Co‑Producer Buttons" hint="One-click creative direction.">
@@ -38,6 +53,15 @@ export const CenterCoProducerQuickPanel = memo(function CenterCoProducerQuickPan
             {x}
           </button>
         ))}
+        {sidecarGenerateAvailable ? (
+          <button
+            type="button"
+            onClick={() => generateMusicFromPrompt(musicGenPrompt, 10, { attach: true })}
+            className="rounded-2xl border border-violet-400/40 bg-violet-500/20 px-4 py-2 text-sm font-bold text-violet-50 hover:bg-violet-500/30"
+          >
+            MusicGen sketch
+          </button>
+        ) : null}
       </div>
     </Panel>
   );

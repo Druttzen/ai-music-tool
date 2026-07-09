@@ -29,6 +29,7 @@ import {
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
 import { mergeSidecarAnalysis, buildSidecarFallbackReport } from "../lib/audio-analyzer-sidecar";
+import { buildMusicGenAnalysisReport, downloadMusicGenBlob } from "../lib/musicgen-preview";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
 import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
@@ -710,13 +711,16 @@ export function useAnalyzers({
   );
 
   const generateMusicFromPrompt = useCallback(
-    async (prompt, durationSec = 10) => {
+    async (prompt, durationSec = 10, options = {}) => {
       const text = String(prompt || "").trim();
       if (!text) {
         setStatusWithTime("Enter a MusicGen prompt first", "warning");
         return;
       }
       if (generateMusicBusy) return;
+
+      const attach = options.attach !== false;
+      const download = !!options.download;
 
       setGenerateMusicBusy(true);
       try {
@@ -736,16 +740,36 @@ export function useAnalyzers({
           return;
         }
         const { blob, model, durationSec: dur } = await generateMusicViaSidecar(text, durationSec);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `musicgen-preview-${Date.now()}.wav`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setStatusWithTime(
-          `MusicGen preview downloaded (${model || "musicgen"} · ${dur || durationSec}s)`,
-          "success",
-        );
+        const resolvedDuration = dur || durationSec;
+        const fileName = `musicgen-preview-${Date.now()}.wav`;
+        const file =
+          blob instanceof File ? blob : new File([blob], fileName, { type: blob.type || "audio/wav" });
+
+        if (attach) {
+          const report = await buildMusicGenAnalysisReport(file, {
+            prompt: text,
+            model,
+            durationSec: resolvedDuration,
+            fileName,
+          });
+          setAudioPreviewFromBlob(file);
+          setAudioAnalysis(report);
+          syncCacheKeysRef(report);
+          setStatusWithTime(
+            `MusicGen preview loaded in player (${model || "musicgen"} · ${resolvedDuration}s) — merge into Suno or export WAV`,
+            "success",
+          );
+        }
+
+        if (download) {
+          downloadMusicGenBlob(file, fileName);
+          if (!attach) {
+            setStatusWithTime(
+              `MusicGen preview downloaded (${model || "musicgen"} · ${resolvedDuration}s)`,
+              "success",
+            );
+          }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "MusicGen generation failed";
         setStatusWithTime(msg.slice(0, 120), "warning");
@@ -753,7 +777,7 @@ export function useAnalyzers({
         setGenerateMusicBusy(false);
       }
     },
-    [generateMusicBusy, setStatusWithTime],
+    [generateMusicBusy, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
   );
 
   const downloadStem = useCallback(
