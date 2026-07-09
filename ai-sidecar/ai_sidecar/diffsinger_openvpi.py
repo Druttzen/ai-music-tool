@@ -262,6 +262,35 @@ def build_ds_segments_from_plan(
     ]
 
 
+def export_ds_bundle_from_plan(
+    plan: dict[str, Any],
+    *,
+    guide_mono: np.ndarray | None = None,
+    sample_rate: int = 44100,
+) -> dict[str, Any]:
+    """Export OpenVPI `.ds` segment JSON for external DiffSinger workflows."""
+    align_method = None
+    if guide_mono is not None and guide_mono.size > 0:
+        from .vocal_align import align_plan_with_guide, mfa_configured  # noqa: PLC0415
+
+        plan = align_plan_with_guide(plan, guide_mono, sample_rate)
+        align_method = "mfa" if mfa_configured() else "heuristic"
+    elif any(
+        isinstance(s, dict) and s.get("alignedWords")
+        for s in (plan.get("sections") or [])
+    ):
+        align_method = str(plan.get("alignMethod") or "stored")
+
+    segments = build_ds_segments_from_plan(plan, guide_mono=None, sample_rate=sample_rate)
+    return {
+        "format": "openvpi-ds-segments",
+        "version": 1,
+        "align_method": align_method,
+        "segment_count": len(segments),
+        "segments": segments,
+    }
+
+
 def _segments_need_variance(segments: list[dict[str, Any]]) -> bool:
     for segment in segments:
         if segment.get("f0_seq"):

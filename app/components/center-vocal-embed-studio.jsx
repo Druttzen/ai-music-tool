@@ -14,7 +14,9 @@ import {
   buildVocalEmbedPlan,
   formatVocalEmbedTime,
 } from "../lib/vocal-embed-engine";
+import { buildOpenvpiDsExport } from "../lib/openvpi-ds-export";
 import {
+  exportOpenvpiDsViaSidecar,
   fetchSidecarHealth,
   fetchVocalEmbedModels,
   previewVocalAlignViaSidecar,
@@ -150,7 +152,9 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const canLyricsOnlySynth =
     plan.sidecarMode === "lyrics-to-vocal-synthesis" &&
     (!!sidecarHealth?.vocal_ml_available || !!vocalModels?.diffsinger_configured);
-  const canSynthesize = plan.stage === "ready" && (!!guideVocalFile || canLyricsOnlySynth);
+  const hasStoredAlign = !!alignPreview?.sections?.some((section) => section?.alignedWords?.length);
+  const canSynthesize =
+    plan.stage === "ready" && (!!guideVocalFile || canLyricsOnlySynth || hasStoredAlign);
 
   const buildSidecarEnvelope = useCallback(
     (withAlign = true) => buildVocalEmbedExportEnvelope(plan, withAlign ? alignPreview : null),
@@ -187,6 +191,44 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     URL.revokeObjectURL(url);
     setStatusWithTime(`Alignment JSON downloaded (${alignPreview.align_method})`, "success");
   };
+
+  const exportOpenvpiDs = useCallback(async () => {
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete the plan before exporting OpenVPI .ds JSON", "warning");
+      return;
+    }
+    const mergedPlan = buildVocalEmbedExportEnvelope(plan, alignPreview).plan;
+    let payload = buildOpenvpiDsExport(mergedPlan, alignPreview);
+    if (guideVocalFile) {
+      try {
+        const ready = await waitForSidecar(10_000);
+        if (ready) {
+          payload = await exportOpenvpiDsViaSidecar(
+            buildSidecarEnvelope(true),
+            guideVocalFile,
+            guideVocalFile.name,
+          );
+        }
+      } catch {
+        /* fall back to client-side DS from stored alignment */
+      }
+    }
+    if (!payload?.segments?.length) {
+      setStatusWithTime("No singable sections for OpenVPI .ds export — add lyrics first", "warning");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `openvpi-ds-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatusWithTime(
+      `OpenVPI .ds JSON downloaded (${payload.segment_count} segments${payload.align_method ? ` · ${payload.align_method}` : ""})`,
+      "success",
+    );
+  }, [alignPreview, buildSidecarEnvelope, guideVocalFile, plan, setStatusWithTime]);
 
   const resolveInstrumentalBlob = useCallback(async () => {
     const resolved = await resolveAudioCacheBlob(audioAnalysis);
@@ -398,11 +440,11 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       setStatusWithTime("Complete the plan first (instrumental, lyrics, voice style)", "warning");
       return;
     }
-    if (!guideVocalFile && !canLyricsOnlySynth) {
+    if (!guideVocalFile && !canLyricsOnlySynth && !hasStoredAlign) {
       setStatusWithTime(
         guideVocalAttached
           ? "Choose a guide vocal file below, or install sidecar vocal DSP for lyrics-only synthesis"
-          : "Attach a guide vocal file, or enable lyrics-only mode with pip install -e ai-sidecar[vocal]",
+          : "Attach a guide vocal file, preview alignment, or enable lyrics-only mode with pip install -e ai-sidecar[vocal]",
         "warning",
       );
       return;
@@ -421,7 +463,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     } finally {
       setSidecarBusy(false);
     }
-  }, [canLyricsOnlySynth, guideVocalAttached, guideVocalFile, plan, runSynthesizeMix, setStatusWithTime]);
+  }, [canLyricsOnlySynth, guideVocalAttached, guideVocalFile, hasStoredAlign, plan, runSynthesizeMix, setStatusWithTime]);
 
   return (
     <Panel
@@ -522,6 +564,14 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
             className="rounded-xl border border-amber-400/35 bg-amber-500/15 px-3 py-2 text-[10px] font-bold text-amber-50 hover:bg-amber-500/25"
           >
             Download align JSON
+          </button>
+          <button
+            type="button"
+            data-testid="export-openvpi-ds"
+            onClick={() => void exportOpenvpiDs()}
+            className="rounded-xl border border-sky-400/35 bg-sky-500/15 px-3 py-2 text-[10px] font-bold text-sky-50 hover:bg-sky-500/25"
+          >
+            Download OpenVPI .ds JSON
           </button>
         </div>
       ) : null}
@@ -750,17 +800,28 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         </button>
         <button
           type="button"
+          disabled={sidecarBusy || plan.stage !== "ready"}
+          data-testid="export-openvpi-ds-plan"
+          onClick={() => void exportOpenvpiDs()}
+          className="rounded-2xl border border-sky-400/35 bg-sky-500/15 px-4 py-2 text-sm font-bold text-sky-100 hover:bg-sky-500/25 disabled:opacity-40"
+        >
+          Export OpenVPI .ds JSON
+        </button>
+        <button
+          type="button"
           disabled={sidecarBusy || !canSynthesize}
           onClick={() => void synthesizePreview()}
           className="rounded-2xl bg-emerald-300 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-200 disabled:opacity-40"
         >
           {sidecarBusy
             ? "Synthesizing…"
-            : plan.sidecarMode === "lyrics-to-vocal-synthesis" && guideVocalFile
-              ? "Synthesize lyrics + guide timing"
-              : canLyricsOnlySynth && !guideVocalFile
-                ? "Synthesize lyrics-only preview"
-                : "Synthesize placement-mix preview"}
+            : hasStoredAlign && !guideVocalFile
+              ? "Synthesize with saved alignment"
+              : plan.sidecarMode === "lyrics-to-vocal-synthesis" && guideVocalFile
+                ? "Synthesize lyrics + guide timing"
+                : canLyricsOnlySynth && !guideVocalFile
+                  ? "Synthesize lyrics-only preview"
+                  : "Synthesize placement-mix preview"}
         </button>
       </div>
       <p className="mt-2 text-[10px] leading-relaxed text-white/40">

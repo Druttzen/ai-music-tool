@@ -41,6 +41,7 @@ from .vocal_ml_models import (
     rvc_ready,
     vocal_model_status,
 )
+from .diffsinger_openvpi import export_ds_bundle_from_plan
 from .vocal_align import align_plan_with_guide, mfa_configured
 from .vocal_synth import (
     parse_plan_envelope,
@@ -522,6 +523,34 @@ async def vocal_embed_align_preview(
         "word_count": word_count,
         "sections": sections,
     }
+
+
+@app.post("/vocal-embed/ds-export")
+async def vocal_embed_ds_export(
+    plan_json: str = Form(...),
+    guide_vocal: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    """Build OpenVPI DiffSinger `.ds` segment JSON from a vocal embed plan."""
+    try:
+        plan = parse_plan_envelope(plan_json)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    guide_mono = None
+    sample_rate = 44100
+    if guide_vocal is not None:
+        guide_raw = await guide_vocal.read()
+        if guide_raw:
+            try:
+                import librosa  # noqa: PLC0415
+                import numpy as np  # noqa: PLC0415
+            except Exception as exc:
+                raise HTTPException(status_code=503, detail=f"alignment deps missing: {exc}") from exc
+            y, sr = librosa.load(io.BytesIO(guide_raw), sr=None, mono=True)
+            guide_mono = np.asarray(y, dtype=np.float32)
+            sample_rate = int(sr)
+
+    return export_ds_bundle_from_plan(plan, guide_mono=guide_mono, sample_rate=sample_rate)
 
 
 def _load_demucs(model_name: str):

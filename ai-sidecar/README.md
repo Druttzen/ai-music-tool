@@ -91,6 +91,13 @@ curl -X POST http://127.0.0.1:8723/vocal-embed/align-preview \
   -F "guide_vocal=@guide.wav"
 ```
 
+OpenVPI DiffSinger `.ds` segment export:
+
+```bash
+curl -X POST http://127.0.0.1:8723/vocal-embed/ds-export \
+  -F "plan_json=@vocal-embed-plan.json"
+```
+
 ## Vocal Embed Studio
 
 The app's **Vocal Embed Studio** creates a local handoff plan for adding vocals to an

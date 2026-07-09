@@ -57,3 +57,22 @@ def test_vocal_embed_plan_rejects_draft():
     payload["plan"]["warnings"] = ["Add lyrics"]
     res = client.post("/vocal-embed/plan", json=payload)
     assert res.status_code == 422
+
+
+def test_vocal_embed_ds_export_from_plan():
+    payload = _ready_plan()
+    payload["plan"]["lyrics"] = "[Verse]\nhello world"
+    payload["plan"]["bpm"] = "120 BPM"
+    payload["plan"]["key"] = "Am"
+    payload["plan"]["sections"] = [
+        {"name": "Verse", "start": 0.0, "end": 4.0, "lineCount": 1, "text": "hello world"},
+    ]
+    res = client.post(
+        "/vocal-embed/ds-export",
+        data={"plan_json": __import__("json").dumps(payload)},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["format"] == "openvpi-ds-segments"
+    assert body["segment_count"] >= 1
+    assert body["segments"][0]["note_seq"]

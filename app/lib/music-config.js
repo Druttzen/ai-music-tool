@@ -17,7 +17,7 @@ export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
 export const APP_VERSION =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION
     ? process.env.NEXT_PUBLIC_APP_VERSION
-    : "0.24.0";
+    : "0.25.0";
 export const AUTHOR = "DJ M@D";
 
 export const DEFAULT_STATE = {

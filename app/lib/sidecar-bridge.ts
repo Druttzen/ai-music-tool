@@ -490,3 +490,41 @@ export async function previewVocalAlignViaSidecar(
 
   return res.json() as Promise<VocalAlignPreviewResponse>;
 }
+
+export type OpenvpiDsExportResponse = {
+  format: string;
+  version?: number;
+  align_method?: string | null;
+  segment_count: number;
+  segments: Array<Record<string, string | number>>;
+};
+
+export async function exportOpenvpiDsViaSidecar(
+  envelope: Record<string, unknown>,
+  guideVocal?: Blob | null,
+  guideName = "guide-vocal.wav",
+): Promise<OpenvpiDsExportResponse> {
+  const form = new FormData();
+  form.append("plan_json", JSON.stringify(envelope));
+  if (guideVocal) {
+    form.append("guide_vocal", guideVocal, guideName || "guide-vocal.wav");
+  }
+
+  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/ds-export`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `OpenVPI ds export failed (${res.status})`);
+  }
+
+  return res.json() as Promise<OpenvpiDsExportResponse>;
+}

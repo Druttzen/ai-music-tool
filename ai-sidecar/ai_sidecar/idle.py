@@ -22,6 +22,7 @@ _ACTIVITY_PATHS = frozenset({
     "/vocal-embed/models",
     "/vocal-embed/synthesize",
     "/vocal-embed/align-preview",
+    "/vocal-embed/ds-export",
     "/generate",
     "/generate/melody",
 })
