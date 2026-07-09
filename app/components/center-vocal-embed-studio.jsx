@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
   useProjectWorkspaceActions,
   useProjectWorkspaceAnalyzerState,
@@ -12,6 +12,7 @@ import {
   buildVocalEmbedPlan,
   formatVocalEmbedTime,
 } from "../lib/vocal-embed-engine";
+import { submitVocalEmbedPlanToSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { Panel } from "./ui-blocks";
 
 export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
@@ -29,6 +30,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const { copyToClipboard, setStatusWithTime } = useProjectWorkspaceActions();
   const [draftLyrics, setDraftLyrics] = useState("");
   const [guideVocalAttached, setGuideVocalAttached] = useState(false);
+  const [sidecarBusy, setSidecarBusy] = useState(false);
 
   const plan = useMemo(
     () =>
@@ -71,6 +73,28 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     URL.revokeObjectURL(url);
     setStatusWithTime("Vocal embed plan exported");
   };
+
+  const submitToSidecar = useCallback(async () => {
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete the plan first (instrumental, lyrics, voice style)", "warning");
+      return;
+    }
+    setSidecarBusy(true);
+    try {
+      const ready = await waitForSidecar(15_000);
+      if (!ready) {
+        setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
+        return;
+      }
+      const payload = buildVocalEmbedExport(plan);
+      const res = await submitVocalEmbedPlanToSidecar(payload);
+      setStatusWithTime(res.message, res.synthesis_available ? "success" : "info");
+    } catch (err) {
+      setStatusWithTime(err instanceof Error ? err.message : "Sidecar handoff failed", "error");
+    } finally {
+      setSidecarBusy(false);
+    }
+  }, [plan, setStatusWithTime]);
 
   return (
     <Panel
@@ -182,7 +206,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         </pre>
       </div>
 
-      <div className="mt-3 grid gap-2 md:grid-cols-2">
+      <div className="mt-3 grid gap-2 md:grid-cols-3">
         <button
           type="button"
           onClick={() => copyToClipboard(plan.sidecarBrief, "Vocal embed brief copied")}
@@ -196,6 +220,14 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
         >
           Export vocal embed plan JSON
+        </button>
+        <button
+          type="button"
+          disabled={sidecarBusy || plan.stage !== "ready"}
+          onClick={() => void submitToSidecar()}
+          className="rounded-2xl border border-cyan-400/35 bg-cyan-500/15 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-cyan-500/25 disabled:opacity-40"
+        >
+          {sidecarBusy ? "Sending to sidecar…" : "Send plan to sidecar"}
         </button>
       </div>
     </Panel>

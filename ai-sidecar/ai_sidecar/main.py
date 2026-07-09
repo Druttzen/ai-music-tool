@@ -28,6 +28,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from .vocal_embed import (
+    VocalEmbedPlanEnvelope,
+    VocalEmbedPlanResponse,
+    accept_vocal_embed_plan,
+    vocal_synthesis_available,
+)
 from .genre_classifier import MODEL_ID as GENRE_MODEL_ID
 from .genre_classifier import classify_music_genres, genre_classification_available
 from .idle import (
@@ -126,6 +132,8 @@ class Health(BaseModel):
     stems_available: bool
     genre_available: bool
     vision_available: bool
+    vocal_embed_plan_available: bool
+    vocal_synthesis_available: bool
 
 
 class GenrePrediction(BaseModel):
@@ -180,7 +188,18 @@ def health() -> Health:
         stems_available=_stems_available(),
         genre_available=genre_classification_available(),
         vision_available=_vision_available(),
+        vocal_embed_plan_available=True,
+        vocal_synthesis_available=vocal_synthesis_available(),
     )
+
+
+@app.post("/vocal-embed/plan", response_model=VocalEmbedPlanResponse)
+async def vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanResponse:
+    """Validate a Vocal Embed Studio JSON plan from the app (synthesis is a future opt-in extra)."""
+    try:
+        return accept_vocal_embed_plan(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/dev-session/ping")

@@ -6,7 +6,7 @@ from ai_sidecar.idle import configure_idle_exit, dev_session_active, hold_dev_se
 def test_activity_paths():
     assert is_activity_path("/analyze")
     assert is_activity_path("/separate")
-    assert is_activity_path("/dev-session/ping")
+    assert is_activity_path("/vocal-embed/plan")
     assert not is_activity_path("/health")
     assert not is_activity_path("/docs")
 

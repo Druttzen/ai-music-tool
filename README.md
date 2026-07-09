@@ -1,8 +1,16 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.11.0**
+**Version 0.12.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.12.0)
+
+- **Focused Suno step UI** — when Prompt Engine is Suno-like, only panels for the current guided step are shown (Style Presets on step 1, Music Controls on groove step, Analyzers on Polish, etc.). **Show all tools** restores the full studio; preference persists locally.
+- **Maestro step coach** — after you work on a step, a banner nudges you to **Proceed to next step** or **Apply** one-click fixes (genre anchors, lyric draft, Suno validator cleanup).
+- **Vocal Embed Studio** — plan local vocal placement on an analyzed instrumental (section timing, voice character, mix brief) without Suno's generation engine. Export JSON or **Send plan to sidecar** (`POST /vocal-embed/plan`) for validation and future DiffSinger/RVC synthesis.
+- **High-precision Voice Character** — richer trait map (pitch range, vibrato, jitter/shimmer, articulation) for mimic-style Suno voice prompts.
+- **Audio upgrades** — FLAC uploads with librosa sidecar fallback when the browser cannot decode; browser MP3 export raised to **256 kbps**; WAV 16/24-bit and native LAME MP3 via `dsp-core` unchanged.
 
 ## Highlights (v0.11.0)
 

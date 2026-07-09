@@ -87,7 +87,8 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 
 | Route | Purpose |
 |-------|---------|
-| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available` |
+| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available`, `vocal_embed_plan_available` |
 | `POST /analyze` | Librosa tempo/key/spectral/percussive report |
+| `POST /vocal-embed/plan` | Validate Vocal Embed Studio JSON plan from the app (synthesis stack is future opt-in) |
 | `POST /separate` | Demucs stem separation (requires `stems` extra) |
 | `GET /separate/download/{job_id}/{filename}` | Download one stem WAV |

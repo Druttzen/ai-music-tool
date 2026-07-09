@@ -1,6 +1,6 @@
 [package]
 name = "ai-music-studio"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 description = "Tauri shell for AI Music Creator (Path B). Hosts the web UI and bridges to the native Rust DSP core."
 license = "MIT"

@@ -188,6 +188,42 @@ export async function downloadSidecarStem(relativeUrl: string, saveAs: string): 
   URL.revokeObjectURL(a.href);
 }
 
+export interface SidecarVocalEmbedPlanResponse {
+  ok: boolean;
+  stage: string;
+  mode: string;
+  section_count: number;
+  message: string;
+  synthesis_available: boolean;
+  next_steps: string[];
+}
+
+/**
+ * POST Vocal Embed Studio plan JSON to the sidecar for validation / future synthesis queue.
+ */
+export async function submitVocalEmbedPlanToSidecar(
+  envelope: Record<string, unknown>,
+): Promise<SidecarVocalEmbedPlanResponse> {
+  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(envelope),
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `vocal embed plan failed (${res.status})`);
+  }
+
+  return res.json() as Promise<SidecarVocalEmbedPlanResponse>;
+}
+
 /**
  * POST audio file bytes to /analyze and return librosa tempo/key/centroid.
  */
