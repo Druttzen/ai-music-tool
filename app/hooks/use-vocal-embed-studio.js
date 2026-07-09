@@ -29,8 +29,13 @@ import {
   writeStoredVocalAlignPreview,
 } from "../lib/vocal-embed-handoff";
 import {
+  buildAlignPreviewPersistence,
   computeVocalEmbedCapabilities,
+  hydrateAlignFromStoredSession,
   resolveVocalEmbedEngineLabel,
+  shouldClearAlignOnGuideChange,
+  shouldClearAlignOnInstrumentalChange,
+  shouldClearAlignOnLyricsChange,
   vocalEmbedSynthesizeButtonLabel,
 } from "../lib/vocal-embed-studio-utils";
 
@@ -63,15 +68,11 @@ export function useVocalEmbedStudio() {
 
   useEffect(() => {
     const stored = readStoredVocalAlignPreview();
-    if (
-      stored?.preview &&
-      stored.instrumentalName &&
-      stored.instrumentalName === audioAnalysis?.fileName
-    ) {
-      // Hydrate align preview from session storage when instrumental matches.
+    const hydrated = hydrateAlignFromStoredSession(stored, audioAnalysis?.fileName);
+    if (hydrated) {
       queueMicrotask(() => {
-        setAlignPreview(stored.preview);
-        setStoredOpenvpiDs(stored.openvpiDs || null);
+        setAlignPreview(hydrated.alignPreview);
+        setStoredOpenvpiDs(hydrated.storedOpenvpiDs);
       });
     }
   }, [audioAnalysis?.fileName]);
@@ -126,51 +127,43 @@ export function useVocalEmbedStudio() {
 
   const persistAlignPreview = useCallback(
     (preview) => {
-      setAlignPreview(preview);
-      if (!preview) {
-        setStoredOpenvpiDs(null);
+      const next = buildAlignPreviewPersistence({
+        plan,
+        preview,
+        instrumentalName: audioAnalysis?.fileName || "",
+        guideName: guideVocalFile?.name || "",
+        buildOpenvpiDs: buildOpenvpiDsExport,
+      });
+      setAlignPreview(next.alignPreview);
+      setStoredOpenvpiDs(next.storedOpenvpiDs);
+      if (!next.storage) {
         writeStoredVocalAlignPreview(null);
         return;
       }
-      const openvpiDs =
-        plan.stage === "ready" ? buildOpenvpiDsExport(plan, preview) : null;
-      const dsPayload = openvpiDs?.segments?.length ? openvpiDs : null;
-      setStoredOpenvpiDs(dsPayload);
-      writeStoredVocalAlignPreview({
-        instrumentalName: audioAnalysis?.fileName || "",
-        guideName: guideVocalFile?.name || "",
-        preview,
-        openvpiDs: dsPayload,
-      });
+      writeStoredVocalAlignPreview(next.storage);
     },
     [audioAnalysis?.fileName, guideVocalFile?.name, plan],
   );
 
   useEffect(() => {
-    const prev = instrumentalRef.current;
-    const next = audioAnalysis?.fileName;
-    if (prev && next && prev !== next) {
+    if (shouldClearAlignOnInstrumentalChange(instrumentalRef.current, audioAnalysis?.fileName)) {
       persistAlignPreview(null);
     }
-    instrumentalRef.current = next;
+    instrumentalRef.current = audioAnalysis?.fileName;
   }, [audioAnalysis?.fileName, persistAlignPreview]);
 
   useEffect(() => {
-    const prev = guideVocalRef.current;
-    const next = guideVocalFile;
-    if (prev && next && prev !== next) {
+    if (shouldClearAlignOnGuideChange(guideVocalRef.current, guideVocalFile)) {
       persistAlignPreview(null);
     }
-    guideVocalRef.current = next;
+    guideVocalRef.current = guideVocalFile;
   }, [guideVocalFile, persistAlignPreview]);
 
   useEffect(() => {
-    const prev = lyricsRef.current;
-    const next = generatedLyrics;
-    if (prev && next && prev !== next && alignPreview) {
+    if (shouldClearAlignOnLyricsChange(lyricsRef.current, generatedLyrics, alignPreview)) {
       persistAlignPreview(null);
     }
-    lyricsRef.current = next;
+    lyricsRef.current = generatedLyrics;
   }, [alignPreview, generatedLyrics, persistAlignPreview]);
 
   useEffect(() => {

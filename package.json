@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -20,6 +20,7 @@
     "test:e2e:vocal": "node scripts/run-e2e-vocal.cjs",
     "test:e2e:musicgen": "node scripts/run-e2e-musicgen.cjs",
     "test:e2e:musicgen:live": "node scripts/run-e2e-musicgen.cjs --live",
+    "test:e2e:subset": "node scripts/run-e2e-subset.cjs",
     "test:smoke": "node scripts/run-sidecar-smoke.cjs",
     "test:smoke:stems": "node scripts/run-sidecar-smoke-stems.cjs",
     "test:smoke:vocal": "node scripts/run-sidecar-smoke-vocal.cjs",
@@ -45,6 +46,7 @@
     "test:sidecar": "node scripts/run-pytest-sidecar.cjs",
     "check:full": "node scripts/run-check-full.cjs",
     "check:full:e2e": "node scripts/run-check-full.cjs --e2e",
+    "check:full:e2e:subset": "node scripts/run-check-full.cjs --e2e-subset",
     "ship:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ship-preflight.ps1",
     "ship:tag": "node scripts/ship-tag-release.cjs",
     "build": "next build",

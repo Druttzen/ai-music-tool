@@ -1,6 +1,7 @@
 # Pre-tag release gate: sync versions, full check, optional e2e + dist.
 param(
   [switch]$E2e,
+  [switch]$E2eSubset,
   [switch]$Dist,
   [switch]$TagOnly
 )
@@ -15,6 +16,8 @@ npm run sync:version
 Write-Host "ship-preflight: check:full (unit + lint + build + sidecar pytest)" -ForegroundColor Cyan
 if ($E2e) {
   node scripts/run-check-full.cjs --e2e
+} elseif ($E2eSubset) {
+  node scripts/run-check-full.cjs --e2e-subset
 } else {
   node scripts/run-check-full.cjs
 }

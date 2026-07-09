@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.35.0**
+**Version 0.36.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.36.0)
+
+- **E2e subset in release gate** — `check:full:e2e:subset` and `ship:tag` run MusicGen merge + OpenVPI `.ds` export smoke (`npm run test:e2e:subset`).
+- **CI e2e-subset job** — fast Playwright subset on every push (base sidecar only).
+- **Vocal embed align persistence tests** — invalidation + `buildAlignPreviewPersistence` unit coverage in `vocal-embed-studio-utils`.
 
 ## Highlights (v0.35.0)
 

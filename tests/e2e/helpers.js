@@ -16,6 +16,20 @@ export async function enableGuidedShowAll(page) {
   });
 }
 
+/** Guided step coach only appears when Suno focus mode is active (show-all off). */
+export async function enableGuidedStepCoach(page) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.removeItem("ai_music_creator_guided_show_all");
+    } catch {
+      /* ignore */
+    }
+  });
+  await page.evaluate(() => {
+    localStorage.removeItem("ai_music_creator_guided_show_all");
+  });
+}
+
 export async function dismissSplash(page) {
   await page.addInitScript(() => {
     try {

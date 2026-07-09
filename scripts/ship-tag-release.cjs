@@ -29,8 +29,8 @@ if (status.stdout?.trim()) {
   process.exit(1);
 }
 
-console.log(`ship-tag-release: check:full for ${tag}`);
-run(process.execPath, [path.join(__dirname, "run-check-full.cjs")]);
+console.log(`ship-tag-release: check:full + e2e subset for ${tag}`);
+run(process.execPath, [path.join(__dirname, "run-check-full.cjs"), "--e2e-subset"]);
 
 console.log(`ship-tag-release: pushing tag ${tag} — release.yml publishes the Windows installer`);
 run("git", ["tag", tag]);

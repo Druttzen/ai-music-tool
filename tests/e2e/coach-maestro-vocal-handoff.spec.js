@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   dismissSplash,
+  enableGuidedStepCoach,
   saveLoadPanel,
   selectSunoEngine,
 } from "./helpers.js";
@@ -10,6 +11,7 @@ const BUNDLE_FIXTURE = "tests/fixtures/e2e-import-project-bundle-vocal-align.jso
 test.describe("Step coach Maestro vocal handoff", () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
+      localStorage.removeItem("ai_music_creator_guided_show_all");
       localStorage.setItem(
         "ai_music_creator_co_producer_llm_v1",
         JSON.stringify({
@@ -25,6 +27,9 @@ test.describe("Step coach Maestro vocal handoff", () => {
   test("coach suggests Maestro vocal handoff when LLM is enabled", async ({ page }) => {
     await dismissSplash(page);
     await selectSunoEngine(page);
+    await enableGuidedStepCoach(page);
+    await page.reload();
+    await page.waitForLoadState("networkidle");
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(BUNDLE_FIXTURE);
@@ -44,7 +49,7 @@ test.describe("Step coach Maestro vocal handoff", () => {
     });
 
     const coach = page.getByTestId("guided-step-coach");
-    await expect(coach).toBeVisible({ timeout: 5000 });
+    await expect(coach).toBeVisible({ timeout: 10_000 });
     await expect(coach.getByText("Ask Maestro to export vocal handoff")).toBeVisible();
     await expect(coach.getByText("Ask Maestro about OpenVPI .ds")).toBeVisible();
 

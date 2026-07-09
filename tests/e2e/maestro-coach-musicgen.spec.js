@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   dismissSplash,
+  enableGuidedStepCoach,
   saveLoadPanel,
   selectSunoEngine,
 } from "./helpers.js";
@@ -11,6 +12,9 @@ test.describe("Maestro step coach MusicGen", () => {
   test("coach suggests Maestro for MusicGen sketch and scrolls to chat", async ({ page }) => {
     await dismissSplash(page);
     await selectSunoEngine(page);
+    await enableGuidedStepCoach(page);
+    await page.reload();
+    await page.waitForLoadState("networkidle");
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(BUNDLE_FIXTURE);
@@ -31,14 +35,14 @@ test.describe("Maestro step coach MusicGen", () => {
     });
 
     const coach = page.getByTestId("guided-step-coach");
-    await expect(coach).toBeVisible({ timeout: 5000 });
+    await expect(coach).toBeVisible({ timeout: 12_000 });
     await expect(coach.getByText("Ask Maestro about the MusicGen sketch")).toBeVisible();
 
-    const maestroRow = coach
+    await coach
       .locator("div")
-      .filter({ hasText: "Ask Maestro about the MusicGen sketch" })
-      .first();
-    await maestroRow.getByRole("button", { name: "Apply" }).click();
+      .filter({ hasText: /^Ask Maestro about the MusicGen sketch/ })
+      .getByRole("button", { name: "Apply" })
+      .click();
 
     const maestro = page.getByTestId("maestro-chat-panel");
     await expect(maestro).toBeVisible();

@@ -89,3 +89,78 @@ export function vocalEmbedSynthesizeButtonLabel({
   if (canLyricsOnlySynth && !guideVocalFile) return "Synthesize lyrics-only preview";
   return "Synthesize placement-mix preview";
 }
+
+/**
+ * @param {string|undefined|null} prev
+ * @param {string|undefined|null} next
+ */
+export function shouldClearAlignOnInstrumentalChange(prev, next) {
+  return !!(prev && next && prev !== next);
+}
+
+/**
+ * @param {File|null|undefined} prev
+ * @param {File|null|undefined} next
+ */
+export function shouldClearAlignOnGuideChange(prev, next) {
+  return !!(prev && next && prev !== next);
+}
+
+/**
+ * @param {string|undefined|null} prevLyrics
+ * @param {string|undefined|null} nextLyrics
+ * @param {object|null|undefined} alignPreview
+ */
+export function shouldClearAlignOnLyricsChange(prevLyrics, nextLyrics, alignPreview) {
+  return !!(prevLyrics && nextLyrics && prevLyrics !== nextLyrics && alignPreview);
+}
+
+/**
+ * @param {object|null|undefined} stored
+ * @param {string|undefined|null} instrumentalName
+ */
+export function hydrateAlignFromStoredSession(stored, instrumentalName) {
+  if (
+    stored?.preview &&
+    stored.instrumentalName &&
+    stored.instrumentalName === instrumentalName
+  ) {
+    return {
+      alignPreview: stored.preview,
+      storedOpenvpiDs: stored.openvpiDs || null,
+    };
+  }
+  return null;
+}
+
+/**
+ * @param {object} params
+ * @param {object|null|undefined} params.plan
+ * @param {object|null|undefined} params.preview
+ * @param {string} [params.instrumentalName]
+ * @param {string} [params.guideName]
+ * @param {(plan: object, preview: object) => object} params.buildOpenvpiDs
+ */
+export function buildAlignPreviewPersistence({
+  plan,
+  preview,
+  instrumentalName = "",
+  guideName = "",
+  buildOpenvpiDs,
+}) {
+  if (!preview) {
+    return { alignPreview: null, storedOpenvpiDs: null, storage: null };
+  }
+  const openvpiDs = plan?.stage === "ready" ? buildOpenvpiDs(plan, preview) : null;
+  const dsPayload = openvpiDs?.segments?.length ? openvpiDs : null;
+  return {
+    alignPreview: preview,
+    storedOpenvpiDs: dsPayload,
+    storage: {
+      instrumentalName,
+      guideName,
+      preview,
+      openvpiDs: dsPayload,
+    },
+  };
+}

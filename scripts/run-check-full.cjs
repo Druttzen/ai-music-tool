@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
  * Full pre-release check: unit + lint + build + sidecar pytest.
- * Pass --e2e to restart sidecar and run the full Playwright suite (CI parity).
+ * Pass --e2e-subset for fast Playwright subset (musicgen + vocal/Maestro smoke).
+ * Pass --e2e for the full Playwright suite (CI parity).
  */
 const { spawnSync } = require("child_process");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
+const withE2eSubset = process.argv.includes("--e2e-subset");
 const withE2e = process.argv.includes("--e2e");
 const isWin = process.platform === "win32";
 
@@ -26,7 +28,20 @@ run("npm", ["run", "check"]);
 console.log("check:full — sidecar pytest");
 run(process.execPath, [path.join(__dirname, "run-pytest-sidecar.cjs")]);
 
-if (withE2e) {
+if (withE2eSubset) {
+  console.log("check:full — Playwright e2e subset (sidecar smoke wrapper)");
+  if (isWin) {
+    run("powershell", [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      path.join(__dirname, "run-e2e-subset-with-sidecar.ps1"),
+    ]);
+  } else {
+    run("bash", [path.join(__dirname, "run-e2e-subset-with-sidecar.sh")]);
+  }
+} else if (withE2e) {
   console.log("check:full — Playwright e2e (sidecar smoke wrapper)");
   if (isWin) {
     run("powershell", [
