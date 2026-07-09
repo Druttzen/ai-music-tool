@@ -262,6 +262,25 @@ describe("maestro-chat-llm", () => {
     expect(res.patch.vocal).toBe("Choir");
   });
 
+  it("rejects LLM responses with unknown top-level keys", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Done.","patch":{"tempo":"132 BPM"},"extraTool":"danger"}',
+      SNAPSHOT,
+    );
+    expect(res.reply).toBe("Done.");
+    expect(res.patch).toBeNull();
+    expect(res.commands).toEqual([]);
+  });
+
+  it("rejects malformed patch shapes before sanitizing", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Bad patch.","patch":{"mood":{"darkness":80,"bogus":99}}}',
+      SNAPSHOT,
+    );
+    expect(res.reply).toBe("Bad patch.");
+    expect(res.patch).toBeNull();
+  });
+
   it("degrades to plain text when JSON is broken", () => {
     const res = parseMaestroLlmResponse("just words, no json", SNAPSHOT);
     expect(res.reply).toBe("just words, no json");

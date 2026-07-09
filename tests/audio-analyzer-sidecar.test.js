@@ -30,7 +30,15 @@ describe("mergeSidecarAnalysis", () => {
       duration_sec: 118.5,
       tempo_bpm: 174.2,
       key_estimate: "F#",
+      key_confidence: 0.31,
       spectral_centroid_hz: 2200.7,
+      spectral_bandwidth_hz: 3100.2,
+      spectral_rolloff_hz: 5200.8,
+      onset_strength: 1.7,
+      beat_count: 220,
+      beat_density: 1.86,
+      percussive_ratio: 0.64,
+      harmonic_ratio: 0.36,
       device: "cpu",
     });
 
@@ -42,6 +50,12 @@ describe("mergeSidecarAnalysis", () => {
     expect(merged.analysisEngine).toBe("sidecar");
     expect(merged.sidecarDevice).toBe("cpu");
     expect(merged.trackSummary).toContain("Librosa");
+    expect(merged.trackSummary).toContain("31% key confidence");
+    expect(merged.suggestedSounds).toContain("Punchy transient drums");
+    expect(merged.suggestedSounds).toContain("Airy high-end sheen");
+    expect(merged.suggestedRhythms).toContain("Percussive groove");
+    expect(merged.sidecarFeatures.percussiveRatio).toBe(64);
+    expect(merged.sidecarFeatures.spectralBandwidthHz).toBe(3100);
     expect(merged.summary).toContain("174 BPM");
   });
 

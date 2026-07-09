@@ -125,6 +125,7 @@ class Health(BaseModel):
     version: str
     stems_available: bool
     genre_available: bool
+    vision_available: bool
 
 
 class GenrePrediction(BaseModel):
@@ -136,7 +137,15 @@ class Analysis(BaseModel):
     duration_sec: float
     tempo_bpm: float
     key_estimate: str
+    key_confidence: float
     spectral_centroid_hz: float
+    spectral_bandwidth_hz: float
+    spectral_rolloff_hz: float
+    onset_strength: float
+    beat_count: int
+    beat_density: float
+    percussive_ratio: float
+    harmonic_ratio: float
     device: str
     genre_predictions: list[GenrePrediction] | None = None
     genre_model: str | None = None
@@ -145,6 +154,16 @@ class Analysis(BaseModel):
 def _stems_available() -> bool:
     try:
         import demucs  # noqa: F401, PLC0415
+    except Exception:
+        return False
+    return True
+
+
+def _vision_available() -> bool:
+    try:
+        import PIL  # noqa: F401, PLC0415
+        import sklearn  # noqa: F401, PLC0415
+        import transformers  # noqa: F401, PLC0415
     except Exception:
         return False
     return True
@@ -160,6 +179,7 @@ def health() -> Health:
         version=__version__,
         stems_available=_stems_available(),
         genre_available=genre_classification_available(),
+        vision_available=_vision_available(),
     )
 
 
@@ -193,12 +213,25 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
         raise HTTPException(status_code=422, detail=f"could not decode audio: {exc}") from exc
 
     duration = float(librosa.get_duration(y=y, sr=sr))
-    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, onset_envelope=onset_env)
     tempo_bpm = float(np.atleast_1d(tempo)[0])
 
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-    key_idx = int(np.argmax(chroma.mean(axis=1)))
+    chroma_mean = chroma.mean(axis=1)
+    key_idx = int(np.argmax(chroma_mean))
+    key_total = float(np.sum(chroma_mean)) or 1.0
+    key_confidence = float(chroma_mean[key_idx] / key_total)
     centroid = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+    bandwidth = float(np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr)))
+    rolloff = float(np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr)))
+    onset_strength = float(np.mean(onset_env)) if onset_env.size else 0.0
+    beat_count = int(len(beat_frames))
+    beat_density = float(beat_count / max(duration, 1.0))
+    harmonic, percussive = librosa.effects.hpss(y)
+    harmonic_energy = float(np.mean(np.abs(harmonic))) + 1e-9
+    percussive_energy = float(np.mean(np.abs(percussive))) + 1e-9
+    total_hp = harmonic_energy + percussive_energy
 
     device = _select_device()
     genre_raw = classify_music_genres(y, sr, device=device)
@@ -212,7 +245,15 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
         duration_sec=duration,
         tempo_bpm=tempo_bpm,
         key_estimate=_KEYS[key_idx],
+        key_confidence=key_confidence,
         spectral_centroid_hz=centroid,
+        spectral_bandwidth_hz=bandwidth,
+        spectral_rolloff_hz=rolloff,
+        onset_strength=onset_strength,
+        beat_count=beat_count,
+        beat_density=beat_density,
+        percussive_ratio=percussive_energy / total_hp,
+        harmonic_ratio=harmonic_energy / total_hp,
         device=device,
         genre_predictions=genre_predictions,
         genre_model=GENRE_MODEL_ID if genre_predictions else None,

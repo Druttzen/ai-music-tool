@@ -17,7 +17,15 @@ export interface SidecarAnalysis {
   duration_sec: number;
   tempo_bpm: number;
   key_estimate: string;
+  key_confidence?: number;
   spectral_centroid_hz: number;
+  spectral_bandwidth_hz?: number;
+  spectral_rolloff_hz?: number;
+  onset_strength?: number;
+  beat_count?: number;
+  beat_density?: number;
+  percussive_ratio?: number;
+  harmonic_ratio?: number;
   device: string;
   genre_predictions?: { label: string; score: number }[];
   genre_model?: string;

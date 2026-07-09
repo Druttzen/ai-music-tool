@@ -13,6 +13,9 @@ import {
 } from "../lib/lufs-meter";
 import { clamp } from "../lib/music-helpers";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
+import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
+
+const ENABLE_WAVESURFER_PROTOTYPE = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE === "1";
 
 function TagField({ label, hint, value, onChange, placeholder }) {
   return (
@@ -189,6 +192,14 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           onHighlightChange={(range) => onChange(range)}
         />
       </section>
+
+      {ENABLE_WAVESURFER_PROTOTYPE ? (
+        <AudioWaveformProPrototype
+          audioUrl={audioUrl}
+          analysis={analysis}
+          onHighlightChange={(range) => onChange(range)}
+        />
+      ) : null}
 
       <section className="rounded-2xl border border-cyan-400/20 bg-black/30 p-3 space-y-2">
         <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-200/90">Music analysis</div>

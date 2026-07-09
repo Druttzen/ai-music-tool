@@ -9,7 +9,7 @@ from io import BytesIO
 import pytest
 from fastapi.testclient import TestClient
 
-from ai_sidecar.main import app
+from ai_sidecar.main import app, _stems_available
 
 client = TestClient(app)
 
@@ -37,6 +37,7 @@ def test_health_ok():
     assert "device" in body
     assert isinstance(body["stems_available"], bool)
     assert isinstance(body["genre_available"], bool)
+    assert isinstance(body["vision_available"], bool)
 
 
 def test_health_allows_local_dev_cors():
@@ -52,6 +53,8 @@ def test_dev_session_ping():
 
 
 def test_separate_without_stems_extra_returns_503():
+    if _stems_available():
+        pytest.skip("stems extra installed in this environment")
     res = client.post(
         "/separate",
         files={"file": ("test.wav", BytesIO(b"RIFF"), "audio/wav")},
@@ -78,5 +81,13 @@ def test_analyze_wav_returns_tempo_and_key():
     assert body["tempo_bpm"] >= 0
     assert body["key_estimate"]
     assert body["spectral_centroid_hz"] > 0
+    assert 0 <= body["key_confidence"] <= 1
+    assert body["spectral_bandwidth_hz"] >= 0
+    assert body["spectral_rolloff_hz"] >= 0
+    assert body["onset_strength"] >= 0
+    assert body["beat_count"] >= 0
+    assert body["beat_density"] >= 0
+    assert 0 <= body["percussive_ratio"] <= 1
+    assert 0 <= body["harmonic_ratio"] <= 1
     assert "device" in body
     assert body.get("genre_predictions") is None or isinstance(body["genre_predictions"], list)

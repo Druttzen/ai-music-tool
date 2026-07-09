@@ -5,10 +5,51 @@
  * is sanitized before it touches project state.
  */
 
+import { z } from "zod";
 import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
 import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
 
 export const MAESTRO_LLM_TIMEOUT_MS = 45_000;
+
+const MaestroPatchSchema = z
+  .object({
+    idea: z.string().optional(),
+    tempo: z.string().optional(),
+    structure: z.string().optional(),
+    selectedGenres: z.array(z.coerce.string()).optional(),
+    selectedRhythms: z.array(z.coerce.string()).optional(),
+    selectedSounds: z.array(z.coerce.string()).optional(),
+    vocal: z.string().optional(),
+    instrumentalVocalFx: z.coerce.boolean().optional(),
+    mood: z
+      .object({
+        darkness: z.coerce.number().finite().optional(),
+        energy: z.coerce.number().finite().optional(),
+        aggression: z.coerce.number().finite().optional(),
+        emotion: z.coerce.number().finite().optional(),
+        complexity: z.coerce.number().finite().optional(),
+        space: z.coerce.number().finite().optional(),
+      })
+      .strict()
+      .optional(),
+    lyricTheme: z.string().optional(),
+    lyricLanguage: z.string().optional(),
+    lyricStyle: z.string().optional(),
+    rules: z.string().optional(),
+  })
+  .strict();
+
+const MaestroLlmResponseSchema = z
+  .object({
+    reply: z.coerce.string().default("…"),
+    patch: MaestroPatchSchema.nullish().default(null),
+    commands: z
+      .preprocess(
+        (value) => (Array.isArray(value) ? value.filter((c) => MAESTRO_COMMANDS.includes(c)) : value),
+        z.array(z.enum(MAESTRO_COMMANDS)).nullish().default([]),
+      ),
+  })
+  .strict();
 
 /**
  * @param {Array<{ role: string, text: string }>} history - prior chat turns (oldest first)
@@ -69,13 +110,19 @@ export function parseMaestroLlmResponse(raw, snapshot) {
   }
   try {
     const parsed = JSON.parse(text.slice(start, end + 1));
-    const commands = Array.isArray(parsed.commands)
-      ? parsed.commands.filter((c) => MAESTRO_COMMANDS.includes(c))
-      : [];
+    const schemaResult = MaestroLlmResponseSchema.safeParse(parsed);
+    if (!schemaResult.success) {
+      return {
+        reply: String(parsed?.reply || text || "…").trim() || "…",
+        patch: null,
+        commands: [],
+      };
+    }
+    const validated = schemaResult.data;
     return {
-      reply: String(parsed.reply || "").trim() || "…",
-      patch: sanitizeMaestroPatch(parsed.patch, snapshot),
-      commands,
+      reply: validated.reply.trim() || "…",
+      patch: sanitizeMaestroPatch(validated.patch, snapshot),
+      commands: validated.commands || [],
     };
   } catch {
     return { reply: text, patch: null, commands: [] };

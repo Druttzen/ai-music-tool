@@ -1,12 +1,13 @@
 # AI Music Sidecar
 
-Local FastAPI service for track analysis (librosa) and optional ML capabilities (Demucs stem separation, MusicGen generation).
+Local FastAPI service for track analysis (librosa) and optional ML capabilities (Demucs stem separation, vision analysis, MusicGen generation).
 
 ## Requirements
 
 - **Python 3.10–3.12** (PyTorch/Demucs have no 3.13+ wheels yet)
 - Base install: librosa, FastAPI, soundfile (~100 MB)
 - Optional **`stems`** extra: torch + demucs (~2 GB download)
+- Optional **`vision`** extra: torch + transformers + Pillow + scikit-learn for future image caption/object analysis
 - **ffmpeg** on PATH for MP3/M4A uploads (WAV works without it). Windows: `winget install Gyan.FFmpeg`
 
 ## Quick start
@@ -39,6 +40,18 @@ curl http://127.0.0.1:8723/health
 
 UI: load a track in **Drag & Drop Analyzers** → **Separate stems (Demucs)** → download individual WAVs.
 
+## Optional vision stack
+
+The browser image analyzer stays lightweight by default (pixel palette + mood mapping). The
+`vision` extra is reserved for local BLIP/CLIP-style captioning and object tags when a user
+wants heavier offline image understanding:
+
+```bash
+pip install -e ai-sidecar[vision]
+curl http://127.0.0.1:8723/health
+# "vision_available": true
+```
+
 ## Tests
 
 ```bash
@@ -58,7 +71,7 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 
 | Route | Purpose |
 |-------|---------|
-| `GET /health` | Liveness; includes `stems_available` |
-| `POST /analyze` | Librosa tempo/key/spectral report |
+| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available` |
+| `POST /analyze` | Librosa tempo/key/spectral/percussive report |
 | `POST /separate` | Demucs stem separation (requires `stems` extra) |
 | `GET /separate/download/{job_id}/{filename}` | Download one stem WAV |
