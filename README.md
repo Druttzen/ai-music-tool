@@ -1,8 +1,15 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.33.0**
+**Version 0.34.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.34.0)
+
+- **MusicGen e2e on every push** — new `e2e-musicgen` CI job with merge + coach specs via `npm run test:e2e:musicgen`.
+- **Shared MusicGen e2e runner** — `scripts/run-e2e-musicgen.cjs`; `--live` for generate-extra live specs (`npm run test:e2e:musicgen:live`).
+- **Weekly live MusicGen CI** — `ci-musicgen` scheduled Sundays for torch/audiocraft live e2e.
+- **MusicGen coach prefill e2e** — Polish chip prefills Maestro with `Regenerate with melody`.
 
 ## Highlights (v0.33.0)
 

@@ -113,6 +113,8 @@ describe("suno-guided-step-focus", () => {
       sunoWarnings: [],
     });
     expect(report.improvements.some((x) => x.id === "maestro-musicgen")).toBe(true);
+    const musicgen = report.improvements.find((x) => x.id === "maestro-musicgen");
+    expect(musicgen?.maestroPrompt).toBe("Regenerate with melody");
   });
 
   it("suggests OpenVPI ds export on polish step when lyrics and voice are ready", () => {

@@ -40,7 +40,9 @@ test.describe("Maestro step coach MusicGen", () => {
       .first();
     await maestroRow.getByRole("button", { name: "Apply" }).click();
 
-    await expect(page.getByTestId("maestro-chat-panel")).toBeVisible();
-    await expect(page.getByTestId("action-toast")).toContainText(/Maestro/i);
+    const maestro = page.getByTestId("maestro-chat-panel");
+    await expect(maestro).toBeVisible();
+    await expect(maestro.locator("textarea").first()).toHaveValue("Regenerate with melody");
+    await expect(page.getByTestId("action-toast")).toContainText(/Maestro prompt ready/i);
   });
 });
