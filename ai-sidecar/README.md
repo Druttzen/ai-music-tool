@@ -62,8 +62,32 @@ a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix t
 (librosa + soundfile). It ducks the instrumental under lyric sections and overlays a guide vocal.
 
 **Vocal DSP v1** (`pip install -e ai-sidecar[vocal]`) adds scipy-powered guide conversion
-(pitch shift + presence EQ) and lyrics-only synthesis from section timing. Full RVC/DiffSinger
-model weights remain a future `vocal-ml` torch integration.
+(pitch shift + presence EQ) and lyrics-only synthesis from section timing.
+
+**Vocal ML models (RVC / DiffSinger)** are user-provided and configured via environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `AIMC_RVC_MODEL` | Path to an RVC `.pth` model (with optional `AIMC_RVC_INDEX`) |
+| `AIMC_RVC_API_URL` | External RVC API server (e.g. `http://127.0.0.1:5050` from `python -m rvc_python api`) |
+| `AIMC_DIFFSINGER_CMD` | CLI bridge for OpenVPI DiffSinger (see `ai-sidecar/scripts/diffsinger_bridge_example.py`) |
+| `AIMC_DIFFSINGER_URL` | HTTP DiffSinger service exposing `POST /synthesize` |
+| `AIMC_DIFFSINGER_MODEL_DIR` | Model directory passed to the DiffSinger bridge |
+
+Install torch stack:
+
+```bash
+npm run sidecar:vocal-ml
+# optional in-venv RVC python package:
+pip install rvc-python
+```
+
+Engines returned by `POST /vocal-embed/synthesize`:
+- `placement-mix-v1` — guide overlay only
+- `guide-conversion-v1` — scipy/librosa DSP conversion
+- `rvc-conversion-v1` — RVC model or API
+- `lyrics-synth-v1` — DSP lyric bed
+- `diffsinger-v1` — DiffSinger bridge when configured
 
 Future heavy sidecar options should stay opt-in:
 
@@ -94,9 +118,10 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 
 | Route | Purpose |
 |-------|---------|
-| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available`, `vocal_embed_plan_available`, `vocal_synthesis_available`, `vocal_ml_available` |
+| `GET /health` | Liveness; includes vocal synthesis/DSP/RVC/DiffSinger flags |
 | `POST /analyze` | Librosa tempo/key/spectral/percussive report |
 | `POST /vocal-embed/plan` | Validate Vocal Embed Studio JSON plan from the app |
-| `POST /vocal-embed/synthesize` | Placement-mix v1: multipart `plan_json` + `instrumental` + optional `guide_vocal` → mixed WAV |
+| `GET /vocal-embed/models` | RVC / DiffSinger configuration status |
+| `POST /vocal-embed/synthesize` | Placement-mix + optional RVC/DiffSinger engines → mixed WAV |
 | `POST /separate` | Demucs stem separation (requires `stems` extra) |
 | `GET /separate/download/{job_id}/{filename}` | Download one stem WAV |

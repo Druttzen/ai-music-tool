@@ -18,6 +18,7 @@ _ACTIVITY_PATHS = frozenset({
     "/separate",
     "/dev-session/ping",
     "/vocal-embed/plan",
+    "/vocal-embed/models",
     "/vocal-embed/synthesize",
 })
 

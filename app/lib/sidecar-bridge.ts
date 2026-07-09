@@ -17,6 +17,9 @@ export interface SidecarHealth {
   vocal_embed_plan_available?: boolean;
   vocal_synthesis_available?: boolean;
   vocal_ml_available?: boolean;
+  vocal_models_available?: boolean;
+  vocal_rvc_available?: boolean;
+  vocal_diffsinger_available?: boolean;
 }
 
 export interface SidecarAnalysis {
@@ -212,6 +215,33 @@ export interface SidecarVocalEmbedPlanResponse {
   message: string;
   synthesis_available: boolean;
   next_steps: string[];
+}
+
+export interface SidecarVocalModelStatus {
+  rvc_python: boolean;
+  rvc_api: boolean;
+  rvc_model_configured: boolean;
+  rvc_ready: boolean;
+  rvc_model: string | null;
+  rvc_index: string | null;
+  rvc_models_dir: string | null;
+  rvc_api_url: string | null;
+  diffsinger_configured: boolean;
+  diffsinger_cmd: string | null;
+  diffsinger_url: string | null;
+  diffsinger_model_dir: string | null;
+  models_ready: boolean;
+}
+
+/** GET /vocal-embed/models — RVC / DiffSinger configuration status. */
+export async function fetchVocalEmbedModels(): Promise<SidecarVocalModelStatus | null> {
+  try {
+    const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/models`);
+    if (!res.ok) return null;
+    return res.json() as Promise<SidecarVocalModelStatus>;
+  } catch {
+    return null;
+  }
 }
 
 /**

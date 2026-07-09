@@ -105,24 +105,23 @@ def _prepare_vocal_track(
     mode = str(plan.get("sidecarMode") or "guide-vocal-conversion")
     voice_style = str(plan.get("voiceStyle") or "")
     mix_plan = plan.get("mixPlan") or {}
-    ml = ml_vocal_stack_available()
 
     if guide_vocal_raw:
         guide, _ = _load_stereo(guide_vocal_raw, target_sr=sample_rate)
         guide = _match_length(guide, length)
-        if ml and mode == "guide-vocal-conversion":
-            guide = convert_guide_vocal(guide, sample_rate, voice_style, mix_plan)
-            return guide, "guide-conversion-v1"
+        if mode == "guide-vocal-conversion":
+            guide, engine = convert_guide_vocal(guide, sample_rate, voice_style, mix_plan)
+            return guide, engine
         return guide, "placement-mix-v1"
 
-    if mode == "lyrics-to-vocal-synthesis" and ml:
-        guide = synthesize_lyrics_vocal(plan, length, sample_rate)
-        return guide, "lyrics-synth-v1"
+    if mode == "lyrics-to-vocal-synthesis":
+        guide, engine = synthesize_lyrics_vocal(plan, length, sample_rate)
+        return guide, engine
 
     if mode == "lyrics-to-vocal-synthesis":
         raise ValueError(
-            "Lyrics-to-vocal mode needs the vocal DSP extra (pip install -e ai-sidecar[vocal]) "
-            "or attach a guide vocal file for placement-mix v1.",
+            "Lyrics-to-vocal mode needs DiffSinger (AIMC_DIFFSINGER_CMD/URL), "
+            "vocal DSP (pip install -e ai-sidecar[vocal]), or a guide vocal file.",
         )
     raise ValueError("Attach a guide vocal WAV/MP3 for local placement-mix synthesis.")
 

@@ -16,6 +16,7 @@ import {
 } from "../lib/vocal-embed-engine";
 import {
   fetchSidecarHealth,
+  fetchVocalEmbedModels,
   submitVocalEmbedPlanToSidecar,
   synthesizeVocalEmbedViaSidecar,
   waitForSidecar,
@@ -40,13 +41,17 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const [guideVocalFile, setGuideVocalFile] = useState(null);
   const [sidecarBusy, setSidecarBusy] = useState(false);
   const [sidecarHealth, setSidecarHealth] = useState(null);
+  const [vocalModels, setVocalModels] = useState(null);
   const guideInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const health = await fetchSidecarHealth();
-      if (!cancelled) setSidecarHealth(health);
+      const [health, models] = await Promise.all([fetchSidecarHealth(), fetchVocalEmbedModels()]);
+      if (!cancelled) {
+        setSidecarHealth(health);
+        setVocalModels(models);
+      }
     })();
     return () => {
       cancelled = true;
@@ -84,7 +89,9 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     ],
   );
 
-  const canLyricsOnlySynth = plan.sidecarMode === "lyrics-to-vocal-synthesis" && !!sidecarHealth?.vocal_ml_available;
+  const canLyricsOnlySynth =
+    plan.sidecarMode === "lyrics-to-vocal-synthesis" &&
+    (!!sidecarHealth?.vocal_ml_available || !!vocalModels?.diffsinger_configured);
   const canSynthesize = plan.stage === "ready" && (!!guideVocalFile || canLyricsOnlySynth);
 
   const exportPlan = () => {
@@ -154,7 +161,9 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         return;
       }
       const health = await fetchSidecarHealth();
+      const models = await fetchVocalEmbedModels();
       setSidecarHealth(health);
+      setVocalModels(models);
       const instrumental = await resolveInstrumentalBlob();
       if (!instrumental) {
         setStatusWithTime("Instrumental audio missing from cache — re-analyze the track", "warning");
@@ -175,10 +184,14 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       a.click();
       URL.revokeObjectURL(url);
       const engineLabel = guideVocalFile
-        ? health?.vocal_ml_available
-          ? "guide-conversion-v1"
-          : "placement-mix-v1"
-        : "lyrics-synth-v1";
+        ? models?.rvc_ready
+          ? "rvc-conversion-v1"
+          : health?.vocal_ml_available
+            ? "guide-conversion-v1"
+            : "placement-mix-v1"
+        : models?.diffsinger_configured
+          ? "diffsinger-v1"
+          : "lyrics-synth-v1";
       setStatusWithTime(`Vocal embed preview downloaded (${engineLabel})`, "success");
     } catch (err) {
       setStatusWithTime(err instanceof Error ? err.message : "Vocal synthesis failed", "error");
@@ -208,9 +221,11 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         }`}
       >
         {plan.stage === "ready"
-          ? canLyricsOnlySynth
-            ? "Ready: guide conversion, lyrics-only synth (vocal DSP), or placement-mix with a guide file."
-            : "Ready for placement-mix. Install sidecar vocal DSP (pip install -e ai-sidecar[vocal]) for lyrics-only synth."
+          ? vocalModels?.rvc_ready
+            ? "Ready: RVC guide conversion, DiffSinger/DSP lyrics synth, or placement-mix."
+            : canLyricsOnlySynth
+              ? "Ready: guide conversion, lyrics-only synth (vocal DSP), or placement-mix with a guide file."
+              : "Ready for placement-mix. Install vocal DSP or configure RVC/DiffSinger models."
           : "Draft mode: add the missing pieces below before synthesis/conversion."}
       </div>
 
@@ -234,7 +249,34 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           >
             vocal DSP {sidecarHealth.vocal_ml_available ? "on" : "off"}
           </span>
+          <span
+            className={`rounded-full px-2 py-1 font-bold ${
+              vocalModels?.rvc_ready
+                ? "bg-violet-500/15 text-violet-100"
+                : "bg-white/10 text-white/45"
+            }`}
+          >
+            RVC {vocalModels?.rvc_ready ? "on" : "off"}
+          </span>
+          <span
+            className={`rounded-full px-2 py-1 font-bold ${
+              vocalModels?.diffsinger_configured
+                ? "bg-sky-500/15 text-sky-100"
+                : "bg-white/10 text-white/45"
+            }`}
+          >
+            DiffSinger {vocalModels?.diffsinger_configured ? "on" : "off"}
+          </span>
         </div>
+      ) : null}
+
+      {vocalModels && !vocalModels.models_ready ? (
+        <p className="mb-3 text-[10px] leading-relaxed text-white/40">
+          For RVC: set <span className="text-white/55">AIMC_RVC_MODEL</span> or run an RVC API on{" "}
+          <span className="text-white/55">AIMC_RVC_API_URL</span>. For DiffSinger: set{" "}
+          <span className="text-white/55">AIMC_DIFFSINGER_CMD</span> or <span className="text-white/55">AIMC_DIFFSINGER_URL</span>.
+          Run <span className="text-white/55">npm run sidecar:vocal-ml</span> for torch DSP fallback.
+        </p>
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -394,8 +436,8 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         </button>
       </div>
       <p className="mt-2 text-[10px] leading-relaxed text-white/40">
-        With <span className="text-white/55">vocal</span> extra: guide pitch conversion or lyrics-only synth from section timing.
-        Full RVC/DiffSinger model weights remain a future <span className="text-white/55">vocal-ml</span> integration.
+        With <span className="text-white/55">vocal</span> extra: DSP guide conversion or lyrics synth.
+        Configure <span className="text-white/55">AIMC_RVC_MODEL</span> / <span className="text-white/55">AIMC_DIFFSINGER_CMD</span> for full model stacks (user-owned voices only).
       </p>
     </Panel>
   );

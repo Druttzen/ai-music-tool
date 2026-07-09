@@ -40,6 +40,7 @@ def test_convert_guide_vocal_changes_signal():
     t = np.linspace(0, 0.5, 22050, endpoint=False, dtype=np.float32)
     mono = (0.3 * np.sin(2 * np.pi * 440 * t)).astype(np.float32)
     stereo = np.stack([mono, mono], axis=0)
-    converted = convert_guide_vocal(stereo, 44100, "soprano lead", {})
+    converted, engine = convert_guide_vocal(stereo, 44100, "soprano lead", {})
+    assert engine == "guide-conversion-v1"
     assert converted.shape == stereo.shape
     assert not np.allclose(converted, stereo)

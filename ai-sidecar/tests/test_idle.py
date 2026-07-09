@@ -7,6 +7,7 @@ def test_activity_paths():
     assert is_activity_path("/analyze")
     assert is_activity_path("/separate")
     assert is_activity_path("/vocal-embed/plan")
+    assert is_activity_path("/vocal-embed/models")
     assert is_activity_path("/vocal-embed/synthesize")
     assert not is_activity_path("/health")
     assert not is_activity_path("/docs")

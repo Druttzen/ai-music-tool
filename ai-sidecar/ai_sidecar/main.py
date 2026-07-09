@@ -35,6 +35,12 @@ from .vocal_embed import (
     vocal_ml_available,
     vocal_synthesis_available,
 )
+from .vocal_ml_models import (
+    diffsinger_configured,
+    full_ml_vocal_models_available,
+    rvc_ready,
+    vocal_model_status,
+)
 from .vocal_synth import (
     parse_plan_envelope,
     synthesis_stack_available,
@@ -141,6 +147,9 @@ class Health(BaseModel):
     vocal_embed_plan_available: bool
     vocal_synthesis_available: bool
     vocal_ml_available: bool
+    vocal_models_available: bool
+    vocal_rvc_available: bool
+    vocal_diffsinger_available: bool
 
 
 class GenrePrediction(BaseModel):
@@ -198,6 +207,9 @@ def health() -> Health:
         vocal_embed_plan_available=True,
         vocal_synthesis_available=vocal_synthesis_available(),
         vocal_ml_available=vocal_ml_available(),
+        vocal_models_available=full_ml_vocal_models_available(),
+        vocal_rvc_available=rvc_ready(),
+        vocal_diffsinger_available=diffsinger_configured(),
     )
 
 
@@ -208,6 +220,12 @@ async def vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespon
         return accept_vocal_embed_plan(body)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/vocal-embed/models")
+def vocal_embed_models() -> dict[str, Any]:
+    """Report configured RVC / DiffSinger integrations (models are user-provided)."""
+    return vocal_model_status()
 
 
 @app.post("/vocal-embed/synthesize")

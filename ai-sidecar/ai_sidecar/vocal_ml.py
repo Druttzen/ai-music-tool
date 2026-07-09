@@ -1,7 +1,7 @@
 """Vocal Embed Studio — optional DSP vocal conversion and lyrics synthesis (v1).
 
 Uses librosa pitch/formant-style shaping when scipy is installed (`vocal` extra).
-Full RVC/DiffSinger model weights remain a future `vocal-ml` torch integration.
+Full RVC/DiffSinger model weights use optional `vocal-ml` extra plus env configuration.
 """
 
 from __future__ import annotations
@@ -10,6 +10,14 @@ import re
 from typing import Any
 
 import numpy as np
+
+from .vocal_ml_models import (
+    convert_guide_with_rvc,
+    diffsinger_configured,
+    full_ml_vocal_models_available,
+    rvc_ready,
+    synthesize_with_diffsinger,
+)
 
 
 def _base_audio_stack_available() -> bool:
@@ -43,17 +51,6 @@ def ml_vocal_stack_available() -> bool:
     except Exception:
         return False
     return True
-
-
-def full_ml_vocal_models_available() -> bool:
-    """True when bundled RVC/DiffSinger model loaders are wired (future)."""
-    if not ml_vocal_stack_available():
-        return False
-    try:
-        import torch  # noqa: F401, PLC0415
-    except Exception:
-        return False
-    return False
 
 
 def infer_pitch_shift_semitones(voice_style: str) -> float:
@@ -113,17 +110,24 @@ def convert_guide_vocal(
     sample_rate: int,
     voice_style: str,
     mix_plan: dict[str, Any] | None = None,
-) -> np.ndarray:
-    """Apply lightweight style conversion to a guide vocal (pitch + presence)."""
+) -> tuple[np.ndarray, str]:
+    """Apply RVC or lightweight DSP conversion to a guide vocal."""
     _ = mix_plan
-    if not ml_vocal_stack_available():
-        return stereo
-
     semi = infer_pitch_shift_semitones(voice_style)
+
+    if rvc_ready():
+        try:
+            return convert_guide_with_rvc(stereo, sample_rate, semi), "rvc-conversion-v1"
+        except Exception:
+            pass
+
+    if not ml_vocal_stack_available():
+        return stereo, "placement-mix-v1"
+
     out = np.zeros_like(stereo)
     for ch in range(stereo.shape[0]):
         out[ch] = _pitch_shift_mono(stereo[ch], sample_rate, semi)
-    return _apply_presence_boost(out, sample_rate)
+    return _apply_presence_boost(out, sample_rate), "guide-conversion-v1"
 
 
 def _section_words(section: dict[str, Any], fallback_lyrics: str) -> list[str]:
@@ -167,8 +171,14 @@ def _note_hz(plan: dict[str, Any], word_index: int) -> float:
     return base * (2 ** ((degree + octave * 12) / 12.0))
 
 
-def synthesize_lyrics_vocal(plan: dict[str, Any], length: int, sample_rate: int) -> np.ndarray:
-    """Build a simple sung guide bed from lyric sections and timing."""
+def synthesize_lyrics_vocal(plan: dict[str, Any], length: int, sample_rate: int) -> tuple[np.ndarray, str]:
+    """Build a vocal guide from lyrics, preferring DiffSinger when configured."""
+    if diffsinger_configured():
+        try:
+            return synthesize_with_diffsinger(plan, length, sample_rate), "diffsinger-v1"
+        except Exception:
+            pass
+
     if not ml_vocal_stack_available():
         raise RuntimeError("vocal DSP stack unavailable — install ai-sidecar[vocal]")
 
@@ -220,4 +230,4 @@ def synthesize_lyrics_vocal(plan: dict[str, Any], length: int, sample_rate: int)
     peak = float(np.max(np.abs(stereo))) or 1.0
     if peak > 0.98:
         stereo = (stereo * (0.95 / peak)).astype(np.float32)
-    return _apply_presence_boost(stereo, sample_rate)
+    return _apply_presence_boost(stereo, sample_rate), "lyrics-synth-v1"

@@ -33,7 +33,14 @@ def test_health_includes_vocal_embed_flags():
     assert body["vocal_ml_available"] is ml_vocal_stack_available()
 
 
-def test_vocal_embed_plan_accepts_ready_plan():
+def test_vocal_embed_models_endpoint():
+    res = client.get("/vocal-embed/models")
+    assert res.status_code == 200
+    body = res.json()
+    assert "rvc_ready" in body
+    assert "diffsinger_configured" in body
+    assert "models_ready" in body
+
     res = client.post("/vocal-embed/plan", json=_ready_plan())
     assert res.status_code == 200
     body = res.json()
