@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
+import { formatMaestroCatalogGrounding, latestMaestroUserMessage } from "./maestro-catalog-grounding";
 import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
 
 export const MAESTRO_LLM_TIMEOUT_MS = 45_000;
@@ -56,6 +57,8 @@ const MaestroLlmResponseSchema = z
  * @param {object} snapshot - current project fields
  */
 export function buildMaestroLlmMessages(history, snapshot) {
+  const userMessage = latestMaestroUserMessage(history);
+  const catalogGrounding = formatMaestroCatalogGrounding(snapshot, userMessage);
   const projectBrief = JSON.stringify(
     {
       idea: snapshot.idea,
@@ -78,7 +81,7 @@ export function buildMaestroLlmMessages(history, snapshot) {
   );
 
   const system = `You are Maestro, an expert music co-producer inside the "AI Music Creator" app. The user is building a Suno prompt project. Current project state: ${projectBrief}
-
+${catalogGrounding ? `\n${catalogGrounding}\n` : ""}
 Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch": object|null, "commands": string[]|null}
 - "reply": short, friendly producer-speak (2-4 sentences max). You may include lyrics or hooks inside reply when asked.
 - "patch": fields to update, or null. Allowed keys: ${MAESTRO_PATCHABLE_KEYS.join(", ")}.

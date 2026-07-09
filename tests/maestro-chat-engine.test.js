@@ -295,6 +295,7 @@ describe("maestro-chat-llm", () => {
     expect(messages[0].role).toBe("system");
     expect(messages[0].content).toMatch(/selectedGenres/);
     expect(messages[0].content).toMatch(/Techno/);
+    expect(messages[0].content).toMatch(/Licensed style catalog hints/);
     expect(messages[1]).toEqual({ role: "user", content: "darker" });
   });
 });

@@ -42,6 +42,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 3. Add optional image captioning via `POST /analyze-image` (vision extra) without requiring torch/transformers in the base install.
 4. Prototype wavesurfer.js if existing waveform UX becomes a bottleneck.
 5. Evaluate DSP crates only after adding benchmark-style tests around current output.
+6. Maestro LLM catalog grounding — local retrieval from style catalog + CC0 concepts (`maestro-catalog-grounding.js`).
 
 ## Current Evaluation Decisions
 
