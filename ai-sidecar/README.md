@@ -52,6 +52,22 @@ curl http://127.0.0.1:8723/health
 # "vision_available": true
 ```
 
+## Vocal Embed Studio roadmap
+
+The app's **Vocal Embed Studio** creates a local handoff plan for adding vocals to an
+existing instrumental without relying on Suno's generation engine. The first app layer exports
+a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix targets.
+
+Future heavy sidecar options should stay opt-in:
+
+- Singing synthesis: OpenVPI DiffSinger (Apache-2.0) from lyrics + MIDI/guide melody.
+- Voice style conversion: RVC-style conversion for user-owned voices only.
+- Alignment: Montreal Forced Aligner (MIT) when a guide vocal/transcript is available.
+- Mixing: `audio-arrange` / `pedalboard` style vocal chain with ducking and LUFS target.
+
+These model stacks are intentionally not bundled in the base sidecar because they are GPU-heavy
+and may require separate voice/model rights.
+
 ## Tests
 
 ```bash
