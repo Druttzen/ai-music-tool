@@ -279,6 +279,49 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
   }
 
   if (step === 6) {
+    const hasTrack = !!snapshot.audioAnalysis?.fileName;
+    const hasVoiceStyle = !!String(snapshot.voiceStyleCompact?.style || snapshot.voiceStyleLine || "").trim();
+    const instrumental = vocal === "Instrumental";
+
+    if (!hasTrack) {
+      missing.push("Analyze an instrumental track in Drag & Drop Analyzers for Vocal Embed Studio.");
+      improvements.push({
+        id: "open-analyzers",
+        title: "Open track analyzer",
+        description: "Upload your instrumental so section timing and mix ducking can be planned.",
+        action: "showAnalyzers",
+      });
+    }
+
+    if (!instrumental && !hasVoiceStyle) {
+      missing.push("Load Voice Character traits for local vocal style conversion.");
+      improvements.push({
+        id: "voice-character",
+        title: "Analyze a voice character",
+        description: "Use Voice Character Studio or a preset so the sidecar knows your target style.",
+        action: "showAnalyzers",
+      });
+    }
+
+    if (!instrumental && !generatedLyrics && hasTrack) {
+      missing.push("Add lyric draft for Vocal Embed section timing.");
+      improvements.push({
+        id: "vocal-embed-lyrics",
+        title: "Generate lyrics for placement map",
+        description: "Bracketed lyrics drive section timing in Vocal Embed Studio.",
+        action: "generateExampleLyrics",
+      });
+    }
+
+    if (hasTrack && hasVoiceStyle && (instrumental || generatedLyrics)) {
+      improvements.push({
+        id: "vocal-embed-preview",
+        title: "Try Vocal Embed preview mix",
+        description: "Open Vocal Embed Studio, attach a guide vocal if needed, and synthesize a local WAV.",
+        action: "focusVocalEmbed",
+      });
+    }
+
     if (sunoWarnings.length) {
       improvements.push({
         id: "fix-warnings",

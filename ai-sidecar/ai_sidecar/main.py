@@ -88,6 +88,9 @@ def _prune_stem_jobs() -> None:
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
+    from .vocal_env import load_vocal_env_file
+
+    load_vocal_env_file()
     configure_idle_exit(float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "300")))
     touch_activity()
     start_idle_watchdog()

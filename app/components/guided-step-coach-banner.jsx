@@ -39,7 +39,7 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
     generatedLyrics,
   } = useProjectWorkspaceProjectState();
   const { audioAnalysis, imageAnalysis } = useProjectWorkspaceAnalyzerState();
-  const { sunoWarnings } = useProjectWorkspacePromptState();
+  const { sunoWarnings, voiceStyleCompact, voiceStyleLine } = useProjectWorkspacePromptState();
   const {
     setGuidedStep,
     fixSunoWarnings,
@@ -72,6 +72,8 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
       sunoWarnings,
       audioAnalysis,
       imageAnalysis,
+      voiceStyleCompact,
+      voiceStyleLine,
     }),
     [
       guidedStep,
@@ -91,6 +93,8 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
       sunoWarnings,
       audioAnalysis,
       imageAnalysis,
+      voiceStyleCompact,
+      voiceStyleLine,
     ],
   );
 
@@ -155,6 +159,9 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
       else if (action === "showAnalyzers") {
         setShowAll(true);
         setStatusWithTime("Showing all tools — scroll to Drag & Drop Analyzers", "info");
+      } else if (action === "focusVocalEmbed") {
+        setShowAll(true);
+        setStatusWithTime("Showing all tools — scroll to Vocal Embed Studio", "info");
       }
       dismiss();
     },

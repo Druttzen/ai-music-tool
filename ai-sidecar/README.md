@@ -78,9 +78,10 @@ Install torch stack:
 
 ```bash
 npm run sidecar:vocal-ml
-# optional in-venv RVC python package:
-pip install rvc-python
+pip install rvc-python   # optional, for in-process RVC
 ```
+
+Copy `ai-sidecar/env.vocal.example` to `ai-sidecar/.env.vocal` and set model paths (restart sidecar).
 
 Engines returned by `POST /vocal-embed/synthesize`:
 - `placement-mix-v1` — guide overlay only

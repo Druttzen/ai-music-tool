@@ -83,6 +83,10 @@ export function voiceCharacterStudioPanel(page) {
   });
 }
 
+export function vocalEmbedStudioPanel(page) {
+  return page.getByTestId("vocal-embed-studio");
+}
+
 export function musicControlsPanel(page) {
   return page.locator("section").filter({ hasText: "Step 3 — Clickable Music Controls" });
 }

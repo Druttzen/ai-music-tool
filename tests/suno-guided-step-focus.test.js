@@ -81,6 +81,28 @@ describe("suno-guided-step-focus", () => {
     expect(report.improvements.some((x) => x.action === "generateExampleLyrics")).toBe(true);
   });
 
+  it("suggests vocal embed on polish step when track and voice style are ready", () => {
+    const report = evaluateGuidedStepCoach({
+      guidedStep: 6,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine one",
+      audioAnalysis: { fileName: "beat.wav", duration: 120 },
+      voiceStyleCompact: { style: "baritone narrator" },
+      sunoWarnings: [],
+    });
+    expect(report.improvements.some((x) => x.action === "focusVocalEmbed")).toBe(true);
+  });
+
+  it("flags missing instrumental on polish step for vocal embed", () => {
+    const report = evaluateGuidedStepCoach({
+      guidedStep: 6,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine",
+      voiceStyleCompact: { style: "tenor" },
+    });
+    expect(report.missing.some((m) => m.includes("instrumental"))).toBe(true);
+  });
+
   it("builds stable coach fingerprints", () => {
     const report = evaluateGuidedStepCoach({
       guidedStep: 7,

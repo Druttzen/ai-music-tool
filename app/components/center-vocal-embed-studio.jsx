@@ -211,6 +211,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   return (
     <Panel
       title="Vocal Embed Studio"
+      data-testid="vocal-embed-studio"
       hint="Local path for adding vocals to your existing instrumental. This does not depend on Suno's generation engine."
     >
       <div
