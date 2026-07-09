@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { test, expect, request } from "@playwright/test";
 import {
   analyzerPanel,
@@ -67,12 +68,28 @@ test.describe("Vocal Embed align & synthesize e2e", () => {
     await expectToast(page, /Vocal embed preview downloaded.*align/i, 45_000);
   });
 
-  test("align and export handoff pack", async ({ page }) => {
+  test("align and export handoff pack includes plan align and openvpi ds", async ({ page }) => {
     const vocalEmbed = await prepareVocalEmbed(page);
+    const downloads = [];
+    page.on("download", (download) => downloads.push(download));
 
     const alignExport = vocalEmbed.getByRole("button", { name: /Align & export handoff/i });
     await expect(alignExport).toBeEnabled({ timeout: 15_000 });
     await alignExport.click();
     await expectToast(page, /Handoff pack downloaded.*OpenVPI \.ds/i, 45_000);
+
+    await expect.poll(() => downloads.length, { timeout: 15_000 }).toBeGreaterThanOrEqual(4);
+
+    const names = downloads.map((d) => d.suggestedFilename());
+    expect(names.some((n) => n.endsWith("-plan.json"))).toBe(true);
+    expect(names.some((n) => n.endsWith("-align-preview.json"))).toBe(true);
+    expect(names.some((n) => n.endsWith("-openvpi-ds.json"))).toBe(true);
+    expect(names.some((n) => n.endsWith("-README.txt"))).toBe(true);
+
+    const dsIndex = names.findIndex((n) => n.includes("openvpi-ds"));
+    const dsPath = await downloads[dsIndex].path();
+    const dsJson = JSON.parse(fs.readFileSync(dsPath, "utf8"));
+    expect(dsJson.format).toBe("openvpi-ds-segments");
+    expect(dsJson.segment_count).toBeGreaterThan(0);
   });
 });
