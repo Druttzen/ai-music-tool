@@ -228,6 +228,12 @@ export interface SidecarOpenVpiStatus {
   ready: boolean;
 }
 
+export interface SidecarImageAnalysis {
+  caption: string | null;
+  caption_model: string | null;
+  device: string;
+}
+
 export interface SidecarVocalModelStatus {
   rvc_python: boolean;
   rvc_api: boolean;
@@ -343,4 +349,35 @@ export async function analyzeAudioViaSidecar(
   }
 
   return res.json() as Promise<SidecarAnalysis>;
+}
+
+/**
+ * POST image bytes to /analyze-image (optional BLIP caption when vision extra is installed).
+ */
+export async function analyzeImageViaSidecar(
+  file: Blob,
+  fileName = "image",
+  opts: { caption?: boolean } = {},
+): Promise<SidecarImageAnalysis> {
+  const form = new FormData();
+  form.append("file", file, fileName);
+  form.append("caption", opts.caption === false ? "false" : "true");
+
+  const res = await fetch(`${sidecarBaseUrl()}/analyze-image`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar image analyze failed (${res.status})`);
+  }
+
+  return res.json() as Promise<SidecarImageAnalysis>;
 }

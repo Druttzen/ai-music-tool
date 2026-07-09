@@ -15,6 +15,7 @@ _WATCHDOG_STARTED = False
 # Only these routes count as tool use (/health probes do not extend the timer).
 _ACTIVITY_PATHS = frozenset({
     "/analyze",
+    "/analyze-image",
     "/separate",
     "/dev-session/ping",
     "/vocal-embed/plan",

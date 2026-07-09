@@ -21,3 +21,13 @@ export function getAudioAnalyzerDisclaimer(analysis) {
 
 export const IMAGE_ANALYZER_DISCLAIMER =
   "Palette-driven suggestions from brightness, contrast, and color — artistic interpretation, not scene recognition. Edit before merge.";
+
+export const IMAGE_ANALYZER_DISCLAIMER_SIDECAR =
+  "Palette metrics plus BLIP scene caption from the local vision sidecar. Still reference-only — edit before merge.";
+
+/** @param {{ analysisEngine?: string }|null|undefined} analysis */
+export function getImageAnalyzerDisclaimer(analysis) {
+  return analysis?.analysisEngine === "pixel+blip"
+    ? IMAGE_ANALYZER_DISCLAIMER_SIDECAR
+    : IMAGE_ANALYZER_DISCLAIMER;
+}

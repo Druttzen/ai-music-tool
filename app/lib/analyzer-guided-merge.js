@@ -127,6 +127,8 @@ export function buildUsableAnalyzerStylePrompt(audioAnalysis, imageAnalysis) {
     add(imageAnalysis.suggestedGenres);
     const mood = normalizeSpace(imageAnalysis.visualMood);
     if (mood) tokens.push(mood);
+    const caption = normalizeSpace(imageAnalysis.caption);
+    if (caption) tokens.push(caption.slice(0, 120));
     add(imageAnalysis.suggestedSounds);
     add(imageAnalysis.suggestedRhythms);
   }
@@ -208,6 +210,7 @@ export function compactImageStyleRule(img) {
     mood,
     vis,
     moodVec,
+    img.caption ? `CAP:${normalizeSpace(String(img.caption).slice(0, 72))}` : "",
     genres ? `G:${genres}` : "",
     rhythms || "",
     sounds || "",

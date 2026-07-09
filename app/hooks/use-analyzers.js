@@ -30,7 +30,8 @@ import {
 } from "../lib/audio-analyzer";
 import { mergeSidecarAnalysis, buildSidecarFallbackReport } from "../lib/audio-analyzer-sidecar";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
-import { analyzeAudioViaSidecar, downloadSidecarStem, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
+import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
@@ -523,21 +524,58 @@ export function useAnalyzers({
         if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
         imagePreviewUrlRef.current = url;
         setImagePreview(url);
-        const img = new Image();
-        img.onload = () => {
-          const canvas = canvasRef.current || document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          const w = 160;
-          const h = Math.max(1, Math.round((img.height / img.width) * w));
-          canvas.width = w;
-          canvas.height = h;
-          ctx.drawImage(img, 0, 0, w, h);
-          const data = ctx.getImageData(0, 0, w, h).data;
-          setImageAnalysis(analyzeImagePixelData(data, file.name));
-          setStatusWithTime("Image ready — add to style below when you want it in Suno fields");
-        };
-        img.onerror = () => setStatusWithTime("Image analysis failed");
-        img.src = url;
+
+        const pixelReport = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = canvasRef.current || document.createElement("canvas");
+              const ctx = canvas.getContext("2d");
+              const w = 160;
+              const h = Math.max(1, Math.round((img.height / img.width) * w));
+              canvas.width = w;
+              canvas.height = h;
+              ctx.drawImage(img, 0, 0, w, h);
+              const data = ctx.getImageData(0, 0, w, h).data;
+              resolve(analyzeImagePixelData(data, file.name));
+            } catch (err) {
+              reject(err);
+            }
+          };
+          img.onerror = () => reject(new Error("image decode failed"));
+          img.src = url;
+        });
+
+        let finalReport = pixelReport;
+        let sidecarStatusMsg = null;
+        let sidecarStatusType = "success";
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        const health = sidecarReady ? await fetchSidecarHealth() : null;
+        if (sidecarReady && health?.vision_available) {
+          try {
+            const sidecar = await analyzeImageViaSidecar(file, file.name, { caption: true });
+            finalReport = mergeSidecarImageAnalysis(pixelReport, sidecar);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Sidecar image analyze failed";
+            sidecarStatusMsg = `Palette report only — ${msg.slice(0, 80)}`;
+            sidecarStatusType = "warning";
+          }
+        } else if (!sidecarReady) {
+          sidecarStatusMsg = "Palette-only — vision sidecar unavailable";
+          sidecarStatusType = "warning";
+        } else if (!health?.vision_available) {
+          sidecarStatusMsg = "Palette-only — install sidecar[vision] for BLIP captions";
+          sidecarStatusType = "warning";
+        }
+
+        setImageAnalysis(finalReport);
+        setStatusWithTime(
+          sidecarStatusMsg ??
+            (finalReport.analysisEngine === "pixel+blip"
+              ? "Image ready (palette + BLIP caption) — add to style below when you want it in Suno fields"
+              : "Image ready — add to style below when you want it in Suno fields"),
+          sidecarStatusType,
+        );
       } catch {
         setStatusWithTime("Image analysis failed");
       }

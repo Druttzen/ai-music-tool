@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.13.2",
+  "version": "0.13.3",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -21,6 +21,7 @@
     "test:smoke:stems": "node scripts/run-sidecar-smoke-stems.cjs",
     "test:smoke:vocal": "node scripts/run-sidecar-smoke-vocal.cjs",
     "sync:suno-catalog": "node scripts/sync-suno-catalog.cjs",
+    "import:awesome-suno": "node scripts/import-awesome-suno-concepts.cjs",
     "sync:version": "node scripts/sync-product-version.cjs",
     "prebuild": "node scripts/sync-product-version.cjs",
     "bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-toolchains.ps1",

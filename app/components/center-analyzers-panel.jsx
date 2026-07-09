@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { AudioTrackEditor } from "./audio-track-editor";
 import { DropBox, Panel } from "./ui-blocks";
-import { IMAGE_ANALYZER_DISCLAIMER } from "../lib/analyzer-disclaimer";
+import { getImageAnalyzerDisclaimer } from "../lib/analyzer-disclaimer";
 import {
   SUPPORTED_AUDIO_ACCEPT,
   SUPPORTED_AUDIO_LABEL,
@@ -163,7 +163,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             {imageAnalysis ? (
               <div className="mt-3 text-left">
                 <p className="mb-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">
-                  {IMAGE_ANALYZER_DISCLAIMER}
+                  {getImageAnalyzerDisclaimer(imageAnalysis)}
                 </p>
                 <div className="rounded-2xl bg-black/30 p-3 text-xs whitespace-pre-wrap text-white/70">
                   {imageAnalysis.summary}

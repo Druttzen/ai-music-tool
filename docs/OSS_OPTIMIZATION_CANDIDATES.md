@@ -13,7 +13,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 | wavesurfer.js | BSD-3-Clause | Browser waveform UX | Added as a disabled-by-default prototype (`NEXT_PUBLIC_WAVESURFER_PROTOTYPE=1`) before any replacement decision. |
 | rubato | MIT | Rust DSP sample-rate conversion | Evaluate only if native export needs higher-quality resampling. |
 | oximedia-normalize | Apache-2.0 | Rust loudness normalization | Evaluate against current `ebur128` + limiter behavior before adopting. |
-| awesome-suno-prompts | CC0 | Style prompt inspiration | Mine concepts only through a curated/generated import; avoid raw dump churn. |
+| awesome-suno-prompts | CC0 | Style prompt inspiration | Imported via `npm run import:awesome-suno` into Style Prompt Library (`awesomeSunoConcepts`). |
 
 ## Optional / User-Installed Integrations
 
@@ -21,7 +21,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 | --- | --- | --- | --- |
 | Ollama | MIT | Local LLM server | Support through existing OpenAI-compatible provider preset; do not bundle. |
 | llama.cpp | MIT | Local LLM runtime | Good future target for advanced local setup docs or optional CLI detection. |
-| BLIP / CLIP via Hugging Face Transformers | Mixed model licenses | Image captioning | Optional sidecar `vision` extra only; keep browser pixel analyzer as default. |
+| BLIP / CLIP via Hugging Face Transformers | Mixed model licenses | Image captioning | Optional sidecar `vision` extra — `POST /analyze-image` (BLIP base). Browser pixel analyzer remains default. |
 | Demucs | MIT code | Stem separation | Already used as optional `stems` extra; keep heavy install opt-in. |
 | Spleeter | MIT | Faster stem separation | Possible optional fallback if users prefer speed over quality; no default bundle. |
 
@@ -39,7 +39,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 
 1. Harden Maestro LLM JSON with Zod schemas and explicit command validation.
 2. Extend sidecar audio analysis using the existing `librosa` dependency.
-3. Add optional image captioning design hooks without requiring torch/transformers.
+3. Add optional image captioning via `POST /analyze-image` (vision extra) without requiring torch/transformers in the base install.
 4. Prototype wavesurfer.js if existing waveform UX becomes a bottleneck.
 5. Evaluate DSP crates only after adding benchmark-style tests around current output.
 

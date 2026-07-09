@@ -43,14 +43,16 @@ UI: load a track in **Drag & Drop Analyzers** → **Separate stems (Demucs)** �
 ## Optional vision stack
 
 The browser image analyzer stays lightweight by default (pixel palette + mood mapping). The
-`vision` extra is reserved for local BLIP/CLIP-style captioning and object tags when a user
-wants heavier offline image understanding:
+`vision` extra enables local BLIP captioning via `POST /analyze-image`:
 
 ```bash
 pip install -e ai-sidecar[vision]
 curl http://127.0.0.1:8723/health
 # "vision_available": true
 ```
+
+Drop an image in **Drag & Drop Analyzers** — when the sidecar vision stack is installed, palette
+metrics are merged with a BLIP scene caption and mapped to Suno catalog tags.
 
 ## Vocal Embed Studio
 

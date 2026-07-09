@@ -48,6 +48,8 @@ from .vocal_synth import (
 )
 from .genre_classifier import MODEL_ID as GENRE_MODEL_ID
 from .genre_classifier import classify_music_genres, genre_classification_available
+from .vision_analyzer import MODEL_ID as VISION_MODEL_ID
+from .vision_analyzer import caption_image_bytes, vision_analysis_available
 from .idle import (
     configure_idle_exit,
     hold_dev_session,
@@ -178,6 +180,12 @@ class Analysis(BaseModel):
     genre_model: str | None = None
 
 
+class ImageAnalysis(BaseModel):
+    caption: str | None = None
+    caption_model: str | None = None
+    device: str
+
+
 def _stems_available() -> bool:
     try:
         import demucs  # noqa: F401, PLC0415
@@ -187,13 +195,7 @@ def _stems_available() -> bool:
 
 
 def _vision_available() -> bool:
-    try:
-        import PIL  # noqa: F401, PLC0415
-        import sklearn  # noqa: F401, PLC0415
-        import transformers  # noqa: F401, PLC0415
-    except Exception:
-        return False
-    return True
+    return vision_analysis_available()
 
 
 @app.get("/health", response_model=Health)
@@ -344,6 +346,34 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
         device=device,
         genre_predictions=genre_predictions,
         genre_model=GENRE_MODEL_ID if genre_predictions else None,
+    )
+
+
+@app.post("/analyze-image", response_model=ImageAnalysis)
+async def analyze_image(
+    file: UploadFile = File(...),
+    caption: bool = Form(True),
+) -> ImageAnalysis:
+    """Optional BLIP captioning when the vision extra is installed."""
+    if not vision_analysis_available():
+        raise HTTPException(
+            status_code=503,
+            detail="vision deps missing — pip install -e ai-sidecar[vision]",
+        )
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty upload")
+
+    device = _select_device()
+    text = caption_image_bytes(raw, device=device) if caption else None
+    if caption and not text:
+        raise HTTPException(status_code=422, detail="could not caption image")
+
+    return ImageAnalysis(
+        caption=text,
+        caption_model=VISION_MODEL_ID if text else None,
+        device=device,
     )
 
 

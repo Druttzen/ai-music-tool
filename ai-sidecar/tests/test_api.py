@@ -6,12 +6,19 @@ import struct
 import wave
 from io import BytesIO
 
+import base64
+
 import pytest
 from fastapi.testclient import TestClient
 
 from ai_sidecar.main import app, _stems_available
+from ai_sidecar.vision_analyzer import vision_analysis_available
 
 client = TestClient(app)
+
+_MIN_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+)
 
 
 def _make_tone_wav(duration_sec=3.0, sample_rate=22050, freq_hz=440.0) -> bytes:
@@ -97,3 +104,14 @@ def test_analyze_wav_returns_tempo_and_key():
     assert 0 <= body["harmonic_ratio"] <= 1
     assert "device" in body
     assert body.get("genre_predictions") is None or isinstance(body["genre_predictions"], list)
+
+
+def test_analyze_image_requires_vision_extra():
+    res = client.post(
+        "/analyze-image",
+        files={"file": ("dot.png", BytesIO(_MIN_PNG), "image/png")},
+        data={"caption": "true"},
+    )
+    if vision_analysis_available():
+        pytest.skip("vision extra installed in test env")
+    assert res.status_code == 503

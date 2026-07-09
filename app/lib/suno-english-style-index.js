@@ -46,6 +46,7 @@ const CATALOG_LABELS = {
   worldStylesEuropeFolkPopular: "Catalog — World: Europe folk & popular",
   soundFxPrompts: "Catalog — Sound FX (transitions, hits, foley)",
   environmentSoundscapes: "Catalog — Environment & soundscapes",
+  awesomeSunoConcepts: "Catalog — Community concepts (CC0)",
 };
 
 /** Reference / tips sections — excluded from Style prompt library (prompts only). */
