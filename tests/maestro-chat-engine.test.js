@@ -355,6 +355,21 @@ describe("maestro-chat-llm", () => {
     expect(res.artifacts?.lyrics).not.toMatch(/generateCoProducer/i);
   });
 
+  it("enriches useHighlightMelody when user asks highlight melody", () => {
+    const res = enrichMaestroLlmResult(
+      {
+        reply: "Melody.",
+        patch: null,
+        commands: ["generateMusicGenMelody"],
+        artifacts: { musicGenPrompt: "loop" },
+        suggestions: [],
+      },
+      { ...SNAPSHOT, hasHighlightMelody: true },
+      "regenerate highlight melody",
+    );
+    expect(res.artifacts?.useHighlightMelody).toBe(true);
+  });
+
   it("parses LLM suggestion chips", () => {
     const res = parseMaestroLlmResponse(
       '{"reply":"Done.","patch":null,"commands":[],"artifacts":null,"suggestions":["Make it darker","Show the style prompt"]}',

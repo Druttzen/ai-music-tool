@@ -510,6 +510,11 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           <span>A {analysis.aggression}</span>
           <span>B {analysis.brightness}</span>
         </div>
+        {analysis.genreModel ? (
+          <p className="text-[10px] text-white/40" title="Sidecar HF genre classifier">
+            Genre model: <span className="text-emerald-200/80">{analysis.genreModel}</span>
+          </p>
+        ) : null}
       </section>
 
       <div className="flex flex-wrap gap-2">

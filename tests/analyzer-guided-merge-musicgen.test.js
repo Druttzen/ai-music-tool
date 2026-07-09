@@ -15,4 +15,19 @@ describe("compactAudioStyleRule musicgen", () => {
     expect(rule).toMatch(/^AUDIO:/);
     expect(rule).toMatch(/MG:dark driving techno/);
   });
+
+  it("tags highlight melody mode on MG rule line", () => {
+    const rule = compactAudioStyleRule({
+      estimatedBpm: "128 BPM",
+      energy: 60,
+      aggression: 40,
+      brightness: 50,
+      suggestedGenres: ["Techno"],
+      sourceEngine: "musicgen",
+      musicGenPrompt: "dark driving techno with acid bass",
+      musicGenMode: "melody",
+      musicGenHighlightMelody: true,
+    });
+    expect(rule).toMatch(/MG:.*·HL/);
+  });
 });

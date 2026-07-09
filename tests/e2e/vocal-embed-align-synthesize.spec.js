@@ -66,4 +66,13 @@ test.describe("Vocal Embed align & synthesize e2e", () => {
     await alignSynth.click();
     await expectToast(page, /Vocal embed preview downloaded.*align/i, 45_000);
   });
+
+  test("align and export handoff pack", async ({ page }) => {
+    const vocalEmbed = await prepareVocalEmbed(page);
+
+    const alignExport = vocalEmbed.getByRole("button", { name: /Align & export handoff/i });
+    await expect(alignExport).toBeEnabled({ timeout: 15_000 });
+    await alignExport.click();
+    await expectToast(page, /Handoff pack downloaded.*align/i, 45_000);
+  });
 });

@@ -23,7 +23,10 @@ import {
   waitForSidecar,
 } from "../lib/sidecar-bridge";
 import { exportVocalEmbedHandoffPack } from "../lib/vocal-embed-handoff";
+import { safeLocalStorage } from "../lib/safe-local-storage";
 import { Panel } from "./ui-blocks";
+
+const VOCAL_ALIGN_PREVIEW_KEY = "ai_music_creator_vocal_align_preview";
 
 export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const {
@@ -47,6 +50,33 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
   const [vocalModels, setVocalModels] = useState(null);
   const [alignPreview, setAlignPreview] = useState(null);
   const guideInputRef = useRef(null);
+
+  const persistAlignPreview = useCallback(
+    (preview) => {
+      setAlignPreview(preview);
+      if (!preview) {
+        safeLocalStorage.remove(VOCAL_ALIGN_PREVIEW_KEY);
+        return;
+      }
+      safeLocalStorage.setJSON(VOCAL_ALIGN_PREVIEW_KEY, {
+        instrumentalName: audioAnalysis?.fileName || "",
+        guideName: guideVocalFile?.name || "",
+        preview,
+      });
+    },
+    [audioAnalysis?.fileName, guideVocalFile?.name],
+  );
+
+  useEffect(() => {
+    const stored = safeLocalStorage.getJSON(VOCAL_ALIGN_PREVIEW_KEY, null);
+    if (
+      stored?.preview &&
+      stored.instrumentalName &&
+      stored.instrumentalName === audioAnalysis?.fileName
+    ) {
+      setAlignPreview(stored.preview);
+    }
+  }, [audioAnalysis?.fileName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,7 +192,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         guideVocalFile,
         guideVocalFile.name,
       );
-      setAlignPreview(preview);
+      persistAlignPreview(preview);
       const instrumental = await resolveInstrumentalBlob();
       await exportVocalEmbedHandoffPack({
         planEnvelope: payload,
@@ -181,7 +211,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     } finally {
       setSidecarBusy(false);
     }
-  }, [audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
+  }, [audioAnalysis?.fileName, guideVocalFile, persistAlignPreview, plan, resolveInstrumentalBlob, setStatusWithTime]);
 
   const previewAlignment = useCallback(async () => {
     if (!guideVocalFile) {
@@ -205,7 +235,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         guideVocalFile,
         guideVocalFile.name,
       );
-      setAlignPreview(preview);
+      persistAlignPreview(preview);
       setStatusWithTime(
         `Alignment preview: ${preview.align_method} · ${preview.word_count} words`,
         preview.align_method === "mfa" ? "success" : "info",
@@ -215,7 +245,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     } finally {
       setSidecarBusy(false);
     }
-  }, [guideVocalFile, plan, setStatusWithTime]);
+  }, [guideVocalFile, persistAlignPreview, plan, setStatusWithTime]);
 
   const submitToSidecar = useCallback(async () => {
     if (plan.stage !== "ready") {
@@ -309,14 +339,14 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         guideVocalFile,
         guideVocalFile.name,
       );
-      setAlignPreview(preview);
+      persistAlignPreview(preview);
       await runSynthesizeMix(` · ${preview.align_method} align`);
     } catch (err) {
       setStatusWithTime(err instanceof Error ? err.message : "Align & synthesize failed", "error");
     } finally {
       setSidecarBusy(false);
     }
-  }, [guideVocalFile, plan, runSynthesizeMix, setStatusWithTime]);
+  }, [guideVocalFile, persistAlignPreview, plan, runSynthesizeMix, setStatusWithTime]);
 
   const synthesizePreview = useCallback(async () => {
     if (plan.stage !== "ready") {

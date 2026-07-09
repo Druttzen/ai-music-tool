@@ -54,6 +54,15 @@ export function enrichMaestroLlmResult(result, snapshot, userMessage = "") {
     });
   }
 
+  if (
+    commands.includes("generateMusicGenMelody") &&
+    !artifacts.useHighlightMelody &&
+    /\bhighlight\b/i.test(lower) &&
+    snapshot.hasHighlightMelody
+  ) {
+    artifacts.useHighlightMelody = true;
+  }
+
   const shouldStyle =
     wantsStyleArtifact(lower) ||
     commands.includes("gotoFinal") ||

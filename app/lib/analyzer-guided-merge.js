@@ -177,7 +177,13 @@ export function compactAudioStyleRule(a) {
   let rule = truncateAnalyzerRuleLine(`AUDIO: ${core}`);
   const mgPrompt = normalizeSpace(a.musicGenPrompt || "");
   if (a.sourceEngine === "musicgen" && mgPrompt) {
-    rule = truncateAnalyzerRuleLine(`${rule} │ MG:${mgPrompt.slice(0, 120)}`);
+    const modeTag =
+      a.musicGenMode === "melody"
+        ? a.musicGenHighlightMelody
+          ? "·HL"
+          : "·mel"
+        : "";
+    rule = truncateAnalyzerRuleLine(`${rule} │ MG:${mgPrompt.slice(0, 110)}${modeTag}`);
   }
   return rule;
 }

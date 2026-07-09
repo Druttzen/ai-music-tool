@@ -161,7 +161,12 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
         setStatusWithTime("Showing all tools — scroll to Drag & Drop Analyzers", "info");
       } else if (action === "focusVocalEmbed") {
         setShowAll(true);
-        setStatusWithTime("Showing all tools — scroll to Vocal Embed Studio", "info");
+        window.setTimeout(() => {
+          document
+            .querySelector('[data-testid="vocal-embed-studio"]')
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+        setStatusWithTime("Scroll to Vocal Embed Studio below", "info");
       }
       dismiss();
     },
