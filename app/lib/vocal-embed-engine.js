@@ -178,4 +178,33 @@ export function buildVocalEmbedExport(plan) {
   };
 }
 
+/**
+ * Merge MFA/heuristic aligned words from a preview into plan sections (by index).
+ * @param {object} plan
+ * @param {{ sections?: object[] }|null} alignPreview
+ */
+export function mergeAlignPreviewIntoPlan(plan, alignPreview) {
+  if (!plan || !alignPreview?.sections?.length) return plan;
+  const sections = (plan.sections || []).map((section, index) => {
+    const aligned = alignPreview.sections[index];
+    if (!aligned?.alignedWords?.length) return section;
+    return { ...section, alignedWords: aligned.alignedWords };
+  });
+  return {
+    ...plan,
+    sections,
+    alignMethod: alignPreview.align_method || null,
+    alignWordCount: alignPreview.word_count ?? null,
+  };
+}
+
+/**
+ * @param {object} plan
+ * @param {{ sections?: object[] }|null} [alignPreview]
+ */
+export function buildVocalEmbedExportEnvelope(plan, alignPreview = null) {
+  const merged = alignPreview ? mergeAlignPreviewIntoPlan(plan, alignPreview) : plan;
+  return buildVocalEmbedExport(merged);
+}
+
 export { formatTime as formatVocalEmbedTime };

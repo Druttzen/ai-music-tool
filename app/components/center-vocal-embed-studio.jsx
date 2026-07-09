@@ -10,7 +10,7 @@ import {
 import { resolveAudioCacheBlob } from "../lib/audio-cache";
 import { SUPPORTED_AUDIO_ACCEPT, isSupportedAudioFile } from "../lib/analyzer-file-types";
 import {
-  buildVocalEmbedExport,
+  buildVocalEmbedExportEnvelope,
   buildVocalEmbedPlan,
   formatVocalEmbedTime,
 } from "../lib/vocal-embed-engine";
@@ -132,8 +132,13 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     (!!sidecarHealth?.vocal_ml_available || !!vocalModels?.diffsinger_configured);
   const canSynthesize = plan.stage === "ready" && (!!guideVocalFile || canLyricsOnlySynth);
 
+  const buildSidecarEnvelope = useCallback(
+    (withAlign = true) => buildVocalEmbedExportEnvelope(plan, withAlign ? alignPreview : null),
+    [alignPreview, plan],
+  );
+
   const exportPlan = () => {
-    const payload = buildVocalEmbedExport(plan);
+    const payload = buildSidecarEnvelope(true);
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -142,6 +147,21 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     a.click();
     URL.revokeObjectURL(url);
     setStatusWithTime("Vocal embed plan exported");
+  };
+
+  const exportAlignJson = () => {
+    if (!alignPreview) {
+      setStatusWithTime("Run alignment preview first", "warning");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(alignPreview, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `vocal-embed-align-preview-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatusWithTime(`Alignment JSON downloaded (${alignPreview.align_method})`, "success");
   };
 
   const resolveInstrumentalBlob = useCallback(async () => {
@@ -161,7 +181,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     }
     const instrumental = await resolveInstrumentalBlob();
     await exportVocalEmbedHandoffPack({
-      planEnvelope: buildVocalEmbedExport(plan),
+      planEnvelope: buildSidecarEnvelope(true),
       instrumental,
       instrumentalName: audioAnalysis?.fileName || "instrumental.wav",
       guideVocal: guideVocalFile,
@@ -169,7 +189,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       alignPreview,
     });
     setStatusWithTime("Vocal embed handoff pack downloaded (plan + README + audio files)", "success");
-  }, [alignPreview, audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
+  }, [alignPreview, audioAnalysis?.fileName, buildSidecarEnvelope, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
 
   const alignAndExportHandoffPack = useCallback(async () => {
     if (plan.stage !== "ready") {
@@ -187,7 +207,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;
       }
-      const payload = buildVocalEmbedExport(plan);
+      const payload = buildSidecarEnvelope(false);
       const preview = await previewVocalAlignViaSidecar(
         payload,
         guideVocalFile,
@@ -196,7 +216,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       persistAlignPreview(preview);
       const instrumental = await resolveInstrumentalBlob();
       await exportVocalEmbedHandoffPack({
-        planEnvelope: payload,
+        planEnvelope: buildVocalEmbedExportEnvelope(plan, preview),
         instrumental,
         instrumentalName: audioAnalysis?.fileName || "instrumental.wav",
         guideVocal: guideVocalFile,
@@ -212,7 +232,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     } finally {
       setSidecarBusy(false);
     }
-  }, [audioAnalysis?.fileName, guideVocalFile, persistAlignPreview, plan, resolveInstrumentalBlob, setStatusWithTime]);
+  }, [audioAnalysis?.fileName, buildSidecarEnvelope, guideVocalFile, persistAlignPreview, plan, resolveInstrumentalBlob, setStatusWithTime]);
 
   const previewAlignment = useCallback(async () => {
     if (!guideVocalFile) {
@@ -230,7 +250,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         setStatusWithTime("Start the sidecar first", "warning");
         return;
       }
-      const payload = buildVocalEmbedExport(plan);
+      const payload = buildSidecarEnvelope(false);
       const preview = await previewVocalAlignViaSidecar(
         payload,
         guideVocalFile,
@@ -246,7 +266,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     } finally {
       setSidecarBusy(false);
     }
-  }, [guideVocalFile, persistAlignPreview, plan, setStatusWithTime]);
+  }, [buildSidecarEnvelope, guideVocalFile, persistAlignPreview, plan, setStatusWithTime]);
 
   const submitToSidecar = useCallback(async () => {
     if (plan.stage !== "ready") {
@@ -260,7 +280,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;
       }
-      const payload = buildVocalEmbedExport(plan);
+      const payload = buildSidecarEnvelope(true);
       const res = await submitVocalEmbedPlanToSidecar(payload);
       setStatusWithTime(res.message, res.synthesis_available ? "success" : "info");
     } catch (err) {
@@ -268,10 +288,10 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     } finally {
       setSidecarBusy(false);
     }
-  }, [plan, setStatusWithTime]);
+  }, [buildSidecarEnvelope, plan, setStatusWithTime]);
 
   const runSynthesizeMix = useCallback(
-    async (alignNote = "") => {
+    async (alignNote = "", alignOverride = null) => {
       const health = await fetchSidecarHealth();
       const models = await fetchVocalEmbedModels();
       setSidecarHealth(health);
@@ -281,7 +301,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         setStatusWithTime("Instrumental audio missing from cache — re-analyze the track", "warning");
         return;
       }
-      const payload = buildVocalEmbedExport(plan);
+      const payload = buildVocalEmbedExportEnvelope(plan, alignOverride || alignPreview);
       const { blob: mixBlob, engine: responseEngine } = await synthesizeVocalEmbedViaSidecar(
         payload,
         instrumental,
@@ -315,7 +335,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         "success",
       );
     },
-    [audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime],
+    [alignPreview, audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime],
   );
 
   const alignAndSynthesizePreview = useCallback(async () => {
@@ -334,20 +354,20 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;
       }
-      const payload = buildVocalEmbedExport(plan);
+      const payload = buildSidecarEnvelope(false);
       const preview = await previewVocalAlignViaSidecar(
         payload,
         guideVocalFile,
         guideVocalFile.name,
       );
       persistAlignPreview(preview);
-      await runSynthesizeMix(` · ${preview.align_method} align`);
+      await runSynthesizeMix(` · ${preview.align_method} align`, preview);
     } catch (err) {
       setStatusWithTime(err instanceof Error ? err.message : "Align & synthesize failed", "error");
     } finally {
       setSidecarBusy(false);
     }
-  }, [guideVocalFile, persistAlignPreview, plan, runSynthesizeMix, setStatusWithTime]);
+  }, [buildSidecarEnvelope, guideVocalFile, persistAlignPreview, plan, runSynthesizeMix, setStatusWithTime]);
 
   const synthesizePreview = useCallback(async () => {
     if (plan.stage !== "ready") {
@@ -466,11 +486,20 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       ) : null}
 
       {alignPreview ? (
-        <p className="mb-3 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-100/90">
-          Last alignment preview: <strong>{alignPreview.align_method}</strong> — {alignPreview.word_count}{" "}
-          aligned words across {alignPreview.sections?.length || 0} sections.
-          {alignPreview.align_method === "heuristic" ? " Install MFA env vars for tighter timing." : ""}
-        </p>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <p className="flex-1 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] text-amber-100/90">
+            Last alignment preview: <strong>{alignPreview.align_method}</strong> — {alignPreview.word_count}{" "}
+            aligned words across {alignPreview.sections?.length || 0} sections.
+            {alignPreview.align_method === "heuristic" ? " Install MFA env vars for tighter timing." : ""}
+          </p>
+          <button
+            type="button"
+            onClick={exportAlignJson}
+            className="rounded-xl border border-amber-400/35 bg-amber-500/15 px-3 py-2 text-[10px] font-bold text-amber-50 hover:bg-amber-500/25"
+          >
+            Download align JSON
+          </button>
+        </div>
       ) : null}
 
       {vocalModels?.diffsinger_openvpi?.configured ? (

@@ -81,6 +81,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     <>
       <Panel
         title="Drag & Drop Analyzers"
+        data-testid="drag-drop-analyzers"
         hint="Optional Polish-step tools — track report with waveform, LUFS/dBTP meter, studio WAV export (Streaming −14 LUFS), merge into Suno fields, Goal, and Notes. Image DNA uses compact AUDIO:/IMAGE: lines for the 1000-character Style cap."
       >
         <div className="mb-3 flex flex-wrap items-center gap-2">

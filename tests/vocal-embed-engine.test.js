@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildVocalEmbedExport, buildVocalEmbedPlan } from "../app/lib/vocal-embed-engine.js";
+import {
+  buildVocalEmbedExport,
+  buildVocalEmbedExportEnvelope,
+  buildVocalEmbedPlan,
+  mergeAlignPreviewIntoPlan,
+} from "../app/lib/vocal-embed-engine.js";
 
 const AUDIO = {
   fileName: "suno-instrumental.wav",
@@ -72,5 +77,25 @@ describe("vocal-embed-engine", () => {
     expect(envelope.createdAt).toBe("2026-07-09T00:00:00.000Z");
     expect(envelope.plan.bpm).toBe("128 BPM");
     vi.useRealTimers();
+  });
+
+  it("merges align preview words into export envelope sections", () => {
+    const plan = buildVocalEmbedPlan({
+      audioAnalysis: AUDIO,
+      generatedLyrics: "[Verse]\nOne\n\n[Chorus]\nHook",
+      voiceStyleLine: "warm tenor",
+    });
+    const merged = mergeAlignPreviewIntoPlan(plan, {
+      align_method: "heuristic",
+      word_count: 2,
+      sections: [{ alignedWords: [{ word: "one", start: 0, end: 0.5 }] }, { alignedWords: [] }],
+    });
+    expect(merged.sections[0].alignedWords).toHaveLength(1);
+    expect(merged.alignMethod).toBe("heuristic");
+    const envelope = buildVocalEmbedExportEnvelope(plan, {
+      align_method: "heuristic",
+      sections: [{ alignedWords: [{ word: "hook", start: 1, end: 1.2 }] }],
+    });
+    expect(envelope.plan.sections[0].alignedWords?.[0]?.word).toBe("hook");
   });
 });

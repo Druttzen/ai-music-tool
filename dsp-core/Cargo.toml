@@ -1,6 +1,6 @@
 [package]
 name = "dsp-core"
-version = "0.22.0"
+version = "0.23.0"
 edition = "2021"
 description = "Cross-platform audio DSP core for AI Music Creator (loudness, mastering, analysis). Replaces the JS EBU R128 port."
 license = "MIT"

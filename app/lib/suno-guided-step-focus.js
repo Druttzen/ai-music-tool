@@ -336,6 +336,15 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
       });
     }
 
+    if (hasTrack && snapshot.audioAnalysis?.sourceEngine === "musicgen") {
+      improvements.push({
+        id: "maestro-musicgen",
+        title: "Ask Maestro about the MusicGen sketch",
+        description: "Regenerate with melody or copy the MG prompt line into your Suno style.",
+        action: "focusMaestro",
+      });
+    }
+
     if (sunoWarnings.length) {
       improvements.push({
         id: "fix-warnings",

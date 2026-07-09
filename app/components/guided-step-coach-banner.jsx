@@ -158,7 +158,12 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
       else if (action === "generateExampleLyrics") generateExampleLyrics();
       else if (action === "showAnalyzers") {
         setShowAll(true);
-        setStatusWithTime("Showing all tools — scroll to Drag & Drop Analyzers", "info");
+        window.setTimeout(() => {
+          document
+            .querySelector('[data-testid="drag-drop-analyzers"]')
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+        setStatusWithTime("Scroll to Drag & Drop Analyzers below", "info");
       } else if (action === "focusVocalEmbed") {
         setShowAll(true);
         window.setTimeout(() => {

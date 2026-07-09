@@ -2,7 +2,7 @@
  * MusicBrainz recording search — free fallback when Spotify is not configured.
  */
 
-const MB_USER_AGENT = "AI-Music-Creator/0.22.0 (style-dna-search; contact: local-app)";
+const MB_USER_AGENT = "AI-Music-Creator/0.23.0 (style-dna-search; contact: local-app)";
 
 /**
  * @param {string} query
