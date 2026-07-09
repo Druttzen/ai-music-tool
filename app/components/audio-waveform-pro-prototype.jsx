@@ -100,8 +100,8 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
       </div>
       <div ref={containerRef} className="overflow-hidden rounded-xl bg-black/35" />
       <p className="mt-2 text-[10px] leading-relaxed text-white/45">
-        Flagged prototype (`NEXT_PUBLIC_WAVESURFER_PROTOTYPE=1`) for evaluating Regions/Timeline UX.
-        The existing waveform editor remains the stable path.
+        Flagged prototype for evaluating Regions/Timeline UX. Toggle via the Highlight section
+        button (saved in localStorage) or `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=1`.
       </p>
       {status !== "ready" ? <p className="mt-1 text-[10px] text-white/35">{status}</p> : null}
     </section>

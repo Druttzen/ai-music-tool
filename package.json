@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.13.6",
+  "version": "0.13.7",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -29,6 +29,7 @@
     "sidecar": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1",
     "sidecar:stems": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-stems.ps1",
     "sidecar:vocal-ml": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-vocal-ml.ps1",
+    "sidecar:generate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-generate.ps1",
     "sidecar:fg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1 -Foreground -IdleExitSec 0",
     "sidecar:watch": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -WatchOnly",
     "sidecar:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-sidecar.ps1",

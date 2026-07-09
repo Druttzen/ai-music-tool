@@ -49,6 +49,7 @@ from .vocal_synth import (
 from .genre_classifier import active_genre_model_id, classify_music_genres, genre_classification_available
 from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
 from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
+from .musicgen import active_musicgen_model_id, generate_music_wav, generation_available
 from .idle import (
     configure_idle_exit,
     hold_dev_session,
@@ -154,6 +155,7 @@ class Health(BaseModel):
     vocal_models_available: bool
     vocal_rvc_available: bool
     vocal_diffsinger_available: bool
+    generate_available: bool
 
 
 class GenrePrediction(BaseModel):
@@ -216,6 +218,7 @@ def health() -> Health:
         vocal_models_available=full_ml_vocal_models_available(),
         vocal_rvc_available=rvc_ready(),
         vocal_diffsinger_available=diffsinger_configured(),
+        generate_available=generation_available(),
     )
 
 
@@ -388,6 +391,51 @@ async def analyze_image(
         clip_tags=clip_predictions,
         clip_model=CLIP_MODEL_ID if clip_predictions else None,
         device=device,
+    )
+
+
+class GenerateRequest(BaseModel):
+    prompt: str
+    duration_sec: float = 10.0
+
+
+@app.post("/generate")
+async def generate_music(body: GenerateRequest):
+    """Optional MusicGen text-to-music (requires `generate` extra; CC-BY-NC weights)."""
+    if not generation_available():
+        raise HTTPException(
+            status_code=503,
+            detail="generation deps missing — pip install -e ai-sidecar[generate]",
+        )
+
+    prompt = str(body.prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    device = _select_device()
+    try:
+        wav_bytes, meta = generate_music_wav(
+            prompt,
+            duration_sec=body.duration_sec,
+            device=device,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.write(wav_bytes)
+    tmp.close()
+    filename = "musicgen-preview.wav"
+    return FileResponse(
+        tmp.name,
+        media_type="audio/wav",
+        filename=filename,
+        headers={
+            "X-MusicGen-Model": str(meta.get("model") or active_musicgen_model_id()),
+            "X-MusicGen-Duration-Sec": str(meta.get("duration_sec") or body.duration_sec),
+        },
     )
 
 

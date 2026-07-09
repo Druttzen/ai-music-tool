@@ -54,6 +54,25 @@ curl http://127.0.0.1:8723/health
 Drop an image in **Drag & Drop Analyzers** — when the sidecar vision stack is installed, palette
 metrics are merged with a BLIP scene caption, CLIP zero-shot visual tags, and mapped to Suno catalog tags.
 
+## Optional MusicGen generation
+
+Text-to-music via Meta MusicGen (audiocraft). **Model weights are CC-BY-NC** — opt-in only, not bundled.
+
+```bash
+npm run sidecar:generate   # Windows: pip install -e ai-sidecar[generate]
+curl http://127.0.0.1:8723/health
+# "generate_available": true
+```
+
+```bash
+curl -X POST http://127.0.0.1:8723/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"dark driving techno, analog bass, 128 bpm","duration_sec":10}' \
+  --output musicgen-preview.wav
+```
+
+Override model: `AIMC_MUSICGEN_MODEL=facebook/musicgen-medium` (default: `facebook/musicgen-small`).
+
 ## Vocal Embed Studio
 
 The app's **Vocal Embed Studio** creates a local handoff plan for adding vocals to an
@@ -151,5 +170,6 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 | `GET /vocal-embed/models` | RVC / DiffSinger configuration status |
 | `POST /vocal-embed/synthesize` | Placement-mix + optional RVC/DiffSinger engines → mixed WAV |
 | `POST /analyze-image` | Optional BLIP caption + CLIP zero-shot tags (requires `vision` extra) |
+| `POST /generate` | Optional MusicGen text-to-music WAV (requires `generate` extra) |
 | `POST /separate` | Demucs stem separation (requires `stems` extra) |
 | `GET /separate/download/{job_id}/{filename}` | Download one stem WAV |

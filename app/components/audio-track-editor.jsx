@@ -16,6 +16,12 @@ import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
 
 const ENABLE_WAVESURFER_PROTOTYPE = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE === "1";
+const WAVESURFER_LS_KEY = "aimc-wavesurfer-prototype";
+
+function readWaveSurferPrototypePref() {
+  if (typeof window === "undefined") return ENABLE_WAVESURFER_PROTOTYPE;
+  return ENABLE_WAVESURFER_PROTOTYPE || window.localStorage.getItem(WAVESURFER_LS_KEY) === "1";
+}
 
 function TagField({ label, hint, value, onChange, placeholder }) {
   return (
@@ -73,6 +79,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   const [playhead, setPlayhead] = useState(null);
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
+  const [waveSurferPrototype, setWaveSurferPrototype] = useState(() => readWaveSurferPrototypePref());
   const rafRef = useRef(null);
 
   const seekAudio = useCallback(
@@ -182,7 +189,29 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
       </p>
 
       <section className="rounded-2xl border border-amber-400/20 bg-black/30 p-3 space-y-2">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Highlight</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-200/90">Highlight</div>
+          <button
+            type="button"
+            onClick={() => {
+              setWaveSurferPrototype((on) => {
+                const next = !on;
+                if (typeof window !== "undefined") {
+                  if (next) window.localStorage.setItem(WAVESURFER_LS_KEY, "1");
+                  else window.localStorage.removeItem(WAVESURFER_LS_KEY);
+                }
+                return next;
+              });
+            }}
+            className={`rounded-lg border px-2 py-0.5 text-[10px] font-bold ${
+              waveSurferPrototype
+                ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-100"
+                : "border-white/15 bg-white/5 text-white/55 hover:bg-white/10"
+            }`}
+          >
+            {waveSurferPrototype ? "WaveSurfer prototype on" : "Try WaveSurfer prototype"}
+          </button>
+        </div>
         <p className="text-xs text-white/75">{analysis.highlightLabel}</p>
         <AudioHighlightWaveform
           analysis={analysis}
@@ -193,7 +222,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
         />
       </section>
 
-      {ENABLE_WAVESURFER_PROTOTYPE ? (
+      {waveSurferPrototype ? (
         <AudioWaveformProPrototype
           audioUrl={audioUrl}
           analysis={analysis}

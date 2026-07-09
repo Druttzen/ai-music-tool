@@ -51,6 +51,7 @@ def test_health_ok():
     assert isinstance(body["vocal_models_available"], bool)
     assert isinstance(body["vocal_rvc_available"], bool)
     assert isinstance(body["vocal_diffsinger_available"], bool)
+    assert isinstance(body["generate_available"], bool)
 
 
 def test_health_allows_local_dev_cors():
@@ -115,3 +116,13 @@ def test_analyze_image_requires_vision_extra():
     if vision_analysis_available():
         pytest.skip("vision extra installed in test env")
     assert res.status_code == 503
+
+
+def test_generate_without_extra_returns_503():
+    from ai_sidecar.musicgen import generation_available
+
+    if generation_available():
+        pytest.skip("generate extra installed in this environment")
+    res = client.post("/generate", json={"prompt": "dark techno groove", "duration_sec": 5})
+    assert res.status_code == 503
+    assert "generate" in res.json()["detail"].lower()

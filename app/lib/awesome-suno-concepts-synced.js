@@ -3,12 +3,12 @@
  * Re-run: npm run import:awesome-suno
  *
  * Source: https://github.com/naqashmunir21/awesome-suno-prompts (CC0-1.0)
- * Synced at: 2026-07-09T10:40:49.337Z
- * Concept count: 135
+ * Synced at: 2026-07-09T11:08:47.970Z
+ * Concept count: 153
  */
 
 export const AWESOME_SUNO_CONCEPTS_SYNC = {
-  "syncedAt": "2026-07-09T10:40:49.337Z",
+  "syncedAt": "2026-07-09T11:08:47.970Z",
   "source": {
     "repo": "https://github.com/naqashmunir21/awesome-suno-prompts",
     "license": "CC0-1.0",
@@ -20,14 +20,51 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
       "prompts/indie.md",
       "prompts/jazz-blues.md",
       "prompts/country.md",
-      "prompts/rnb-soul.md"
+      "prompts/rnb-soul.md",
+      "examples/advanced-techniques.md",
+      "examples/before-after.md",
+      "examples/common-mistakes.md",
+      "examples/viral-hits.md"
+    ]
+  },
+  "supplemental": {
+    "eraAnchoredGenres": [
+      "1950s rock and roll swing, tape warmth, mono mix",
+      "1960s British invasion guitar jangle, chamber reverb",
+      "1970s disco four-on-the-floor, string stabs, falsetto hooks",
+      "1980s gated reverb snare, DX7 electric piano, synth-pop sheen",
+      "1990s boom-bap drums, dusty samples, SP-1200 crunch",
+      "2000s garage rock revival, tight room drums, gritty guitars",
+      "2010s EDM festival drop energy, sidechain pump, supersaw leads",
+      "2020s hyperpop maximalism, pitched vocals, glitchy layers"
+    ],
+    "trendMicroGenres2026": [
+      "phonk drift, cowbell memphis bounce, distorted 808 glide",
+      "pluggnb haze, airy pads, soft clipped drums",
+      "rage trap, detuned leads, chaotic energy",
+      "brazilian funk pocket, dembow-adjacent bounce",
+      "darkwave pulse, cold analog bass, noir atmosphere",
+      "afrobeats 2026 pocket, percussive guitar, warm sub",
+      "hyperpop tiktok hook, aggressive pitch-shift vocals",
+      "uk garage shuffle, chopped vocal samples, sub pressure",
+      "neo-phonk cinematic, slowed reverb tails, menacing brass",
+      "latin house summer heat, tropical percussion, bright hooks"
     ]
   },
   "lines": [
+    "1950s rock and roll swing, tape warmth, mono mix",
+    "1960s British invasion guitar jangle, chamber reverb",
+    "1970s disco four-on-the-floor, string stabs, falsetto hooks",
+    "1980s gated reverb snare, DX7 electric piano, synth-pop sheen",
+    "1990s boom-bap drums, dusty samples, SP-1200 crunch",
+    "2000s garage rock revival, tight room drums, gritty guitars",
+    "2010s EDM festival drop energy, sidechain pump, supersaw leads",
+    "2020s hyperpop maximalism, pitched vocals, glitchy layers",
     "70s soul groove, funky wah-wah guitar, tight horn section,, slapped bass lines, vintage Rhodes piano, groovy drums,, sophisticated arrangement, analog tape warmth,",
     "80s power rock, massive reverb on drums, soaring hair metal vocals,, shredding guitar solos, synth layers, stadium production,, power ballad structure, epic key change finale,",
     "80s synth-pop revival, gated reverb on snare,, analog synth leads, retro drum machines,, nostalgic vibes, catchy chorus, uplifting mood,, modern production polish, BPM: 118, Key: E♭ Major",
     "Adult contemporary polish, mature sophisticated vocals,, balanced instrumentation, radio-perfect mix,, broad appeal production, relatable lyrics vibe,, neither too young nor too old, BPM: 110, Key: G Major",
+    "afrobeats 2026 pocket, percussive guitar, warm sub",
     "Aggressive trap, distorted 808s, rapid-fire hi-hats, menacing synth lead,, hard-hitting snare, growling bass, intense ad-libs, dark minor key,, stadium-shaking low-end, BPM: 145, Key: G Minor",
     "Ambient jazz, atmospheric soundscapes,, sparse melodic elements, ECM Records aesthetic,, slow contemplative tempo, Nordic jazz influence,",
     "Bebop jazz, blazing fast tempo, complex chord changes,, virtuosic improvisation, walking bass at breakneck speed,, ride cymbal swing, sophisticated harmonic movement,",
@@ -38,6 +75,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Blackgaze (shoegaze + black metal), tremolo guitars,, blast beats mixed with shoegaze atmosphere,, harsh yet beautiful, Deafheaven influence,",
     "Bluegrass gospel, four-part harmony vocals, uplifting message,, banjo + mandolin + fiddle, traditional gospel structure,, spirited energy, church revival atmosphere,",
     "Bluegrass string band, rapid banjo rolls, mandolin chop chords,, fiddle lead breaks, upright bass walking, tight vocal harmonies,, acoustic instruments only, virtuosic playing,",
+    "brazilian funk pocket, dembow-adjacent bounce",
     "Bro-country party anthem, hip-hop influenced beats, banjo + trap drums,, talk-singing verses, anthemic chorus, summer vibes,, tailgate party energy, BPM: 110, Key: E Major",
     "Chicago blues, gritty electric guitar with overdrive,, harmonica wailing, shuffled 12-bar blues progression,, raw emotional vocals, vintage tube amp tone,",
     "Chicago drill, hard-hitting drums, dark piano loops,, aggressive 808 slides, menacing synth stabs, raw street energy,, minimalist production, intense delivery,",
@@ -52,6 +90,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Country-blues hybrid, slide guitar prominent, blues harmonica,, storytelling vocals with grit, stripped-down production,, railroad rhythm, dusty road atmosphere,",
     "Crunchy alt-rock, jangly clean verses with distorted choruses,, melodic yet aggressive vocals, off-kilter rhythms, effects-laden guitars,, textured layers, modern alternative production,",
     "Dark alternative R&B, moody atmospheric production,, 808 bass, sparse trap drums, reverb-heavy vocals,, experimental sound design, introspective lyrics mood,",
+    "darkwave pulse, cold analog bass, noir atmosphere",
     "Deep progressive house, hypnotic bassline groove, subtle chord stabs,, organic percussion layers, warm analog synths, minimal vocal chops,, sophisticated club sound, underground vibe,",
     "Doom metal, slow crushing riffs, down-tuned guitars (Drop-C),, monolithic bass tone, thunderous drums, dark atmospheric vocals,, feedback drones, sludgy distortion, oppressive heaviness,",
     "Dream pop, lush reverb-drenched guitars, airy vocals,, shimmering textures, slow tempo, romantic atmosphere,, Cocteau Twins/Beach House vibe, ethereal beauty,",
@@ -83,6 +122,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "High-energy K-pop production, rap verses + melodic chorus,, layered synths, trap-influenced beats, intricate vocal runs,, polished perfection, dynamic structure, addictive hooks,",
     "Honky-tonk country, barroom piano, steel guitar crying,, upright bass, simple shuffle drums, raw authentic vocals,, vintage tube amp warmth, drinking song energy,",
     "Hyperpop maximalism, aggressive pitched vocals,, glitchy production, bass-boosted chaos,, 100 gecs energy, overwhelming layers,, intentionally abrasive, Gen Z internet culture,",
+    "hyperpop tiktok hook, aggressive pitch-shift vocals",
     "Indie folk, fingerpicked acoustic guitar, intimate vocals,, subtle string arrangements, organic instrumentation,, personal storytelling, Bon Iver/Fleet Foxes influence,",
     "Industrial techno, distorted percussion, metallic sound design,, aggressive atmosphere, minimal melodic content, raw warehouse energy,, relentless pounding rhythm, dark underground vibe,",
     "Infectious pop anthem, female powerhouse vocals with layered harmonies,, pulsing 808 bass, synth-wave layers, euphoric build-ups,, radio-ready polish, modern production, vocal chops,, stadium-ready energy, BPM: 128, Key: C Major",
@@ -92,6 +132,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Jazz rap, live instrumentation feel, upright bass, Rhodes piano,, brush drums mixed with hip-hop beats, smooth soulful samples,, sophisticated production, conscious rap vibes,",
     "Jazz-house, four-on-floor beat, jazz instrumentation,, deep house production, sophisticated club sound,, piano house meets jazz harmony, dancefloor sophistication,",
     "Jump blues, upbeat shuffle rhythm, horn section stabs,, boogie-woogie piano, upright bass slapping,, Louis Jordan influence, danceable blues energy,",
+    "latin house summer heat, tropical percussion, bright hooks",
     "Latin jazz, Afro-Cuban rhythms, complex percussion,, montuno piano patterns, clave rhythm foundation,, horn section arrangements, salsa-jazz crossover,",
     "Lo-fi bedroom pop aesthetic, dreamy vocals with subtle reverb,, jangly indie guitars, vintage synth pads,, tape saturation warmth, DIY production charm,, imperfect and intimate, nostalgic atmosphere,",
     "Lo-fi indie pop, cassette tape warmth, vinyl crackle,, simple chord progressions, nostalgic production,, DIY bedroom recording, authentic imperfections,",
@@ -112,6 +153,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Modern pop-country, twangy male vocals with slight rasp,, bright acoustic guitar, subtle pedal steel accents, stadium drums,, anthemic sing-along chorus, polished radio production,",
     "Modern shoegaze, layered guitars with clarity,, reverb-soaked but defined, melodic vocals present,, contemporary production with shoegaze aesthetics,",
     "Modern trap-soul, smooth R&B vocals over trap drums,, 808 bass slides, atmospheric pads, hi-hat rolls,, intimate vocal delivery, reverb-soaked, lo-fi texture,",
+    "neo-phonk cinematic, slowed reverb tails, menacing brass",
     "Neo-soul (D'Angelo/Erykah Badu style), live instrumentation feel,, jazz-influenced chords, hip-hop drum groove, Rhodes electric piano,, conscious lyrics vibe, organic warmth, sophisticated production,",
     "Neo-soul ballad, intimate vocals, sparse arrangement,, acoustic guitar fingerpicking, subtle strings,, emotional vulnerability, raw authentic delivery,",
     "Neo-soul jazz, hip-hop influenced drums,, Rhodes electric piano, jazz guitar, soulful sax,, J Dilla-influenced beat feel, Robert Glasper vibe,",
@@ -119,7 +161,9 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Outlaw country, gruff weathered vocals, electric guitar-driven,, rebellious attitude, vintage amp distortion, harmonica accents,, Waylon/Willie vibe, raw authentic production,",
     "PBR&B, lo-fi aesthetic, indie-R&B crossover,, bedroom production, vulnerable vocals, minimalist beats,, atmospheric soundscapes, introspective mood,",
     "Peak-time techno, driving 4/4 kick, industrial sound design,, hypnotic acid bassline, minimal melodic elements, relentless energy,, warehouse rave atmosphere, Berlin techno vibe,",
+    "phonk drift, cowbell memphis bounce, distorted 808 glide",
     "Piano-driven emotional ballad, raw vulnerable vocals,, builds from intimate verse to soaring chorus,, subtle string arrangements, modern radio production,, reverb on vocals, stripped-down bridge,, powerful final chorus, BPM: 72, Key: G Major",
+    "pluggnb haze, airy pads, soft clipped drums",
     "Pop-punk energy, distorted power chords + catchy pop hooks,, rebellious teen vocals, driving drums,, mall-punk nostalgia, emotional but upbeat,, 2000s throwback vibes, BPM: 150, Key: E Major",
     "Pop-punk, catchy power-chord progressions, upbeat tempos,, anthemic gang vocals on chorus, polished punk production,, melodic vocal hooks, radio-friendly punk sound,",
     "Post-punk atmosphere, angular guitar riffs, driving bass lines,, detached monotone vocals, reverb-drenched production,, dark atmospheric mood, minimalist drums,",
@@ -131,6 +175,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Progressive trance, uplifting arpeggios, emotional breakdown,, soaring lead synth, driving kick and bass, euphoric energy,, orchestral elements in breakdown, epic build and release,",
     "Psychedelic trance, hypnotic bassline, triplet hi-hats,, evolving acid synth leads, minimal breaks, continuous driving energy,, tribal percussion layers, festival sunrise vibe,",
     "Quiet storm, silky smooth vocals, lush string arrangements,, gentle Rhodes piano, soft brushed drums, romantic atmosphere,, late-night radio vibe, intimate production,",
+    "rage trap, detuned leads, chaotic energy",
     "Raw grunge vocals, sludgy distorted guitar, heavy drop-D tuning,, dynamic quiet-LOUD-quiet structure, angsty energy, loose drumming,, vintage analog distortion, feedback between sections,",
     "Red Dirt country-rock, gritty Texas sound, electric guitar-driven,, bar band energy, storytelling lyrics, roadhouse production,, Telecaster twang meets rock attitude,",
     "Reggaeton-influenced pop, Spanish guitar accents,, tropical percussion, bilingual lyrics vibe,, catchy dembow rhythm, pop vocals with Latin flair,, summer heat energy, BPM: 95, Key: A Minor",
@@ -151,6 +196,7 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
     "Traditional country, steel guitar prominent, fiddle fills,, warm twangy vocals, walking bass line, vintage drum sound,, authentic Nashville production, storytelling lyrics focus,",
     "Triumphant rock, driving 4/4 beat, palm-muted power chords,, anthemic \"whoa-oh\" backing vocals, inspirational chord progressions,, double-tracked guitars, stadium reverb, uplifting energy,",
     "UK drill, sliding 808 bass patterns, dark ominous synths,, skittering hi-hats, menacing atmosphere, aggressive delivery,, cold London street energy, minimal melodic elements,",
+    "uk garage shuffle, chopped vocal samples, sub pressure",
     "Ultra-catchy teen pop, bubblegum melodies,, bright shiny production, youthful energy vocals,, simple but effective hooks, colorful sound palette,, maximum radio-friendliness, BPM: 125, Key: C Major",
     "Upbeat bedroom pop, jangly guitars, catchy vocal melodies,, lo-fi drums, warm analog synths, nostalgic 80s influence,, bedroom production charm with pop hooks,",
     "Upbeat dream pop, jangly guitars meet synths,, bright shimmering production, catchy melodies,, optimistic energy, indie-pop crossover appeal,",

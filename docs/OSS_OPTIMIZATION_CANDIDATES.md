@@ -44,6 +44,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 5. Evaluate DSP crates only after adding benchmark-style tests around current output.
 6. Maestro LLM catalog grounding — local retrieval from style catalog + CC0 concepts (`maestro-catalog-grounding.js`).
 7. Roadmap v0.13.5 — tempo descriptors, negative guard packs, era/trend catalogs, metaphor surprise rolls, DistilHuBERT genre override, MFA guide-vocal alignment hook, CLIP vision tags.
+8. MusicGen opt-in endpoint (`POST /generate`) — audiocraft extra, CC-BY-NC weights not bundled.
 
 ## Current Evaluation Decisions
 

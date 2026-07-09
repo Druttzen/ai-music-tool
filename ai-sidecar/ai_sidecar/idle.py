@@ -21,6 +21,7 @@ _ACTIVITY_PATHS = frozenset({
     "/vocal-embed/plan",
     "/vocal-embed/models",
     "/vocal-embed/synthesize",
+    "/generate",
 })
 
 

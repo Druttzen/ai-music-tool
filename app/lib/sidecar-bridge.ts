@@ -20,6 +20,7 @@ export interface SidecarHealth {
   vocal_models_available?: boolean;
   vocal_rvc_available?: boolean;
   vocal_diffsinger_available?: boolean;
+  generate_available?: boolean;
 }
 
 export interface SidecarAnalysis {
@@ -385,4 +386,35 @@ export async function analyzeImageViaSidecar(
   }
 
   return res.json() as Promise<SidecarImageAnalysis>;
+}
+
+/**
+ * POST text prompt to /generate (optional MusicGen when generate extra is installed).
+ */
+export async function generateMusicViaSidecar(
+  prompt: string,
+  durationSec = 10,
+): Promise<{ blob: Blob; model: string | null; durationSec: number | null }> {
+  const res = await fetch(`${sidecarBaseUrl()}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt, duration_sec: durationSec }),
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar generate failed (${res.status})`);
+  }
+
+  return {
+    blob: await res.blob(),
+    model: res.headers.get("X-MusicGen-Model"),
+    durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
+  };
 }

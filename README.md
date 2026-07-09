@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.13.6**
+**Version 0.13.7**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.13.7)
+
+- **CC0 concept expansion** — awesome-suno import now includes `examples/` markdown + era/trend supplemental lines (up to 400 cap).
+- **MusicGen scaffold** — opt-in `POST /generate` sidecar endpoint (`npm run sidecar:generate`; CC-BY-NC weights).
+- **WaveSurfer prototype toggle** — one-click “Try WaveSurfer prototype” in the track analyzer (persists in localStorage).
 
 ## Highlights (v0.13.6)
 

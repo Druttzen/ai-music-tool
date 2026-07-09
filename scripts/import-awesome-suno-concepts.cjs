@@ -11,6 +11,7 @@ const path = require("path");
 
 const ROOT = path.resolve(__dirname, "..");
 const OUT_JS = path.join(ROOT, "app", "lib", "awesome-suno-concepts-synced.js");
+const EXTENSIONS_JS = path.join(ROOT, "app", "lib", "style-catalog-extensions.js");
 
 const SOURCE = {
   repo: "https://github.com/naqashmunir21/awesome-suno-prompts",
@@ -24,6 +25,10 @@ const SOURCE = {
     "prompts/jazz-blues.md",
     "prompts/country.md",
     "prompts/rnb-soul.md",
+    "examples/advanced-techniques.md",
+    "examples/before-after.md",
+    "examples/common-mistakes.md",
+    "examples/viral-hits.md",
   ],
 };
 
@@ -57,6 +62,21 @@ function extractPromptBlocks(markdown) {
   return blocks;
 }
 
+function readExportedStringArray(filePath, exportName) {
+  const src = fs.readFileSync(filePath, "utf8");
+  const re = new RegExp(`export const ${exportName} = \\[([\\s\\S]*?)\\];`, "m");
+  const match = src.match(re);
+  if (!match) return [];
+  const lines = [];
+  for (const m of match[1].matchAll(/"([^"\\]*(?:\\.[^"\\]*)*)"/g)) {
+    const text = m[1].replace(/\\"/g, '"').trim();
+    if (text.length >= 24 && text.length <= 280 && isEnglishLine(text) && !BLOCKED.test(text)) {
+      lines.push(text);
+    }
+  }
+  return lines;
+}
+
 async function fetchText(url) {
   const res = await fetch(url, { headers: { "User-Agent": "ai-music-tool-awesome-suno/1.0" } });
   if (!res.ok) throw new Error(`Fetch failed ${url}: ${res.status}`);
@@ -83,16 +103,31 @@ async function main() {
   const seen = new Set();
   const lines = [];
 
+  const addLine = (block, origin) => {
+    const key = block.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    lines.push(block);
+    if (origin) {
+      // tracked in payload supplemental only
+    }
+  };
+
   for (const file of SOURCE.files) {
     const url = `https://raw.githubusercontent.com/naqashmunir21/awesome-suno-prompts/main/${file}`;
     console.log(`Fetching ${file} …`);
     const markdown = await fetchText(url);
     for (const block of extractPromptBlocks(markdown)) {
-      const key = block.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      lines.push(block);
+      addLine(block, file);
     }
+  }
+
+  const supplemental = {
+    eraAnchoredGenres: readExportedStringArray(EXTENSIONS_JS, "eraAnchoredGenres"),
+    trendMicroGenres2026: readExportedStringArray(EXTENSIONS_JS, "trendMicroGenres2026"),
+  };
+  for (const block of [...supplemental.eraAnchoredGenres, ...supplemental.trendMicroGenres2026]) {
+    addLine(block, "style-catalog-extensions");
   }
 
   lines.sort((a, b) => a.localeCompare(b));
@@ -101,11 +136,14 @@ async function main() {
   const payload = {
     syncedAt: new Date().toISOString(),
     source: SOURCE,
+    supplemental,
     lines: capped,
   };
 
   fs.writeFileSync(OUT_JS, emitJs(payload), "utf8");
-  console.log(`Wrote ${OUT_JS} (${capped.length} concepts)`);
+  console.log(
+    `Wrote ${OUT_JS} (${capped.length} concepts — CC0 blocks + ${supplemental.eraAnchoredGenres.length} era + ${supplemental.trendMicroGenres2026.length} trend)`,
+  );
 }
 
 main().catch((err) => {
