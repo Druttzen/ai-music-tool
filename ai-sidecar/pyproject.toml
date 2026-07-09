@@ -1,6 +1,6 @@
 [project]
 name = "ai-music-sidecar"
-version = "0.9.13"
+version = "0.10.0"
 description = "Local AI inference sidecar for AI Music Creator (analysis, stem separation, generation)."
 requires-python = ">=3.10,<3.13"  # PyTorch / audiocraft / demucs have no 3.13+ wheels yet
 

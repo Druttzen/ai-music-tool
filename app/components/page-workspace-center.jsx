@@ -9,6 +9,7 @@ import {
 import { CenterGuidedPathPanel } from "./center-guided-path-panel";
 import { CenterIdeaPanel } from "./center-idea-panel";
 import { CenterLyricStylePanel } from "./center-lyric-style-panel";
+import { CenterMaestroChatPanel } from "./center-maestro-chat-panel";
 import { CenterMoodPanel } from "./center-mood-panel";
 import { CenterMusicControlsPanel } from "./center-music-controls-panel";
 import { CenterProModePanel } from "./center-pro-mode-panel";
@@ -22,6 +23,7 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
   return (
     <section className="space-y-4">
       <CenterGuidedPathPanel />
+      <CenterMaestroChatPanel />
       <CenterIdeaPanel />
       <CenterLyricStylePanel />
       <CenterVoiceStylePanel />

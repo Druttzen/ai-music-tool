@@ -1,0 +1,120 @@
+/**
+ * Optional OpenAI-compatible backend for Maestro Chat.
+ * Reuses Co-Producer LLM settings (key stays in localStorage). The model gets
+ * the project snapshot and must answer with JSON: { reply, patch } — the patch
+ * is sanitized before it touches project state.
+ */
+
+import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
+import { MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
+
+export const MAESTRO_LLM_TIMEOUT_MS = 45_000;
+
+/**
+ * @param {Array<{ role: string, text: string }>} history - prior chat turns (oldest first)
+ * @param {object} snapshot - current project fields
+ */
+export function buildMaestroLlmMessages(history, snapshot) {
+  const projectBrief = JSON.stringify(
+    {
+      idea: snapshot.idea,
+      tempo: snapshot.tempo,
+      genres: snapshot.selectedGenres,
+      rhythms: snapshot.selectedRhythms,
+      sounds: snapshot.selectedSounds,
+      vocal: snapshot.vocal,
+      mood: snapshot.mood,
+      lyricTheme: snapshot.lyricTheme,
+      lyricStyle: snapshot.lyricStyle,
+      lyricLanguage: snapshot.lyricLanguage,
+      structure: snapshot.structure,
+      rules: snapshot.rules,
+    },
+    null,
+    0,
+  );
+
+  const system = `You are Maestro, an expert music co-producer inside the "AI Music Creator" app. The user is building a Suno prompt project. Current project state: ${projectBrief}
+
+Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch": object|null}
+- "reply": short, friendly producer-speak (2-4 sentences max). You may include lyrics or hooks inside reply when asked.
+- "patch": fields to update, or null. Allowed keys: ${MAESTRO_PATCHABLE_KEYS.join(", ")}.
+  - selectedGenres/selectedRhythms/selectedSounds: string arrays (genres max 3).
+  - mood: object with any of darkness/energy/aggression/emotion/complexity/space as 0-100 numbers.
+  - tempo: like "128 BPM". vocal: a vocal role label. Others: strings.
+Only patch what the user asked to change. Never invent fields outside the allowed keys.`;
+
+  const messages = [{ role: "system", content: system }];
+  for (const turn of history.slice(-10)) {
+    messages.push({
+      role: turn.role === "assistant" ? "assistant" : "user",
+      content: String(turn.text || "").slice(0, 2000),
+    });
+  }
+  return messages;
+}
+
+/** Extract the first JSON object from an LLM response (tolerates fences/prose). */
+export function parseMaestroLlmResponse(raw, snapshot) {
+  const text = String(raw || "").trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) {
+    return { reply: text || "…", patch: null };
+  }
+  try {
+    const parsed = JSON.parse(text.slice(start, end + 1));
+    return {
+      reply: String(parsed.reply || "").trim() || "…",
+      patch: sanitizeMaestroPatch(parsed.patch, snapshot),
+    };
+  } catch {
+    return { reply: text, patch: null };
+  }
+}
+
+/**
+ * @param {Array<{ role: string, text: string }>} history
+ * @param {object} snapshot
+ * @param {{ apiUrl?: string, apiKey?: string, model?: string }} settings
+ * @param {{ timeoutMs?: number }} [options]
+ * @returns {Promise<{ reply: string, patch: Record<string, unknown>|null }>}
+ */
+export async function sendMaestroChatToLlm(history, snapshot, settings, options = {}) {
+  const timeoutMs = options.timeoutMs ?? MAESTRO_LLM_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(String(settings.apiUrl || DEFAULT_LLM_SETTINGS.apiUrl).trim(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${String(settings.apiKey || "").trim()}`,
+      },
+      body: JSON.stringify({
+        model: settings.model || DEFAULT_LLM_SETTINGS.model,
+        messages: buildMaestroLlmMessages(history, snapshot),
+        temperature: 0.7,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      throw new Error(`Maestro LLM request failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+    }
+
+    const data = await res.json();
+    const content = String(data?.choices?.[0]?.message?.content || "").trim();
+    if (!content) throw new Error("Maestro LLM returned an empty reply");
+    return parseMaestroLlmResponse(content, snapshot);
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(`Maestro LLM timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
