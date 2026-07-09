@@ -40,6 +40,7 @@ def test_health_ok():
     assert isinstance(body["vision_available"], bool)
     assert body["vocal_embed_plan_available"] is True
     assert isinstance(body["vocal_synthesis_available"], bool)
+    assert isinstance(body["vocal_ml_available"], bool)
 
 
 def test_health_allows_local_dev_cors():

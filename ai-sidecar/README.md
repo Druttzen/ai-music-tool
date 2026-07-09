@@ -60,7 +60,10 @@ a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix t
 
 **Placement-mix v1** (`POST /vocal-embed/synthesize`) is available with base sidecar deps
 (librosa + soundfile). It ducks the instrumental under lyric sections and overlays a guide vocal.
-Optional `pip install -e ai-sidecar[vocal]` adds scipy for vocal high-pass filtering.
+
+**Vocal DSP v1** (`pip install -e ai-sidecar[vocal]`) adds scipy-powered guide conversion
+(pitch shift + presence EQ) and lyrics-only synthesis from section timing. Full RVC/DiffSinger
+model weights remain a future `vocal-ml` torch integration.
 
 Future heavy sidecar options should stay opt-in:
 
@@ -91,7 +94,7 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 
 | Route | Purpose |
 |-------|---------|
-| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available`, `vocal_embed_plan_available`, `vocal_synthesis_available` |
+| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available`, `vocal_embed_plan_available`, `vocal_synthesis_available`, `vocal_ml_available` |
 | `POST /analyze` | Librosa tempo/key/spectral/percussive report |
 | `POST /vocal-embed/plan` | Validate Vocal Embed Studio JSON plan from the app |
 | `POST /vocal-embed/synthesize` | Placement-mix v1: multipart `plan_json` + `instrumental` + optional `guide_vocal` → mixed WAV |

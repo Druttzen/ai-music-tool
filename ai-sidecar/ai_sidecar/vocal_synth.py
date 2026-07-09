@@ -1,17 +1,23 @@
 """Vocal Embed Studio — local placement mix (guide vocal + instrumental).
 
 Phase 1 engine: time-section ducking and vocal overlay using librosa/numpy.
-Future opt-in extras can add RVC conversion or DiffSinger SVS behind the same API.
+Optional vocal DSP (`vocal` extra) adds guide conversion and lyrics synthesis.
 """
 
 from __future__ import annotations
 
 import io
 import json
-import tempfile
 from typing import Any
 
 import numpy as np
+
+from .vocal_ml import (
+    convert_guide_vocal,
+    full_ml_vocal_models_available,
+    ml_vocal_stack_available,
+    synthesize_lyrics_vocal,
+)
 
 
 def synthesis_stack_available() -> bool:
@@ -22,11 +28,6 @@ def synthesis_stack_available() -> bool:
     except Exception:
         return False
     return True
-
-
-def ml_vocal_stack_available() -> bool:
-    """True when optional RVC/DiffSinger stacks are installed (future)."""
-    return False
 
 
 def _load_stereo(raw: bytes, target_sr: int = 44100) -> tuple[np.ndarray, int]:
@@ -95,6 +96,37 @@ def _encode_wav_bytes(stereo: np.ndarray, sample_rate: int) -> bytes:
     return buf.getvalue()
 
 
+def _prepare_vocal_track(
+    plan: dict[str, Any],
+    guide_vocal_raw: bytes | None,
+    sample_rate: int,
+    length: int,
+) -> tuple[np.ndarray, str]:
+    mode = str(plan.get("sidecarMode") or "guide-vocal-conversion")
+    voice_style = str(plan.get("voiceStyle") or "")
+    mix_plan = plan.get("mixPlan") or {}
+    ml = ml_vocal_stack_available()
+
+    if guide_vocal_raw:
+        guide, _ = _load_stereo(guide_vocal_raw, target_sr=sample_rate)
+        guide = _match_length(guide, length)
+        if ml and mode == "guide-vocal-conversion":
+            guide = convert_guide_vocal(guide, sample_rate, voice_style, mix_plan)
+            return guide, "guide-conversion-v1"
+        return guide, "placement-mix-v1"
+
+    if mode == "lyrics-to-vocal-synthesis" and ml:
+        guide = synthesize_lyrics_vocal(plan, length, sample_rate)
+        return guide, "lyrics-synth-v1"
+
+    if mode == "lyrics-to-vocal-synthesis":
+        raise ValueError(
+            "Lyrics-to-vocal mode needs the vocal DSP extra (pip install -e ai-sidecar[vocal]) "
+            "or attach a guide vocal file for placement-mix v1.",
+        )
+    raise ValueError("Attach a guide vocal WAV/MP3 for local placement-mix synthesis.")
+
+
 def synthesize_vocal_embed_mix(
     plan: dict[str, Any],
     instrumental_raw: bytes,
@@ -104,25 +136,16 @@ def synthesize_vocal_embed_mix(
     if not synthesis_stack_available():
         raise RuntimeError("vocal synthesis deps missing — reinstall ai-sidecar base deps")
 
-    mode = str(plan.get("sidecarMode") or "guide-vocal-conversion")
-    if mode == "lyrics-to-vocal-synthesis" and not guide_vocal_raw and not ml_vocal_stack_available():
-        raise ValueError(
-            "Lyrics-to-vocal mode needs a guide vocal file for placement-mix v1, "
-            "or install the future DiffSinger extra when available.",
-        )
-    if not guide_vocal_raw:
-        raise ValueError("Attach a guide vocal WAV/MP3 for local placement-mix synthesis.")
-
     mix_plan = plan.get("mixPlan") or {}
     duck_db = float(mix_plan.get("instrumentalDuckDb") or -4)
     duck_gain = 10 ** (duck_db / 20.0)
     hpf_hz = float(mix_plan.get("vocalHighPassHz") or 90)
 
     inst, sr = _load_stereo(instrumental_raw)
-    guide, _ = _load_stereo(guide_vocal_raw, target_sr=sr)
     length = inst.shape[1]
     inst = _match_length(inst, length)
-    guide = _match_length(guide, length)
+
+    guide, vocal_engine = _prepare_vocal_track(plan, guide_vocal_raw, sr, length)
     guide = _apply_hpf(guide, sr, hpf_hz)
 
     duration = length / sr
@@ -131,19 +154,20 @@ def synthesize_vocal_embed_mix(
         sections = []
     envelope = _section_envelope(duration, sections, sr)
 
-    # Duck instrumental under vocal sections; blend guide on top.
     duck = 1.0 + (duck_gain - 1.0) * envelope
     inst_ducked = inst * duck[np.newaxis, :]
     mixed = inst_ducked + guide * 0.92
     mixed = _normalize_peak(mixed)
 
+    engine = vocal_engine if vocal_engine != "placement-mix-v1" else "placement-mix-v1"
     meta = {
-        "engine": "placement-mix-v1",
-        "mode": mode,
+        "engine": engine,
+        "mode": str(plan.get("sidecarMode") or "guide-vocal-conversion"),
         "sample_rate": sr,
         "duration_sec": duration,
         "section_count": len(sections),
-        "ml_stack": ml_vocal_stack_available(),
+        "vocal_dsp": ml_vocal_stack_available(),
+        "vocal_models": full_ml_vocal_models_available(),
     }
     return _encode_wav_bytes(mixed, sr), meta
 

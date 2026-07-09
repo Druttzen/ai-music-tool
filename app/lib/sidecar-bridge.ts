@@ -11,6 +11,12 @@ export interface SidecarHealth {
   status: string;
   device: string;
   version: string;
+  stems_available?: boolean;
+  genre_available?: boolean;
+  vision_available?: boolean;
+  vocal_embed_plan_available?: boolean;
+  vocal_synthesis_available?: boolean;
+  vocal_ml_available?: boolean;
 }
 
 export interface SidecarAnalysis {
@@ -42,7 +48,7 @@ export interface SidecarManagedStatus {
 export const HEALTH_OK_TTL_MS = 15_000;
 export const HEALTH_FAIL_TTL_MS = 500;
 
-let healthCache: { ok: boolean; at: number } | null = null;
+let healthCache: { ok: boolean; at: number; body?: SidecarHealth } | null = null;
 
 /** @internal Test helper — whether a cached health result should be reused. */
 export function shouldReuseHealthCache(
@@ -112,20 +118,30 @@ export async function waitForSidecar(timeoutMs = 15_000): Promise<boolean> {
 
 /** True when the sidecar responds to GET /health within 2s. */
 export async function isSidecarAvailable(): Promise<boolean> {
+  const health = await fetchSidecarHealth();
+  return health !== null;
+}
+
+/** Fetch full /health payload (null when unreachable). */
+export async function fetchSidecarHealth(): Promise<SidecarHealth | null> {
   if (shouldReuseHealthCache(healthCache, Date.now())) {
-    return healthCache!.ok;
+    return healthCache!.ok ? (healthCache!.body ?? null) : null;
   }
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 2000);
     const res = await fetch(`${sidecarBaseUrl()}/health`, { signal: ctrl.signal });
     clearTimeout(timer);
-    const ok = res.ok;
-    healthCache = { ok, at: Date.now() };
-    return ok;
+    if (!res.ok) {
+      healthCache = { ok: false, at: Date.now() };
+      return null;
+    }
+    const body = (await res.json()) as SidecarHealth;
+    healthCache = { ok: true, at: Date.now(), body };
+    return body;
   } catch {
     healthCache = { ok: false, at: Date.now() };
-    return false;
+    return null;
   }
 }
 

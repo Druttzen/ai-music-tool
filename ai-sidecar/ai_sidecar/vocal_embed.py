@@ -31,6 +31,12 @@ def vocal_synthesis_available() -> bool:
     return synthesis_stack_available()
 
 
+def vocal_ml_available() -> bool:
+    from .vocal_ml import ml_vocal_stack_available
+
+    return ml_vocal_stack_available()
+
+
 def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanResponse:
     if body.kind != "vocal_embed_plan":
         raise ValueError("expected kind vocal_embed_plan")
@@ -44,6 +50,7 @@ def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespo
     section_count = len(sections) if isinstance(sections, list) else 0
     warnings = plan.get("warnings") or []
     synthesis_available = vocal_synthesis_available()
+    ml_available = vocal_ml_available()
 
     if stage != "ready":
         missing = warnings if isinstance(warnings, list) and warnings else ["Plan is still in draft mode."]
@@ -59,6 +66,11 @@ def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespo
             0,
             "POST /vocal-embed/synthesize with instrumental + guide vocal for placement-mix preview.",
         )
+        if ml_available:
+            next_steps.insert(
+                1,
+                "Vocal DSP enabled: guide conversion or lyrics-only synthesis without a guide file.",
+            )
     else:
         next_steps.insert(
             0,

@@ -28,6 +28,9 @@ def test_health_includes_vocal_embed_flags():
     body = res.json()
     assert body["vocal_embed_plan_available"] is True
     assert body["vocal_synthesis_available"] is synthesis_stack_available()
+    from ai_sidecar.vocal_ml import ml_vocal_stack_available
+
+    assert body["vocal_ml_available"] is ml_vocal_stack_available()
 
 
 def test_vocal_embed_plan_accepts_ready_plan():

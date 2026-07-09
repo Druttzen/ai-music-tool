@@ -32,6 +32,7 @@ from .vocal_embed import (
     VocalEmbedPlanEnvelope,
     VocalEmbedPlanResponse,
     accept_vocal_embed_plan,
+    vocal_ml_available,
     vocal_synthesis_available,
 )
 from .vocal_synth import (
@@ -139,6 +140,7 @@ class Health(BaseModel):
     vision_available: bool
     vocal_embed_plan_available: bool
     vocal_synthesis_available: bool
+    vocal_ml_available: bool
 
 
 class GenrePrediction(BaseModel):
@@ -195,6 +197,7 @@ def health() -> Health:
         vision_available=_vision_available(),
         vocal_embed_plan_available=True,
         vocal_synthesis_available=vocal_synthesis_available(),
+        vocal_ml_available=vocal_ml_available(),
     )
 
 

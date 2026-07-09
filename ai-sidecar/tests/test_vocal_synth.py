@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ai_sidecar.main import app
+from ai_sidecar.vocal_ml import ml_vocal_stack_available
 from ai_sidecar.vocal_synth import synthesis_stack_available, synthesize_vocal_embed_mix
 
 client = TestClient(app)
@@ -24,16 +25,26 @@ def _tone_wav(duration_sec: float = 1.0, freq: float = 440.0, sample_rate: int =
     return buf.getvalue()
 
 
-def _ready_plan():
+def _ready_plan(mode="guide-vocal-conversion"):
     return {
         "kind": "vocal_embed_plan",
         "version": 1,
         "createdAt": "2026-07-09T00:00:00.000Z",
         "plan": {
             "stage": "ready",
-            "sidecarMode": "guide-vocal-conversion",
+            "sidecarMode": mode,
+            "voiceStyle": "warm baritone narrator",
+            "lyrics": "[Verse]\nOne two three",
             "warnings": [],
-            "sections": [{"name": "Verse", "start": 0.0, "end": 0.8, "lineCount": 2}],
+            "sections": [
+                {
+                    "name": "Verse",
+                    "start": 0.0,
+                    "end": 0.8,
+                    "lineCount": 2,
+                    "text": "[Verse]\nOne two three",
+                }
+            ],
             "mixPlan": {"instrumentalDuckDb": -4, "vocalHighPassHz": 90},
         },
     }
@@ -46,7 +57,8 @@ def test_synthesize_vocal_embed_mix_unit():
     guide = _tone_wav(freq=880.0)
     wav_bytes, meta = synthesize_vocal_embed_mix(plan, inst, guide)
     assert len(wav_bytes) > 1000
-    assert meta["engine"] == "placement-mix-v1"
+    expected_engine = "guide-conversion-v1" if ml_vocal_stack_available() else "placement-mix-v1"
+    assert meta["engine"] == expected_engine
     assert meta["section_count"] == 1
 
 
@@ -65,11 +77,12 @@ def test_vocal_embed_synthesize_endpoint():
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("audio/")
     assert len(res.content) > 1000
-    assert res.headers.get("x-vocal-embed-engine") == "placement-mix-v1"
 
 
 @pytest.mark.skipif(not synthesis_stack_available(), reason="librosa/soundfile not installed")
-def test_vocal_embed_synthesize_requires_guide():
+def test_vocal_embed_synthesize_requires_guide_without_ml():
+    if ml_vocal_stack_available():
+        pytest.skip("vocal DSP installed — lyrics-only path is allowed")
     inst = _tone_wav()
     res = client.post(
         "/vocal-embed/synthesize",
@@ -77,3 +90,15 @@ def test_vocal_embed_synthesize_requires_guide():
         files={"instrumental": ("inst.wav", inst, "audio/wav")},
     )
     assert res.status_code == 422
+
+
+@pytest.mark.skipif(not ml_vocal_stack_available(), reason="vocal DSP extra not installed")
+def test_vocal_embed_synthesize_lyrics_without_guide():
+    inst = _tone_wav(duration_sec=2.0, freq=220.0)
+    res = client.post(
+        "/vocal-embed/synthesize",
+        data={"plan_json": json.dumps(_ready_plan("lyrics-to-vocal-synthesis"))},
+        files={"instrumental": ("inst.wav", inst, "audio/wav")},
+    )
+    assert res.status_code == 200
+    assert res.headers.get("x-vocal-embed-engine") == "lyrics-synth-v1"
