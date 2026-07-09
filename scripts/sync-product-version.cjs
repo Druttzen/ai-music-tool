@@ -15,7 +15,7 @@ function replaceTomlVersion(filePath) {
   if (current?.[1] === version) return false;
   const next = raw.replace(/^version = "[^"]+"/m, `version = "${version}"`);
   if (next === raw) throw new Error(`Could not update version in ${filePath}`);
-  fs.writeFileSync(filePath, next);
+  writeFileWithRetry(filePath, next);
   return true;
 }
 
@@ -38,17 +38,38 @@ function syncCargoLock(crateDir, packageNames) {
       stdio: "pipe",
     });
   } catch (e) {
-    console.warn(
-      `Warning: could not refresh ${crateDir}/Cargo.lock — run cargo update there before release (CI uses --locked).`,
+    const pkgs = names.map((n) => `-p ${n}`).join(" ");
+    throw new Error(
+      `Could not refresh ${crateDir}/Cargo.lock (CI uses --locked). Run: cd ${crateDir} && cargo update ${pkgs}`,
+      { cause: e },
     );
-    console.warn(e?.message || e);
+  }
+}
+
+function sleepMs(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    /* busy-wait for short Windows file-lock retries */
+  }
+}
+
+function writeFileWithRetry(filePath, data, attempts = 5) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      fs.writeFileSync(filePath, data);
+      return;
+    } catch (err) {
+      const retryable = ["UNKNOWN", "EBUSY", "EPERM", "EACCES"].includes(err?.code);
+      if (!retryable || i === attempts - 1) throw err;
+      sleepMs(40 * (i + 1));
+    }
   }
 }
 
 function replaceJsonVersion(filePath) {
   const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
   data.version = version;
-  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`);
+  writeFileWithRetry(filePath, `${JSON.stringify(data, null, 2)}\n`);
 }
 
 function replacePyprojectVersion(filePath) {
@@ -57,7 +78,7 @@ function replacePyprojectVersion(filePath) {
   if (current?.[1] === version) return;
   const next = raw.replace(/^version = "[^"]+"/m, `version = "${version}"`);
   if (next === raw) throw new Error(`Could not update version in ${filePath}`);
-  fs.writeFileSync(filePath, next);
+  writeFileWithRetry(filePath, next);
 }
 
 function replacePyInitVersion(filePath) {
@@ -66,7 +87,7 @@ function replacePyInitVersion(filePath) {
   if (current?.[1] === version) return;
   const next = raw.replace(/^__version__ = "[^"]+"/m, `__version__ = "${version}"`);
   if (next === raw) throw new Error(`Could not update version in ${filePath}`);
-  fs.writeFileSync(filePath, next);
+  writeFileWithRetry(filePath, next);
 }
 
 function replacePackageLockVersion(filePath) {
@@ -74,7 +95,7 @@ function replacePackageLockVersion(filePath) {
   if (data.version === version && data.packages?.[""]?.version === version) return;
   data.version = version;
   if (data.packages?.[""]) data.packages[""].version = version;
-  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`);
+  writeFileWithRetry(filePath, `${JSON.stringify(data, null, 2)}\n`);
 }
 
 function replaceJsStringLiteral(filePath, pattern, template) {
@@ -83,7 +104,7 @@ function replaceJsStringLiteral(filePath, pattern, template) {
   if (raw.includes(replacement)) return;
   const next = raw.replace(pattern, replacement);
   if (next === raw) throw new Error(`Could not update version in ${filePath}`);
-  fs.writeFileSync(filePath, next);
+  writeFileWithRetry(filePath, next);
 }
 
 replaceJsonVersion(path.join(root, "src-tauri", "tauri.conf.json"));

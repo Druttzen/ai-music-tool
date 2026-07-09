@@ -230,6 +230,8 @@ def synthesize_lyrics_vocal(
             if w1 <= cursor:
                 break
             n = w1 - cursor
+            if n <= 0:
+                continue
             t = np.arange(n, dtype=np.float32) / sample_rate
             freq = _note_hz(plan, word_index)
             env = np.sin(np.pi * np.linspace(0, 1, n, dtype=np.float32)) ** 0.65
@@ -243,7 +245,7 @@ def synthesize_lyrics_vocal(
     if not wrote:
         raise ValueError("Could not derive lyric timing from plan sections — add lyrics with section tags.")
 
-    peak = float(np.max(np.abs(stereo))) or 1.0
+    peak = float(np.nanmax(np.abs(stereo))) or 1.0
     if peak > 0.98:
         stereo = (stereo * (0.95 / peak)).astype(np.float32)
-    return _apply_presence_boost(stereo, sample_rate), "lyrics-synth-v1"
+    return _apply_presence_boost(np.nan_to_num(stereo, nan=0.0), sample_rate), "lyrics-synth-v1"

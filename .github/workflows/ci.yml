@@ -15,8 +15,11 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - run: npm ci
-      - run: npm run check
+      - run: npm run check:full
 
   awesome-suno-sync:
     runs-on: ubuntu-latest
@@ -68,19 +71,6 @@ jobs:
       - name: Install libmp3lame (native MP3 export)
         run: sudo apt-get update && sudo apt-get install -y libmp3lame-dev
       - run: cd dsp-core && cargo test --locked
-
-  sidecar-python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install sidecar + test deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ai-sidecar pytest httpx
-      - run: pytest ai-sidecar/tests -q -m "not slow"
 
   tauri-smoke:
     runs-on: ubuntu-latest

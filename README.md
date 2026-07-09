@@ -1,8 +1,15 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.31.0**
+**Version 0.32.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.32.0)
+
+- **`npm run check:full`** — unit + lint + build + sidecar pytest (release and CI gate).
+- **`npm run ship:preflight`** — sync versions, `check:full`, optional `-E2e` and `-Dist` before tagging.
+- **Hardened version sync** — Cargo.lock refresh fails loud; Windows file-write retries.
+- **Weekly ci-vocal-ml** — scheduled vocal/OpenVPI e2e in addition to manual dispatch.
 
 ## Highlights (v0.31.0)
 
@@ -438,7 +445,26 @@ Packaged builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startu
 npm run build
 ```
 
-**Pre-ship check** (ESLint, zero warnings, then production build):
+**Pre-ship check** (unit tests, ESLint, production build, sidecar pytest):
+
+```bash
+npm run check:full
+```
+
+Full CI parity including Playwright e2e (restarts sidecar):
+
+```bash
+npm run check:full:e2e
+```
+
+One-shot pre-tag gate (sync versions + `check:full`; add `-E2e` or `-Dist` as needed):
+
+```powershell
+npm run ship:preflight
+npm run ship:preflight -- -E2e -Dist
+```
+
+Quick check without sidecar pytest:
 
 ```bash
 npm run check

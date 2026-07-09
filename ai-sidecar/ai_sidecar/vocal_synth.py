@@ -123,10 +123,13 @@ def _prepare_vocal_track(
         return guide, "placement-mix-v1"
 
     if mode == "lyrics-to-vocal-synthesis":
-        raise ValueError(
-            "Lyrics-to-vocal mode needs DiffSinger (AIMC_DIFFSINGER_CMD/URL), "
-            "vocal DSP (pip install -e ai-sidecar[vocal]), or a guide vocal file.",
+        guide, engine = synthesize_lyrics_vocal(
+            plan,
+            length,
+            sample_rate,
+            guide_vocal_raw=guide_vocal_raw,
         )
+        return guide, engine
     raise ValueError("Attach a guide vocal WAV/MP3 for local placement-mix synthesis.")
 
 

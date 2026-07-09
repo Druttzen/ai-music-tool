@@ -321,15 +321,7 @@ def synthesize_with_diffsinger(
     if openvpi_configured():
         from ai_sidecar.diffsinger_openvpi import synthesize_with_openvpi  # noqa: PLC0415
 
-        return (
-            synthesize_with_openvpi(
-                plan,
-                length,
-                sample_rate,
-                guide_vocal_raw=guide_vocal_raw,
-            ),
-            "openvpi-diffsinger-v1",
-        )
+        return synthesize_with_openvpi(plan, length, sample_rate, guide_vocal_raw=guide_vocal_raw)
     if os.environ.get("AIMC_DIFFSINGER_URL", "").strip():
         return _synthesize_with_diffsinger_url(plan, length, sample_rate)
     return _synthesize_with_diffsinger_cmd(plan, length, sample_rate)

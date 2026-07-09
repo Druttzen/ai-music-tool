@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -39,6 +39,10 @@
     "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-sidecar-binary.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -Tauri",
     "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-sidecar-binary.ps1 && cd src-tauri && cargo tauri build",
     "check": "npm run test && npm run lint && npm run build",
+    "test:sidecar": "node scripts/run-pytest-sidecar.cjs",
+    "check:full": "node scripts/run-check-full.cjs",
+    "check:full:e2e": "node scripts/run-check-full.cjs --e2e",
+    "ship:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ship-preflight.ps1",
     "build": "next build",
     "electron": "electron .",
     "build:readme-pdf": "node scripts/generate-readme-pdf.cjs",

@@ -17,8 +17,11 @@ jobs:
         with:
           node-version: "20"
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - run: npm ci
-      - run: npm run check
+      - run: npm run check:full
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
       - name: Build and publish Windows installer
         env:

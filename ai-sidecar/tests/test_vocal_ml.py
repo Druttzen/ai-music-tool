@@ -20,7 +20,8 @@ def test_infer_pitch_shift_semitones():
 
 
 @pytest.mark.skipif(not ml_vocal_stack_available(), reason="vocal DSP extra not installed")
-def test_synthesize_lyrics_vocal_from_sections():
+def test_synthesize_lyrics_vocal_from_sections(monkeypatch):
+    monkeypatch.setattr("ai_sidecar.vocal_ml.diffsinger_configured", lambda: False)
     plan = {
         "bpm": "120 BPM",
         "key": "A minor",
@@ -30,9 +31,10 @@ def test_synthesize_lyrics_vocal_from_sections():
             {"name": "Chorus", "start": 1.0, "end": 2.0, "lineCount": 1, "text": "[Chorus]\nHook line"},
         ],
     }
-    stereo = synthesize_lyrics_vocal(plan, length=88200, sample_rate=44100)
+    stereo, engine = synthesize_lyrics_vocal(plan, length=88200, sample_rate=44100)
     assert stereo.shape == (2, 88200)
     assert float(np.max(np.abs(stereo))) > 0.01
+    assert engine in ("lyrics-synth-v1", "diffsinger-v1", "openvpi-diffsinger-v1")
 
 
 @pytest.mark.skipif(not ml_vocal_stack_available(), reason="vocal DSP extra not installed")
