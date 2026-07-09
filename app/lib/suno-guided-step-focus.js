@@ -345,6 +345,29 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
       });
     }
 
+    if (
+      snapshot.coProducerLlmReady &&
+      hasTrack &&
+      hasVoiceStyle &&
+      !instrumental &&
+      generatedLyrics
+    ) {
+      improvements.push({
+        id: "maestro-vocal-handoff",
+        title: "Ask Maestro to export vocal handoff",
+        description:
+          "Chat: “align and export handoff” — Maestro scrolls to Vocal Embed and explains the multi-file pack.",
+        action: "focusMaestro",
+      });
+      improvements.push({
+        id: "maestro-openvpi-ds",
+        title: "Ask Maestro about OpenVPI .ds",
+        description:
+          "Chat: “show openvpi ds” — Maestro returns the vocal embed brief and OpenVPI segment status.",
+        action: "focusMaestro",
+      });
+    }
+
     if (hasTrack && hasVoiceStyle && !instrumental && generatedLyrics) {
       improvements.push({
         id: "openvpi-ds-export",

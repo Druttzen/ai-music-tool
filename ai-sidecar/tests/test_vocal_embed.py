@@ -89,3 +89,19 @@ def test_vocal_embed_plan_reports_openvpi_ds_segments():
     assert res.status_code == 200
     body = res.json()
     assert body["openvpi_ds_segments"] == 2
+
+
+def test_parse_plan_envelope_carries_openvpi_ds():
+    import json
+
+    from ai_sidecar.vocal_synth import parse_plan_envelope
+
+    raw = json.dumps(
+        {
+            "kind": "vocal_embed_plan",
+            "plan": {"stage": "ready", "sections": []},
+            "openvpiDs": {"segments": [{"text": "hi"}]},
+        },
+    )
+    plan = parse_plan_envelope(raw)
+    assert plan["openvpiDs"]["segments"][0]["text"] == "hi"

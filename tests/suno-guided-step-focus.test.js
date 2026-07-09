@@ -127,6 +127,33 @@ describe("suno-guided-step-focus", () => {
     expect(report.improvements.some((x) => x.id === "openvpi-ds-export")).toBe(true);
   });
 
+  it("suggests Maestro vocal handoff when LLM is enabled on polish step", () => {
+    const report = evaluateGuidedStepCoach({
+      guidedStep: 6,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine one",
+      audioAnalysis: { fileName: "beat.wav", duration: 120 },
+      voiceStyleLine: "warm baritone",
+      coProducerLlmReady: true,
+      sunoWarnings: [],
+    });
+    expect(report.improvements.some((x) => x.id === "maestro-vocal-handoff")).toBe(true);
+    expect(report.improvements.some((x) => x.id === "maestro-openvpi-ds")).toBe(true);
+  });
+
+  it("hides Maestro vocal handoff coach when LLM is off", () => {
+    const report = evaluateGuidedStepCoach({
+      guidedStep: 6,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine one",
+      audioAnalysis: { fileName: "beat.wav", duration: 120 },
+      voiceStyleLine: "warm baritone",
+      coProducerLlmReady: false,
+      sunoWarnings: [],
+    });
+    expect(report.improvements.some((x) => x.id === "maestro-vocal-handoff")).toBe(false);
+  });
+
   it("builds stable coach fingerprints", () => {
     const report = evaluateGuidedStepCoach({
       guidedStep: 7,

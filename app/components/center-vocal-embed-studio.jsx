@@ -422,7 +422,16 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         setStatusWithTime("Instrumental audio missing from cache — re-analyze the track", "warning");
         return;
       }
-      const payload = buildVocalEmbedExportEnvelope(plan, alignOverride || alignPreview);
+      const payload = buildVocalEmbedExportEnvelope(
+        plan,
+        alignOverride || alignPreview,
+        (() => {
+          const ds =
+            storedOpenvpiDs ||
+            buildOpenvpiDsExport(plan, alignOverride || alignPreview);
+          return ds.segments?.length ? ds : null;
+        })(),
+      );
       const { blob: mixBlob, engine: responseEngine } = await synthesizeVocalEmbedViaSidecar(
         payload,
         instrumental,
@@ -445,7 +454,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
               ? "guide-conversion-v1"
               : "placement-mix-v1"
           : models?.diffsinger_openvpi?.ready
-            ? "diffsinger-v1"
+            ? "openvpi-diffsinger-v1"
             : models?.diffsinger_configured
               ? "diffsinger-v1"
               : "lyrics-synth-v1");
@@ -456,7 +465,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         "success",
       );
     },
-    [alignPreview, audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime],
+    [alignPreview, audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime, storedOpenvpiDs],
   );
 
   const alignAndSynthesizePreview = useCallback(async () => {
@@ -489,6 +498,47 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       setSidecarBusy(false);
     }
   }, [buildSidecarEnvelope, guideVocalFile, persistAlignPreview, plan, runSynthesizeMix, setStatusWithTime]);
+
+  const openvpiInferenceReady =
+    !!vocalModels?.diffsinger_openvpi?.ready &&
+    plan.stage === "ready" &&
+    plan.sidecarMode === "lyrics-to-vocal-synthesis";
+
+  const synthesizeOpenvpiPreview = useCallback(async () => {
+    if (!openvpiInferenceReady) {
+      setStatusWithTime("OpenVPI DiffSinger checkpoints are not ready yet", "warning");
+      return;
+    }
+    if (!guideVocalFile && !canLyricsOnlySynth && !hasStoredAlign) {
+      setStatusWithTime("Attach a guide vocal or store alignment for OpenVPI lyric timing", "warning");
+      return;
+    }
+    setSidecarBusy(true);
+    try {
+      const ready = await waitForSidecar(20_000);
+      if (!ready) {
+        setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
+        return;
+      }
+      await runSynthesizeMix(
+        storedOpenvpiDs?.segment_count
+          ? ` · OpenVPI inference (${storedOpenvpiDs.segment_count} ds segments)`
+          : " · OpenVPI DiffSinger inference",
+      );
+    } catch (err) {
+      setStatusWithTime(err instanceof Error ? err.message : "OpenVPI synthesis failed", "error");
+    } finally {
+      setSidecarBusy(false);
+    }
+  }, [
+    canLyricsOnlySynth,
+    guideVocalFile,
+    hasStoredAlign,
+    openvpiInferenceReady,
+    runSynthesizeMix,
+    setStatusWithTime,
+    storedOpenvpiDs?.segment_count,
+  ]);
 
   const synthesizePreview = useCallback(async () => {
     if (plan.stage !== "ready") {
@@ -631,6 +681,27 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           >
             Download OpenVPI .ds JSON
           </button>
+        </div>
+      ) : null}
+
+      {openvpiInferenceReady ? (
+        <div
+          className="mb-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2"
+          data-testid="openvpi-inference-ready"
+        >
+          <p className="text-[11px] font-semibold text-emerald-50">
+            OpenVPI DiffSinger inference is ready
+            {storedOpenvpiDs?.segment_count
+              ? ` — ${storedOpenvpiDs.segment_count} .ds segment(s) staged for acoustic/variance`
+              : alignPreview
+                ? " — align preview loaded; .ds will be built at synth time"
+                : ""}
+            .
+          </p>
+          <p className="mt-1 text-[10px] text-emerald-100/75">
+            Use the button below for a local WAV mixed with your instrumental. Export .ds JSON for external
+            pipelines anytime.
+          </p>
         </div>
       ) : null}
 
@@ -864,6 +935,15 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           className="rounded-2xl border border-sky-400/35 bg-sky-500/15 px-4 py-2 text-sm font-bold text-sky-100 hover:bg-sky-500/25 disabled:opacity-40"
         >
           Export OpenVPI .ds JSON
+        </button>
+        <button
+          type="button"
+          disabled={sidecarBusy || !openvpiInferenceReady}
+          data-testid="synthesize-openvpi"
+          onClick={() => void synthesizeOpenvpiPreview()}
+          className="rounded-2xl border border-emerald-400/50 bg-emerald-500/25 px-4 py-2 text-sm font-bold text-emerald-50 hover:bg-emerald-500/35 disabled:opacity-40 md:col-span-2"
+        >
+          {sidecarBusy ? "Synthesizing…" : "Synthesize with OpenVPI DiffSinger"}
         </button>
         <button
           type="button"

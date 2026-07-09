@@ -18,6 +18,7 @@ from .vocal_ml_models import (
     rvc_ready,
     synthesize_with_diffsinger,
 )
+from .diffsinger_openvpi import openvpi_configured
 
 
 def _base_audio_stack_available() -> bool:
@@ -181,6 +182,7 @@ def synthesize_lyrics_vocal(
     """Build a vocal guide from lyrics, preferring DiffSinger when configured."""
     if diffsinger_configured():
         try:
+            engine = "openvpi-diffsinger-v1" if openvpi_configured() else "diffsinger-v1"
             return (
                 synthesize_with_diffsinger(
                     plan,
@@ -188,7 +190,7 @@ def synthesize_lyrics_vocal(
                     sample_rate,
                     guide_vocal_raw=guide_vocal_raw,
                 ),
-                "diffsinger-v1",
+                engine,
             )
         except Exception:
             pass

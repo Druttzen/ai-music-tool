@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.30.0**
+**Version 0.31.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.31.0)
+
+- **OpenVPI inference UX** — ready banner, dedicated synthesize button, `.ds` attached to synth envelopes, `openvpi-diffsinger-v1` engine label.
+- **Maestro coach + LLM** — Polish step chips for vocal handoff and OpenVPI `.ds` when Co-Producer LLM is enabled.
+- **ci-vocal-ml** — handoff, Maestro vocal embed, and OpenVPI inference e2e specs wired in.
 
 ## Highlights (v0.30.0)
 

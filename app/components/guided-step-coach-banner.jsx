@@ -6,6 +6,7 @@ import {
   guidedCoachFingerprint,
 } from "../lib/suno-guided-step-focus";
 import { getStepCount } from "../lib/suno-guided-workflow";
+import { isCoProducerLlmReady } from "../lib/co-producer-llm";
 import { useGuidedFocus } from "../context/guided-focus-context";
 import {
   useProjectWorkspaceActions,
@@ -37,6 +38,7 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
     lyricTheme,
     lyricStyle,
     generatedLyrics,
+    coProducerLlmSettings,
   } = useProjectWorkspaceProjectState();
   const { audioAnalysis, imageAnalysis } = useProjectWorkspaceAnalyzerState();
   const { sunoWarnings, voiceStyleCompact, voiceStyleLine } = useProjectWorkspacePromptState();
@@ -74,6 +76,7 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
       imageAnalysis,
       voiceStyleCompact,
       voiceStyleLine,
+      coProducerLlmReady: isCoProducerLlmReady(coProducerLlmSettings),
     }),
     [
       guidedStep,
@@ -95,6 +98,7 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
       imageAnalysis,
       voiceStyleCompact,
       voiceStyleLine,
+      coProducerLlmSettings,
     ],
   );
 

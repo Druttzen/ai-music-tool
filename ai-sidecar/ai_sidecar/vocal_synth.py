@@ -188,4 +188,7 @@ def parse_plan_envelope(raw: str | bytes) -> dict[str, Any]:
         raise ValueError("missing plan object")
     if plan.get("stage") != "ready":
         raise ValueError("plan must be ready before synthesis")
+    openvpi_ds = data.get("openvpiDs")
+    if isinstance(openvpi_ds, dict) and openvpi_ds.get("segments"):
+        plan = {**plan, "openvpiDs": openvpi_ds}
     return plan
