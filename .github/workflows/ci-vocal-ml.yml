@@ -1,0 +1,55 @@
+name: Vocal Embed (optional)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e-vocal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Install vocal extra and run e2e
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/install-sidecar-vocal.sh
+          bash scripts/stop-sidecar.sh || true
+          bash scripts/start-sidecar.sh --idle-exit-sec 0
+          for i in $(seq 1 45); do
+            curl -sf http://127.0.0.1:8723/health && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8723/health
+          curl -sf http://127.0.0.1:8723/vocal-embed/models
+          npx playwright test tests/e2e/vocal-embed-smoke.spec.js tests/e2e/vocal-embed-align-synthesize.spec.js
+
+  vocal-ml-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install vocal-ml stack smoke
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/install-sidecar-vocal-ml.sh
+          bash scripts/stop-sidecar.sh || true
+          bash scripts/start-sidecar.sh --idle-exit-sec 0
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8723/health | grep -q vocal && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8723/health
+          curl -sf http://127.0.0.1:8723/vocal-embed/models

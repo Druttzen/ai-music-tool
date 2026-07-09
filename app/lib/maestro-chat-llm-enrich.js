@@ -39,7 +39,10 @@ export function enrichMaestroLlmResult(result, snapshot, userMessage = "") {
   const artifacts = { ...(result.artifacts || {}) };
   const lower = String(userMessage || "").toLowerCase();
 
-  if (commands.includes("generateMusicGen") && !String(artifacts.musicGenPrompt || "").trim()) {
+  if (
+    (commands.includes("generateMusicGen") || commands.includes("generateMusicGenMelody")) &&
+    !String(artifacts.musicGenPrompt || "").trim()
+  ) {
     artifacts.musicGenPrompt = buildMusicGenPrompt({
       selectedGenres: merged.selectedGenres,
       selectedSounds: merged.selectedSounds,

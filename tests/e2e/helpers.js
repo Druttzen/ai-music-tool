@@ -120,10 +120,10 @@ export async function selectStandardEngine(page) {
   await coPanel.locator("label").filter({ hasText: "Prompt Engine" }).locator("select").selectOption("Standard");
 }
 
-export async function expectToast(page, textPattern) {
+export async function expectToast(page, textPattern, timeout = 15_000) {
   const toast = page.getByTestId("action-toast");
-  await expect(toast).toBeVisible();
-  await expect(toast).toContainText(textPattern);
+  await expect(toast).toBeVisible({ timeout });
+  await expect(toast).toContainText(textPattern, { timeout });
   await expect(toast).toHaveAttribute("data-toast-type", /.+/);
 }
 

@@ -331,6 +331,30 @@ describe("maestro-chat-llm", () => {
     expect(res.suggestions.length).toBeGreaterThan(0);
   });
 
+  it("fills musicGenPrompt for generateMusicGenMelody command", () => {
+    const res = enrichMaestroLlmResult(
+      {
+        reply: "Melody sketch.",
+        patch: null,
+        commands: ["generateMusicGenMelody"],
+        artifacts: null,
+        suggestions: [],
+      },
+      SNAPSHOT,
+    );
+    expect(res.artifacts?.musicGenPrompt).toMatch(/Techno/i);
+  });
+
+  it("keeps LLM-provided lyrics instead of offline enrich", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Lyrics.","patch":null,"commands":[],"artifacts":{"lyrics":"[Verse]\\nModel line"},"suggestions":[]}',
+      SNAPSHOT,
+      "write lyrics please",
+    );
+    expect(res.artifacts?.lyrics).toBe("[Verse]\nModel line");
+    expect(res.artifacts?.lyrics).not.toMatch(/generateCoProducer/i);
+  });
+
   it("parses LLM suggestion chips", () => {
     const res = parseMaestroLlmResponse(
       '{"reply":"Done.","patch":null,"commands":[],"artifacts":null,"suggestions":["Make it darker","Show the style prompt"]}',

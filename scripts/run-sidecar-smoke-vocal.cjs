@@ -58,4 +58,9 @@ if (!ready) {
   process.exit(1);
 }
 
-run("npx", ["playwright", "test", "tests/e2e/vocal-embed-smoke.spec.js"]);
+run("npx", [
+  "playwright",
+  "test",
+  "tests/e2e/vocal-embed-smoke.spec.js",
+  "tests/e2e/vocal-embed-align-synthesize.spec.js",
+]);

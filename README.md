@@ -1,8 +1,15 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.18.0**
+**Version 0.19.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.19.0)
+
+- **Vocal Embed align e2e** — Playwright path for alignment preview + one-click align & synthesize (skips without sidecar).
+- **ci-vocal-ml workflow** — optional GitHub Actions job for vocal DSP e2e and vocal-ml stack smoke.
+- **Maestro LLM native artifacts** — system prompt requires model-populated style/lyrics/hooks; melody command enriches `musicGenPrompt`.
+- **sidecar:vocal** — lightweight scipy install script for vocal synthesis without full torch stack.
 
 ## Highlights (v0.18.0)
 
