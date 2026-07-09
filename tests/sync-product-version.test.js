@@ -23,6 +23,14 @@ describe("sync-product-version", () => {
     const dspToml = fs.readFileSync(path.join(root, "dsp-core", "Cargo.toml"), "utf8");
     expect(dspToml).toMatch(new RegExp(`^version = "${version.replace(/\./g, "\\.")}"`, "m"));
 
+    const dspLock = fs.readFileSync(path.join(root, "dsp-core", "Cargo.lock"), "utf8");
+    expect(dspLock).toMatch(new RegExp(`\\nname = "dsp-core"\\nversion = "${version.replace(/\./g, "\\.")}"`));
+
+    const tauriLock = fs.readFileSync(path.join(root, "src-tauri", "Cargo.lock"), "utf8");
+    expect(tauriLock).toMatch(
+      new RegExp(`\\nname = "ai-music-studio"\\nversion = "${version.replace(/\./g, "\\.")}"`),
+    );
+
     const pyproject = fs.readFileSync(path.join(root, "ai-sidecar", "pyproject.toml"), "utf8");
     expect(pyproject).toMatch(new RegExp(`^version = "${version.replace(/\./g, "\\.")}"`, "m"));
 

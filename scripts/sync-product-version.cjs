@@ -4,6 +4,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const { execFileSync } = require("child_process");
 
 const root = path.join(__dirname, "..");
 const version = require(path.join(root, "package.json")).version;
@@ -11,10 +12,37 @@ const version = require(path.join(root, "package.json")).version;
 function replaceTomlVersion(filePath) {
   const raw = fs.readFileSync(filePath, "utf8");
   const current = raw.match(/^version = "([^"]+)"/m);
-  if (current?.[1] === version) return;
+  if (current?.[1] === version) return false;
   const next = raw.replace(/^version = "[^"]+"/m, `version = "${version}"`);
   if (next === raw) throw new Error(`Could not update version in ${filePath}`);
   fs.writeFileSync(filePath, next);
+  return true;
+}
+
+/** Keep Cargo.lock root package version in sync after Cargo.toml bumps (CI uses --locked). */
+function syncCargoLock(crateDir, packageNames) {
+  const dir = path.join(root, crateDir);
+  const lockPath = path.join(dir, "Cargo.lock");
+  if (!fs.existsSync(lockPath)) return;
+  const tomlVersion = fs.readFileSync(path.join(dir, "Cargo.toml"), "utf8").match(/^version = "([^"]+)"/m)?.[1];
+  const lockRaw = fs.readFileSync(lockPath, "utf8");
+  const names = Array.isArray(packageNames) ? packageNames : [packageNames];
+  const stale = names.some((name) => {
+    const m = lockRaw.match(new RegExp(`\\nname = "${name}"\\nversion = "([^"]+)"`));
+    return m && m[1] !== tomlVersion;
+  });
+  if (!stale) return;
+  try {
+    execFileSync("cargo", ["update", ...names.flatMap((n) => ["-p", n])], {
+      cwd: dir,
+      stdio: "pipe",
+    });
+  } catch (e) {
+    console.warn(
+      `Warning: could not refresh ${crateDir}/Cargo.lock — run cargo update there before release (CI uses --locked).`,
+    );
+    console.warn(e?.message || e);
+  }
 }
 
 function replaceJsonVersion(filePath) {
@@ -61,6 +89,8 @@ function replaceJsStringLiteral(filePath, pattern, template) {
 replaceJsonVersion(path.join(root, "src-tauri", "tauri.conf.json"));
 replaceTomlVersion(path.join(root, "src-tauri", "Cargo.toml"));
 replaceTomlVersion(path.join(root, "dsp-core", "Cargo.toml"));
+syncCargoLock("dsp-core", "dsp-core");
+syncCargoLock("src-tauri", ["ai-music-studio", "dsp-core"]);
 replacePyprojectVersion(path.join(root, "ai-sidecar", "pyproject.toml"));
 replacePyInitVersion(path.join(root, "ai-sidecar", "ai_sidecar", "__init__.py"));
 replacePackageLockVersion(path.join(root, "package-lock.json"));
