@@ -3,9 +3,11 @@
 import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { ActionToast } from "./components/action-toast";
 import { ProjectWorkspaceProviders } from "./context/project-workspace-context";
+import { GuidedFocusProvider } from "./context/guided-focus-context";
 import { PageSidebarLeft } from "./components/page-sidebar-left";
 import { PageWorkspaceCenter } from "./components/page-workspace-center";
 import { PageSidebarRight } from "./components/page-sidebar-right";
+import { GuidedStepCoachBanner } from "./components/guided-step-coach-banner";
 import { useProjectWorkspaceProvider } from "./hooks/use-project-workspace";
 import { APP_VERSION, AUTHOR } from "./lib/music-config";
 
@@ -46,11 +48,14 @@ export default function Page() {
         />
 
         <ProjectWorkspaceProviders slices={workspace}>
-          <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
-            <PageSidebarLeft />
-            <PageWorkspaceCenter />
-            <PageSidebarRight />
-          </div>
+          <GuidedFocusProvider>
+            <GuidedStepCoachBanner />
+            <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
+              <PageSidebarLeft />
+              <PageWorkspaceCenter />
+              <PageSidebarRight />
+            </div>
+          </GuidedFocusProvider>
         </ProjectWorkspaceProviders>
 
       </div>
