@@ -47,6 +47,8 @@ const CATALOG_LABELS = {
   soundFxPrompts: "Catalog — Sound FX (transitions, hits, foley)",
   environmentSoundscapes: "Catalog — Environment & soundscapes",
   awesomeSunoConcepts: "Catalog — Community concepts (CC0)",
+  eraAnchoredGenres: "Catalog — Era anchors (decade flavor)",
+  trendMicroGenres2026: "Catalog — 2026 trend micro-genres",
 };
 
 /** Reference / tips sections — excluded from Style prompt library (prompts only). */

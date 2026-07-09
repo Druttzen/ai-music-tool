@@ -6,6 +6,7 @@
 import { matchCatalogOptions } from "./maestro-chat-engine";
 import { awesomeSunoConceptLines } from "./awesome-suno-concepts-synced";
 import { stylePromptCatalog } from "./style-prompt-catalog";
+import { generateMetaphorStyle, metaphorToCatalogHints } from "./metaphor-style";
 import { genreOptions, rhythmOptions, soundOptions } from "./suno-music-styles";
 import { isEnglishOnlyPromptLine } from "./suno-english-style-index";
 
@@ -98,6 +99,13 @@ export function retrieveMaestroCatalogHints(snapshot, userMessage = "") {
   for (const option of matchCatalogOptions(haystack, byLengthDesc(genreOptions), 4)) add(option);
   for (const option of matchCatalogOptions(haystack, byLengthDesc(soundOptions), 4)) add(option);
   for (const option of matchCatalogOptions(haystack, byLengthDesc(rhythmOptions), 2)) add(option);
+
+  const lowerMsg = String(userMessage || "").toLowerCase();
+  if (/\b(surprise|random|metaphor|weird|unexpected|roll)\b/.test(lowerMsg)) {
+    const metaphor = generateMetaphorStyle();
+    add(metaphor.styleLine);
+    for (const genre of metaphorToCatalogHints(metaphor).genres) add(genre);
+  }
 
   const ranked = getCatalogPool()
     .map((line) => ({

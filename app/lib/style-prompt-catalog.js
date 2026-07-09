@@ -6,6 +6,7 @@
  */
 
 import { awesomeSunoConceptLines } from "./awesome-suno-concepts-synced";
+import { eraAnchoredGenres, trendMicroGenres2026 } from "./style-catalog-extensions";
 import { sunoV55GenreWheelStyles } from "./suno-v55-genre-wheel";
 
 export const stylePromptCatalog = {
@@ -656,6 +657,10 @@ export const stylePromptCatalog = {
   ],
 
   awesomeSunoConcepts: awesomeSunoConceptLines,
+
+  eraAnchoredGenres,
+
+  trendMicroGenres2026,
 };
 
 /** Long-form reference prose users can paste or trim for Suno-style prompts. */

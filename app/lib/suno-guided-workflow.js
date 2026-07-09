@@ -1,5 +1,7 @@
 import { stylePresets } from "./music-config";
 import { SUNO_LYRICS_CHAR_TYPICAL_MAX, SUNO_STYLE_CHAR_CAP } from "./suno-limits";
+import { selectNegativeGuards, INSTRUMENTAL_LYRICS_SCAFFOLD } from "./suno-negative-guards";
+import { formatTempoWithDescriptor, tempoAlreadyHasDescriptor } from "./tempo-descriptors";
 
 /** One-line blurb for factory Style Preset buttons (left column). */
 export const FACTORY_PRESET_BLURBS = {
@@ -204,13 +206,18 @@ export function buildSunoPastedStyleLine(p) {
 
   const parts = [];
   pushTokens(parts, selectedGenres.length ? selectedGenres : ["electronic"]);
-  if (tempo) parts.push(tempo);
+  const tempoLine =
+    tempo && !tempoAlreadyHasDescriptor(tempo) ? formatTempoWithDescriptor(tempo) : tempo;
+  if (tempoLine) parts.push(tempoLine);
   if (moodWords) pushTokens(parts, moodWords.split(/,\s*/));
   if (vocal === "Instrumental") {
+    const guards = selectNegativeGuards({ vocal, rules, max: 3 });
     parts.push(
       instrumentalVocalFx
         ? "instrumental, vocal FX only, no sung lyrics"
-        : "instrumental, no vocals, no vocal chops, no mumbled texture",
+        : guards.length
+          ? `instrumental, ${guards.join(", ")}`
+          : "instrumental, no vocals, no vocal chops, no mumbled texture",
     );
   } else if (vocal) {
     parts.push(vocal);
@@ -233,7 +240,7 @@ export function buildSunoPastedStyleLine(p) {
 export function buildSunoPastedLyricsField(p) {
   const vocal = p.vocal || "Instrumental";
   if (vocal === "Instrumental") {
-    return "Instrumental only.";
+    return INSTRUMENTAL_LYRICS_SCAFFOLD;
   }
 
   const generated = normalizeToken(p.generatedLyrics);

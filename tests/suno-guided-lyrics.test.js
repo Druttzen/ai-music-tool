@@ -51,8 +51,8 @@ describe("buildSunoPastedLyricsField", () => {
     expect(out).not.toContain("theme:");
   });
 
-  it("returns instrumental-only line", () => {
-    expect(buildSunoPastedLyricsField({ vocal: "Instrumental" })).toBe("Instrumental only.");
+  it("returns instrumental-only scaffold", () => {
+    expect(buildSunoPastedLyricsField({ vocal: "Instrumental" })).toContain("[No Vocals]");
   });
 });
 

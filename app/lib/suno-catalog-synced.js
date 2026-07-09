@@ -3,11 +3,11 @@
  * Re-run: npm run sync:suno-catalog
  *
  * Sources: stayen-tag-reference, suno-genre-wheel
- * Synced at: 2026-06-13T15:24:45.131Z
+ * Synced at: 2026-07-09T10:40:50.157Z
  */
 
 export const SUNO_CATALOG_SYNC = {
-  "syncedAt": "2026-06-13T15:24:45.131Z",
+  "syncedAt": "2026-07-09T10:40:50.157Z",
   "upstreamModified": "2025, November 20.",
   "sources": [
     {

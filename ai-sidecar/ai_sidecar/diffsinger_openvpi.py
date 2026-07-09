@@ -136,8 +136,18 @@ def _midi_to_note(midi: int) -> str:
     return f"{_NOTE_NAMES[midi % 12]}{midi // 12 - 1}"
 
 
-def build_ds_segments_from_plan(plan: dict[str, Any]) -> list[dict[str, Any]]:
+def build_ds_segments_from_plan(
+    plan: dict[str, Any],
+    *,
+    guide_mono: np.ndarray | None = None,
+    sample_rate: int = 44100,
+) -> list[dict[str, Any]]:
     """Build OpenVPI DS segments with note timing from vocal embed section map."""
+    if guide_mono is not None and guide_mono.size > 0:
+        from .vocal_align import align_plan_with_guide  # noqa: PLC0415
+
+        plan = align_plan_with_guide(plan, guide_mono, sample_rate)
+
     sections = plan.get("sections") or []
     if not isinstance(sections, list):
         sections = []
@@ -154,6 +164,41 @@ def build_ds_segments_from_plan(plan: dict[str, Any]) -> list[dict[str, Any]]:
         if end <= start:
             continue
         words = _section_words(section, lyrics)
+        aligned_words = section.get("alignedWords")
+        if isinstance(aligned_words, list) and aligned_words:
+            note_seq: list[str] = []
+            note_dur: list[str] = []
+            note_slur: list[str] = []
+            text_tokens: list[str] = []
+            for entry in aligned_words:
+                if not isinstance(entry, dict):
+                    continue
+                word = str(entry.get("word") or "").strip()
+                w_start = float(entry.get("start") or start)
+                w_end = float(entry.get("end") or end)
+                if not word or w_end <= w_start:
+                    continue
+                note_dur_val = w_end - w_start
+                degree = _MAJOR_SCALE[word_index % len(_MAJOR_SCALE)]
+                octave = (word_index // len(_MAJOR_SCALE)) % 2
+                midi = root_midi + degree + octave * 12
+                note_seq.append(_midi_to_note(midi))
+                note_dur.append(f"{note_dur_val:.4f}")
+                note_slur.append("0")
+                text_tokens.append(word)
+                word_index += 1
+            if note_seq:
+                segments.append(
+                    {
+                        "offset": round(start, 4),
+                        "text": " ".join(text_tokens),
+                        "note_seq": " ".join(note_seq),
+                        "note_dur": " ".join(note_dur),
+                        "note_slur": " ".join(note_slur),
+                    },
+                )
+                continue
+
         if not words:
             continue
 
@@ -296,12 +341,27 @@ def _find_output_wav(work_dir: Path, title: str) -> Path:
     raise RuntimeError("OpenVPI acoustic step did not produce a WAV file")
 
 
-def synthesize_with_openvpi(plan: dict[str, Any], length: int, sample_rate: int) -> np.ndarray:
+def synthesize_with_openvpi(
+    plan: dict[str, Any],
+    length: int,
+    sample_rate: int,
+    *,
+    guide_vocal_raw: bytes | None = None,
+) -> np.ndarray:
     """Run OpenVPI variance (optional) + acoustic inference and return stereo vocal bed."""
     if not openvpi_configured():
         raise RuntimeError("OpenVPI DiffSinger is not configured")
 
-    segments = build_ds_segments_from_plan(plan)
+    guide_mono: np.ndarray | None = None
+    if guide_vocal_raw:
+        import io
+
+        import librosa  # noqa: PLC0415
+
+        y, _ = librosa.load(io.BytesIO(guide_vocal_raw), sr=sample_rate, mono=True)
+        guide_mono = y.astype(np.float32)
+
+    segments = build_ds_segments_from_plan(plan, guide_mono=guide_mono, sample_rate=sample_rate)
     if _segments_need_variance(segments) and not openvpi_variance_exp():
         raise RuntimeError(
             "OpenVPI note-based DS requires AIMC_DIFFSINGER_VAR_EXP (variance model) "

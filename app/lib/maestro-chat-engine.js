@@ -16,6 +16,7 @@ import {
 import { buildMoodWords, clamp, uniq } from "./music-helpers";
 import { generateCoProducerHooks, generateCoProducerLyrics } from "./lyric-generator";
 import { buildSunoPastedStyleLine } from "./suno-guided-workflow";
+import { generateMetaphorStyle, metaphorToCatalogHints } from "./metaphor-style";
 import { SUNO_STYLE_CHAR_CAP } from "./suno-limits";
 
 /**
@@ -189,6 +190,23 @@ function pickRandom(list, rng = Math.random) {
  * @param {() => number} [rng]
  */
 export function buildSurprisePatch(rng = Math.random) {
+  if (rng() < 0.35) {
+    const metaphor = generateMetaphorStyle(rng);
+    const hints = metaphorToCatalogHints(metaphor);
+    const bpm = `${Math.round(90 + rng() * 60)} BPM`;
+    return {
+      presetName: "Metaphor roll",
+      patch: {
+        idea: metaphor.styleLine.slice(0, 200),
+        selectedGenres: hints.genres,
+        selectedRhythms: ["4/4"],
+        selectedSounds: ["Analog synths", "Heavy sub bass"],
+        vocal: rng() > 0.5 ? "Female Lead" : "Instrumental",
+        tempo: bpm,
+        structure: "intro → verse → chorus → bridge → final chorus → outro",
+      },
+    };
+  }
   const names = Object.keys(stylePresets);
   const name = pickRandom(names, rng);
   const p = stylePresets[name];

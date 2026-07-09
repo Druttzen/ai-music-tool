@@ -79,7 +79,9 @@ export function mergeSidecarAnalysis(report, sidecar) {
   const beatDensity = Number.isFinite(sidecar.beat_density) ? sidecar.beat_density : null;
 
   const mlGenres = sidecar.genre_predictions?.length
-    ? mapHfGenrePredictionsToSuno(sidecar.genre_predictions)
+    ? mapHfGenrePredictionsToSuno(sidecar.genre_predictions, {
+        genreModel: sidecar.genre_model || HF_GENRE_MODEL_ID,
+      })
     : null;
 
   const suggestions = buildAudioAnalyzerSuggestions({

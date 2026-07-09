@@ -46,10 +46,9 @@ from .vocal_synth import (
     synthesis_stack_available,
     synthesize_vocal_embed_mix,
 )
-from .genre_classifier import MODEL_ID as GENRE_MODEL_ID
-from .genre_classifier import classify_music_genres, genre_classification_available
-from .vision_analyzer import MODEL_ID as VISION_MODEL_ID
-from .vision_analyzer import caption_image_bytes, vision_analysis_available
+from .genre_classifier import active_genre_model_id, classify_music_genres, genre_classification_available
+from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
+from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
 from .idle import (
     configure_idle_exit,
     hold_dev_session,
@@ -183,6 +182,8 @@ class Analysis(BaseModel):
 class ImageAnalysis(BaseModel):
     caption: str | None = None
     caption_model: str | None = None
+    clip_tags: list[GenrePrediction] | None = None
+    clip_model: str | None = None
     device: str
 
 
@@ -345,7 +346,7 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
         harmonic_ratio=harmonic_energy / total_hp,
         device=device,
         genre_predictions=genre_predictions,
-        genre_model=GENRE_MODEL_ID if genre_predictions else None,
+        genre_model=active_genre_model_id() if genre_predictions else None,
     )
 
 
@@ -353,8 +354,9 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
 async def analyze_image(
     file: UploadFile = File(...),
     caption: bool = Form(True),
+    clip_tags: bool = Form(True),
 ) -> ImageAnalysis:
-    """Optional BLIP captioning when the vision extra is installed."""
+    """Optional BLIP captioning + CLIP tags when the vision extra is installed."""
     if not vision_analysis_available():
         raise HTTPException(
             status_code=503,
@@ -367,12 +369,24 @@ async def analyze_image(
 
     device = _select_device()
     text = caption_image_bytes(raw, device=device) if caption else None
-    if caption and not text:
+    if caption and not text and not clip_tags:
         raise HTTPException(status_code=422, detail="could not caption image")
+
+    clip_raw = clip_tags_for_image_bytes(raw, device=device) if clip_tags else None
+    clip_predictions = (
+        [GenrePrediction(label=item["label"], score=item["score"]) for item in clip_raw]
+        if clip_raw
+        else None
+    )
+
+    if caption and not text and not clip_predictions:
+        raise HTTPException(status_code=422, detail="could not analyze image")
 
     return ImageAnalysis(
         caption=text,
         caption_model=VISION_MODEL_ID if text else None,
+        clip_tags=clip_predictions,
+        clip_model=CLIP_MODEL_ID if clip_predictions else None,
         device=device,
     )
 

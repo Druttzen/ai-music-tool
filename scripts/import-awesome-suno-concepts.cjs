@@ -96,7 +96,7 @@ async function main() {
   }
 
   lines.sort((a, b) => a.localeCompare(b));
-  const capped = lines.slice(0, 180);
+  const capped = lines.slice(0, 400);
 
   const payload = {
     syncedAt: new Date().toISOString(),

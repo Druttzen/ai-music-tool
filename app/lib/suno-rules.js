@@ -1,5 +1,7 @@
 import { validateSunoFieldLengths } from "./suno-limits";
 import { SUNO_CATALOG_SYNC } from "./suno-catalog-synced";
+import { selectNegativeGuards } from "./suno-negative-guards";
+import { formatTempoWithDescriptor, tempoAlreadyHasDescriptor } from "./tempo-descriptors";
 
 /** Suno v5.5 community guidance: focused Style tag count. */
 export const SUNO_STYLE_DESCRIPTOR_RANGE = { min: 4, max: 8 };
@@ -126,16 +128,26 @@ export function buildSunoStyleBoxPrompt({
   mode,
   voiceStyleReference = "",
 }) {
-  const styleLine = `${selectedGenres.join(" + ") || "Electronic"} | ${tempo} | ${moodWords}`;
+  const styleLine = `${selectedGenres.join(" + ") || "Electronic"} | ${
+    tempo && !tempoAlreadyHasDescriptor(tempo) ? formatTempoWithDescriptor(tempo) : tempo
+  } | ${moodWords}`;
   const productionLine = `${selectedSounds.slice(0, 8).join(", ") || "balanced instruments"} | ${selectedRhythms.join(", ") || "steady groove"}`;
   const vocalLine = `VOC:\n${vocalText}`;
   const voiceRefSection =
     voiceStyleReference.trim() && vocal !== "Instrumental"
       ? `VREF:\n${voiceStyleReference.trim()}\n\n`
       : "";
-  const negatives = [];
-  if (vocal === "Instrumental") negatives.push("no vocals", "no vocal chops", "no mumbled speech");
-  if (rules.toLowerCase().includes("no")) negatives.push("follow explicit negative constraints in Rules");
+  const negatives = selectNegativeGuards({
+    vocal,
+    rules,
+    max: vocal === "Instrumental" ? 3 : 2,
+  });
+  if (!negatives.length && vocal === "Instrumental") {
+    negatives.push("no vocals", "no vocal chops", "no mumbled speech");
+  }
+  if (rules.toLowerCase().includes("no") && negatives.length < 3) {
+    negatives.push("follow explicit negative constraints in Rules");
+  }
 
   /** Short section tags — saves characters for RULES (analyzers, negatives) under Suno Style cap. */
   return `DNA:

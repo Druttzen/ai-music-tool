@@ -171,11 +171,25 @@ def _note_hz(plan: dict[str, Any], word_index: int) -> float:
     return base * (2 ** ((degree + octave * 12) / 12.0))
 
 
-def synthesize_lyrics_vocal(plan: dict[str, Any], length: int, sample_rate: int) -> tuple[np.ndarray, str]:
+def synthesize_lyrics_vocal(
+    plan: dict[str, Any],
+    length: int,
+    sample_rate: int,
+    *,
+    guide_vocal_raw: bytes | None = None,
+) -> tuple[np.ndarray, str]:
     """Build a vocal guide from lyrics, preferring DiffSinger when configured."""
     if diffsinger_configured():
         try:
-            return synthesize_with_diffsinger(plan, length, sample_rate), "diffsinger-v1"
+            return (
+                synthesize_with_diffsinger(
+                    plan,
+                    length,
+                    sample_rate,
+                    guide_vocal_raw=guide_vocal_raw,
+                ),
+                "diffsinger-v1",
+            )
         except Exception:
             pass
 

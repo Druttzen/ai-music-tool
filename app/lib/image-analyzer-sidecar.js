@@ -1,11 +1,12 @@
 /**
- * Merge optional BLIP caption results from the vision sidecar into pixel image analysis.
+ * Merge optional BLIP caption + CLIP tag results from the vision sidecar into pixel image analysis.
  */
 
 import { uniq } from "./music-helpers";
 import { genreOptions, rhythmOptions, soundOptions } from "./suno-music-styles";
 
 export const VISION_CAPTION_MODEL_ID = "Salesforce/blip-image-captioning-base";
+export const VISION_CLIP_MODEL_ID = "openai/clip-vit-base-patch32";
 
 /**
  * @param {string} text
@@ -45,44 +46,72 @@ export function mapImageCaptionToSuno(caption) {
 }
 
 /**
+ * @param {{ label: string, score: number }[]|null|undefined} clipTags
+ */
+export function mapClipTagsToSuno(clipTags) {
+  if (!Array.isArray(clipTags) || !clipTags.length) {
+    return { suggestedGenres: [], suggestedSounds: [], suggestedRhythms: [] };
+  }
+  const text = clipTags.map((tag) => tag.label).join(", ");
+  return mapImageCaptionToSuno(text);
+}
+
+/**
  * @param {object} pixelReport
- * @param {{ caption?: string|null, caption_model?: string|null, device?: string }} sidecar
+ * @param {{ caption?: string|null, caption_model?: string|null, clip_tags?: Array<{label:string,score:number}>|null, clip_model?: string|null, device?: string }} sidecar
  */
 export function mergeSidecarImageAnalysis(pixelReport, sidecar) {
   if (!pixelReport) return pixelReport;
   const caption = String(sidecar?.caption || "").trim();
-  if (!caption) {
+  const clipTags = Array.isArray(sidecar?.clip_tags) ? sidecar.clip_tags : [];
+  if (!caption && !clipTags.length) {
     return { ...pixelReport, analysisEngine: pixelReport.analysisEngine || "pixel" };
   }
 
   const captionTags = mapImageCaptionToSuno(caption);
+  const clipCatalogTags = mapClipTagsToSuno(clipTags);
   const suggestedGenres = uniq([
+    ...(clipCatalogTags.suggestedGenres || []),
     ...(captionTags.suggestedGenres || []),
     ...(pixelReport.suggestedGenres || []),
   ]);
   const suggestedSounds = uniq([
+    ...(clipCatalogTags.suggestedSounds || []),
     ...(captionTags.suggestedSounds || []),
     ...(pixelReport.suggestedSounds || []),
   ]);
   const suggestedRhythms = uniq([
+    ...(clipCatalogTags.suggestedRhythms || []),
     ...(captionTags.suggestedRhythms || []),
     ...(pixelReport.suggestedRhythms || []),
   ]);
 
-  const captionLine = `Scene caption (BLIP): ${caption}`;
-  const summary = pixelReport.summary?.includes(caption)
-    ? pixelReport.summary
-    : `${pixelReport.summary}\n${captionLine}`;
+  const summaryParts = [pixelReport.summary];
+  if (caption) summaryParts.push(`Scene caption (BLIP): ${caption}`);
+  if (clipTags.length) {
+    const top = clipTags
+      .slice(0, 3)
+      .map((tag) => tag.label)
+      .join(", ");
+    summaryParts.push(`Visual tags (CLIP): ${top}`);
+  }
+  const summary = summaryParts.filter(Boolean).join("\n");
+
+  const engines = ["pixel"];
+  if (caption) engines.push("blip");
+  if (clipTags.length) engines.push("clip");
 
   return {
     ...pixelReport,
-    caption,
-    captionModel: sidecar?.caption_model || VISION_CAPTION_MODEL_ID,
+    caption: caption || pixelReport.caption || null,
+    captionModel: sidecar?.caption_model || (caption ? VISION_CAPTION_MODEL_ID : null),
+    clipTags,
+    clipModel: sidecar?.clip_model || (clipTags.length ? VISION_CLIP_MODEL_ID : null),
     sidecarDevice: sidecar?.device || null,
     suggestedGenres,
     suggestedSounds,
     suggestedRhythms,
     summary,
-    analysisEngine: "pixel+blip",
+    analysisEngine: engines.join("+"),
   };
 }

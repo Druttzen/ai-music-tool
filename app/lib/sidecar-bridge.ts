@@ -231,6 +231,8 @@ export interface SidecarOpenVpiStatus {
 export interface SidecarImageAnalysis {
   caption: string | null;
   caption_model: string | null;
+  clip_tags: Array<{ label: string; score: number }> | null;
+  clip_model: string | null;
   device: string;
 }
 

@@ -21,7 +21,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 | --- | --- | --- | --- |
 | Ollama | MIT | Local LLM server | Support through existing OpenAI-compatible provider preset; do not bundle. |
 | llama.cpp | MIT | Local LLM runtime | Good future target for advanced local setup docs or optional CLI detection. |
-| BLIP / CLIP via Hugging Face Transformers | Mixed model licenses | Image captioning | Optional sidecar `vision` extra — `POST /analyze-image` (BLIP base). Browser pixel analyzer remains default. |
+| BLIP / CLIP via Hugging Face Transformers | Mixed model licenses | Image captioning | Optional sidecar `vision` extra — `POST /analyze-image` (BLIP base + CLIP zero-shot tags). Browser pixel analyzer remains default. |
 | Demucs | MIT code | Stem separation | Already used as optional `stems` extra; keep heavy install opt-in. |
 | Spleeter | MIT | Faster stem separation | Possible optional fallback if users prefer speed over quality; no default bundle. |
 
@@ -43,6 +43,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 4. Prototype wavesurfer.js if existing waveform UX becomes a bottleneck.
 5. Evaluate DSP crates only after adding benchmark-style tests around current output.
 6. Maestro LLM catalog grounding — local retrieval from style catalog + CC0 concepts (`maestro-catalog-grounding.js`).
+7. Roadmap v0.13.5 — tempo descriptors, negative guard packs, era/trend catalogs, metaphor surprise rolls, DistilHuBERT genre override, MFA guide-vocal alignment hook, CLIP vision tags.
 
 ## Current Evaluation Decisions
 

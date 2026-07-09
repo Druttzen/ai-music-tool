@@ -112,11 +112,15 @@ def _prepare_vocal_track(
         if mode == "guide-vocal-conversion":
             guide, engine = convert_guide_vocal(guide, sample_rate, voice_style, mix_plan)
             return guide, engine
+        if mode == "lyrics-to-vocal-synthesis":
+            guide, engine = synthesize_lyrics_vocal(
+                plan,
+                length,
+                sample_rate,
+                guide_vocal_raw=guide_vocal_raw,
+            )
+            return guide, engine
         return guide, "placement-mix-v1"
-
-    if mode == "lyrics-to-vocal-synthesis":
-        guide, engine = synthesize_lyrics_vocal(plan, length, sample_rate)
-        return guide, engine
 
     if mode == "lyrics-to-vocal-synthesis":
         raise ValueError(

@@ -1,6 +1,9 @@
-"""Optional BLIP image captioning for Vocal Embed / analyzer sidecar.
+"""Optional BLIP captioning + CLIP zero-shot tags for analyzer sidecar.
 
-Model: Salesforce/blip-image-captioning-base (BSD-3-Clause weights, Apache-2.0 code).
+Models:
+- Salesforce/blip-image-captioning-base (BSD-3-Clause weights, Apache-2.0 code)
+- openai/clip-vit-base-patch32 (MIT)
+
 Heavy — install via `pip install -e ai-sidecar[vision]`.
 """
 
@@ -9,8 +12,31 @@ from __future__ import annotations
 from typing import Any
 
 MODEL_ID = "Salesforce/blip-image-captioning-base"
+CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
 
 _PIPE: Any = None
+_CLIP_PIPE: Any = None
+
+CLIP_CANDIDATE_LABELS = [
+    "neon cyberpunk cityscape",
+    "dark moody forest",
+    "sunset beach tropical",
+    "industrial warehouse",
+    "abstract geometric art",
+    "vintage film grain portrait",
+    "space galaxy cosmos",
+    "rainy night street",
+    "concert stage lights",
+    "minimalist monochrome",
+    "fantasy medieval castle",
+    "urban graffiti wall",
+    "warm cozy interior",
+    "desert landscape",
+    "anime illustration style",
+    "horror gothic atmosphere",
+    "retro 80s synth aesthetic",
+    "nature mountains landscape",
+]
 
 
 def vision_analysis_available() -> bool:
@@ -48,6 +74,51 @@ def _get_pipeline(device_name: str):
         device=_pipeline_device(device_name),
     )
     return _PIPE
+
+
+def _get_clip_pipeline(device_name: str):
+    global _CLIP_PIPE
+    if _CLIP_PIPE is not None:
+        return _CLIP_PIPE
+
+    from transformers import pipeline  # noqa: PLC0415
+
+    _CLIP_PIPE = pipeline(
+        "zero-shot-image-classification",
+        model=CLIP_MODEL_ID,
+        device=_pipeline_device(device_name),
+    )
+    return _CLIP_PIPE
+
+
+def clip_tags_for_image_bytes(
+    raw: bytes,
+    *,
+    device: str = "cpu",
+    top_k: int = 5,
+) -> list[dict[str, float]] | None:
+    """Return top CLIP zero-shot tags or None when vision deps fail."""
+    if not vision_analysis_available() or not raw:
+        return None
+
+    try:
+        from PIL import Image  # noqa: PLC0415
+        import io
+
+        image = Image.open(io.BytesIO(raw)).convert("RGB")
+        max_edge = 512
+        if max(image.size) > max_edge:
+            image.thumbnail((max_edge, max_edge))
+
+        pipe = _get_clip_pipeline(device)
+        raw_tags = pipe(image, candidate_labels=CLIP_CANDIDATE_LABELS)
+        tags = [
+            {"label": str(item["label"]), "score": float(item["score"])}
+            for item in sorted(raw_tags, key=lambda x: x["score"], reverse=True)[:top_k]
+        ]
+        return tags or None
+    except Exception:
+        return None
 
 
 def caption_image_bytes(raw: bytes, *, device: str = "cpu") -> str | None:
