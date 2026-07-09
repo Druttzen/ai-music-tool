@@ -8,7 +8,7 @@
 import { z } from "zod";
 import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
 import { formatMaestroCatalogGrounding, latestMaestroUserMessage } from "./maestro-catalog-grounding";
-import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
+import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, defaultMaestroSuggestions, sanitizeMaestroPatch } from "./maestro-chat-engine";
 import { buildMusicGenPrompt } from "./musicgen-prompt";
 import { buildMoodWords } from "./music-helpers";
 
@@ -58,32 +58,45 @@ const MaestroLlmResponseSchema = z
         z.array(z.enum(MAESTRO_COMMANDS)).nullish().default([]),
       ),
     artifacts: MaestroArtifactsSchema.nullish().default(null),
+    suggestions: z
+      .preprocess(
+        (value) =>
+          Array.isArray(value)
+            ? value.map((s) => String(s).trim()).filter(Boolean).slice(0, 4)
+            : value,
+        z.array(z.string().max(80)).nullish().default([]),
+      ),
   })
   .strict();
 
 /**
- * Fill MusicGen prompt artifact when the LLM requests generateMusicGen without one.
- * @param {{ reply: string, patch: object|null, commands: string[], artifacts?: object|null }} result
+ * Fill MusicGen prompt artifact and suggestion chips when the LLM omits them.
+ * @param {{ reply: string, patch: object|null, commands: string[], artifacts?: object|null, suggestions?: string[] }} result
  * @param {object} snapshot
  */
 export function enrichMaestroLlmResult(result, snapshot) {
   const commands = result.commands || [];
-  if (!commands.includes("generateMusicGen")) {
-    return result;
+  let artifacts = result.artifacts ? { ...result.artifacts } : null;
+  if (commands.includes("generateMusicGen")) {
+    artifacts = artifacts || {};
+    if (!String(artifacts.musicGenPrompt || "").trim()) {
+      artifacts.musicGenPrompt = buildMusicGenPrompt({
+        selectedGenres: snapshot.selectedGenres,
+        selectedSounds: snapshot.selectedSounds,
+        selectedRhythms: snapshot.selectedRhythms,
+        tempo: snapshot.tempo,
+        idea: snapshot.idea,
+        moodWords: buildMoodWords(snapshot.mood),
+        audioAnalysis: snapshot.audioAnalysis,
+      });
+    }
   }
-  const artifacts = { ...(result.artifacts || {}) };
-  if (!String(artifacts.musicGenPrompt || "").trim()) {
-    artifacts.musicGenPrompt = buildMusicGenPrompt({
-      selectedGenres: snapshot.selectedGenres,
-      selectedSounds: snapshot.selectedSounds,
-      selectedRhythms: snapshot.selectedRhythms,
-      tempo: snapshot.tempo,
-      idea: snapshot.idea,
-      moodWords: buildMoodWords(snapshot.mood),
-      audioAnalysis: snapshot.audioAnalysis,
-    });
-  }
-  return { ...result, artifacts };
+  const suggestions = (result.suggestions || []).filter(Boolean).slice(0, 4);
+  return {
+    ...result,
+    artifacts,
+    suggestions: suggestions.length ? suggestions : defaultMaestroSuggestions(snapshot),
+  };
 }
 
 /**
@@ -117,7 +130,7 @@ export function buildMaestroLlmMessages(history, snapshot) {
 
   const system = `You are Maestro, an expert music co-producer inside the "AI Music Creator" app. The user is building a Suno prompt project. Current project state: ${projectBrief}
 ${catalogGrounding ? `\n${catalogGrounding}\n` : ""}
-Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch": object|null, "commands": string[]|null, "artifacts": object|null}
+Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch": object|null, "commands": string[]|null, "artifacts": object|null, "suggestions": string[]|null}
 - "reply": short, friendly producer-speak (2-4 sentences max). You may include lyrics or hooks inside reply when asked.
 - "patch": fields to update, or null. Allowed keys: ${MAESTRO_PATCHABLE_KEYS.join(", ")}.
   - selectedGenres/selectedRhythms/selectedSounds: string arrays (genres max 3).
@@ -128,6 +141,7 @@ Respond ONLY with a JSON object (no markdown fences): {"reply": string, "patch":
   - gotoPolish/gotoFinal: jump the guided path to the Polish or final copy step when the user asks to move on.
   - generateMusicGen: render a short MusicGen WAV preview from the current project style (only when musicGenAvailable is true and the user asks for a demo/preview/sketch). Often pair with gotoPolish.
 - "artifacts": optional { "musicGenPrompt": string } when emitting generateMusicGen — a concise MusicGen text prompt (max 480 chars, instrumental groove description).
+- "suggestions": optional string[] (max 4 short follow-up chips, e.g. "Make it darker", "Show the style prompt", "Generate a MusicGen preview").
 Only patch what the user asked to change. Never invent fields outside the allowed keys.`;
 
   const messages = [{ role: "system", content: system }];
@@ -146,7 +160,7 @@ export function parseMaestroLlmResponse(raw, snapshot) {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end <= start) {
-    return { reply: text || "…", patch: null, commands: [], artifacts: null };
+    return { reply: text || "…", patch: null, commands: [], artifacts: null, suggestions: [] };
   }
   try {
     const parsed = JSON.parse(text.slice(start, end + 1));
@@ -157,6 +171,7 @@ export function parseMaestroLlmResponse(raw, snapshot) {
         patch: null,
         commands: [],
         artifacts: null,
+        suggestions: [],
       };
     }
     const validated = schemaResult.data;
@@ -165,10 +180,11 @@ export function parseMaestroLlmResponse(raw, snapshot) {
       patch: sanitizeMaestroPatch(validated.patch, snapshot),
       commands: validated.commands || [],
       artifacts: validated.artifacts || null,
+      suggestions: validated.suggestions || [],
     };
     return enrichMaestroLlmResult(base, snapshot);
   } catch {
-    return { reply: text, patch: null, commands: [], artifacts: null };
+    return { reply: text, patch: null, commands: [], artifacts: null, suggestions: [] };
   }
 }
 

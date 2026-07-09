@@ -631,6 +631,16 @@ export function sanitizeMaestroPatch(patch, snapshot) {
   return Object.keys(out).length ? out : null;
 }
 
+/** Default follow-up chips when Maestro LLM omits suggestions. */
+export function defaultMaestroSuggestions(snapshot = {}) {
+  const suggestions = [];
+  if (snapshot.hasAudioAnalysis) suggestions.push("Use the track analysis");
+  else if (snapshot.hasImageAnalysis) suggestions.push("Use the image analysis");
+  if (snapshot.musicGenAvailable) suggestions.push("Generate a MusicGen preview");
+  suggestions.push("Make it darker", "Show the style prompt", "Write lyrics");
+  return suggestions.slice(0, 4);
+}
+
 /** Initial assistant greeting for a fresh chat session. */
 export function createMaestroGreeting() {
   return {

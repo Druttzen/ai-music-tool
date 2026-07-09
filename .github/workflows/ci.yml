@@ -18,6 +18,22 @@ jobs:
       - run: npm ci
       - run: npm run check
 
+  awesome-suno-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Verify CC0 catalog matches import (rotation offset 0)
+        env:
+          AIMC_CC0_ROTATE_OFFSET: "0"
+        run: |
+          npm run import:awesome-suno
+          git diff --exit-code app/lib/awesome-suno-concepts-synced.js
+
   e2e:
     runs-on: ubuntu-latest
     steps:

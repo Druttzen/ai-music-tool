@@ -322,10 +322,20 @@ describe("maestro-chat-llm", () => {
         patch: null,
         commands: ["generateMusicGen"],
         artifacts: null,
+        suggestions: [],
       },
       SNAPSHOT,
     );
     expect(res.artifacts?.musicGenPrompt).toMatch(/Techno/i);
+    expect(res.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it("parses LLM suggestion chips", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Done.","patch":null,"commands":[],"artifacts":null,"suggestions":["Make it darker","Show the style prompt"]}',
+      SNAPSHOT,
+    );
+    expect(res.suggestions).toEqual(["Make it darker", "Show the style prompt"]);
   });
 
   it("builds system message containing project state and allowed keys", () => {

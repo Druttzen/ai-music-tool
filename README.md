@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.15.0**
+**Version 0.16.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.16.0)
+
+- **Maestro LLM suggestion chips** — LLM JSON includes `suggestions`; fallback chips when omitted; same tap-to-send UX as offline Maestro.
+- **MusicGen live e2e** — Playwright spec skips unless sidecar reports `generate_available`; optional `ci-musicgen.yml` workflow.
+- **CC0 import in CI** — `awesome-suno-sync` job re-imports at rotation offset 0 and fails on catalog drift.
 
 ## Highlights (v0.15.0)
 

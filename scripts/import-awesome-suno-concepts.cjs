@@ -104,6 +104,7 @@ function readExportedStringArray(filePath, exportName) {
 
 async function fetchText(url) {
   const res = await fetch(url, { headers: { "User-Agent": "ai-music-tool-awesome-suno/1.0" } });
+  if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Fetch failed ${url}: ${res.status}`);
   return res.text();
 }
@@ -146,10 +147,17 @@ async function main() {
     }
   };
 
+  const skippedFiles = [];
+
   for (const file of SOURCE.files) {
     const url = `https://raw.githubusercontent.com/naqashmunir21/awesome-suno-prompts/main/${file}`;
     console.log(`Fetching ${file} …`);
     const markdown = await fetchText(url);
+    if (!markdown) {
+      skippedFiles.push(file);
+      console.log(`  skip ${file} (not in upstream repo)`);
+      continue;
+    }
     for (const block of extractPromptBlocks(markdown)) {
       addLine(block, file);
     }
@@ -178,6 +186,7 @@ async function main() {
     syncedAt: new Date().toISOString(),
     source: SOURCE,
     supplemental,
+    skippedFiles,
     rotationOffset,
     conceptCap: CONCEPT_CAP,
     poolSize: lines.length,

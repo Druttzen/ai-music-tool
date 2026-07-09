@@ -279,6 +279,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
             text: llm.reply,
             source: "llm",
             artifacts: llm.artifacts,
+            suggestions: llm.suggestions,
           };
           if (patch) setStatusWithTime("Maestro (LLM) updated the project");
         } else {

@@ -3,12 +3,12 @@
  * Re-run: npm run import:awesome-suno
  *
  * Source: https://github.com/naqashmunir21/awesome-suno-prompts (CC0-1.0)
- * Synced at: 2026-07-09T12:13:54.736Z
+ * Synced at: 2026-07-09T12:54:10.284Z
  * Concept count: 400
  */
 
 export const AWESOME_SUNO_CONCEPTS_SYNC = {
-  "syncedAt": "2026-07-09T12:13:54.736Z",
+  "syncedAt": "2026-07-09T12:54:10.284Z",
   "source": {
     "repo": "https://github.com/naqashmunir21/awesome-suno-prompts",
     "license": "CC0-1.0",
@@ -21,6 +21,12 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
       "prompts/jazz-blues.md",
       "prompts/country.md",
       "prompts/rnb-soul.md",
+      "prompts/metal.md",
+      "prompts/classical.md",
+      "prompts/latin.md",
+      "prompts/folk.md",
+      "prompts/reggae.md",
+      "prompts/k-pop.md",
       "examples/advanced-techniques.md",
       "examples/before-after.md",
       "examples/common-mistakes.md",
@@ -300,6 +306,17 @@ export const AWESOME_SUNO_CONCEPTS_SYNC = {
       "art rock experimental, odd time signatures, angular guitars, cerebral tension"
     ]
   },
+  "skippedFiles": [
+    "prompts/metal.md",
+    "prompts/classical.md",
+    "prompts/latin.md",
+    "prompts/folk.md",
+    "prompts/reggae.md",
+    "prompts/k-pop.md"
+  ],
+  "rotationOffset": 0,
+  "conceptCap": 400,
+  "poolSize": 401,
   "lines": [
     "**Use Case:** [When/why to use this prompt], **Suno Version:** [V4.5, V5, or Both], **Energy:** [1-10 scale], **Notable Feature:** [Optional: What makes this prompt special], **Example Song:** [Optional: Link to song created with this prompt]",
     "**Use Case:** [When/why to use this], **Suno Version:** [V4.5, V5, or Both], **Energy:** [1-10 scale]",

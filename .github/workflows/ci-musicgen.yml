@@ -1,0 +1,48 @@
+name: MusicGen Generate (optional)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sidecar-generate-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install sidecar with generate extra
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/install-sidecar-generate.sh
+      - name: MusicGen /generate smoke
+        run: npm run test:smoke:generate
+
+  e2e-musicgen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Install MusicGen extra and run live e2e
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/install-sidecar-generate.sh
+          bash scripts/stop-sidecar.sh || true
+          bash scripts/start-sidecar.sh --idle-exit-sec 0
+          for i in $(seq 1 90); do
+            curl -sf http://127.0.0.1:8723/health | grep -q '"generate_available":true' && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8723/health
+          npx playwright test tests/e2e/musicgen-live.spec.js
