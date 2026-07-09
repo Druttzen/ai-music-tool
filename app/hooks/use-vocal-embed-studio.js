@@ -282,7 +282,7 @@ export function useVocalEmbedStudio() {
       }
     }
     if (!payload?.segments?.length) {
-      setStatusWithTime("No singable sections for OpenVPI .ds export â€” add lyrics first", "warning");
+      setStatusWithTime("No singable sections for OpenVPI .ds export — add lyrics first", "warning");
       return;
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -442,7 +442,7 @@ export function useVocalEmbedStudio() {
       setVocalModels(models);
       const instrumental = await resolveInstrumentalBlob();
       if (!instrumental) {
-        setStatusWithTime("Instrumental audio missing from cache â€” re-analyze the track", "warning");
+        setStatusWithTime("Instrumental audio missing from cache — re-analyze the track", "warning");
         return;
       }
       const payload = buildVocalEmbedExportEnvelope(
