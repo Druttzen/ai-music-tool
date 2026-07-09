@@ -156,7 +156,8 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
   }, [dismiss, guidedStep, report.nextStepName, setGuidedStep, setStatusWithTime]);
 
   const runImprovement = useCallback(
-    (action) => {
+    (imp) => {
+      const action = typeof imp === "string" ? imp : imp.action;
       if (action === "fixSunoWarnings") fixSunoWarnings();
       else if (action === "applyGenreAnchors") applyGenreAnchors();
       else if (action === "generateExampleLyrics") generateExampleLyrics();
@@ -183,7 +184,15 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
             .querySelector('[data-testid="maestro-chat-panel"]')
             ?.scrollIntoView({ behavior: "smooth", block: "start" });
         }, 80);
-        setStatusWithTime("Scroll to Maestro chat below", "info");
+        const prompt = typeof imp === "object" ? imp.maestroPrompt : "";
+        if (prompt) {
+          window.dispatchEvent(
+            new CustomEvent("aimc-maestro-prefill", { detail: { prompt: String(prompt) } }),
+          );
+          setStatusWithTime(`Maestro prompt ready — “${prompt}”`, "info");
+        } else {
+          setStatusWithTime("Scroll to Maestro chat below", "info");
+        }
       }
       dismiss();
     },

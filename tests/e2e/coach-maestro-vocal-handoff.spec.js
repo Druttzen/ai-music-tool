@@ -51,7 +51,9 @@ test.describe("Step coach Maestro vocal handoff", () => {
     const row = coach.locator("div").filter({ hasText: "Ask Maestro about OpenVPI .ds" }).first();
     await row.getByRole("button", { name: "Apply" }).click();
 
-    await expect(page.getByTestId("maestro-chat-panel")).toBeVisible();
-    await expect(page.getByTestId("action-toast")).toContainText(/Maestro/i);
+    const maestro = page.getByTestId("maestro-chat-panel");
+    await expect(maestro).toBeVisible();
+    await expect(maestro.locator("textarea").first()).toHaveValue("show openvpi ds");
+    await expect(page.getByTestId("action-toast")).toContainText(/Maestro prompt ready/i);
   });
 });

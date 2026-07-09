@@ -137,8 +137,10 @@ describe("suno-guided-step-focus", () => {
       coProducerLlmReady: true,
       sunoWarnings: [],
     });
-    expect(report.improvements.some((x) => x.id === "maestro-vocal-handoff")).toBe(true);
-    expect(report.improvements.some((x) => x.id === "maestro-openvpi-ds")).toBe(true);
+    const handoff = report.improvements.find((x) => x.id === "maestro-vocal-handoff");
+    const openvpi = report.improvements.find((x) => x.id === "maestro-openvpi-ds");
+    expect(handoff?.maestroPrompt).toBe("align and export handoff");
+    expect(openvpi?.maestroPrompt).toBe("show openvpi ds");
   });
 
   it("hides Maestro vocal handoff coach when LLM is off", () => {

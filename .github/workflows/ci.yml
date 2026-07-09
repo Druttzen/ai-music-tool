@@ -63,6 +63,35 @@ jobs:
           curl -sf http://127.0.0.1:8723/health
       - run: npm run test:e2e
 
+  e2e-vocal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Install vocal extra and run vocal e2e subset
+        run: |
+          python -m pip install --upgrade pip
+          bash scripts/install-sidecar-vocal.sh
+          bash scripts/stop-sidecar.sh || true
+          bash scripts/start-sidecar.sh --idle-exit-sec 0
+          for i in $(seq 1 45); do
+            curl -sf http://127.0.0.1:8723/health && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8723/health
+          curl -sf http://127.0.0.1:8723/vocal-embed/models
+          node scripts/run-e2e-vocal.cjs
+
   dsp-core:
     runs-on: ubuntu-latest
     steps:

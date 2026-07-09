@@ -342,6 +342,7 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
         title: "Ask Maestro about the MusicGen sketch",
         description: "Regenerate with melody or copy the MG prompt line into your Suno style.",
         action: "focusMaestro",
+        maestroPrompt: "Regenerate with melody",
       });
     }
 
@@ -356,15 +357,17 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
         id: "maestro-vocal-handoff",
         title: "Ask Maestro to export vocal handoff",
         description:
-          "Chat: “align and export handoff” — Maestro scrolls to Vocal Embed and explains the multi-file pack.",
+          "Prefills Maestro with align + handoff export — scrolls to chat and Vocal Embed when you send.",
         action: "focusMaestro",
+        maestroPrompt: "align and export handoff",
       });
       improvements.push({
         id: "maestro-openvpi-ds",
         title: "Ask Maestro about OpenVPI .ds",
         description:
-          "Chat: “show openvpi ds” — Maestro returns the vocal embed brief and OpenVPI segment status.",
+          "Prefills Maestro with show openvpi ds — returns the vocal embed brief and segment status.",
         action: "focusMaestro",
+        maestroPrompt: "show openvpi ds",
       });
     }
 

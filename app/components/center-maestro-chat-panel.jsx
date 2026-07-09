@@ -193,6 +193,15 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
+  useEffect(() => {
+    const onPrefill = (event) => {
+      const prompt = event?.detail?.prompt;
+      if (prompt) setDraft(String(prompt));
+    };
+    window.addEventListener("aimc-maestro-prefill", onPrefill);
+    return () => window.removeEventListener("aimc-maestro-prefill", onPrefill);
+  }, []);
+
   const applyPatch = useCallback(
     (patch) => {
       if (!patch) return;
