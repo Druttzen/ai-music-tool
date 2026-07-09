@@ -40,9 +40,10 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
     lyricStyle,
     generatedLyrics,
     coProducerLlmSettings,
+    voiceStyleLine,
   } = useProjectWorkspaceProjectState();
   const { audioAnalysis, imageAnalysis } = useProjectWorkspaceAnalyzerState();
-  const { sunoWarnings, voiceStyleCompact, voiceStyleLine } = useProjectWorkspacePromptState();
+  const { sunoWarnings, voiceStyleCompact } = useProjectWorkspacePromptState();
   const {
     setGuidedStep,
     fixSunoWarnings,
@@ -260,6 +261,7 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
           {r.improvements.map((imp) => (
             <div
               key={imp.id}
+              data-testid={`coach-improvement-${imp.id}`}
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2"
             >
               <div className="min-w-0">

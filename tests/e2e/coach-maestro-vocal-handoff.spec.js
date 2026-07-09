@@ -1,7 +1,11 @@
 import { test, expect } from "@playwright/test";
 import {
+  applyCoachImprovement,
   dismissSplash,
   enableGuidedStepCoach,
+  expectToast,
+  maestroChatInput,
+  maestroChatPanel,
   saveLoadPanel,
   selectSunoEngine,
 } from "./helpers.js";
@@ -33,6 +37,13 @@ test.describe("Step coach Maestro vocal handoff", () => {
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(BUNDLE_FIXTURE);
+    await expectToast(page, /Imported project bundle/i);
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => localStorage.getItem("ai_music_creator_visual_tool_v3")?.includes("warm baritone")),
+      { timeout: 10_000 })
+      .toBe(true);
 
     await page.evaluate(() => {
       window.dispatchEvent(
@@ -48,17 +59,18 @@ test.describe("Step coach Maestro vocal handoff", () => {
       );
     });
 
+    await page.waitForTimeout(2200);
+
     const coach = page.getByTestId("guided-step-coach");
-    await expect(coach).toBeVisible({ timeout: 10_000 });
-    await expect(coach.getByText("Ask Maestro to export vocal handoff")).toBeVisible();
+    await expect(coach).toBeVisible({ timeout: 12_000 });
+    await expect(coach.getByText("Ask Maestro to export vocal handoff")).toBeVisible({ timeout: 12_000 });
     await expect(coach.getByText("Ask Maestro about OpenVPI .ds")).toBeVisible();
 
-    const row = coach.locator("div").filter({ hasText: "Ask Maestro about OpenVPI .ds" }).first();
-    await row.getByRole("button", { name: "Apply" }).click();
+    await applyCoachImprovement(coach, "maestro-openvpi-ds");
 
-    const maestro = page.getByTestId("maestro-chat-panel");
+    const maestro = maestroChatPanel(page);
     await expect(maestro).toBeVisible();
-    await expect(maestro.locator("textarea").first()).toHaveValue("show openvpi ds");
+    await expect(maestroChatInput(page)).toHaveValue("show openvpi ds", { timeout: 10_000 });
     await expect(page.getByTestId("action-toast")).toContainText(/Maestro prompt ready/i);
   });
 });

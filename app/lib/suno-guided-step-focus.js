@@ -31,6 +31,11 @@ export const GUIDED_PANEL_IDS = {
 
 const ALWAYS_VISIBLE = new Set([GUIDED_PANEL_IDS.guidedPath, GUIDED_PANEL_IDS.maestro, GUIDED_PANEL_IDS.saveLoad]);
 
+/** Suno Voice Style line or compact block counts as voice-style ready for polish-step coach. */
+export function hasVoiceStyleForCoach(snapshot = {}) {
+  return !!String(snapshot.voiceStyleCompact?.style || snapshot.voiceStyleLine || "").trim();
+}
+
 /** @type {Record<number, { center: string[], left: string[], right: string[] }>} */
 const STEP_PANELS = {
   0: {
@@ -280,7 +285,7 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
 
   if (step === 6) {
     const hasTrack = !!snapshot.audioAnalysis?.fileName;
-    const hasVoiceStyle = !!String(snapshot.voiceStyleCompact?.style || snapshot.voiceStyleLine || "").trim();
+    const hasVoiceStyle = hasVoiceStyleForCoach(snapshot);
     const instrumental = vocal === "Instrumental";
 
     if (!hasTrack) {

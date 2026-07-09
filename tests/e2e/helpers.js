@@ -93,6 +93,14 @@ export function coProducerPanel(page) {
   return page.locator("section").filter({ hasText: "Co‑Producer AI" });
 }
 
+/** Click Apply on a guided step coach improvement row by stable improvement id. */
+export async function applyCoachImprovement(coach, improvementId) {
+  await coach
+    .getByTestId(`coach-improvement-${improvementId}`)
+    .getByRole("button", { name: "Apply" })
+    .click();
+}
+
 export function maestroChatPanel(page) {
   return page.getByTestId("maestro-chat-panel");
 }

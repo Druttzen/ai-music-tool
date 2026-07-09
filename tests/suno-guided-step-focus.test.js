@@ -117,6 +117,19 @@ describe("suno-guided-step-focus", () => {
     expect(musicgen?.maestroPrompt).toBe("Regenerate with melody");
   });
 
+  it("does not require voice character when voiceStyleLine is set on polish step", () => {
+    const report = evaluateGuidedStepCoach({
+      guidedStep: 6,
+      vocal: "Male Lead",
+      generatedLyrics: "[Verse]\nLine one",
+      audioAnalysis: { fileName: "beat.wav", duration: 120 },
+      voiceStyleLine: "warm baritone",
+      sunoWarnings: [],
+    });
+    expect(report.missing.some((m) => m.includes("Voice Character"))).toBe(false);
+    expect(report.improvements.some((x) => x.id === "openvpi-ds-export")).toBe(true);
+  });
+
   it("suggests OpenVPI ds export on polish step when lyrics and voice are ready", () => {
     const report = evaluateGuidedStepCoach({
       guidedStep: 6,

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import {
+  applyCoachImprovement,
   dismissSplash,
   enableGuidedStepCoach,
   expectToast,
@@ -42,11 +43,7 @@ test.describe("Maestro step coach MusicGen", () => {
     await expect(coach).toBeVisible({ timeout: 12_000 });
     await expect(coach.getByText("Ask Maestro about the MusicGen sketch")).toBeVisible();
 
-    await coach
-      .locator("div")
-      .filter({ hasText: /^Ask Maestro about the MusicGen sketch/ })
-      .getByRole("button", { name: "Apply" })
-      .click();
+    await applyCoachImprovement(coach, "maestro-musicgen");
 
     const maestro = maestroChatPanel(page);
     await expect(maestro).toBeVisible();

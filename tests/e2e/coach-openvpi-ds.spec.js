@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import {
+  applyCoachImprovement,
   dismissSplash,
   enableGuidedStepCoach,
   expectToast,
@@ -48,8 +49,7 @@ test.describe("Step coach OpenVPI ds", () => {
     await expect(coach).toBeVisible({ timeout: 12_000 });
     await expect(coach.getByText("Export OpenVPI .ds for DiffSinger")).toBeVisible({ timeout: 12_000 });
 
-    const row = coach.locator("div").filter({ hasText: "Export OpenVPI .ds for DiffSinger" }).first();
-    await row.getByRole("button", { name: "Apply" }).click();
+    await applyCoachImprovement(coach, "openvpi-ds-export");
 
     await expect(vocalEmbedStudioPanel(page)).toBeVisible();
     await expect(page.getByTestId("action-toast")).toContainText(/Vocal Embed/i);
