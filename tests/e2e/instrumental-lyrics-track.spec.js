@@ -38,7 +38,9 @@ test.describe("Instrumental track lyrics e2e", () => {
 
     await expect(page.getByRole("heading", { name: /Lyric direction \(\d+ \/ \d+\)/ })).toBeVisible();
 
-    await expect(instrumentalPill).not.toHaveClass(/border-cyan-300/);
+    await expect(
+      musicControlsPanel(page).getByRole("button", { name: "Instrumental", exact: true }),
+    ).not.toHaveClass(/border-cyan-300/);
 
     const lyricPanel = lyricStylePanel(page);
     await expect(lyricPanel.locator("label").filter({ hasText: "Lyric Theme" }).locator("input")).not.toHaveValue(

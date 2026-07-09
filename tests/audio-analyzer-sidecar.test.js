@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { mergeSidecarAnalysis } from "../app/lib/audio-analyzer-sidecar.js";
+import { describe, expect, it } from "vitest";
+import { isSupportedAudioFile, SUPPORTED_AUDIO_LABEL } from "../app/lib/analyzer-file-types.js";
+import {
+  buildSidecarFallbackReport,
+  mergeSidecarAnalysis,
+} from "../app/lib/audio-analyzer-sidecar.js";
 import { getAudioAnalyzerDisclaimer } from "../app/lib/analyzer-disclaimer.js";
 
 const baseReport = {
@@ -99,5 +103,28 @@ describe("getAudioAnalyzerDisclaimer", () => {
     );
     expect(getAudioAnalyzerDisclaimer({ analysisEngine: "heuristic" })).toContain("local scan");
     expect(getAudioAnalyzerDisclaimer(null)).toContain("local scan");
+  });
+});
+
+describe("analyzer-file-types", () => {
+  it("accepts FLAC uploads when sidecar can decode", () => {
+    expect(isSupportedAudioFile({ name: "master.flac", type: "audio/flac" })).toBe(true);
+    expect(SUPPORTED_AUDIO_LABEL).toContain("FLAC");
+  });
+});
+
+describe("buildSidecarFallbackReport", () => {
+  it("builds a merge-ready report when browser decode is unavailable", () => {
+    const report = buildSidecarFallbackReport("track.flac", {
+      duration_sec: 180,
+      tempo_bpm: 128.4,
+      key_estimate: "A minor",
+      spectral_centroid_hz: 2400,
+    });
+    expect(report.fileName).toBe("track.flac");
+    expect(report.duration).toBe(180);
+    expect(report.estimatedBpm).toBe("128 BPM");
+    expect(report.analysisEngine).toBe("sidecar-fallback");
+    expect(report.suggestedGenres?.length).toBeGreaterThan(0);
   });
 });

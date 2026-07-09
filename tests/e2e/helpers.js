@@ -4,11 +4,26 @@ export async function clearProjectStorage(page) {
   await page.addInitScript(() => {
     if (sessionStorage.getItem("__e2e_storage_cleared__")) return;
     localStorage.clear();
+    localStorage.setItem("ai_music_creator_guided_show_all", "1");
     sessionStorage.setItem("__e2e_storage_cleared__", "1");
   });
 }
 
+/** Reveal all workspace panels (e2e + power users) when Suno guided focus is active. */
+export async function enableGuidedShowAll(page) {
+  await page.evaluate(() => {
+    localStorage.setItem("ai_music_creator_guided_show_all", "1");
+  });
+}
+
 export async function dismissSplash(page) {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("ai_music_creator_guided_show_all", "1");
+    } catch {
+      /* ignore */
+    }
+  });
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await skipSplashIfVisible(page);

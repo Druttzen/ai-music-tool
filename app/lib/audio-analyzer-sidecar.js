@@ -9,6 +9,56 @@ import { HF_GENRE_MODEL_ID, mapHfGenrePredictionsToSuno } from "./hf-genre-map";
 import { clamp, uniq } from "./music-helpers";
 
 /**
+ * Build a minimal heuristic report when the browser cannot decode audio (e.g. FLAC)
+ * but the librosa sidecar can analyze the upload.
+ * @param {string} fileName
+ * @param {{ duration_sec: number, tempo_bpm: number, key_estimate: string, spectral_centroid_hz: number }} sidecar
+ */
+export function buildSidecarFallbackReport(fileName, sidecar) {
+  const duration = Number(sidecar.duration_sec || 0);
+  const bpm = Math.round(clamp(sidecar.tempo_bpm, 60, 200));
+  const centroidHz = Math.round(sidecar.spectral_centroid_hz || 2200);
+  const energy = centroidHz > 2800 ? 72 : centroidHz < 1800 ? 38 : 55;
+  const suggestions = buildAudioAnalyzerSuggestions({
+    energy,
+    aggression: 55,
+    brightness: clamp(Math.round(centroidHz / 50), 20, 90),
+    darkness: 45,
+    complexity: 50,
+    bpm,
+    centroidHz,
+  });
+  const highlightStart = Math.max(0, duration * 0.35);
+  const highlightEnd = Math.min(duration, highlightStart + Math.max(8, duration * 0.12));
+  const report = {
+    version: 2,
+    fileName,
+    duration,
+    waveformPeaks: [],
+    waveformSource: "synthetic",
+    energy,
+    aggression: 55,
+    brightness: clamp(Math.round(centroidHz / 50), 20, 90),
+    darkness: 45,
+    complexity: 50,
+    bpm,
+    estimatedBpm: `${bpm} BPM`,
+    estimatedKey: String(sidecar.key_estimate || "Key unknown"),
+    loudnessDb: -14,
+    spectralCentroidHz: centroidHz,
+    highlightStart,
+    highlightEnd,
+    highlightLabel: "Sidecar peak estimate",
+    trackSummary: `Sidecar-only analysis (browser could not decode this codec). Librosa estimates ${bpm} BPM in ${sidecar.key_estimate || "unknown key"}. Edit tags before merging into Suno.`,
+    ...suggestions,
+    moodSuggestion: { energy, aggression: 55, darkness: 45, complexity: 50 },
+    analysisEngine: "sidecar-fallback",
+  };
+  report.summary = buildAudioAnalysisSummary(report);
+  return report;
+}
+
+/**
  * @param {object} report Heuristic report from {@link analyzeAudioBuffer}.
  * @param {{ duration_sec: number, tempo_bpm: number, key_estimate: string, key_confidence?: number, spectral_centroid_hz: number, spectral_bandwidth_hz?: number, spectral_rolloff_hz?: number, onset_strength?: number, beat_count?: number, beat_density?: number, percussive_ratio?: number, harmonic_ratio?: number, device: string, genre_predictions?: { label: string, score: number }[], genre_model?: string }} sidecar
  */

@@ -18,7 +18,16 @@ describe("suno-guided-step-focus", () => {
     expect(isGuidedPanelVisible(GUIDED_PANEL_IDS.analyzers, "center", 0, "Suno-like", false)).toBe(
       false,
     );
+  });
+
+  it("shows analyzers on polish step including vocal embed and style dna", () => {
     expect(isGuidedPanelVisible(GUIDED_PANEL_IDS.analyzers, "center", 6, "Suno-like", false)).toBe(
+      true,
+    );
+    expect(isGuidedPanelVisible(GUIDED_PANEL_IDS.vocalEmbed, "center", 6, "Suno-like", false)).toBe(
+      true,
+    );
+    expect(isGuidedPanelVisible(GUIDED_PANEL_IDS.styleDna, "center", 6, "Suno-like", false)).toBe(
       true,
     );
   });

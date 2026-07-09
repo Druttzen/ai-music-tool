@@ -2,7 +2,7 @@
  * File types the drag-drop audio/image analyzers support (matches UI copy).
  */
 
-const AUDIO_EXT = new Set([".wav", ".mp3", ".ogg", ".m4a"]);
+const AUDIO_EXT = new Set([".wav", ".mp3", ".ogg", ".m4a", ".flac"]);
 const AUDIO_MIME = new Set([
   "audio/wav",
   "audio/x-wav",
@@ -13,6 +13,8 @@ const AUDIO_MIME = new Set([
   "audio/mp4",
   "audio/m4a",
   "audio/x-m4a",
+  "audio/flac",
+  "audio/x-flac",
 ]);
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png"]);
@@ -45,9 +47,9 @@ export function isSupportedImageFile(file) {
 }
 
 export const SUPPORTED_AUDIO_ACCEPT =
-  ".wav,.mp3,.ogg,.m4a,audio/wav,audio/wave,audio/mpeg,audio/ogg,audio/mp4,audio/m4a";
+  ".wav,.mp3,.ogg,.m4a,.flac,audio/wav,audio/wave,audio/mpeg,audio/ogg,audio/mp4,audio/m4a,audio/flac";
 
 export const SUPPORTED_IMAGE_ACCEPT = ".jpg,.jpeg,.png,image/jpeg,image/png";
 
-export const SUPPORTED_AUDIO_LABEL = "WAV, MP3, OGG, M4A";
+export const SUPPORTED_AUDIO_LABEL = "WAV, MP3, OGG, M4A, FLAC (FLAC needs librosa sidecar)";
 export const SUPPORTED_IMAGE_LABEL = "JPG, JPEG, PNG";

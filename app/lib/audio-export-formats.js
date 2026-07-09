@@ -37,7 +37,7 @@ export async function audioBufferToMp3Blob(buffer) {
   const sampleRate = buffer.sampleRate;
   const left = floatTo16(buffer.getChannelData(0));
   const right = channels > 1 ? floatTo16(buffer.getChannelData(1)) : left;
-  const encoder = new Mp3Encoder(channels, sampleRate, 192);
+  const encoder = new Mp3Encoder(channels, sampleRate, 256);
   const block = 1152;
   const chunks = [];
 

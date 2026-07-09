@@ -28,7 +28,7 @@ import {
   patchAudioAnalysis,
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
-import { mergeSidecarAnalysis } from "../lib/audio-analyzer-sidecar";
+import { mergeSidecarAnalysis, buildSidecarFallbackReport } from "../lib/audio-analyzer-sidecar";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { analyzeAudioViaSidecar, downloadSidecarStem, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
@@ -291,10 +291,35 @@ export function useAnalyzers({
                 : "Track report ready — edit tags, then merge into Suno fields"),
           sidecarStatusType,
         );
-      } catch {
+      } catch (decodeErr) {
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        if (sidecarReady) {
+          try {
+            const sidecar = await analyzeAudioViaSidecar(file, file.name);
+            const fallback = buildSidecarFallbackReport(file.name, sidecar);
+            const finalReport = mergeSidecarAnalysis(fallback, sidecar);
+            const cacheKey = makeAudioCacheKey(file);
+            finalReport.audioCacheKey = cacheKey;
+            syncCacheKeysRef(finalReport);
+            setAudioPreviewFromBlob(file);
+            setAudioAnalysis(finalReport);
+            setStatusWithTime(
+              "Track report ready via librosa sidecar (browser could not decode this codec)",
+              "warning",
+            );
+            return;
+          } catch (sidecarErr) {
+            const msg = sidecarErr instanceof Error ? sidecarErr.message : "Sidecar analyze failed";
+            setStatusWithTime(`Audio analysis failed — ${msg.slice(0, 80)}`, "error");
+            applyAnalyzerPatch({
+              notes: `Decode failed (${decodeErr instanceof Error ? decodeErr.message : "unknown"}). Sidecar fallback also failed.`,
+            });
+            return;
+          }
+        }
         setStatusWithTime("Audio analysis failed");
         applyAnalyzerPatch({
-          notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL} in a format your browser can decode (try WAV or MP3).`,
+          notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL} in a format your browser can decode, or start the librosa sidecar for FLAC.`,
         });
       } finally {
         if (audioContext) {
