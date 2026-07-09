@@ -23,6 +23,11 @@ describe("suno-lyric-languages", () => {
     );
   });
 
+  it("preserves blank language for reset slate", () => {
+    expect(normalizeLyricLanguage("")).toBe("");
+    expect(normalizeLyricLanguage(undefined)).toBe("English");
+  });
+
   it("returns Spanish prompt rules with section tag guidance", () => {
     const rules = getSunoLanguagePromptRules("Spanish");
     expect(rules).toContain("Spanish");

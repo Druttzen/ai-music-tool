@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.36.0**
+**Version 0.39.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app, an optional **Electron** Windows installer, and a **Tauri** desktop build with native DSP export and Python sidecar integration.
+
+## Highlights (v0.39.0)
+
+- **Reset to Default → true blank slate** — empty vocal, Suno paste previews, lyric style/language/mode dropdowns, Maestro chat, vocal embed session, and guided focus; no phantom “Instrumental” scaffold.
+- **CI fixes** — Maestro e2e uses chat input (not textarea); bundle import toast matcher; Demucs weight prewarm for stems job; CC0 import preserves `syncedAt` when catalog unchanged; Windows release notes via Node (no broken awk).
+- **Workspace reset event** — `clearWorkspaceSessionOnReset()` syncs Maestro, vocal embed, and guided-focus UI after reset.
 
 ## Highlights (v0.36.0)
 

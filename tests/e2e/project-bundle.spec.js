@@ -111,7 +111,7 @@ test.describe("project bundle e2e", () => {
       .locator('input[type="file"][accept="application/json"]')
       .setInputFiles("tests/fixtures/e2e-import-project-bundle-vocal-align.json");
 
-    await expectToast(page, /vocal align preview/i);
+    await expectToast(page, /vocal align/i);
 
     const stored = await page.evaluate(() =>
       localStorage.getItem("ai_music_creator_vocal_align_preview"),

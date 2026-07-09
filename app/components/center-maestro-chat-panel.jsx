@@ -26,6 +26,7 @@ import { preloadAwesomeSunoCatalog } from "../lib/awesome-suno-catalog-loader";
 import { preloadSunoCatalogSync } from "../lib/suno-catalog-loader";
 import { useGuidedFocus } from "../context/guided-focus-context";
 import { safeLocalStorage } from "../lib/safe-local-storage";
+import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
 import { readPendingMaestroPrefill } from "../lib/maestro-prefill";
 
 function loadStoredMessages() {
@@ -123,6 +124,16 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
 
   useEffect(() => {
     queueMicrotask(() => setHintMounted(true));
+  }, []);
+
+  useEffect(() => {
+    const onWorkspaceReset = () => {
+      setMessages([createMaestroGreeting()]);
+      setDraft("");
+      setBusy(false);
+    };
+    window.addEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
+    return () => window.removeEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
   }, []);
 
   const snapshot = useMemo(() => {

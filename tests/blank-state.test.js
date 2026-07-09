@@ -25,4 +25,10 @@ describe("BLANK_STATE", () => {
     expect(BLANK_STATE.mood.energy).toBe(50);
     expect(BLANK_STATE.mood.darkness).toBe(50);
   });
+
+  it("leaves lyric dropdowns unselected", () => {
+    expect(BLANK_STATE.lyricStyle).toBe("");
+    expect(BLANK_STATE.lyricMode).toBe("");
+    expect(BLANK_STATE.lyricLanguage).toBe("");
+  });
 });

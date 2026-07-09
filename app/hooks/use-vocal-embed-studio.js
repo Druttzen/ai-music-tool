@@ -28,6 +28,7 @@ import {
   readStoredVocalAlignPreview,
   writeStoredVocalAlignPreview,
 } from "../lib/vocal-embed-handoff";
+import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
 import {
   buildAlignPreviewPersistence,
   computeVocalEmbedCapabilities,
@@ -76,6 +77,20 @@ export function useVocalEmbedStudio() {
       });
     }
   }, [audioAnalysis?.fileName]);
+
+  useEffect(() => {
+    const onWorkspaceReset = () => {
+      setAlignPreview(null);
+      setStoredOpenvpiDs(null);
+      setDraftLyrics("");
+      setGuideVocalAttached(false);
+      setGuideVocalFile(null);
+      setGuideForLyricTiming(true);
+      if (guideInputRef.current) guideInputRef.current.value = "";
+    };
+    window.addEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
+    return () => window.removeEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

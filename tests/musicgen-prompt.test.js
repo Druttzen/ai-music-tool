@@ -31,9 +31,16 @@ describe("buildMusicGenPrompt", () => {
     expect(prompt).toContain("Mid-tempo funk groove");
   });
 
-  it("uses default instrumental prompt when nothing is provided", () => {
-    expect(buildMusicGenPrompt({})).toBe(
-      "instrumental electronic music, steady groove, modern production",
-    );
+  it("returns empty prompt on blank slate", () => {
+    expect(buildMusicGenPrompt({})).toBe("");
+    expect(buildMusicGenPrompt({ moodWords: "balanced" })).toBe("");
+  });
+
+  it("uses default instrumental prompt when only neutral mood is set but analysis exists", () => {
+    expect(
+      buildMusicGenPrompt({
+        audioAnalysis: { estimatedBpm: "120 BPM", estimatedKey: "C major" },
+      }),
+    ).toContain("120 BPM");
   });
 });

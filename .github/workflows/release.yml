@@ -24,16 +24,26 @@ jobs:
       - run: npm run check:full
       - name: Extract release notes from README
         shell: bash
+        env:
+          VERSION: ${{ github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          awk -v ver="$VERSION" '
-            /^## Highlights \(v/ { if ($0 ~ "v" ver ") show=1; else show=0 }
-            show && /^## Highlights \(v/ && $0 !~ "v" ver ")" { exit }
-            show { print }
-          ' README.md > release-notes.md
-          if [ ! -s release-notes.md ]; then
-            echo "Release ${GITHUB_REF_NAME}" > release-notes.md
-          fi
+          export TAG_VER="${VERSION#v}"
+          node <<'NODE'
+          const fs = require("fs");
+          const ver = (process.env.TAG_VER || "").replace(/^v/, "");
+          const lines = fs.readFileSync("README.md", "utf8").split(/\r?\n/);
+          const header = `## Highlights (v${ver})`;
+          const start = lines.findIndex((line) => line.startsWith(header));
+          let out = [];
+          if (start >= 0) {
+            for (let i = start; i < lines.length; i++) {
+              if (i > start && /^## Highlights \(v/.test(lines[i])) break;
+              out.push(lines[i]);
+            }
+          }
+          if (!out.length) out = [`Release v${ver}`];
+          fs.writeFileSync("release-notes.md", out.join("\n") + "\n");
+          NODE
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
       - name: Build and publish Windows installer
         env:

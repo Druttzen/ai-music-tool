@@ -69,6 +69,7 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
             onChange={(e) => setLyricStyle(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
+            <option value="">— choose lyric style —</option>
             {lyricStyleOptions.map((x) => (
               <option key={x}>{x}</option>
             ))}
@@ -81,6 +82,7 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
             onChange={(e) => setLyricLanguage(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
+            <option value="">— choose language —</option>
             {SUNO_LYRIC_LANGUAGE_GROUPS.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.languages.map((lang) => (
@@ -99,6 +101,7 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
             onChange={(e) => setLyricMode(e.target.value)}
             className="w-full rounded-2xl border border-white/10 bg-black/30 p-3 text-white outline-none"
           >
+            <option value="">— choose lyric mode —</option>
             {lyricModeOptions.map((x) => (
               <option key={x}>{x}</option>
             ))}

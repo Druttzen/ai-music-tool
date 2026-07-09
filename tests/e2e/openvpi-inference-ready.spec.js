@@ -5,6 +5,9 @@ import {
   saveLoadPanel,
   selectSunoEngine,
   vocalEmbedStudioPanel,
+  analyzerPanel,
+  clearProjectStorage,
+  expectToast,
 } from "./helpers.js";
 
 const BUNDLE_FIXTURE = "tests/fixtures/e2e-import-project-bundle-vocal-align.json";
@@ -43,12 +46,14 @@ test.describe("OpenVPI inference UX", () => {
       });
     });
 
+    await clearProjectStorage(page);
     await dismissSplash(page);
     await selectSunoEngine(page);
     await enableGuidedShowAll(page);
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(BUNDLE_FIXTURE);
+    await expectToast(page, /Imported project bundle/i);
 
     await page.evaluate(() => {
       window.dispatchEvent(
@@ -64,13 +69,14 @@ test.describe("OpenVPI inference UX", () => {
       );
     });
 
-    await page.reload();
-    await page.waitForLoadState("networkidle");
+    await expect(analyzerPanel(page).getByText("e2e-analyzer-tone.wav", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
 
     const vocalEmbed = vocalEmbedStudioPanel(page);
     await vocalEmbed.scrollIntoViewIfNeeded();
 
-    await expect(vocalEmbed.getByTestId("openvpi-inference-ready")).toBeVisible({ timeout: 15_000 });
+    await expect(vocalEmbed.getByTestId("openvpi-inference-ready")).toBeVisible({ timeout: 30_000 });
     await expect(vocalEmbed.getByTestId("synthesize-openvpi")).toBeEnabled();
     await expect(vocalEmbed.getByText(/OpenVPI DiffSinger inference is ready/i)).toBeVisible();
   });

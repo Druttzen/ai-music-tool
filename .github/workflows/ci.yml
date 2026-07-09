@@ -172,6 +172,8 @@ jobs:
             sleep 1
           done
           curl -sf http://127.0.0.1:8723/health
+          echo "Pre-downloading Demucs weights for e2e…"
+          ai-sidecar/.venv/bin/python -c "from demucs.pretrained import get_model; get_model('htdemucs')"
           npx playwright test tests/e2e/sidecar-stems.spec.js
 
   dsp-core:

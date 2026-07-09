@@ -168,6 +168,25 @@ export function structureToSectionTags(structure) {
     });
 }
 
+/** True when no user-facing Suno paste fields are set (guided step 1 blank slate). */
+export function isGuidedPasteBlank(p) {
+  const genres = p.selectedGenres || [];
+  const sounds = p.selectedSounds || [];
+  const rhythms = p.selectedRhythms || [];
+  const vocal = p.vocal || "";
+  if (genres.length || sounds.length || rhythms.length || vocal) return false;
+  if (normalizeToken(p.idea)) return false;
+  if (normalizeToken(p.rules)) return false;
+  if (normalizeToken(p.tempo)) return false;
+  if (normalizeToken(p.voiceStyleLine || p.voiceStyleReference)) return false;
+  if (normalizeToken(p.generatedLyrics)) return false;
+  if (normalizeToken(p.lyricTheme) || normalizeToken(p.lyricStructure)) return false;
+  const mood = (p.moodWords || "").trim();
+  // Neutral reset sliders produce "balanced" — still blank for paste previews.
+  if (mood && mood !== "balanced") return false;
+  return true;
+}
+
 /** Minimal bracket scaffold — lyric lines only, no direction meta. */
 export function buildMinimalLyricsScaffold({ lyricTheme = "", lyricStructure = "" }) {
   const theme = normalizeToken(lyricTheme);
@@ -189,13 +208,15 @@ export function buildMinimalLyricsScaffold({ lyricTheme = "", lyricStructure = "
  * Sound-first, compact — safe for one-shot copy into Suno.
  */
 export function buildSunoPastedStyleLine(p) {
+  if (isGuidedPasteBlank(p)) return "";
+
   const {
     selectedGenres = [],
     tempo = "",
     moodWords = "",
     selectedSounds = [],
     selectedRhythms = [],
-    vocal = "Instrumental",
+    vocal = "",
     instrumentalVocalFx = false,
     idea = "",
     rules = "",
@@ -205,7 +226,7 @@ export function buildSunoPastedStyleLine(p) {
   const voiceRef = normalizeToken(voiceStyleLine || voiceStyleReference).slice(0, 120);
 
   const parts = [];
-  pushTokens(parts, selectedGenres.length ? selectedGenres : ["electronic"]);
+  if (selectedGenres.length) pushTokens(parts, selectedGenres);
   const tempoLine =
     tempo && !tempoAlreadyHasDescriptor(tempo) ? formatTempoWithDescriptor(tempo) : tempo;
   if (tempoLine) parts.push(tempoLine);
@@ -238,10 +259,13 @@ export function buildSunoPastedStyleLine(p) {
  * Vocal tags and section brackets survive trimming longer than prose tails.
  */
 export function buildSunoPastedLyricsField(p) {
-  const vocal = p.vocal || "Instrumental";
+  if (isGuidedPasteBlank(p)) return "";
+
+  const vocal = p.vocal || "";
   if (vocal === "Instrumental") {
     return INSTRUMENTAL_LYRICS_SCAFFOLD;
   }
+  if (!vocal) return "";
 
   const generated = normalizeToken(p.generatedLyrics);
   if (generated) {

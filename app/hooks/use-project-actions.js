@@ -84,6 +84,7 @@ import { collectGenreAnchors } from "../lib/suno-language-index";
 import { buildStyleDnaPatch } from "../lib/track-style-dna";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { SUNO_AUTO_FIX_DEFAULTS } from "../lib/suno-rules";
+import { clearWorkspaceSessionOnReset } from "../lib/project-workspace-reset";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
 import { buildSunoVoiceStyleLine, formatPublicName } from "../lib/suno-voice-style";
 
@@ -1114,6 +1115,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     resetBlank();
     resetAnalyzers();
     clearCharacterVoiceStudioSessionOnReset();
+    clearWorkspaceSessionOnReset();
     lastAutosavePayloadRef.current = "";
     safeLocalStorage.remove(STORAGE_KEY);
     safeLocalStorage.remove(HISTORY_KEY);

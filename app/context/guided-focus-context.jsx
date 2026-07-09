@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { isGuidedPanelVisible } from "../lib/suno-guided-step-focus";
+import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
 import {
   useProjectWorkspaceProjectState,
 } from "./project-workspace-context";
@@ -36,6 +37,12 @@ export function GuidedFocusProvider({ children }) {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    const onWorkspaceReset = () => setShowAll(false);
+    window.addEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
+    return () => window.removeEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
+  }, [setShowAll]);
 
   const focused = promptEngine === "Suno-like" && !showAll;
 

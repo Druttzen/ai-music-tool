@@ -134,6 +134,18 @@ export const awesomeSunoConceptTags = AWESOME_SUNO_CONCEPTS_SYNC.tags;
 `;
 }
 
+function stripSyncedAt(js) {
+  return js
+    .replace(/"syncedAt": "[^"]+"/g, '"syncedAt": "__STRIPPED__"')
+    .replace(/\* Synced at: [^\n]+/g, "* Synced at: __STRIPPED__");
+}
+
+function readExistingSyncedAt() {
+  if (!fs.existsSync(OUT_JS)) return null;
+  const m = fs.readFileSync(OUT_JS, "utf8").match(/"syncedAt":\s*"([^"]+)"/);
+  return m?.[1] ?? null;
+}
+
 async function main() {
   const seen = new Set();
   const lines = [];
@@ -196,6 +208,15 @@ async function main() {
     lines: capped,
     tags,
   };
+
+  const nextJs = emitJs(payload);
+  const prevJs = fs.existsSync(OUT_JS) ? fs.readFileSync(OUT_JS, "utf8") : "";
+  if (prevJs && stripSyncedAt(prevJs) === stripSyncedAt(nextJs)) {
+    const preserved = readExistingSyncedAt();
+    if (preserved) {
+      payload.syncedAt = preserved;
+    }
+  }
 
   fs.writeFileSync(OUT_JS, emitJs(payload), "utf8");
   console.log(

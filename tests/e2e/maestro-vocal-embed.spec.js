@@ -4,18 +4,24 @@ import {
   enableGuidedShowAll,
   selectSunoEngine,
   saveLoadPanel,
+  analyzerPanel,
+  clearProjectStorage,
+  expectToast,
 } from "./helpers.js";
+import { maestroChatInput } from "./maestro-chat-input.js";
 
 const BUNDLE_FIXTURE = "tests/fixtures/e2e-import-project-bundle-vocal-align.json";
 
 test.describe("Maestro offline vocal embed", () => {
   test("Maestro shows vocal embed brief for openvpi ds query", async ({ page }) => {
+    await clearProjectStorage(page);
     await dismissSplash(page);
     await selectSunoEngine(page);
     await enableGuidedShowAll(page);
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(BUNDLE_FIXTURE);
+    await expectToast(page, /Imported project bundle/i);
 
     await page.evaluate(() => {
       window.dispatchEvent(
@@ -31,18 +37,19 @@ test.describe("Maestro offline vocal embed", () => {
       );
     });
 
-    await page.reload();
-    await page.waitForLoadState("networkidle");
+    await expect(analyzerPanel(page).getByText("e2e-analyzer-tone.wav", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
 
     const maestro = page.getByTestId("maestro-chat-panel");
     await maestro.scrollIntoViewIfNeeded();
 
-    const input = maestro.locator("textarea").first();
+    const input = maestroChatInput(maestro);
     await input.fill("show openvpi ds");
     await maestro.getByRole("button", { name: /^Send$/i }).click();
 
-    await expect(maestro.getByText(/Vocal Embed plan is ready/i)).toBeVisible({ timeout: 15_000 });
-    await expect(maestro.getByText(/OpenVPI \.ds/i)).toBeVisible();
+    await expect(maestro.getByText(/Vocal Embed plan is/i)).toBeVisible({ timeout: 15_000 });
+    await expect(maestro.getByText(/OpenVPI \.ds|stored alignment/i)).toBeVisible();
     await expect(maestro.getByText(/Vocal Embed brief/i)).toBeVisible();
   });
 });

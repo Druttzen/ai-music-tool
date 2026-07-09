@@ -2,6 +2,8 @@
  * Build a MusicGen text prompt from project + analyzer context.
  */
 
+import { isGuidedPasteBlank } from "./suno-guided-workflow";
+
 function normalizeToken(s) {
   return String(s || "").replace(/\s+/g, " ").trim();
 }
@@ -20,6 +22,21 @@ function normalizeToken(s) {
 export function buildMusicGenPrompt(input = {}) {
   const custom = normalizeToken(input.customPrompt);
   if (custom) return custom.slice(0, 480);
+
+  if (
+    !input.audioAnalysis &&
+    isGuidedPasteBlank({
+      selectedGenres: input.selectedGenres,
+      selectedSounds: input.selectedSounds,
+      selectedRhythms: input.selectedRhythms,
+      tempo: input.tempo,
+      idea: input.idea,
+      moodWords: input.moodWords,
+      vocal: "",
+    })
+  ) {
+    return "";
+  }
 
   const parts = [];
   const genres = (input.selectedGenres || []).slice(0, 2);

@@ -523,7 +523,10 @@ const LEGACY_LANGUAGE_ALIASES = {
 };
 
 export function normalizeLyricLanguage(label) {
-  return LEGACY_LANGUAGE_ALIASES[label] || label || "English";
+  if (label === undefined || label === null) return "English";
+  const trimmed = String(label).trim();
+  if (!trimmed) return "";
+  return LEGACY_LANGUAGE_ALIASES[trimmed] || trimmed;
 }
 
 export const SUNO_LYRIC_SPECIAL_OPTIONS = [

@@ -3,6 +3,7 @@ import {
   buildMinimalLyricsScaffold,
   buildSunoPastedLyricsField,
   buildSunoPastedStyleLine,
+  isGuidedPasteBlank,
 } from "../app/lib/suno-guided-workflow.js";
 import { SUNO_LYRICS_CHAR_TYPICAL_MAX } from "../app/lib/suno-limits.js";
 
@@ -24,6 +25,25 @@ describe("buildSunoPastedStyleLine", () => {
     expect(out).not.toMatch(/\brules:/i);
     expect(out).not.toMatch(/\bgoal:/i);
     expect(out).not.toMatch(/\bmode:/i);
+  });
+});
+
+describe("isGuidedPasteBlank", () => {
+  it("is true for reset blank slate (no vocal, genres, or theme)", () => {
+    expect(
+      isGuidedPasteBlank({
+        selectedGenres: [],
+        vocal: "",
+        lyricTheme: "",
+        moodWords: "balanced",
+      }),
+    ).toBe(true);
+    expect(buildSunoPastedStyleLine({ vocal: "", moodWords: "balanced" })).toBe("");
+    expect(buildSunoPastedLyricsField({ vocal: "", moodWords: "balanced" })).toBe("");
+  });
+
+  it("is false once vocal mode is chosen", () => {
+    expect(isGuidedPasteBlank({ vocal: "Instrumental", moodWords: "balanced" })).toBe(false);
   });
 });
 

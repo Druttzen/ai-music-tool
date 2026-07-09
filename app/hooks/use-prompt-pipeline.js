@@ -12,6 +12,7 @@ import {
 import {
   buildSunoPastedLyricsField,
   buildSunoPastedStyleLine,
+  isGuidedPasteBlank,
 } from "../lib/suno-guided-workflow";
 import { applySunoPasteToSlices } from "../lib/suno-reimport";
 import { buildUsableAnalyzerStylePrompt } from "../lib/analyzer-guided-merge";
@@ -145,7 +146,40 @@ export function usePromptPipeline(input) {
     ],
   );
 
+  const blankPasteInput = useMemo(
+    () => ({
+      selectedGenres: input.selectedGenres,
+      selectedSounds: input.selectedSounds,
+      selectedRhythms: input.selectedRhythms,
+      vocal: input.vocal,
+      idea: input.idea,
+      rules: input.rules,
+      tempo: input.tempo,
+      moodWords,
+      voiceStyleLine: input.voiceStyleLine,
+      generatedLyrics: input.generatedLyrics,
+      lyricTheme: input.lyricTheme,
+      lyricStructure: input.lyricStructure,
+    }),
+    [
+      input.selectedGenres,
+      input.selectedSounds,
+      input.selectedRhythms,
+      input.vocal,
+      input.idea,
+      input.rules,
+      input.tempo,
+      moodWords,
+      input.voiceStyleLine,
+      input.generatedLyrics,
+      input.lyricTheme,
+      input.lyricStructure,
+    ],
+  );
+
   const prompt = useMemo(() => {
+    if (isGuidedPasteBlank(blankPasteInput)) return "";
+
     if (input.promptEngine === "Suno-like") {
       return buildSunoLikePrompt({
         ...standardParams,
@@ -162,6 +196,7 @@ export function usePromptPipeline(input) {
 
     return buildStandardPrompt({ ...standardParams, format });
   }, [
+    blankPasteInput,
     input.promptEngine,
     input.promptFormat,
     input.voiceStyleLine,

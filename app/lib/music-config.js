@@ -17,7 +17,7 @@ export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
 export const APP_VERSION =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION
     ? process.env.NEXT_PUBLIC_APP_VERSION
-    : "0.38.0";
+    : "0.39.0";
 export const AUTHOR = "DJ M@D";
 
 export const DEFAULT_STATE = {
@@ -62,6 +62,10 @@ export const DEFAULT_STATE = {
   sunoPasteActive: false,
 };
 
+export const BLANK_LYRIC_STYLE = "";
+export const BLANK_LYRIC_MODE = "";
+export const BLANK_LYRIC_LANGUAGE = "";
+
 /** Blank project — no preselected genres, sounds, rules, or prompt text (guided step 1). */
 export const BLANK_STATE = {
   idea: "",
@@ -80,9 +84,9 @@ export const BLANK_STATE = {
   scores: { bass: 3, rhythm: 3, identity: 3, clarity: 3 },
   mood: { darkness: 50, energy: 50, aggression: 50, emotion: 50, complexity: 50, space: 50 },
   lyricTheme: "",
-  lyricLanguage: "English",
+  lyricLanguage: BLANK_LYRIC_LANGUAGE,
   lyricStructure: "",
-  lyricStyle: "Dark poetic",
+  lyricStyle: BLANK_LYRIC_STYLE,
   lyricDensity: 50,
   promptFormat: "Balanced",
   promptEngine: "Standard",
@@ -92,7 +96,7 @@ export const BLANK_STATE = {
   generatedHooks: "",
   generatedHooksStyle: "",
   lyricVariantSeed: 0,
-  lyricMode: "Structured Song",
+  lyricMode: BLANK_LYRIC_MODE,
   voiceRefFirstName: "",
   voiceRefLastName: "",
   voiceStyleLine: "",

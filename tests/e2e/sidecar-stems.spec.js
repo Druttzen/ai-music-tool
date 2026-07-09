@@ -38,8 +38,11 @@ test.describe("Sidecar Demucs stems (requires stems extra)", () => {
 
     await panel.getByRole("button", { name: "Separate stems (Demucs)" }).click();
 
+    const toast = page.getByTestId("action-toast");
+    await expect(toast).toContainText(/Stems ready|stem separation|Re-attach/i, { timeout: 300_000 });
+
     await expect(panel.getByRole("button", { name: /↓ vocals/i })).toBeVisible({
-      timeout: 240_000,
+      timeout: 60_000,
     });
     await expect(panel.getByRole("button", { name: /↓ drums/i })).toBeVisible();
   });
