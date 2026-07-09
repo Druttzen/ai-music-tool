@@ -322,6 +322,13 @@ export function evaluateGuidedStepCoach(snapshot = {}) {
         action: "focusVocalEmbed",
       });
       improvements.push({
+        id: "vocal-embed-align-handoff",
+        title: "Align & export handoff pack",
+        description:
+          "Export plan JSON, audio, and align-preview.json in one step for external DiffSinger/RVC workflows.",
+        action: "focusVocalEmbed",
+      });
+      improvements.push({
         id: "vocal-embed-preview",
         title: "Try Vocal Embed preview mix",
         description: "Open Vocal Embed Studio, attach a guide vocal if needed, and synthesize a local WAV.",

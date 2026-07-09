@@ -18,6 +18,7 @@ import { sendMaestroChatToLlm } from "../lib/maestro-chat-llm";
 import { isCoProducerLlmReady } from "../lib/co-producer-llm";
 import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
+import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 import { getStepCount, resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 
@@ -132,6 +133,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       hasAudioAnalysis: !!audioAnalysis,
       hasImageAnalysis: !!imageAnalysis,
       hasMusicGenSketch: audioAnalysis?.sourceEngine === "musicgen",
+      hasHighlightMelody: hasMeaningfulHighlightRange(audioAnalysis),
       musicGenAvailable: !!sidecarGenerateAvailable,
       audioAnalysis,
     }),
@@ -240,8 +242,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
             useMelodyReference: cmd === "generateMusicGenMelody",
             useHighlightMelody:
               cmd === "generateMusicGenMelody" &&
-              audioAnalysis?.highlightStart != null &&
-              audioAnalysis?.highlightEnd != null,
+              !!artifacts?.useHighlightMelody &&
+              hasMeaningfulHighlightRange(audioAnalysis),
           });
         }
       }

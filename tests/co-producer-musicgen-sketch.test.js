@@ -46,6 +46,17 @@ describe("buildCoProducerAdvisoryReport musicgen sketch", () => {
 });
 
 describe("appendMusicGenSketchToReport", () => {
+  it("notes highlight melody mode in sketch line", () => {
+    const out = appendMusicGenSketchToReport("report", {
+      prompt: "loop",
+      bpm: "120 BPM",
+      key: "C",
+      mode: "melody",
+      highlightMelody: true,
+    });
+    expect(out).toMatch(/highlight melody/i);
+  });
+
   it("does not duplicate sketch lines", () => {
     const once = appendMusicGenSketchToReport("CO-PRODUCER AI REPORT\nok", {
       prompt: "loop",

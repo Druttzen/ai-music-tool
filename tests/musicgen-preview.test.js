@@ -66,4 +66,15 @@ describe("buildMusicGenAnalysisReport", () => {
     expect(report.waveformPeaks?.length).toBeGreaterThan(0);
     expect(report.fileName).toBe("musicgen-test.wav");
   });
+
+  it("records highlight melody conditioning in metadata", async () => {
+    const blob = makeSilentWavBlob();
+    const report = await buildMusicGenAnalysisReport(blob, {
+      prompt: "loop",
+      mode: "melody",
+      highlightMelody: true,
+    });
+    expect(report.musicGenHighlightMelody).toBe(true);
+    expect(report.trackSummary).toMatch(/highlight melody/i);
+  });
 });

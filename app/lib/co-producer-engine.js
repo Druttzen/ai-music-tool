@@ -12,13 +12,19 @@ export function formatMusicGenSketchBrief(audioAnalysis) {
     summary: audioAnalysis.trackSummary || "",
     model: audioAnalysis.musicGenModel || "",
     mode: audioAnalysis.musicGenMode || "",
+    highlightMelody: !!audioAnalysis.musicGenHighlightMelody,
   };
 }
 
 /** @param {string} output @param {ReturnType<typeof formatMusicGenSketchBrief>} sketch */
 export function appendMusicGenSketchToReport(output, sketch) {
   if (!sketch) return output;
-  const modeNote = sketch.mode === "melody" ? " · melody-conditioned" : "";
+  const modeNote =
+    sketch.mode === "melody"
+      ? sketch.highlightMelody
+        ? " · highlight melody"
+        : " · melody-conditioned"
+      : "";
   const line = `Local MusicGen sketch${modeNote}: “${(sketch.prompt || sketch.summary || "preview").slice(0, 120)}” (${sketch.bpm || "?"}, ${sketch.key || "?"}). Treat AUDIO/MG rule lines as groove reference before Suno.`;
   if (output.includes("Local MusicGen sketch")) return output;
   return `${output.trim()}\n\n${line}`;

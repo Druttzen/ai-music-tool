@@ -140,6 +140,49 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     setStatusWithTime("Vocal embed handoff pack downloaded (plan + README + audio files)", "success");
   }, [alignPreview, audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
 
+  const alignAndExportHandoffPack = useCallback(async () => {
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete the plan before exporting handoff pack", "warning");
+      return;
+    }
+    if (!guideVocalFile) {
+      setStatusWithTime("Attach a guide vocal for align + handoff export", "warning");
+      return;
+    }
+    setSidecarBusy(true);
+    try {
+      const ready = await waitForSidecar(20_000);
+      if (!ready) {
+        setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
+        return;
+      }
+      const payload = buildVocalEmbedExport(plan);
+      const preview = await previewVocalAlignViaSidecar(
+        payload,
+        guideVocalFile,
+        guideVocalFile.name,
+      );
+      setAlignPreview(preview);
+      const instrumental = await resolveInstrumentalBlob();
+      await exportVocalEmbedHandoffPack({
+        planEnvelope: payload,
+        instrumental,
+        instrumentalName: audioAnalysis?.fileName || "instrumental.wav",
+        guideVocal: guideVocalFile,
+        guideName: guideVocalFile?.name || "guide-vocal.wav",
+        alignPreview: preview,
+      });
+      setStatusWithTime(
+        `Handoff pack downloaded (${preview.align_method} align · ${preview.word_count} words)`,
+        "success",
+      );
+    } catch (err) {
+      setStatusWithTime(err instanceof Error ? err.message : "Align & handoff export failed", "error");
+    } finally {
+      setSidecarBusy(false);
+    }
+  }, [audioAnalysis?.fileName, guideVocalFile, plan, resolveInstrumentalBlob, setStatusWithTime]);
+
   const previewAlignment = useCallback(async () => {
     if (!guideVocalFile) {
       setStatusWithTime("Attach a guide vocal to preview word alignment", "warning");
@@ -588,6 +631,14 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           className="rounded-2xl border border-violet-400/35 bg-violet-500/15 px-4 py-2 text-sm font-bold text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
         >
           Export handoff pack
+        </button>
+        <button
+          type="button"
+          disabled={sidecarBusy || !guideVocalFile || plan.stage !== "ready"}
+          onClick={() => void alignAndExportHandoffPack()}
+          className="rounded-2xl border border-violet-400/45 bg-violet-500/20 px-4 py-2 text-sm font-bold text-violet-50 hover:bg-violet-500/30 disabled:opacity-40"
+        >
+          {sidecarBusy ? "Working…" : "Align & export handoff"}
         </button>
         <button
           type="button"

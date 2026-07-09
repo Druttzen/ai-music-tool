@@ -45,4 +45,4 @@ jobs:
             sleep 2
           done
           curl -sf http://127.0.0.1:8723/health
-          npx playwright test tests/e2e/musicgen-live.spec.js
+          npx playwright test tests/e2e/musicgen-live.spec.js tests/e2e/musicgen-melody.spec.js tests/e2e/musicgen-highlight-melody.spec.js

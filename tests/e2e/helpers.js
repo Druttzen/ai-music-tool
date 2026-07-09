@@ -61,6 +61,20 @@ export async function uploadAnalyzerAudioFixture(panel, fixturePath, fileName, t
   });
 }
 
+/** Patch highlight range on loaded analyzer state (dev e2e hook). */
+export async function patchAudioAnalysisHighlight(page, { highlightStart, highlightEnd }) {
+  await page.evaluate(
+    ({ highlightStart, highlightEnd }) => {
+      window.dispatchEvent(
+        new CustomEvent("aimc-e2e-patch-audio-analysis", {
+          detail: { highlightStart, highlightEnd },
+        }),
+      );
+    },
+    { highlightStart, highlightEnd },
+  );
+}
+
 export function coProducerPanel(page) {
   return page.locator("section").filter({ hasText: "Co‑Producer AI" });
 }

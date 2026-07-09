@@ -435,6 +435,34 @@ export function buildMaestroReply(message, snapshot, options = {}) {
     };
   }
 
+  const asksHighlightMelody =
+    /\bhighlight\b.*\b(melody|music\s*gen|region)\b/i.test(lower) ||
+    /\b(waveform|region)\b.*\b(melody|music\s*gen)\b/i.test(lower);
+  if (asksHighlightMelody) {
+    if (snapshot.musicGenAvailable && snapshot.hasAudioAnalysis && snapshot.hasHighlightMelody) {
+      const musicGenPrompt = buildMusicGenPrompt({
+        selectedGenres: snapshot.selectedGenres,
+        selectedSounds: snapshot.selectedSounds,
+        selectedRhythms: snapshot.selectedRhythms,
+        tempo: snapshot.tempo,
+        idea: snapshot.idea,
+        moodWords: buildMoodWords(snapshot.mood || {}),
+        audioAnalysis: snapshot.audioAnalysis,
+      });
+      artifacts.musicGenPrompt = musicGenPrompt;
+      artifacts.useHighlightMelody = true;
+      commands.push("generateMusicGenMelody", "gotoPolish");
+      return {
+        reply:
+          "Regenerating MusicGen from your waveform highlight region only — opening Polish when the WAV lands.",
+        patch: null,
+        artifacts,
+        suggestions: ["Regenerate with melody", "Show the style prompt", "Merge the track analysis"],
+        commands,
+      };
+    }
+  }
+
   const asksMusicGenMelody =
     /\b(regenerate|remix|retry).*\b(melody|music\s*gen)\b/i.test(lower) ||
     /\bmelody\b.*\b(music\s*gen|musicgen|preview|sketch)\b/i.test(lower);
@@ -669,6 +697,9 @@ export function defaultMaestroSuggestions(snapshot = {}) {
   const suggestions = [];
   if (snapshot.hasMusicGenSketch && snapshot.musicGenAvailable && snapshot.hasAudioAnalysis) {
     suggestions.push("Regenerate with melody");
+    if (snapshot.hasHighlightMelody) {
+      suggestions.push("Regenerate highlight melody");
+    }
   } else if (snapshot.hasAudioAnalysis) {
     suggestions.push("Use the track analysis");
   } else if (snapshot.hasImageAnalysis) {

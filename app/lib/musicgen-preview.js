@@ -6,7 +6,7 @@ import { analyzeAudioBuffer } from "./audio-analyzer";
 
 /**
  * @param {Blob|File} blob
- * @param {{ prompt?: string, model?: string, durationSec?: number, fileName?: string, mode?: string }} meta
+ * @param {{ prompt?: string, model?: string, durationSec?: number, fileName?: string, mode?: string, highlightMelody?: boolean }} meta
  */
 export async function buildMusicGenAnalysisReport(blob, meta = {}) {
   const fileName = meta.fileName || `musicgen-preview-${Date.now()}.wav`;
@@ -28,6 +28,7 @@ export async function buildMusicGenAnalysisReport(blob, meta = {}) {
   const prompt = String(meta.prompt || "").trim();
   const model = meta.model || "musicgen";
   const durationSec = meta.durationSec ?? report.duration;
+  const highlightMelody = !!meta.highlightMelody;
   return {
     ...report,
     waveformSource: "sample",
@@ -36,8 +37,9 @@ export async function buildMusicGenAnalysisReport(blob, meta = {}) {
     musicGenModel: model,
     musicGenDurationSec: durationSec,
     musicGenMode: meta.mode || "text",
+    musicGenHighlightMelody: highlightMelody,
     trackSummary: prompt
-      ? `MusicGen preview (${model}, ${durationSec}s): ${prompt.slice(0, 160)}`
+      ? `MusicGen preview (${model}, ${durationSec}s${highlightMelody ? ", highlight melody" : ""}): ${prompt.slice(0, 160)}`
       : report.trackSummary,
     vocals: "Instrumental (MusicGen)",
   };
@@ -56,6 +58,7 @@ export async function enrichMusicGenReportWithSidecar(file, report) {
       musicGenModel: report.musicGenModel,
       musicGenDurationSec: report.musicGenDurationSec,
       musicGenMode: report.musicGenMode,
+      musicGenHighlightMelody: report.musicGenHighlightMelody,
       analysisEngine: "musicgen+sidecar",
       trackSummary: report.trackSummary,
       vocals: report.vocals,

@@ -400,6 +400,27 @@ describe("maestro-chat-llm", () => {
     expect(chips[0]).toBe("Regenerate with melody");
   });
 
+  it("offers highlight melody chip when highlight range exists", () => {
+    const chips = defaultMaestroSuggestions({
+      hasMusicGenSketch: true,
+      musicGenAvailable: true,
+      hasAudioAnalysis: true,
+      hasHighlightMelody: true,
+    });
+    expect(chips).toContain("Regenerate highlight melody");
+  });
+
+  it("regenerate highlight melody sets useHighlightMelody artifact", () => {
+    const res = buildMaestroReply("Regenerate highlight melody", {
+      ...SNAPSHOT,
+      musicGenAvailable: true,
+      hasAudioAnalysis: true,
+      hasHighlightMelody: true,
+    });
+    expect(res.commands).toContain("generateMusicGenMelody");
+    expect(res.artifacts.useHighlightMelody).toBe(true);
+  });
+
   it("builds system message containing project state and allowed keys", () => {
     const messages = buildMaestroLlmMessages(
       [{ role: "user", text: "darker" }],

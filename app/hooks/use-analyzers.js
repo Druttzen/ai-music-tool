@@ -79,7 +79,16 @@ export function useAnalyzers({
       setAudioAnalysis(normalizeAudioAnalysis(detail));
     };
     window.addEventListener("aimc-e2e-set-audio-analysis", handler);
-    return () => window.removeEventListener("aimc-e2e-set-audio-analysis", handler);
+    const patchHandler = (event) => {
+      const detail = event?.detail;
+      if (!detail || typeof detail !== "object") return;
+      setAudioAnalysis((prev) => (prev ? normalizeAudioAnalysis({ ...prev, ...detail }) : prev));
+    };
+    window.addEventListener("aimc-e2e-patch-audio-analysis", patchHandler);
+    return () => {
+      window.removeEventListener("aimc-e2e-set-audio-analysis", handler);
+      window.removeEventListener("aimc-e2e-patch-audio-analysis", patchHandler);
+    };
   }, []);
 
   useEffect(() => {
@@ -796,6 +805,10 @@ export function useAnalyzers({
             durationSec: resolvedDuration,
             fileName,
             mode: mode || (options.useMelodyReference ? "melody" : "text"),
+            highlightMelody:
+              !!options.useHighlightMelody &&
+              !!audioAnalysis &&
+              hasMeaningfulHighlightRange(audioAnalysis),
           });
           report = await enrichMusicGenReportWithSidecar(file, report);
           setAudioPreviewFromBlob(file);
@@ -807,8 +820,14 @@ export function useAnalyzers({
             if (promptEngine === "Suno-like") {
               navigateToPolishStep();
             }
+            const highlightNote =
+              options.useHighlightMelody &&
+              audioAnalysis &&
+              hasMeaningfulHighlightRange(audioAnalysis)
+                ? " · highlight"
+                : "";
             setStatusWithTime(
-              `MusicGen preview merged into Suno fields (${model || "musicgen"} · ${resolvedDuration}s${mode === "melody" ? " · melody" : ""})`,
+              `MusicGen preview merged into Suno fields (${model || "musicgen"} · ${resolvedDuration}s${mode === "melody" ? " · melody" : ""}${highlightNote})`,
               "success",
             );
           } else {
