@@ -1,9 +1,9 @@
 """Vocal Embed Studio plan validation."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from ai_sidecar.main import app
+from ai_sidecar.vocal_synth import synthesis_stack_available
 
 client = TestClient(app)
 
@@ -27,7 +27,7 @@ def test_health_includes_vocal_embed_flags():
     assert res.status_code == 200
     body = res.json()
     assert body["vocal_embed_plan_available"] is True
-    assert body["vocal_synthesis_available"] is False
+    assert body["vocal_synthesis_available"] is synthesis_stack_available()
 
 
 def test_vocal_embed_plan_accepts_ready_plan():
@@ -37,7 +37,7 @@ def test_vocal_embed_plan_accepts_ready_plan():
     assert body["ok"] is True
     assert body["section_count"] == 1
     assert body["mode"] == "guide-vocal-conversion"
-    assert body["synthesis_available"] is False
+    assert body["synthesis_available"] is synthesis_stack_available()
     assert body["next_steps"]
 
 

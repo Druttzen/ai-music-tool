@@ -52,11 +52,15 @@ curl http://127.0.0.1:8723/health
 # "vision_available": true
 ```
 
-## Vocal Embed Studio roadmap
+## Vocal Embed Studio
 
 The app's **Vocal Embed Studio** creates a local handoff plan for adding vocals to an
 existing instrumental without relying on Suno's generation engine. The first app layer exports
 a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix targets.
+
+**Placement-mix v1** (`POST /vocal-embed/synthesize`) is available with base sidecar deps
+(librosa + soundfile). It ducks the instrumental under lyric sections and overlays a guide vocal.
+Optional `pip install -e ai-sidecar[vocal]` adds scipy for vocal high-pass filtering.
 
 Future heavy sidecar options should stay opt-in:
 
@@ -87,8 +91,9 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 
 | Route | Purpose |
 |-------|---------|
-| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available`, `vocal_embed_plan_available` |
+| `GET /health` | Liveness; includes `stems_available`, `genre_available`, `vision_available`, `vocal_embed_plan_available`, `vocal_synthesis_available` |
 | `POST /analyze` | Librosa tempo/key/spectral/percussive report |
-| `POST /vocal-embed/plan` | Validate Vocal Embed Studio JSON plan from the app (synthesis stack is future opt-in) |
+| `POST /vocal-embed/plan` | Validate Vocal Embed Studio JSON plan from the app |
+| `POST /vocal-embed/synthesize` | Placement-mix v1: multipart `plan_json` + `instrumental` + optional `guide_vocal` → mixed WAV |
 | `POST /separate` | Demucs stem separation (requires `stems` extra) |
 | `GET /separate/download/{job_id}/{filename}` | Download one stem WAV |

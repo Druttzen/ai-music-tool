@@ -1,6 +1,6 @@
 [project]
 name = "ai-music-sidecar"
-version = "0.12.0"
+version = "0.12.1"
 description = "Local AI inference sidecar for AI Music Creator (analysis, stem separation, generation)."
 requires-python = ">=3.10,<3.13"  # PyTorch / audiocraft / demucs have no 3.13+ wheels yet
 
@@ -19,8 +19,10 @@ dependencies = [
 stems = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0"]
 classify = ["torch>=2.2", "transformers>=4.40"]
 vision = ["torch>=2.2", "transformers>=4.40", "pillow>=10.0", "scikit-learn>=1.3"]
+vocal = ["scipy>=1.11"]
+vocal-ml = ["torch>=2.2", "torchaudio>=2.2"]
 generate = ["torch>=2.2", "audiocraft>=1.3"]   # MusicGen (weights are CC-BY-NC: non-commercial)
-all = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0", "transformers>=4.40", "pillow>=10.0", "scikit-learn>=1.3", "audiocraft>=1.3"]
+all = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0", "transformers>=4.40", "pillow>=10.0", "scikit-learn>=1.3", "audiocraft>=1.3", "scipy>=1.11"]
 
 [build-system]
 requires = ["hatchling"]

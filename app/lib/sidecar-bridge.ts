@@ -224,6 +224,39 @@ export async function submitVocalEmbedPlanToSidecar(
   return res.json() as Promise<SidecarVocalEmbedPlanResponse>;
 }
 
+export async function synthesizeVocalEmbedViaSidecar(
+  envelope: Record<string, unknown>,
+  instrumental: Blob,
+  instrumentalName: string,
+  guideVocal?: Blob | null,
+  guideName = "guide-vocal.wav",
+): Promise<Blob> {
+  const form = new FormData();
+  form.append("plan_json", JSON.stringify(envelope));
+  form.append("instrumental", instrumental, instrumentalName || "instrumental.wav");
+  if (guideVocal) {
+    form.append("guide_vocal", guideVocal, guideName || "guide-vocal.wav");
+  }
+
+  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/synthesize`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `vocal embed synthesis failed (${res.status})`);
+  }
+
+  return res.blob();
+}
+
 /**
  * POST audio file bytes to /analyze and return librosa tempo/key/centroid.
  */

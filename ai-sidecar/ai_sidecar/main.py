@@ -23,7 +23,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -33,6 +33,11 @@ from .vocal_embed import (
     VocalEmbedPlanResponse,
     accept_vocal_embed_plan,
     vocal_synthesis_available,
+)
+from .vocal_synth import (
+    parse_plan_envelope,
+    synthesis_stack_available,
+    synthesize_vocal_embed_mix,
 )
 from .genre_classifier import MODEL_ID as GENRE_MODEL_ID
 from .genre_classifier import classify_music_genres, genre_classification_available
@@ -195,11 +200,50 @@ def health() -> Health:
 
 @app.post("/vocal-embed/plan", response_model=VocalEmbedPlanResponse)
 async def vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanResponse:
-    """Validate a Vocal Embed Studio JSON plan from the app (synthesis is a future opt-in extra)."""
+    """Validate a Vocal Embed Studio JSON plan from the app."""
     try:
         return accept_vocal_embed_plan(body)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/vocal-embed/synthesize")
+async def vocal_embed_synthesize(
+    plan_json: str = Form(...),
+    instrumental: UploadFile = File(...),
+    guide_vocal: UploadFile | None = File(None),
+):
+    """Placement-mix v1: duck instrumental under plan sections and overlay guide vocal."""
+    if not synthesis_stack_available():
+        raise HTTPException(status_code=503, detail="vocal synthesis deps unavailable")
+
+    try:
+        plan = parse_plan_envelope(plan_json)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    inst_raw = await instrumental.read()
+    if not inst_raw:
+        raise HTTPException(status_code=400, detail="empty instrumental upload")
+
+    guide_raw = await guide_vocal.read() if guide_vocal is not None else None
+    try:
+        wav_bytes, meta = synthesize_vocal_embed_mix(plan, inst_raw, guide_raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.write(wav_bytes)
+    tmp.close()
+    filename = f"vocal-embed-mix-{meta.get('engine', 'mix')}.wav"
+    return FileResponse(
+        tmp.name,
+        media_type="audio/wav",
+        filename=filename,
+        headers={"X-Vocal-Embed-Engine": str(meta.get("engine", ""))},
+    )
 
 
 @app.post("/dev-session/ping")

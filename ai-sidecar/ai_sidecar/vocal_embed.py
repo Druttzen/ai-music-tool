@@ -24,13 +24,11 @@ class VocalEmbedPlanResponse(BaseModel):
     next_steps: list[str] = Field(default_factory=list)
 
 
-def _synthesis_stack_available() -> bool:
-    """GPU vocal stacks (DiffSinger/RVC) are opt-in and not bundled in base sidecar."""
-    return False
+from .vocal_synth import synthesis_stack_available
 
 
 def vocal_synthesis_available() -> bool:
-    return _synthesis_stack_available()
+    return synthesis_stack_available()
 
 
 def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanResponse:
@@ -45,7 +43,7 @@ def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespo
     sections = plan.get("sections") or []
     section_count = len(sections) if isinstance(sections, list) else 0
     warnings = plan.get("warnings") or []
-    synthesis_available = _synthesis_stack_available()
+    synthesis_available = vocal_synthesis_available()
 
     if stage != "ready":
         missing = warnings if isinstance(warnings, list) and warnings else ["Plan is still in draft mode."]
@@ -56,10 +54,15 @@ def accept_vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespo
         "Run alignment (MFA) when guide vocal + transcript are available.",
         "Apply mix plan ducking and LUFS target before export.",
     ]
-    if not synthesis_available:
+    if synthesis_available:
         next_steps.insert(
             0,
-            "Plan accepted — install optional vocal synthesis extra when DiffSinger/RVC integration ships.",
+            "POST /vocal-embed/synthesize with instrumental + guide vocal for placement-mix preview.",
+        )
+    else:
+        next_steps.insert(
+            0,
+            "Install sidecar base deps (librosa + soundfile) to enable placement-mix synthesis.",
         )
 
     return VocalEmbedPlanResponse(

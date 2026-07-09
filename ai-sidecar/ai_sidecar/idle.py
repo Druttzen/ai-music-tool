@@ -13,7 +13,13 @@ _LOCK = threading.Lock()
 _WATCHDOG_STARTED = False
 
 # Only these routes count as tool use (/health probes do not extend the timer).
-_ACTIVITY_PATHS = frozenset({"/analyze", "/separate", "/dev-session/ping", "/vocal-embed/plan"})
+_ACTIVITY_PATHS = frozenset({
+    "/analyze",
+    "/separate",
+    "/dev-session/ping",
+    "/vocal-embed/plan",
+    "/vocal-embed/synthesize",
+})
 
 
 def configure_idle_exit(idle_exit_sec: float) -> None:

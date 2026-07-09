@@ -1,18 +1,24 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   useProjectWorkspaceActions,
   useProjectWorkspaceAnalyzerState,
   useProjectWorkspaceProjectState,
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
+import { resolveAudioCacheBlob } from "../lib/audio-cache";
+import { SUPPORTED_AUDIO_ACCEPT, isSupportedAudioFile } from "../lib/analyzer-file-types";
 import {
   buildVocalEmbedExport,
   buildVocalEmbedPlan,
   formatVocalEmbedTime,
 } from "../lib/vocal-embed-engine";
-import { submitVocalEmbedPlanToSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import {
+  submitVocalEmbedPlanToSidecar,
+  synthesizeVocalEmbedViaSidecar,
+  waitForSidecar,
+} from "../lib/sidecar-bridge";
 import { Panel } from "./ui-blocks";
 
 export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
@@ -25,19 +31,21 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     vocal,
     voiceStyleLine,
   } = useProjectWorkspaceProjectState();
-  const { audioAnalysis } = useProjectWorkspaceAnalyzerState();
+  const { audioAnalysis, audioPreviewUrl } = useProjectWorkspaceAnalyzerState();
   const { voiceStyleCompact } = useProjectWorkspacePromptState();
   const { copyToClipboard, setStatusWithTime } = useProjectWorkspaceActions();
   const [draftLyrics, setDraftLyrics] = useState("");
   const [guideVocalAttached, setGuideVocalAttached] = useState(false);
+  const [guideVocalFile, setGuideVocalFile] = useState(null);
   const [sidecarBusy, setSidecarBusy] = useState(false);
+  const guideInputRef = useRef(null);
 
   const plan = useMemo(
     () =>
       buildVocalEmbedPlan({
         audioAnalysis,
         generatedLyrics,
-        guideVocalAttached,
+        guideVocalAttached: guideVocalAttached || !!guideVocalFile,
         lyricStructure,
         lyricTheme,
         selectedGenres,
@@ -52,6 +60,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       draftLyrics,
       generatedLyrics,
       guideVocalAttached,
+      guideVocalFile,
       lyricStructure,
       lyricTheme,
       selectedGenres,
@@ -73,6 +82,16 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     URL.revokeObjectURL(url);
     setStatusWithTime("Vocal embed plan exported");
   };
+
+  const resolveInstrumentalBlob = useCallback(async () => {
+    const resolved = await resolveAudioCacheBlob(audioAnalysis);
+    if (resolved?.blob) return resolved.blob;
+    if (audioPreviewUrl) {
+      const res = await fetch(audioPreviewUrl);
+      return res.blob();
+    }
+    return null;
+  }, [audioAnalysis, audioPreviewUrl]);
 
   const submitToSidecar = useCallback(async () => {
     if (plan.stage !== "ready") {
@@ -96,6 +115,61 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     }
   }, [plan, setStatusWithTime]);
 
+  const synthesizePreview = useCallback(async () => {
+    if (plan.stage !== "ready") {
+      setStatusWithTime("Complete the plan first (instrumental, lyrics, voice style)", "warning");
+      return;
+    }
+    if (!guideVocalFile && !guideVocalAttached) {
+      setStatusWithTime("Attach a guide vocal file for placement-mix synthesis", "warning");
+      return;
+    }
+    if (!guideVocalFile) {
+      setStatusWithTime("Choose a guide vocal audio file below", "warning");
+      return;
+    }
+
+    setSidecarBusy(true);
+    try {
+      const ready = await waitForSidecar(20_000);
+      if (!ready) {
+        setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
+        return;
+      }
+      const instrumental = await resolveInstrumentalBlob();
+      if (!instrumental) {
+        setStatusWithTime("Instrumental audio missing from cache — re-analyze the track", "warning");
+        return;
+      }
+      const payload = buildVocalEmbedExport(plan);
+      const mixBlob = await synthesizeVocalEmbedViaSidecar(
+        payload,
+        instrumental,
+        audioAnalysis?.fileName || "instrumental.wav",
+        guideVocalFile,
+        guideVocalFile.name,
+      );
+      const url = URL.createObjectURL(mixBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `vocal-embed-mix-${(audioAnalysis?.fileName || "track").replace(/\.[^.]+$/, "")}.wav`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatusWithTime("Placement-mix preview downloaded (placement-mix-v1)", "success");
+    } catch (err) {
+      setStatusWithTime(err instanceof Error ? err.message : "Vocal synthesis failed", "error");
+    } finally {
+      setSidecarBusy(false);
+    }
+  }, [
+    audioAnalysis?.fileName,
+    guideVocalAttached,
+    guideVocalFile,
+    plan,
+    resolveInstrumentalBlob,
+    setStatusWithTime,
+  ]);
+
   return (
     <Panel
       title="Vocal Embed Studio"
@@ -109,7 +183,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         }`}
       >
         {plan.stage === "ready"
-          ? "Ready to hand off to a local vocal synthesis/conversion sidecar."
+          ? "Ready for sidecar placement-mix (guide vocal + instrumental) or future RVC/DiffSinger stack."
           : "Draft mode: add the missing pieces below before synthesis/conversion."}
       </div>
 
@@ -138,10 +212,37 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
               checked={guideVocalAttached}
               onChange={(e) => setGuideVocalAttached(e.target.checked)}
             />
-            User will provide guide vocal timing
+            I will provide guide vocal timing
           </div>
-          <div className="mt-1 text-[11px] text-white/45">
-            Best results: guide vocal or MIDI. No guide means experimental lyrics-to-vocal synthesis.
+          <div className="mt-2">
+            <input
+              ref={guideInputRef}
+              type="file"
+              accept={SUPPORTED_AUDIO_ACCEPT}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!isSupportedAudioFile(file)) {
+                  setStatusWithTime("Guide vocal must be WAV, MP3, OGG, M4A, or FLAC", "warning");
+                  e.target.value = "";
+                  return;
+                }
+                setGuideVocalFile(file);
+                setGuideVocalAttached(true);
+                setStatusWithTime(`Guide vocal attached: ${file.name}`, "info");
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => guideInputRef.current?.click()}
+              className="rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1.5 text-xs font-bold text-fuchsia-100 hover:bg-fuchsia-500/20"
+            >
+              {guideVocalFile ? "Change guide vocal" : "Attach guide vocal file"}
+            </button>
+            {guideVocalFile ? (
+              <div className="mt-1 truncate text-[10px] text-white/45">{guideVocalFile.name}</div>
+            ) : null}
           </div>
         </label>
       </div>
@@ -206,7 +307,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         </pre>
       </div>
 
-      <div className="mt-3 grid gap-2 md:grid-cols-3">
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
         <button
           type="button"
           onClick={() => copyToClipboard(plan.sidecarBrief, "Vocal embed brief copied")}
@@ -227,9 +328,21 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           onClick={() => void submitToSidecar()}
           className="rounded-2xl border border-cyan-400/35 bg-cyan-500/15 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-cyan-500/25 disabled:opacity-40"
         >
-          {sidecarBusy ? "Sending to sidecar…" : "Send plan to sidecar"}
+          {sidecarBusy ? "Sidecar busy…" : "Send plan to sidecar"}
+        </button>
+        <button
+          type="button"
+          disabled={sidecarBusy || plan.stage !== "ready" || !guideVocalFile}
+          onClick={() => void synthesizePreview()}
+          className="rounded-2xl bg-emerald-300 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-200 disabled:opacity-40"
+        >
+          {sidecarBusy ? "Synthesizing…" : "Synthesize placement-mix preview"}
         </button>
       </div>
+      <p className="mt-2 text-[10px] leading-relaxed text-white/40">
+        Placement-mix v1 ducks the instrumental under lyric sections and overlays your guide vocal. Future{" "}
+        <span className="text-white/55">vocal-ml</span> extra adds RVC/DiffSinger conversion without Suno.
+      </p>
     </Panel>
   );
 });
