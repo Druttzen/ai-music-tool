@@ -15,6 +15,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ai_sidecar.diffsinger_openvpi import openvpi_configured, openvpi_ready, openvpi_status
+
 import numpy as np
 
 _RVC_ENGINE: Any | None = None
@@ -55,7 +57,14 @@ def diffsinger_configured() -> bool:
     return bool(
         os.environ.get("AIMC_DIFFSINGER_CMD", "").strip()
         or os.environ.get("AIMC_DIFFSINGER_URL", "").strip()
+        or openvpi_configured()
     )
+
+
+def diffsinger_ready() -> bool:
+    if openvpi_configured():
+        return openvpi_ready()
+    return diffsinger_configured()
 
 
 def full_ml_vocal_models_available() -> bool:
@@ -75,9 +84,11 @@ def vocal_model_status() -> dict[str, Any]:
         "rvc_models_dir": os.environ.get("AIMC_RVC_MODELS_DIR", "").strip() or None,
         "rvc_api_url": os.environ.get("AIMC_RVC_API_URL", "").strip() or None,
         "diffsinger_configured": diffsinger_configured(),
+        "diffsinger_ready": diffsinger_ready(),
         "diffsinger_cmd": os.environ.get("AIMC_DIFFSINGER_CMD", "").strip() or None,
         "diffsinger_url": os.environ.get("AIMC_DIFFSINGER_URL", "").strip() or None,
         "diffsinger_model_dir": os.environ.get("AIMC_DIFFSINGER_MODEL_DIR", "").strip() or None,
+        "diffsinger_openvpi": openvpi_status(),
         "models_ready": full_ml_vocal_models_available(),
     }
 
@@ -293,9 +304,13 @@ def _synthesize_with_diffsinger_cmd(plan: dict[str, Any], length: int, sample_ra
 
 
 def synthesize_with_diffsinger(plan: dict[str, Any], length: int, sample_rate: int) -> np.ndarray:
-    """Invoke a user-provided DiffSinger HTTP service or CLI bridge."""
+    """Invoke OpenVPI DiffSinger, HTTP service, or CLI bridge."""
     if not diffsinger_configured():
         raise RuntimeError("DiffSinger is not configured")
+    if openvpi_configured():
+        from ai_sidecar.diffsinger_openvpi import synthesize_with_openvpi  # noqa: PLC0415
+
+        return synthesize_with_openvpi(plan, length, sample_rate)
     if os.environ.get("AIMC_DIFFSINGER_URL", "").strip():
         return _synthesize_with_diffsinger_url(plan, length, sample_rate)
     return _synthesize_with_diffsinger_cmd(plan, length, sample_rate)

@@ -217,6 +217,17 @@ export interface SidecarVocalEmbedPlanResponse {
   next_steps: string[];
 }
 
+export interface SidecarOpenVpiStatus {
+  root: string | null;
+  acoustic_exp: string | null;
+  variance_exp: string | null;
+  python: string | null;
+  speaker: string | null;
+  language: string | null;
+  configured: boolean;
+  ready: boolean;
+}
+
 export interface SidecarVocalModelStatus {
   rvc_python: boolean;
   rvc_api: boolean;
@@ -227,9 +238,11 @@ export interface SidecarVocalModelStatus {
   rvc_models_dir: string | null;
   rvc_api_url: string | null;
   diffsinger_configured: boolean;
+  diffsinger_ready?: boolean;
   diffsinger_cmd: string | null;
   diffsinger_url: string | null;
   diffsinger_model_dir: string | null;
+  diffsinger_openvpi?: SidecarOpenVpiStatus;
   models_ready: boolean;
 }
 

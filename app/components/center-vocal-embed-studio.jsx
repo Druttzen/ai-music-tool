@@ -261,12 +261,17 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           </span>
           <span
             className={`rounded-full px-2 py-1 font-bold ${
-              vocalModels?.diffsinger_configured
+              vocalModels?.diffsinger_ready ?? vocalModels?.diffsinger_configured
                 ? "bg-sky-500/15 text-sky-100"
                 : "bg-white/10 text-white/45"
             }`}
           >
-            DiffSinger {vocalModels?.diffsinger_configured ? "on" : "off"}
+            DiffSinger{" "}
+            {vocalModels?.diffsinger_openvpi?.ready
+              ? "ready"
+              : vocalModels?.diffsinger_configured
+                ? "on"
+                : "off"}
           </span>
         </div>
       ) : null}
@@ -275,7 +280,8 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         <p className="mb-3 text-[10px] leading-relaxed text-white/40">
           For RVC: set <span className="text-white/55">AIMC_RVC_MODEL</span> or run an RVC API on{" "}
           <span className="text-white/55">AIMC_RVC_API_URL</span>. For DiffSinger: set{" "}
-          <span className="text-white/55">AIMC_DIFFSINGER_CMD</span> or <span className="text-white/55">AIMC_DIFFSINGER_URL</span>.
+          <span className="text-white/55">AIMC_DIFFSINGER_ROOT</span> + acoustic/variance checkpoints, or{" "}
+          <span className="text-white/55">AIMC_DIFFSINGER_CMD</span> / <span className="text-white/55">AIMC_DIFFSINGER_URL</span>.
           Run <span className="text-white/55">npm run sidecar:vocal-ml</span> for torch DSP fallback.
         </p>
       ) : null}

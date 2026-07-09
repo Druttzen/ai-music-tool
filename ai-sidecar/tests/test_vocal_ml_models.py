@@ -27,8 +27,21 @@ def test_rvc_api_counts_as_ready(monkeypatch):
     assert full_ml_vocal_models_available() is True
 
 
+def test_diffsinger_openvpi_root_counts_as_configured(monkeypatch, tmp_path):
+    infer = tmp_path / "scripts"
+    infer.mkdir(parents=True)
+    (infer / "infer.py").write_text("# stub", encoding="utf-8")
+    monkeypatch.delenv("AIMC_RVC_API_URL", raising=False)
+    monkeypatch.delenv("AIMC_DIFFSINGER_CMD", raising=False)
+    monkeypatch.setenv("AIMC_DIFFSINGER_ROOT", str(tmp_path))
+    monkeypatch.setenv("AIMC_DIFFSINGER_ACOUSTIC_EXP", "my_acoustic")
+    assert diffsinger_configured() is True
+    assert full_ml_vocal_models_available() is True
+
+
 def test_diffsinger_cmd_counts_as_configured(monkeypatch):
     monkeypatch.delenv("AIMC_RVC_API_URL", raising=False)
+    monkeypatch.delenv("AIMC_DIFFSINGER_ROOT", raising=False)
     monkeypatch.setenv("AIMC_DIFFSINGER_CMD", "python diffsinger_infer.py")
     assert diffsinger_configured() is True
     assert full_ml_vocal_models_available() is True

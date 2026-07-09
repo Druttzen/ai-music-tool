@@ -70,9 +70,24 @@ a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix t
 |----------|---------|
 | `AIMC_RVC_MODEL` | Path to an RVC `.pth` model (with optional `AIMC_RVC_INDEX`) |
 | `AIMC_RVC_API_URL` | External RVC API server (e.g. `http://127.0.0.1:5050` from `python -m rvc_python api`) |
-| `AIMC_DIFFSINGER_CMD` | CLI bridge for OpenVPI DiffSinger (see `ai-sidecar/scripts/diffsinger_bridge_example.py`) |
+| `AIMC_DIFFSINGER_ROOT` | Path to a cloned [OpenVPI DiffSinger](https://github.com/openvpi/DiffSinger) repo |
+| `AIMC_DIFFSINGER_VAR_EXP` | Variance checkpoint folder name under `checkpoints/` (pitch/duration from notes) |
+| `AIMC_DIFFSINGER_ACOUSTIC_EXP` | Acoustic checkpoint folder name under `checkpoints/` |
+| `AIMC_DIFFSINGER_PYTHON` | Python executable in the DiffSinger venv (defaults to sidecar Python) |
+| `AIMC_DIFFSINGER_CMD` | Optional CLI bridge (`scripts/diffsinger_bridge_example.py`) |
 | `AIMC_DIFFSINGER_URL` | HTTP DiffSinger service exposing `POST /synthesize` |
-| `AIMC_DIFFSINGER_MODEL_DIR` | Model directory passed to the DiffSinger bridge |
+
+OpenVPI setup (one-time):
+
+```bash
+git clone https://github.com/openvpi/DiffSinger.git
+cd DiffSinger
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt   # Windows
+# Place trained checkpoints under checkpoints/<exp_name>/
+```
+
+Copy `ai-sidecar/env.vocal.example` → `ai-sidecar/.env.vocal`, set `AIMC_DIFFSINGER_ROOT` and experiment names, then restart the sidecar. Vocal Embed plans are converted to OpenVPI `.ds` segments (section timing → `note_seq` / `note_dur`); variance inference fills phonemes and F0 before acoustic synthesis.
 
 Install torch stack:
 
@@ -81,18 +96,16 @@ npm run sidecar:vocal-ml
 pip install rvc-python   # optional, for in-process RVC
 ```
 
-Copy `ai-sidecar/env.vocal.example` to `ai-sidecar/.env.vocal` and set model paths (restart sidecar).
-
 Engines returned by `POST /vocal-embed/synthesize`:
 - `placement-mix-v1` — guide overlay only
 - `guide-conversion-v1` — scipy/librosa DSP conversion
 - `rvc-conversion-v1` — RVC model or API
 - `lyrics-synth-v1` — DSP lyric bed
-- `diffsinger-v1` — DiffSinger bridge when configured
+- `diffsinger-v1` — OpenVPI DiffSinger when `AIMC_DIFFSINGER_ROOT` + acoustic exp are set
 
 Future heavy sidecar options should stay opt-in:
 
-- Singing synthesis: OpenVPI DiffSinger (Apache-2.0) from lyrics + MIDI/guide melody.
+- Singing synthesis: OpenVPI DiffSinger (Apache-2.0) — integrated via `diffsinger_openvpi.py`.
 - Voice style conversion: RVC-style conversion for user-owned voices only.
 - Alignment: Montreal Forced Aligner (MIT) when a guide vocal/transcript is available.
 - Mixing: `audio-arrange` / `pedalboard` style vocal chain with ducking and LUFS target.
