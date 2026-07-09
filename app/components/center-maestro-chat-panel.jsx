@@ -274,7 +274,12 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           const patch = sanitizeMaestroPatch(llm.patch, snapshot);
           if (patch) applyPatch(patch);
           if (llm.commands?.length) runCommands(llm.commands, llm.artifacts);
-          assistantTurn = { role: "assistant", text: llm.reply, source: "llm" };
+          assistantTurn = {
+            role: "assistant",
+            text: llm.reply,
+            source: "llm",
+            artifacts: llm.artifacts,
+          };
           if (patch) setStatusWithTime("Maestro (LLM) updated the project");
         } else {
           throw new Error("__use_heuristic__");

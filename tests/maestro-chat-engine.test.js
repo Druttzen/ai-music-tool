@@ -15,7 +15,7 @@ import {
   parseVocal,
   sanitizeMaestroPatch,
 } from "../app/lib/maestro-chat-engine.js";
-import { parseMaestroLlmResponse, buildMaestroLlmMessages } from "../app/lib/maestro-chat-llm.js";
+import { parseMaestroLlmResponse, buildMaestroLlmMessages, enrichMaestroLlmResult } from "../app/lib/maestro-chat-llm.js";
 import { SUNO_STYLE_CHAR_CAP } from "../app/lib/suno-limits.js";
 
 const SNAPSHOT = {
@@ -288,6 +288,7 @@ describe("maestro-chat-llm", () => {
     expect(res.reply).toBe("Done.");
     expect(res.patch).toBeNull();
     expect(res.commands).toEqual([]);
+    expect(res.artifacts).toBeNull();
   });
 
   it("rejects malformed patch shapes before sanitizing", () => {
@@ -305,6 +306,28 @@ describe("maestro-chat-llm", () => {
     expect(res.patch).toBeNull();
   });
 
+  it("parses musicGenPrompt artifacts and enriches on generateMusicGen", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Sketch ready.","patch":null,"commands":["generateMusicGen","gotoPolish"],"artifacts":{"musicGenPrompt":"dark techno loop"}}',
+      SNAPSHOT,
+    );
+    expect(res.commands).toEqual(["generateMusicGen", "gotoPolish"]);
+    expect(res.artifacts?.musicGenPrompt).toBe("dark techno loop");
+  });
+
+  it("fills musicGenPrompt when LLM omits artifacts", () => {
+    const res = enrichMaestroLlmResult(
+      {
+        reply: "Generating.",
+        patch: null,
+        commands: ["generateMusicGen"],
+        artifacts: null,
+      },
+      SNAPSHOT,
+    );
+    expect(res.artifacts?.musicGenPrompt).toMatch(/Techno/i);
+  });
+
   it("builds system message containing project state and allowed keys", () => {
     const messages = buildMaestroLlmMessages(
       [{ role: "user", text: "darker" }],
@@ -314,6 +337,7 @@ describe("maestro-chat-llm", () => {
     expect(messages[0].content).toMatch(/selectedGenres/);
     expect(messages[0].content).toMatch(/Techno/);
     expect(messages[0].content).toMatch(/Licensed style catalog hints/);
+    expect(messages[0].content).toMatch(/musicGenAvailable/);
     expect(messages[1]).toEqual({ role: "user", content: "darker" });
   });
 });

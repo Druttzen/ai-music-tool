@@ -13,6 +13,22 @@ const ROOT = path.resolve(__dirname, "..");
 const OUT_JS = path.join(ROOT, "app", "lib", "awesome-suno-concepts-synced.js");
 const EXTENSIONS_JS = path.join(ROOT, "app", "lib", "style-catalog-extensions.js");
 
+const CONCEPT_CAP = 400;
+
+/** Monthly rotation diversifies which 400 concepts ship when the pool exceeds the cap. */
+function resolveRotationOffset() {
+  const env = Number(process.env.AIMC_CC0_ROTATE_OFFSET);
+  if (Number.isFinite(env) && env >= 0) return Math.floor(env);
+  const d = new Date();
+  return (d.getUTCFullYear() * 12 + d.getUTCMonth()) % 997;
+}
+
+function rotateLines(lines, offset) {
+  if (!lines.length || !offset) return lines;
+  const o = offset % lines.length;
+  return [...lines.slice(o), ...lines.slice(0, o)];
+}
+
 const SOURCE = {
   repo: "https://github.com/naqashmunir21/awesome-suno-prompts",
   license: "CC0-1.0",
@@ -25,6 +41,12 @@ const SOURCE = {
     "prompts/jazz-blues.md",
     "prompts/country.md",
     "prompts/rnb-soul.md",
+    "prompts/metal.md",
+    "prompts/classical.md",
+    "prompts/latin.md",
+    "prompts/folk.md",
+    "prompts/reggae.md",
+    "prompts/k-pop.md",
     "examples/advanced-techniques.md",
     "examples/before-after.md",
     "examples/common-mistakes.md",
@@ -147,20 +169,25 @@ async function main() {
   }
 
   lines.sort((a, b) => a.localeCompare(b));
-  const capped = lines.slice(0, 400);
+  const rotationOffset = resolveRotationOffset();
+  const rotated = rotateLines(lines, rotationOffset);
+  const capped = rotated.slice(0, CONCEPT_CAP);
   const tags = Object.fromEntries(capped.map((line) => [line, inferConceptTag(line)]));
 
   const payload = {
     syncedAt: new Date().toISOString(),
     source: SOURCE,
     supplemental,
+    rotationOffset,
+    conceptCap: CONCEPT_CAP,
+    poolSize: lines.length,
     lines: capped,
     tags,
   };
 
   fs.writeFileSync(OUT_JS, emitJs(payload), "utf8");
   console.log(
-    `Wrote ${OUT_JS} (${capped.length} concepts — CC0 blocks + ${supplemental.eraAnchoredGenres.length} era + ${supplemental.trendMicroGenres2026.length} trend + ${supplemental.communityStyleSeeds.length} community seeds)`,
+    `Wrote ${OUT_JS} (${capped.length} concepts — pool ${lines.length}, rotation ${rotationOffset} — CC0 blocks + ${supplemental.eraAnchoredGenres.length} era + ${supplemental.trendMicroGenres2026.length} trend + ${supplemental.communityStyleSeeds.length} community seeds)`,
   );
 }
 

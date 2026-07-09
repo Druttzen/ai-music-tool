@@ -14,6 +14,7 @@ import {
   generateLyricsWithLlm,
   isCoProducerLlmReady,
 } from "../lib/co-producer-llm";
+import { generateCoProducerAdvisoryWithLlm } from "../lib/co-producer-advisory-llm";
 import {
   buildInstrumentalLyricsScaffold,
   buildLyricThemeFromAnalysis,
@@ -656,8 +657,8 @@ export function useProjectActions({
     [patch, setStatusWithTime],
   );
 
-  const buildCoProducerAI = useCallback(() => {
-    const { output, patch: coPatch } = buildCoProducerAdvisoryReport({
+  const buildCoProducerAI = useCallback(async () => {
+    const advisoryInput = {
       selectedGenres,
       selectedSounds,
       selectedRhythms,
@@ -668,16 +669,43 @@ export function useProjectActions({
       lyricTheme,
       promptIntensity,
       mode,
+      idea,
       musicGenAvailable: !!sidecarGenerateAvailable,
-    });
+    };
+
+    let output;
+    let coPatch;
+    let source = "heuristic";
+
+    if (isCoProducerLlmReady(coProducerLlmSettings)) {
+      try {
+        const llm = await generateCoProducerAdvisoryWithLlm(advisoryInput, coProducerLlmSettings);
+        output = llm.output;
+        coPatch = llm.patch;
+        source = llm.source;
+      } catch {
+        /* fallback to heuristic */
+      }
+    }
+
+    if (!output) {
+      const heuristic = buildCoProducerAdvisoryReport(advisoryInput);
+      output = heuristic.output;
+      coPatch = heuristic.patch;
+    }
+
     patch(coPatch);
     setCoProducerOutput(output);
     setNotes(output);
     addHistory("Co-Producer AI report", output, currentState);
-    setStatusWithTime("Co-Producer AI updated prompt");
+    setStatusWithTime(
+      source === "llm" ? "Co-Producer AI (LLM) updated prompt" : "Co-Producer AI updated prompt",
+    );
   }, [
     addHistory,
+    coProducerLlmSettings,
     currentState,
+    idea,
     lyricTheme,
     mode,
     mood,

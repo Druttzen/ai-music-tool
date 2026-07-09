@@ -68,6 +68,17 @@ export function useAnalyzers({
   const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
 
   useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const handler = (event) => {
+      const detail = event?.detail;
+      if (!detail || typeof detail !== "object") return;
+      setAudioAnalysis(normalizeAudioAnalysis(detail));
+    };
+    window.addEventListener("aimc-e2e-set-audio-analysis", handler);
+    return () => window.removeEventListener("aimc-e2e-set-audio-analysis", handler);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     let timer = null;
 
