@@ -55,7 +55,12 @@ export function generateSunoMetatagScaffold(opts = {}) {
  * @param {string[]} moodWords
  */
 function pickDelivery(moodWords) {
-  const lower = moodWords.map((m) => String(m).toLowerCase());
+  const words = Array.isArray(moodWords)
+    ? moodWords
+    : String(moodWords || "")
+        .split(/,\s*/)
+        .filter(Boolean);
+  const lower = words.map((m) => String(m).toLowerCase());
   if (lower.some((m) => m.includes("dark") || m.includes("sad"))) return DELIVERY_BY_MOOD.dark;
   if (lower.some((m) => m.includes("energy") || m.includes("aggress"))) return DELIVERY_BY_MOOD.energetic;
   if (lower.some((m) => m.includes("calm") || m.includes("soft"))) return DELIVERY_BY_MOOD.calm;

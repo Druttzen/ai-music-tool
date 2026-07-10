@@ -127,10 +127,24 @@ export function useVocalEmbedStudio() {
     };
   }, [sidecarBusy]);
 
-  const effectiveVoiceStyleCompact = useMemo(
-    () => pickVoiceStyleCompactForCoProducer(voiceStyleCompact),
-    [voiceStyleCompact],
-  );
+  const [voiceCompactMounted, setVoiceCompactMounted] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => setVoiceCompactMounted(true));
+  }, []);
+
+  const effectiveVoiceStyleCompact = useMemo(() => {
+    if (!voiceCompactMounted) {
+      if (voiceStyleCompact && typeof voiceStyleCompact === "object") {
+        return {
+          style: String(voiceStyleCompact.style || ""),
+          lyricTag: String(voiceStyleCompact.lyricTag || ""),
+        };
+      }
+      return { style: "", lyricTag: "" };
+    }
+    return pickVoiceStyleCompactForCoProducer(voiceStyleCompact);
+  }, [voiceCompactMounted, voiceStyleCompact]);
 
   const plan = useMemo(
     () =>

@@ -128,6 +128,35 @@ export function voiceCharacterStudioPanel(page) {
   });
 }
 
+export function sectionDawPanel(page) {
+  return page.getByTestId("section-daw-lite");
+}
+
+export function sunoProToolsPanel(page) {
+  return page.getByTestId("suno-pro-tools-panel");
+}
+
+export function moodPanel(page) {
+  return page.locator("section.rounded-3xl").filter({
+    has: page.getByRole("heading", { name: /Mood Sliders/i }),
+  });
+}
+
+/** Set a mood slider (0–100) by label, e.g. "Darkness". */
+export async function setMoodSlider(page, label, value) {
+  const panel = moodPanel(page);
+  const index = {
+    Darkness: 0,
+    Energy: 1,
+    Aggression: 2,
+    Emotion: 3,
+    Complexity: 4,
+    Space: 5,
+  }[label];
+  await panel.locator('input[type="range"]').nth(index ?? 0).fill(String(value));
+  await panel.locator('input[type="range"]').nth(index ?? 0).dispatchEvent("change");
+}
+
 export function vocalEmbedStudioPanel(page) {
   return page.getByTestId("vocal-embed-studio");
 }

@@ -1,0 +1,65 @@
+{
+  "appVersion": "0.47.2",
+  "idea": "My Taste e2e fixture",
+  "tempo": "102 BPM",
+  "structure": "intro → groove → outro",
+  "selectedGenres": ["Afrobeats"],
+  "selectedRhythms": ["4/4"],
+  "selectedSounds": ["Hand percussion"],
+  "vocal": "Male Lead",
+  "mode": "Control",
+  "proMode": false,
+  "promptIntensity": 45,
+  "variationCount": 2,
+  "rules": "",
+  "notes": "",
+  "scores": { "bass": 6, "rhythm": 7, "identity": 6, "clarity": 7 },
+  "mood": {
+    "energy": 60,
+    "aggression": 40,
+    "darkness": 50,
+    "emotion": 55,
+    "complexity": 45,
+    "space": 50
+  },
+  "lyricTheme": "",
+  "lyricLanguage": "English",
+  "lyricStructure": "verse → chorus",
+  "lyricStyle": "Club chant",
+  "lyricDensity": 50,
+  "promptFormat": "Standard",
+  "promptEngine": "Standard",
+  "coProducerOutput": "",
+  "generatedLyrics": "",
+  "generatedLyricsStyle": "",
+  "generatedHooks": "",
+  "generatedHooksStyle": "",
+  "lyricVariantSeed": 0,
+  "lyricMode": "Structured Song",
+  "voiceRefFirstName": "",
+  "voiceRefLastName": "",
+  "voiceStyleLine": "",
+  "instrumentalVocalFx": false,
+  "guidedStep": 0,
+  "variations": [],
+  "history": [
+    {
+      "id": "e2e-hist-1",
+      "label": "Earlier Techno snap",
+      "state": {
+        "selectedGenres": ["Techno"],
+        "tempo": "128 BPM",
+        "vocal": "Female Lead",
+        "mood": {
+          "energy": 70,
+          "aggression": 55,
+          "darkness": 45,
+          "emotion": 60,
+          "complexity": 50,
+          "space": 40
+        }
+      }
+    }
+  ],
+  "selectedHistoryId": null
+}

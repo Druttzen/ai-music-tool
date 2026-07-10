@@ -13,7 +13,9 @@ const SECTIONS = ["intro", "verse", "pre-chorus", "chorus", "bridge", "outro"];
 
 export const CenterSectionDawLite = memo(function CenterSectionDawLite() {
   const { structure, mood } = useProjectWorkspaceProjectState();
-  const moodWords = buildMoodWords(mood);
+  const moodWords = buildMoodWords(mood)
+    .split(/,\s*/)
+    .filter(Boolean);
   const { setStructure, setGeneratedLyrics, copyToClipboard, setStatusWithTime } =
     useProjectWorkspaceActions();
 

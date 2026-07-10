@@ -1,8 +1,15 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.47.2**
+**Version 0.47.3**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build (primary) with native DSP export and Python sidecar integration. Legacy **Electron** Windows installer remains but is deprecated — see [docs/desktop.md](docs/desktop.md).
+
+## Highlights (v0.47.3)
+
+- **Section DAW** — mood words split correctly for metatag delivery tags (fixes runtime crash on scaffold insert).
+- **Vocal Embed hydration** — voice style from character session applies after mount (no SSR/client mismatch).
+- **Electron releases** — consistent installer filename via `artifactName` (`AI-Music-Creator-Setup-{version}.exe`).
+- **E2e** — Section DAW mood metatags + Suno 5.5 Pro tools (My Taste, Album mode).
 
 ## Highlights (v0.47.2)
 
