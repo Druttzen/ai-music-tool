@@ -57,8 +57,17 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REF_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-        run: node scripts/prepare-github-release-publish.cjs
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -e
+          REPO="${GITHUB_REPOSITORY}"
+          RELEASE_ID=$(gh api "repos/${REPO}/releases/tags/${TAG}" --jq .id 2>/dev/null || true)
+          if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
+            echo "Deleting existing release ${TAG} (id ${RELEASE_ID})"
+            gh api -X DELETE "repos/${REPO}/releases/${RELEASE_ID}"
+          else
+            echo "No existing release for ${TAG}"
+          fi
       - name: Build and publish Windows installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
