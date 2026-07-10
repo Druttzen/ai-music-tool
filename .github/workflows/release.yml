@@ -65,9 +65,9 @@ jobs:
           if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
             echo "Deleting existing release ${TAG} (id ${RELEASE_ID})"
             gh api -X DELETE "repos/${REPO}/releases/${RELEASE_ID}"
-          else
-            echo "No existing release for ${TAG}"
           fi
+          echo "Pre-creating release ${TAG} so electron-builder only uploads assets"
+          gh release create "$TAG" --title "${TAG#v}" --notes-file release-notes.md --target "$TAG"
       - name: Build and publish Windows installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
