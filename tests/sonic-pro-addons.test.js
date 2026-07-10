@@ -6,7 +6,7 @@ import { buildUdioProsePrompt } from "../app/lib/udio-prose-export.js";
 import { generateSunoMetatagScaffold } from "../app/lib/suno-metatag-generator.js";
 import { buildVoicesPrepKit } from "../app/lib/voices-prep-kit.js";
 import { fixSunoPronunciation } from "../app/lib/pronunciation-engine.js";
-import { buildAlbumSequence } from "../app/lib/album-mode.js";
+import { buildAlbumSequence, soundBibleFromProject } from "../app/lib/album-mode.js";
 
 describe("suno-prompt-critic", () => {
   it("scores detailed style higher than empty", () => {
@@ -86,5 +86,21 @@ describe("suno 5.5 pro addons", () => {
     );
     expect(tracks).toHaveLength(2);
     expect(tracks[0].styleLine).toContain("album");
+  });
+
+  it("album mode includes per-track idea and analyzer key in style line", () => {
+    const bible = soundBibleFromProject({
+      selectedGenres: ["Pop"],
+      tempo: "118 BPM",
+      vocal: "Female Lead",
+      audioAnalysis: { estimatedKey: "C major" },
+    });
+    expect(bible.key).toBe("C major");
+
+    const tracks = buildAlbumSequence(bible, [
+      { title: "Open", role: "opener", idea: "sunrise over the city" },
+    ]);
+    expect(tracks[0].styleLine).toContain("sunrise over the city");
+    expect(tracks[0].styleLine).toContain("C major");
   });
 });

@@ -12,10 +12,13 @@ export function buildAlbumSequence(soundBible, trackRoles) {
 
   return roles.map((track, index) => {
     const role = track.role || inferRole(index, roles.length);
+    const idea = String(track.idea || "").trim();
     const styleBase = [
       ...(bible.genres || []).slice(0, 2),
       bible.tempo || "",
+      bible.key || "",
       bible.vocal || "",
+      idea,
       bible.production || "cohesive album mix",
       roleAccent(role),
       "album continuity",
@@ -83,6 +86,6 @@ export function soundBibleFromProject(projectState) {
     tempo: p.tempo || "",
     vocal: p.vocal || "",
     production: p.rules?.split("\n")[0] || "",
-    key: p.estimatedKey || "",
+    key: p.audioAnalysis?.estimatedKey || p.estimatedKey || "",
   };
 }

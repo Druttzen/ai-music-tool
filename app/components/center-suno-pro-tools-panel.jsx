@@ -92,10 +92,15 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (taste.topGenres.length) setSelectedGenres(taste.topGenres.slice(0, 3));
+                    if (taste.topGenres.length) {
+                      const merged = [
+                        ...new Set([...(state.selectedGenres || []), ...taste.topGenres.slice(0, 3)]),
+                      ];
+                      setSelectedGenres(merged);
+                    }
                     if (taste.bpmBand) setTempo(taste.bpmBand);
                     if (taste.vocalLean) setVocal(taste.vocalLean);
-                    setStatusWithTime("Applied My Taste genres, tempo, and vocal to project");
+                    setStatusWithTime("Merged My Taste genres, tempo, and vocal into project");
                   }}
                   className="rounded-lg bg-violet-300 px-2 py-1 text-[10px] font-bold text-black"
                 >

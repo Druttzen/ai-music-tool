@@ -47,10 +47,17 @@ export async function buildMusicGenAnalysisReport(blob, meta = {}) {
 
 export async function enrichMusicGenReportWithSidecar(file, report) {
   try {
-    const { analyzeAudioViaSidecar } = await import("./sidecar-bridge");
-    const { mergeSidecarAnalysis } = await import("./audio-analyzer-sidecar");
+    const { analyzeAudioViaSidecar, fetchSonicSignatureViaSidecar } = await import("./sidecar-bridge");
+    const { mergeSidecarAnalysis, mergeSonicSignature } = await import("./audio-analyzer-sidecar");
     const sidecar = await analyzeAudioViaSidecar(file, file.name);
-    const merged = mergeSidecarAnalysis(report, sidecar);
+    let merged = mergeSidecarAnalysis(report, sidecar);
+    try {
+      const sonic = await fetchSonicSignatureViaSidecar(file, file.name);
+      merged = mergeSonicSignature(merged, sonic);
+    } catch {
+      /* sonic signature optional */
+    }
+    const sidecarEngine = merged.analysisEngine || "sidecar";
     return {
       ...merged,
       sourceEngine: "musicgen",
@@ -59,8 +66,8 @@ export async function enrichMusicGenReportWithSidecar(file, report) {
       musicGenDurationSec: report.musicGenDurationSec,
       musicGenMode: report.musicGenMode,
       musicGenHighlightMelody: report.musicGenHighlightMelody,
-      analysisEngine: "musicgen+sidecar",
-      trackSummary: report.trackSummary,
+      analysisEngine: `musicgen+${sidecarEngine}`,
+      trackSummary: report.trackSummary || merged.trackSummary,
       vocals: report.vocals,
     };
   } catch {

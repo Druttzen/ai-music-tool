@@ -3,8 +3,9 @@ import { isSupportedAudioFile, SUPPORTED_AUDIO_LABEL } from "../app/lib/analyzer
 import {
   buildSidecarFallbackReport,
   mergeSidecarAnalysis,
+  mergeSonicSignature,
 } from "../app/lib/audio-analyzer-sidecar.js";
-import { getAudioAnalyzerDisclaimer, formatAudioAnalysisSourceLabel, listAudioAnalysisEngineBadges } from "../app/lib/analyzer-disclaimer.js";
+import { getAudioAnalyzerDisclaimer, formatAudioAnalysisSourceLabel, listAudioAnalysisEngineBadges, getAudioAnalyzerReadyMessage } from "../app/lib/analyzer-disclaimer.js";
 
 const baseReport = {
   version: 2,
@@ -95,6 +96,24 @@ describe("mergeSidecarAnalysis", () => {
   });
 });
 
+describe("mergeSonicSignature", () => {
+  it("merges chords, clamps tempo, and appends +sonic engine tag", () => {
+    const merged = mergeSonicSignature(
+      { ...baseReport, analysisEngine: "sidecar" },
+      {
+        tempo_bpm: 280,
+        key_estimate: "F minor",
+        chord_progression: [{ chord: "Fm" }, { chord: "Bb" }],
+      },
+    );
+    expect(merged.bpm).toBe(200);
+    expect(merged.estimatedKey).toBe("F minor");
+    expect(merged.chordProgression).toEqual(["Fm", "Bb"]);
+    expect(merged.analysisEngine).toBe("sidecar+sonic");
+    expect(merged.trackSummary).toContain("Fm → Bb");
+  });
+});
+
 describe("getAudioAnalyzerDisclaimer", () => {
   it("returns sidecar copy when analysisEngine is sidecar", () => {
     expect(getAudioAnalyzerDisclaimer({ analysisEngine: "sidecar" })).toContain("librosa");
@@ -122,6 +141,10 @@ describe("getAudioAnalyzerDisclaimer", () => {
       "HF genre",
       "sonic",
     ]);
+    expect(listAudioAnalysisEngineBadges({ analysisEngine: "sidecar-fallback+sonic" })).toContain(
+      "sidecar decode",
+    );
+    expect(getAudioAnalyzerReadyMessage({ analysisEngine: "sidecar+sonic" })).toContain("sonic");
   });
 });
 

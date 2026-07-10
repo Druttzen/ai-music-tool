@@ -38,7 +38,7 @@ export function buildMyTasteProfile(sources = {}) {
     };
   }
 
-  const genreCounts = countTags(snapshots.flatMap((s) => s.selectedGenres || []));
+  const genreCounts = countTags(snapshots.flatMap(snapshotGenres));
   const topGenres = topKeys(genreCounts, 3);
 
   const vocalCounts = countTags(snapshots.map((s) => s.vocal).filter(Boolean));
@@ -121,29 +121,39 @@ function parseBpm(raw) {
 }
 
 /**
+ * @param {object} snapshot
+ */
+function snapshotGenres(snapshot) {
+  return snapshot?.selectedGenres || snapshot?.genres || [];
+}
+
+/**
  * @param {string[]} tags
  */
 function countTags(tags) {
   /** @type {Record<string, number>} */
-  const out = {};
+  const counts = {};
+  /** @type {Record<string, string>} */
+  const labels = {};
   for (const t of tags) {
     const k = String(t || "").trim();
     if (!k) continue;
     const key = k.toLowerCase();
-    out[key] = (out[key] || 0) + 1;
+    counts[key] = (counts[key] || 0) + 1;
+    if (!labels[key]) labels[key] = k;
   }
-  return out;
+  return { counts, labels };
 }
 
 /**
- * @param {Record<string, number>} counts
+ * @param {{ counts: Record<string, number>, labels: Record<string, string> }} counted
  * @param {number} n
  */
-function topKeys(counts, n) {
-  return Object.entries(counts)
+function topKeys(counted, n) {
+  return Object.entries(counted.counts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, n)
-    .map(([k]) => k.replace(/\b\w/g, (c) => c.toUpperCase()));
+    .map(([k]) => counted.labels[k]);
 }
 
 /**

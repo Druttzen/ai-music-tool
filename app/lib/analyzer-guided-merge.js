@@ -115,6 +115,7 @@ export function buildUsableAnalyzerStylePrompt(audioAnalysis, imageAnalysis) {
     add(audioAnalysis.suggestedGenres);
     add(audioAnalysis.suggestedSubgenres);
     if (audioAnalysis.estimatedBpm) tokens.push(normalizeSpace(audioAnalysis.estimatedBpm));
+    add(audioAnalysis.chordProgression);
     add(audioAnalysis.suggestedMoods);
     add(audioAnalysis.suggestedSounds);
     add(audioAnalysis.suggestedInstruments);
@@ -158,6 +159,10 @@ export function compactAudioStyleRule(a) {
     .slice(0, GUIDED_MAX_GENRES)
     .join("+");
   const key = normalizeSpace(a.estimatedKey || "");
+  const chords = uniq(a.chordProgression || [])
+    .filter(Boolean)
+    .slice(0, 8)
+    .join("→");
   const rhythms = uniq(a.suggestedRhythms || [])
     .slice(0, GUIDED_MAX_RHYTHMS)
     .join("+");
@@ -169,6 +174,7 @@ export function compactAudioStyleRule(a) {
     `${tempo} ${scores}`,
     genres ? `G:${genres}` : "",
     key && key !== "Key unclear" ? key : "",
+    chords ? `CH:${chords}` : "",
     rhythms || "groove",
     sounds || "textures",
   ].filter(Boolean);

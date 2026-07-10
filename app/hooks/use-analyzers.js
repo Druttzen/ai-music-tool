@@ -28,6 +28,7 @@ import {
   patchAudioAnalysis,
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
+import { getAudioAnalyzerReadyMessage } from "../lib/analyzer-disclaimer";
 import { mergeSidecarAnalysis, buildSidecarFallbackReport, mergeSonicSignature } from "../lib/audio-analyzer-sidecar";
 import { buildMusicGenAnalysisReport, downloadMusicGenBlob, enrichMusicGenReportWithSidecar } from "../lib/musicgen-preview";
 import {
@@ -250,12 +251,7 @@ export function useAnalyzers({
         setAudioPreviewFromBlob(file);
         setAudioAnalysis(finalReport);
         setStatusWithTime(
-          sidecarStatusMsg ??
-            (finalReport.analysisEngine === "sidecar+hf-genre"
-              ? "Track report ready (librosa + HF genre) — edit tags, then merge into Suno fields"
-              : finalReport.analysisEngine === "sidecar"
-                ? "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields"
-                : "Track report ready — edit tags, then merge into Suno fields"),
+          sidecarStatusMsg ?? getAudioAnalyzerReadyMessage(finalReport),
           sidecarStatusType,
         );
       } catch (decodeErr) {
@@ -272,7 +268,17 @@ export function useAnalyzers({
               /* optional */
             }
             const cacheKey = makeAudioCacheKey(file);
-            finalReport.audioCacheKey = cacheKey;
+            try {
+              const keys = await putAudioCacheEntries(
+                file,
+                cacheKey,
+                finalReport.duration || sidecar.duration_sec || 0,
+              );
+              finalReport.audioCacheKey = keys.audioCacheKey;
+              finalReport.audioLookupKey = keys.audioLookupKey;
+            } catch {
+              finalReport.audioCacheKey = cacheKey;
+            }
             syncCacheKeysRef(finalReport);
             setAudioPreviewFromBlob(file);
             setAudioAnalysis(finalReport);

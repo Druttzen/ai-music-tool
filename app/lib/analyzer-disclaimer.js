@@ -32,6 +32,26 @@ export function getAudioAnalyzerDisclaimer(analysis) {
 }
 
 /**
+ * Status toast after a successful audio analysis.
+ * @param {{ analysisEngine?: string }|null|undefined} analysis
+ */
+export function getAudioAnalyzerReadyMessage(analysis) {
+  const engine = String(analysis?.analysisEngine || "");
+  if (engine.includes("sonic")) {
+    return engine.includes("hf-genre")
+      ? "Track report ready (librosa + HF genre + sonic) — edit tags, then merge into Suno fields"
+      : "Track report ready (librosa + sonic) — edit tags, then merge into Suno fields";
+  }
+  if (engine.includes("hf-genre")) {
+    return "Track report ready (librosa + HF genre) — edit tags, then merge into Suno fields";
+  }
+  if (engine.includes("sidecar")) {
+    return "Track report ready (librosa tempo/key) — edit tags, then merge into Suno fields";
+  }
+  return "Track report ready — edit tags, then merge into Suno fields";
+}
+
+/**
  * Short source line under the track name in Drag & Drop Analyzers.
  * @param {{ analysisEngine?: string }|null|undefined} analysis
  */
@@ -61,7 +81,7 @@ export function listAudioAnalysisEngineBadges(analysis) {
   if (engine.includes("hf-genre")) badges.push("HF genre");
   if (engine.includes("sonic")) badges.push("sonic");
   if (engine.includes("musicgen")) badges.push("MusicGen");
-  if (engine === "sidecar-fallback") badges.push("sidecar decode");
+  if (engine.includes("sidecar-fallback")) badges.push("sidecar decode");
   return badges.length ? badges : [engine];
 }
 

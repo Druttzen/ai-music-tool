@@ -42,6 +42,21 @@ describe("my-taste-profile", () => {
     expect(tracks).toHaveLength(1);
     expect(tracks[0].title).toBe("Track A");
   });
+
+  it("counts genres from custom presets saved with genres field", () => {
+    const profile = buildMyTasteProfile({
+      current: { selectedGenres: ["Pop"], tempo: "120 BPM", vocal: "Female Lead" },
+      customPresets: {
+        "Night Drive": {
+          genres: ["Synthwave", "Pop"],
+          tempo: "110 BPM",
+          vocal: "Female Lead",
+        },
+      },
+    });
+    expect(profile.topGenres).toContain("Synthwave");
+    expect(profile.vocalLean).toBe("Female Lead");
+  });
 });
 
 describe("style-dna-settings audd", () => {

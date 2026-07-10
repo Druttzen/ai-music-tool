@@ -30,4 +30,17 @@ describe("compactAudioStyleRule musicgen", () => {
     });
     expect(rule).toMatch(/MG:.*·HL/);
   });
+
+  it("includes sonic chord progression in AUDIO rule line", () => {
+    const rule = compactAudioStyleRule({
+      estimatedBpm: "128 BPM",
+      energy: 60,
+      aggression: 40,
+      brightness: 50,
+      estimatedKey: "F minor",
+      chordProgression: ["Fm", "Bb", "C"],
+      suggestedGenres: ["Pop"],
+    });
+    expect(rule).toMatch(/CH:Fm→Bb→C/);
+  });
 });

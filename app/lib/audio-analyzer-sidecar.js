@@ -162,7 +162,7 @@ export function mergeSidecarAnalysis(report, sidecar) {
  */
 export function mergeSonicSignature(report, sonic) {
   if (!sonic) return report;
-  const bpm = Math.round(sonic.tempo_bpm || report.bpm || 120);
+  const bpm = Math.round(clamp(Number(sonic.tempo_bpm || report.bpm || 120), 60, 200));
   const chords = (sonic.chord_progression || []).map((c) => c.chord).filter(Boolean);
   const chordLine = chords.length ? chords.join(" → ") : "";
   const trackSummary = `${report.trackSummary || ""}${chordLine ? ` Chords: ${chordLine}.` : ""}`.trim();
