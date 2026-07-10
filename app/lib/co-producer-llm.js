@@ -7,6 +7,7 @@ import { getLyricStyleDirection, prependVoiceCharacterToLyrics, resolveVoiceLyri
 import { bracketizeSunoPromptLine } from "./music-helpers";
 import { formatMusicGenSketchBrief } from "./co-producer-engine";
 import { safeLocalStorage } from "./safe-local-storage";
+import { formatApiError } from "./api-error-messages";
 import {
   formatSunoLyricSectionTag,
   getLanguageHeaderLine,
@@ -196,7 +197,7 @@ export async function generateLyricsWithLlm(input, settings, options = {}) {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      throw new Error(`LLM request failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+      throw new Error(formatApiError(res.status, errText, "LLM request"));
     }
 
     const data = await res.json();
@@ -295,7 +296,7 @@ export async function generateHooksWithLlm(input, settings, options = {}) {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      throw new Error(`LLM request failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+      throw new Error(formatApiError(res.status, errText, "LLM request"));
     }
 
     const data = await res.json();

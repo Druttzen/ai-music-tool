@@ -10,6 +10,7 @@ import { DEFAULT_LLM_SETTINGS } from "./co-producer-llm";
 import { formatMaestroCatalogGrounding, latestMaestroUserMessage } from "./maestro-catalog-grounding";
 import { MAESTRO_COMMANDS, MAESTRO_PATCHABLE_KEYS, sanitizeMaestroPatch } from "./maestro-chat-engine";
 import { enrichMaestroLlmResult } from "./maestro-chat-llm-enrich";
+import { formatApiError } from "./api-error-messages";
 
 export { enrichMaestroLlmResult } from "./maestro-chat-llm-enrich";
 
@@ -201,7 +202,7 @@ export async function sendMaestroChatToLlm(history, snapshot, settings, options 
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      throw new Error(`Maestro LLM request failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+      throw new Error(formatApiError(res.status, errText, "Maestro LLM request"));
     }
 
     const data = await res.json();

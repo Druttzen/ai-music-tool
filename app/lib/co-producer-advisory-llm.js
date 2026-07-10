@@ -8,6 +8,7 @@ import { uniq } from "./music-helpers";
 import { buildMusicGenPrompt } from "./musicgen-prompt";
 import { appendMusicGenSketchToReport, formatMusicGenSketchBrief } from "./co-producer-engine";
 import { DEFAULT_LLM_SETTINGS, LLM_REQUEST_TIMEOUT_MS } from "./co-producer-llm";
+import { formatApiError } from "./api-error-messages";
 
 const AdvisoryLlmSchema = z
   .object({
@@ -143,7 +144,7 @@ export async function generateCoProducerAdvisoryWithLlm(input, settings, options
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      throw new Error(`Co-Producer LLM failed (${res.status})${errText ? `: ${errText.slice(0, 120)}` : ""}`);
+      throw new Error(formatApiError(res.status, errText, "Co-Producer LLM"));
     }
 
     const data = await res.json();

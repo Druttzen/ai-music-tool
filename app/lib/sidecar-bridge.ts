@@ -6,6 +6,7 @@
  */
 
 import { isTauriApp } from "./dsp-bridge";
+import { formatApiError } from "./api-error-messages";
 
 export interface SidecarHealth {
   status: string;
@@ -173,7 +174,7 @@ export async function resolveYoutubeViaSidecar(watchUrl: string): Promise<Youtub
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(detail || `YouTube resolve failed (${res.status})`);
+    throw new Error(formatApiError(res.status, detail, "YouTube resolve"));
   }
   return res.json() as Promise<YoutubeResolvePayload>;
 }
