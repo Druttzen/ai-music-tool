@@ -86,6 +86,10 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "AudD identify failed");
+        setStatusWithTime(
+          err instanceof Error ? err.message : "AudD identify failed",
+          "error",
+        );
       } finally {
         setAuddBusy(false);
       }

@@ -96,6 +96,13 @@ export function parseVersionMajor(version) {
 function migrateProjectBase(raw, targetVersion) {
   if (!raw || typeof raw !== "object") return { appVersion: targetVersion };
   const next = { ...raw, appVersion: targetVersion };
+  if (
+    (!Array.isArray(next.selectedGenres) || next.selectedGenres.length === 0) &&
+    Array.isArray(raw.genres) &&
+    raw.genres.length
+  ) {
+    next.selectedGenres = raw.genres.filter((g) => typeof g === "string" && g.trim());
+  }
   if (raw.imageAnalysis && typeof raw.imageAnalysis === "object") {
     next.imageAnalysis = { ...raw.imageAnalysis };
   }

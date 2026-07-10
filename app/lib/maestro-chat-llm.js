@@ -22,6 +22,7 @@ const MaestroPatchSchema = z
     tempo: z.string().optional(),
     structure: z.string().optional(),
     selectedGenres: z.array(z.coerce.string()).optional(),
+    genres: z.array(z.coerce.string()).optional(),
     selectedRhythms: z.array(z.coerce.string()).optional(),
     selectedSounds: z.array(z.coerce.string()).optional(),
     vocal: z.string().optional(),
@@ -42,7 +43,15 @@ const MaestroPatchSchema = z
     lyricStyle: z.string().optional(),
     rules: z.string().optional(),
   })
-  .strict();
+  .strict()
+  .transform((patch) => {
+    if (!patch.selectedGenres?.length && patch.genres?.length) {
+      const { genres, ...rest } = patch;
+      return { ...rest, selectedGenres: genres };
+    }
+    const { genres: _genres, ...rest } = patch;
+    return rest;
+  });
 
 const MaestroArtifactsSchema = z
   .object({
@@ -87,9 +96,9 @@ export function buildMaestroLlmMessages(history, snapshot) {
     {
       idea: snapshot.idea,
       tempo: snapshot.tempo,
-      genres: snapshot.selectedGenres,
-      rhythms: snapshot.selectedRhythms,
-      sounds: snapshot.selectedSounds,
+      selectedGenres: snapshot.selectedGenres,
+      selectedRhythms: snapshot.selectedRhythms,
+      selectedSounds: snapshot.selectedSounds,
       vocal: snapshot.vocal,
       mood: snapshot.mood,
       lyricTheme: snapshot.lyricTheme,

@@ -227,6 +227,16 @@ describe("maestro-chat-engine safety", () => {
     expect(patch.instrumentalVocalFx).toBe(true);
   });
 
+  it("maps legacy genres alias and caps genre count at 3", () => {
+    const patch = sanitizeMaestroPatch(
+      {
+        genres: ["Techno", "House", "Trance", "Drum and Bass"],
+      },
+      SNAPSHOT,
+    );
+    expect(patch.selectedGenres).toEqual(["Techno", "House", "Trance"]);
+  });
+
   it("returns null for empty/invalid patches", () => {
     expect(sanitizeMaestroPatch(null, SNAPSHOT)).toBeNull();
     expect(sanitizeMaestroPatch({ evil: 1 }, SNAPSHOT)).toBeNull();

@@ -29,6 +29,7 @@ import {
   writeStoredVocalAlignPreview,
 } from "../lib/vocal-embed-handoff";
 import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
+import { pickVoiceStyleCompactForCoProducer } from "../lib/voice-character-studio-session";
 import {
   buildAlignPreviewPersistence,
   computeVocalEmbedCapabilities,
@@ -126,6 +127,11 @@ export function useVocalEmbedStudio() {
     };
   }, [sidecarBusy]);
 
+  const effectiveVoiceStyleCompact = useMemo(
+    () => pickVoiceStyleCompactForCoProducer(voiceStyleCompact),
+    [voiceStyleCompact],
+  );
+
   const plan = useMemo(
     () =>
       buildVocalEmbedPlan({
@@ -140,12 +146,13 @@ export function useVocalEmbedStudio() {
         tempo,
         vocal,
         vocalEmbedLyrics: draftLyrics,
-        voiceStyleCompact,
+        voiceStyleCompact: effectiveVoiceStyleCompact,
         voiceStyleLine,
       }),
     [
       audioAnalysis,
       draftLyrics,
+      effectiveVoiceStyleCompact,
       generatedLyrics,
       guideVocalAttached,
       guideVocalFile,
@@ -155,7 +162,6 @@ export function useVocalEmbedStudio() {
       selectedGenres,
       tempo,
       vocal,
-      voiceStyleCompact,
       voiceStyleLine,
     ],
   );
@@ -345,7 +351,7 @@ export function useVocalEmbedStudio() {
     if (resolved?.blob) return resolved.blob;
     if (audioPreviewUrl) {
       const res = await fetch(audioPreviewUrl);
-      return res.blob();
+      if (res.ok) return res.blob();
     }
     return null;
   }, [audioAnalysis, audioPreviewUrl]);

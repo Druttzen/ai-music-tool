@@ -121,6 +121,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   /** Avoid SSR/client mismatch when LLM settings hydrate from localStorage. */
   const [hintMounted, setHintMounted] = useState(false);
   const scrollRef = useRef(null);
+  const snapshotRef = useRef(null);
 
   useEffect(() => {
     queueMicrotask(() => setHintMounted(true));
@@ -200,6 +201,10 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       sidecarGenerateAvailable,
     ],
   );
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   useEffect(() => {
     safeLocalStorage.setJSON(
@@ -348,8 +353,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       try {
         if (llmReady) {
           const history = [...messages, userTurn].map((m) => ({ role: m.role, text: m.text }));
-          const llm = await sendMaestroChatToLlm(history, snapshot, coProducerLlmSettings);
-          const patch = sanitizeMaestroPatch(llm.patch, snapshot);
+          const llm = await sendMaestroChatToLlm(history, snapshotRef.current || snapshot, coProducerLlmSettings);
+          const patch = sanitizeMaestroPatch(llm.patch, snapshotRef.current || snapshot);
           if (patch) applyPatch(patch);
           if (llm.commands?.length) runCommands(llm.commands, llm.artifacts);
           assistantTurn = {
@@ -364,7 +369,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           throw new Error("__use_heuristic__");
         }
       } catch (err) {
-        const local = buildMaestroReply(text, snapshot);
+        const local = buildMaestroReply(text, snapshotRef.current || snapshot);
         if (local.patch) {
           applyPatch(local.patch);
           setStatusWithTime("Maestro updated the project");

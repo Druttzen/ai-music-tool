@@ -57,6 +57,7 @@ export function useProjectWorkspaceProvider() {
     setImageAnalysis: analyzers.setImageAnalysis,
     clearImageAnalysis: analyzers.clearImageAnalysis,
     resetAnalyzers: analyzers.resetAnalyzers,
+    resetBlank: projectState.resetBlank,
     patch: projectState.patch,
     promptEngine: projectState.promptEngine,
     setCustomPresets: projectState.setCustomPresets,

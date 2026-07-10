@@ -33,6 +33,7 @@ export async function buildMusicGenAnalysisReport(blob, meta = {}) {
     ...report,
     waveformSource: "sample",
     sourceEngine: "musicgen",
+    analysisEngine: "musicgen",
     musicGenPrompt: prompt,
     musicGenModel: model,
     musicGenDurationSec: durationSec,
@@ -71,7 +72,11 @@ export async function enrichMusicGenReportWithSidecar(file, report) {
       vocals: report.vocals,
     };
   } catch {
-    return report;
+    return {
+      ...report,
+      sourceEngine: "musicgen",
+      analysisEngine: report.analysisEngine || "musicgen",
+    };
   }
 }
 

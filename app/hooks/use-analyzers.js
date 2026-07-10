@@ -80,6 +80,8 @@ export function useAnalyzers({
   const [stemSeparationBusy, setStemSeparationBusy] = useState(false);
   const [stemSeparationStems, setStemSeparationStems] = useState([]);
   const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
+  const [analyzeAudioBusy, setAnalyzeAudioBusy] = useState(false);
+  const [analyzeImageBusy, setAnalyzeImageBusy] = useState(false);
 
   useE2eAudioFixtures(setAudioAnalysis);
 
@@ -169,19 +171,16 @@ export function useAnalyzers({
         const peaks = await decodeWaveformPeaksFromBlob(file);
 
         setAudioPreviewFromBlob(file);
-        setAudioAnalysis((prev) =>
-          patchAudioAnalysis(prev, {
+        setAudioAnalysis((prev) => {
+          const next = patchAudioAnalysis(prev, {
             audioCacheKey: keys.audioCacheKey,
             audioLookupKey: keys.audioLookupKey,
             waveformPeaks: peaks,
             waveformSource: "sample",
             duration: buffer.duration,
-          }),
-        );
-        syncCacheKeysRef({
-          ...audioAnalysis,
-          audioCacheKey: keys.audioCacheKey,
-          audioLookupKey: keys.audioLookupKey,
+          });
+          syncCacheKeysRef(next);
+          return next;
         });
         setStatusWithTime("Audio attached — sample-accurate waveform and playback restored");
       } catch {
@@ -199,6 +198,10 @@ export function useAnalyzers({
 
   const analyzeAudioFile = useCallback(
     async (file) => {
+      if (analyzeAudioBusy) {
+        setStatusWithTime("Audio analysis already in progress", "info");
+        return;
+      }
       if (!isSupportedAudioFile(file)) {
         setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} only for audio analysis`);
         applyAnalyzerPatch({
@@ -208,6 +211,7 @@ export function useAnalyzers({
       }
 
       let audioContext = null;
+      setAnalyzeAudioBusy(true);
       try {
         setStatusWithTime("Analyzing audio...");
         const arrayBuffer = await file.arrayBuffer();
@@ -301,6 +305,7 @@ export function useAnalyzers({
           notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL} in a format your browser can decode, or start the librosa sidecar for FLAC.`,
         });
       } finally {
+        setAnalyzeAudioBusy(false);
         if (audioContext) {
           try {
             await audioContext.close();
@@ -308,7 +313,7 @@ export function useAnalyzers({
         }
       }
     },
-    [applyAnalyzerPatch, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
+    [analyzeAudioBusy, applyAnalyzerPatch, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
   );
 
   useEffect(() => {
@@ -396,7 +401,7 @@ export function useAnalyzers({
         let blob = resolved?.blob;
         if (!blob && audioPreviewUrlRef.current) {
           const res = await fetch(audioPreviewUrlRef.current);
-          blob = await res.blob();
+          if (res.ok) blob = await res.blob();
         }
         if (!blob || cancelled || gen !== loudnessGenRef.current) return;
 
@@ -491,6 +496,10 @@ export function useAnalyzers({
 
   const analyzeImageFile = useCallback(
     async (file) => {
+      if (analyzeImageBusy) {
+        setStatusWithTime("Image analysis already in progress", "info");
+        return;
+      }
       if (!isSupportedImageFile(file)) {
         setStatusWithTime(`Use ${SUPPORTED_IMAGE_LABEL} only for image analysis`);
         applyAnalyzerPatch({
@@ -498,6 +507,7 @@ export function useAnalyzers({
         });
         return;
       }
+      setAnalyzeImageBusy(true);
       try {
         setStatusWithTime("Analyzing image...");
         const url = URL.createObjectURL(file);
@@ -558,9 +568,11 @@ export function useAnalyzers({
         );
       } catch {
         setStatusWithTime("Image analysis failed");
+      } finally {
+        setAnalyzeImageBusy(false);
       }
     },
-    [applyAnalyzerPatch, canvasRef, imagePreviewUrlRef, setStatusWithTime],
+    [analyzeImageBusy, applyAnalyzerPatch, canvasRef, imagePreviewUrlRef, setStatusWithTime],
   );
 
   const exportEnhancedAudio = useCallback(
@@ -583,7 +595,7 @@ export function useAnalyzers({
         let blob = resolved?.blob;
         if (!blob && audioPreviewUrlRef.current) {
           const res = await fetch(audioPreviewUrlRef.current);
-          blob = await res.blob();
+          if (res.ok) blob = await res.blob();
         }
         if (!blob) {
           setStatusWithTime("Attach the audio file before studio export");
@@ -712,7 +724,7 @@ export function useAnalyzers({
               let melodyBlob = options.melodyBlob;
               if (!melodyBlob && audioPreviewUrlRef.current) {
                 const res = await fetch(audioPreviewUrlRef.current);
-                melodyBlob = await res.blob();
+                if (res.ok) melodyBlob = await res.blob();
               }
               if (!melodyBlob) {
                 throw new Error("No melody reference — load a track in the analyzer first");

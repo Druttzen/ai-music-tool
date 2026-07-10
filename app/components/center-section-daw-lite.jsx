@@ -6,12 +6,14 @@ import {
   useProjectWorkspaceActions,
   useProjectWorkspaceProjectState,
 } from "../context/project-workspace-context";
+import { buildMoodWords } from "../lib/music-helpers";
 import { generateSunoMetatagScaffold } from "../lib/suno-metatag-generator";
 
 const SECTIONS = ["intro", "verse", "pre-chorus", "chorus", "bridge", "outro"];
 
 export const CenterSectionDawLite = memo(function CenterSectionDawLite() {
-  const { structure, genres } = useProjectWorkspaceProjectState();
+  const { structure, mood } = useProjectWorkspaceProjectState();
+  const moodWords = buildMoodWords(mood);
   const { setStructure, setGeneratedLyrics, copyToClipboard, setStatusWithTime } =
     useProjectWorkspaceActions();
 
@@ -23,7 +25,7 @@ export const CenterSectionDawLite = memo(function CenterSectionDawLite() {
   const applyScaffold = () => {
     const scaffold = generateSunoMetatagScaffold({
       structure: structure || "intro → verse → chorus → verse → chorus → outro",
-      moodWords: genres?.slice(0, 2),
+      moodWords: moodWords.slice(0, 2),
     });
     setGeneratedLyrics(scaffold);
     setStatusWithTime("Section metatag scaffold inserted into lyrics");
@@ -65,7 +67,7 @@ export const CenterSectionDawLite = memo(function CenterSectionDawLite() {
           type="button"
           onClick={() =>
             copyToClipboard(
-              generateSunoMetatagScaffold({ structure, moodWords: genres?.slice(0, 2) }),
+              generateSunoMetatagScaffold({ structure, moodWords: moodWords.slice(0, 2) }),
               "Metatags copied",
             )
           }

@@ -76,8 +76,11 @@ export function useCoProducerActions(deps) {
         output = llm.output;
         coPatch = llm.patch;
         source = llm.source;
-      } catch {
-        /* fallback to heuristic */
+      } catch (err) {
+        setStatusWithTime(
+          `Co-Producer LLM unavailable — using offline engine (${String(err?.message || "error").slice(0, 60)})`,
+          "warning",
+        );
       }
     }
 

@@ -1,5 +1,30 @@
 import { describe, it, expect } from "vitest";
-import { slimStateForUndo, slimAnalysisForPromptPipeline, MAX_UNDO_WAVEFORM_PEAKS } from "../app/lib/project-persistence.js";
+import {
+  migrateImportedProject,
+  migratePersistedProject,
+  slimStateForUndo,
+  slimAnalysisForPromptPipeline,
+  MAX_UNDO_WAVEFORM_PEAKS,
+} from "../app/lib/project-persistence.js";
+
+describe("migratePersistedProject", () => {
+  it("migrates legacy genres field to selectedGenres", () => {
+    const out = migratePersistedProject(
+      { appVersion: "0.40.0", genres: ["Techno", "House"], idea: "test" },
+      "0.47.1",
+    );
+    expect(out.selectedGenres).toEqual(["Techno", "House"]);
+    expect(out.appVersion).toBe("0.47.1");
+  });
+
+  it("keeps selectedGenres when both genres and selectedGenres exist", () => {
+    const out = migrateImportedProject(
+      { genres: ["Old"], selectedGenres: ["Techno"], appVersion: "0.40.0" },
+      "0.47.1",
+    );
+    expect(out.selectedGenres).toEqual(["Techno"]);
+  });
+});
 
 describe("slimAnalysisForPromptPipeline", () => {
   it("keeps summary only for prompt memos", () => {

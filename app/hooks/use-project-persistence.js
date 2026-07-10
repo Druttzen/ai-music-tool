@@ -21,6 +21,8 @@ import {
   extractCharacterVoicePresetsFromProject,
   persistCharacterVoicePresets,
 } from "../lib/voice-character-preset";
+import { clearWorkspaceSessionOnReset } from "../lib/project-workspace-reset";
+import { clearCharacterVoiceStudioSessionOnReset } from "../lib/voice-character-studio-session";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
 
 /**
@@ -32,6 +34,7 @@ export function useProjectPersistence({
   patch,
   promptEngine,
   resetAnalyzers,
+  resetBlank,
   setCustomPresets,
   setGuidedStep,
   setHistory,
@@ -48,10 +51,15 @@ export function useProjectPersistence({
         const saved = safeLocalStorage.get(STORAGE_KEY, null);
         if (saved) {
           const parsed = JSON.parse(saved);
+          let hardReset = false;
           if (parsed?.appVersion !== APP_VERSION) {
             if (shouldHardResetProjectOnVersionChange(parsed.appVersion, APP_VERSION)) {
+              hardReset = true;
               safeLocalStorage.remove(STORAGE_KEY);
+              resetBlank();
               resetAnalyzers();
+              clearCharacterVoiceStudioSessionOnReset();
+              clearWorkspaceSessionOnReset();
               patch({ variations: [], guidedStep: 0 });
               lastAutosavePayloadRef.current = "";
               setStatusWithTime(
@@ -65,13 +73,15 @@ export function useProjectPersistence({
             loadState(parsed);
             setStatusWithTime("Loaded saved project");
           }
-          const cvPresets = extractCharacterVoicePresetsFromProject(parsed);
-          if (cvPresets !== null) {
-            persistCharacterVoicePresets(cvPresets, { merge: false });
-          }
-          const cvSession = extractCharacterVoiceStudioSessionFromProject(parsed);
-          if (cvSession !== null) {
-            persistCharacterVoiceStudioSession(cvSession);
+          if (!hardReset) {
+            const cvPresets = extractCharacterVoicePresetsFromProject(parsed);
+            if (cvPresets !== null) {
+              persistCharacterVoicePresets(cvPresets, { merge: false });
+            }
+            const cvSession = extractCharacterVoiceStudioSessionFromProject(parsed);
+            if (cvSession !== null) {
+              persistCharacterVoiceStudioSession(cvSession);
+            }
           }
         }
         const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
@@ -86,7 +96,7 @@ export function useProjectPersistence({
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [loadState, patch, resetAnalyzers, setCustomPresets, setHistory, setStatusWithTime]);
+  }, [loadState, patch, resetAnalyzers, resetBlank, setCustomPresets, setHistory, setStatusWithTime]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

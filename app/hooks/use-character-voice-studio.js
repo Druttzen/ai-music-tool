@@ -110,16 +110,16 @@ export function useCharacterVoiceStudio() {
   );
 
   const applyLinesToProject = useCallback(
-    (lines, { appendRules = true } = {}) => {
+    (lines, { appendRules = true, voiceAnalysisOverride = undefined } = {}) => {
       setVoiceStyleLine(lines.voiceStyleLine);
       setVocal(lines.vocalRole);
       setVoiceRefFirstName("");
       setVoiceRefLastName("");
-      setVoiceStyleCompact(
+      const compact =
         lines.voiceStyleCompact && typeof lines.voiceStyleCompact === "object"
           ? lines.voiceStyleCompact
-          : { style: "", lyricTag: "" },
-      );
+          : { style: "", lyricTag: "" };
+      setVoiceStyleCompact(compact);
       if (appendRules && lines.rulesAddition) {
         setRules((prev) => {
           const p = String(prev || "").trim();
@@ -127,8 +127,25 @@ export function useCharacterVoiceStudio() {
           return p ? `${p}\n${lines.rulesAddition}` : lines.rulesAddition;
         });
       }
+      persistCharacterVoiceStudioSession({
+        voiceAnalysis: voiceAnalysisOverride !== undefined ? voiceAnalysisOverride : voiceAnalysis,
+        voiceStyleCompact: compact,
+        youtubeReference,
+        youtubeMusicDna,
+        presetName,
+      });
     },
-    [setVoiceStyleLine, setVocal, setVoiceRefFirstName, setVoiceRefLastName, setRules],
+    [
+      presetName,
+      setRules,
+      setVocal,
+      setVoiceRefFirstName,
+      setVoiceRefLastName,
+      setVoiceStyleLine,
+      voiceAnalysis,
+      youtubeMusicDna,
+      youtubeReference,
+    ],
   );
 
   const analyzeVoiceFile = useCallback(
@@ -154,7 +171,7 @@ export function useCharacterVoiceStudio() {
           characterName: presetName.trim() || analysis.characterLabel,
           youtubeTitle: youtubeReference?.title,
         });
-        applyLinesToProject(lines);
+        applyLinesToProject(lines, { voiceAnalysisOverride: analysis });
         setStatusWithTime(
           analysis.vocalsLikely
             ? "Voice character analyzed — Suno voice block regenerated from traits"

@@ -235,6 +235,9 @@ export function useExportActions(deps) {
       const file = event.target.files?.[0];
       if (!file) return;
       const reader = new FileReader();
+      reader.onerror = () => {
+        setStatusWithTime("Import failed — could not read file", "error");
+      };
       reader.onload = () => {
         try {
           captureSnapshot("before import");

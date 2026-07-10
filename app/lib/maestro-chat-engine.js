@@ -746,10 +746,14 @@ export function buildMaestroReply(message, snapshot, options = {}) {
 /** Sanitize an arbitrary patch object down to allowed keys and value shapes. */
 export function sanitizeMaestroPatch(patch, snapshot) {
   if (!patch || typeof patch !== "object") return null;
+  const normalized = { ...patch };
+  if (!normalized.selectedGenres && Array.isArray(normalized.genres)) {
+    normalized.selectedGenres = normalized.genres;
+  }
   const out = {};
   for (const key of MAESTRO_PATCHABLE_KEYS) {
-    if (!(key in patch)) continue;
-    const value = patch[key];
+    if (!(key in normalized)) continue;
+    const value = normalized[key];
     if (key === "mood") {
       if (value && typeof value === "object") {
         const mood = { ...(snapshot.mood || {}) };
@@ -764,7 +768,8 @@ export function sanitizeMaestroPatch(patch, snapshot) {
     }
     if (["selectedGenres", "selectedRhythms", "selectedSounds"].includes(key)) {
       if (Array.isArray(value)) {
-        out[key] = uniq(value.map((v) => String(v)).filter(Boolean)).slice(0, 8);
+        const cap = key === "selectedGenres" ? 3 : key === "selectedRhythms" ? 4 : 8;
+        out[key] = uniq(value.map((v) => String(v)).filter(Boolean)).slice(0, cap);
       }
       continue;
     }
