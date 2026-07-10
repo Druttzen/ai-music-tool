@@ -82,7 +82,7 @@ export function useCharacterVoiceStudio() {
   useEffect(() => {
     const syncSessionFromStorage = () => {
       applySessionState(loadCharacterVoiceStudioSessionFromStorage());
-      skipSessionPersistRef.current = false;
+      skipSessionPersistRef.current = true;
     };
     syncSessionFromStorage();
     window.addEventListener(CHARACTER_VOICE_STUDIO_SESSION_CHANGED_EVENT, syncSessionFromStorage);
@@ -91,7 +91,10 @@ export function useCharacterVoiceStudio() {
   }, [applySessionState]);
 
   useEffect(() => {
-    if (skipSessionPersistRef.current) return;
+    if (skipSessionPersistRef.current) {
+      skipSessionPersistRef.current = false;
+      return;
+    }
     saveCharacterVoiceStudioSessionToStorage({
       voiceAnalysis,
       voiceStyleCompact,
@@ -110,7 +113,16 @@ export function useCharacterVoiceStudio() {
   );
 
   const applyLinesToProject = useCallback(
-    (lines, { appendRules = true, voiceAnalysisOverride = undefined } = {}) => {
+    (
+      lines,
+      {
+        appendRules = true,
+        voiceAnalysisOverride = undefined,
+        youtubeReferenceOverride = undefined,
+        youtubeMusicDnaOverride = undefined,
+        presetNameOverride = undefined,
+      } = {},
+    ) => {
       setVoiceStyleLine(lines.voiceStyleLine);
       setVocal(lines.vocalRole);
       setVoiceRefFirstName("");
@@ -130,9 +142,11 @@ export function useCharacterVoiceStudio() {
       persistCharacterVoiceStudioSession({
         voiceAnalysis: voiceAnalysisOverride !== undefined ? voiceAnalysisOverride : voiceAnalysis,
         voiceStyleCompact: compact,
-        youtubeReference,
-        youtubeMusicDna,
-        presetName,
+        youtubeReference:
+          youtubeReferenceOverride !== undefined ? youtubeReferenceOverride : youtubeReference,
+        youtubeMusicDna:
+          youtubeMusicDnaOverride !== undefined ? youtubeMusicDnaOverride : youtubeMusicDna,
+        presetName: presetNameOverride !== undefined ? presetNameOverride : presetName,
       });
     },
     [
@@ -209,7 +223,7 @@ export function useCharacterVoiceStudio() {
       setBusy(true);
       try {
         const bundle = await resolveYoutubeMusicDna(url, styleDnaSettings);
-        setYoutubeReference({
+        const nextRef = {
           videoId: bundle.youtube.videoId,
           watchUrl: bundle.youtube.watchUrl,
           title: bundle.youtube.title,
@@ -218,18 +232,34 @@ export function useCharacterVoiceStudio() {
           parsedTrack: bundle.youtube.parsedTrack,
           durationSec: bundle.youtube.durationSec,
           provider: bundle.youtube.provider,
-        });
+        };
+        setYoutubeReference(nextRef);
         setYoutubeMusicDna(bundle);
+        persistCharacterVoiceStudioSession({
+          voiceAnalysis,
+          voiceStyleCompact,
+          youtubeReference: nextRef,
+          youtubeMusicDna: bundle,
+          presetName,
+        });
         setStatusWithTime(
           `YouTube linked: ${bundle.dna.artist} — ${bundle.dna.title} (${bundle.provider}) — Suno replication pack ready`,
           "success",
         );
       } catch (err) {
-        setYoutubeReference({
+        const fallbackRef = {
           ...ref,
           title: ref.videoId,
-        });
+        };
+        setYoutubeReference(fallbackRef);
         setYoutubeMusicDna(null);
+        persistCharacterVoiceStudioSession({
+          voiceAnalysis,
+          voiceStyleCompact,
+          youtubeReference: fallbackRef,
+          youtubeMusicDna: null,
+          presetName,
+        });
         setStatusWithTime(
           err instanceof Error ? err.message : "YouTube resolve failed — start sidecar (npm run sidecar)",
           "warning",
@@ -238,7 +268,7 @@ export function useCharacterVoiceStudio() {
         setBusy(false);
       }
     },
-    [setStatusWithTime, styleDnaSettings],
+    [presetName, setStatusWithTime, styleDnaSettings, voiceAnalysis, voiceStyleCompact],
   );
 
   const applyYoutubeMusicDnaToProject = useCallback(() => {
@@ -305,18 +335,24 @@ export function useCharacterVoiceStudio() {
     (name) => {
       const preset = characterPresets[name];
       if (!preset) return;
+      const nextYoutube = preset.source?.youtubeUrl
+        ? {
+            videoId: preset.source.youtubeVideoId,
+            watchUrl: preset.source.youtubeUrl,
+            title: preset.source.youtubeTitle,
+          }
+        : null;
       setVoiceAnalysis(preset.analysis);
       setPresetName(name);
-      if (preset.source?.youtubeUrl) {
-        setYoutubeReference({
-          videoId: preset.source.youtubeVideoId,
-          watchUrl: preset.source.youtubeUrl,
-          title: preset.source.youtubeTitle,
-        });
-      } else {
-        setYoutubeReference(null);
-      }
-      applyLinesToProject(preset, { appendRules: false });
+      setYoutubeReference(nextYoutube);
+      setYoutubeMusicDna(null);
+      applyLinesToProject(preset, {
+        appendRules: false,
+        voiceAnalysisOverride: preset.analysis,
+        youtubeReferenceOverride: nextYoutube,
+        youtubeMusicDnaOverride: null,
+        presetNameOverride: name,
+      });
       setStatusWithTime(`Loaded character preset: ${name}`);
     },
     [applyLinesToProject, characterPresets, setStatusWithTime],
