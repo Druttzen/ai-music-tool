@@ -23,11 +23,15 @@ test.describe("Section DAW mood metatags", () => {
     await daw.scrollIntoViewIfNeeded();
     await daw.getByRole("button", { name: "+ verse" }).click();
     await daw.getByRole("button", { name: "+ chorus" }).click();
+    await expect(daw.locator("p.font-mono")).toContainText("verse");
+    await expect(daw.locator("p.font-mono")).toContainText("chorus");
+
     await daw.getByRole("button", { name: "Insert metatag scaffold" }).click();
 
     const lyrics = lyricStylePanel(page).locator("textarea").first();
     await expect(lyrics).toBeVisible({ timeout: 10_000 });
-    await expect(lyrics).toContainText("[Whispered]");
-    await expect(lyrics).toContainText("[Intimate]");
+    await expect(lyrics).toContainText("[Verse 1]", { timeout: 10_000 });
+    await expect(lyrics).toContainText("[Whispered]", { timeout: 10_000 });
+    await expect(lyrics).toContainText("[Intimate]", { timeout: 10_000 });
   });
 });

@@ -1,11 +1,21 @@
 import { expect } from "@playwright/test";
 
+let projectStorageInitRegistered = false;
+
+/** Clear persisted project once per test on the next navigation (reloads within a test are kept). */
 export async function clearProjectStorage(page) {
-  await page.addInitScript(() => {
-    if (sessionStorage.getItem("__e2e_storage_cleared__")) return;
-    localStorage.clear();
-    localStorage.setItem("ai_music_creator_guided_show_all", "1");
-    sessionStorage.setItem("__e2e_storage_cleared__", "1");
+  if (!projectStorageInitRegistered) {
+    await page.context().addInitScript(() => {
+      if (!window.__e2e_storage_clear_armed__) return;
+      window.__e2e_storage_clear_armed__ = false;
+      localStorage.clear();
+      localStorage.setItem("ai_music_creator_guided_show_all", "1");
+    });
+    projectStorageInitRegistered = true;
+  }
+  await page.goto("about:blank");
+  await page.evaluate(() => {
+    window.__e2e_storage_clear_armed__ = true;
   });
 }
 
@@ -153,8 +163,13 @@ export async function setMoodSlider(page, label, value) {
     Complexity: 4,
     Space: 5,
   }[label];
-  await panel.locator('input[type="range"]').nth(index ?? 0).fill(String(value));
-  await panel.locator('input[type="range"]').nth(index ?? 0).dispatchEvent("change");
+  const slider = panel.locator('input[type="range"]').nth(index ?? 0);
+  await slider.evaluate((el, next) => {
+    el.value = String(next);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+  await expect(slider).toHaveValue(String(value));
 }
 
 export function vocalEmbedStudioPanel(page) {
