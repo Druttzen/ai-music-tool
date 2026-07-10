@@ -4,7 +4,7 @@ import {
   buildSidecarFallbackReport,
   mergeSidecarAnalysis,
 } from "../app/lib/audio-analyzer-sidecar.js";
-import { getAudioAnalyzerDisclaimer } from "../app/lib/analyzer-disclaimer.js";
+import { getAudioAnalyzerDisclaimer, formatAudioAnalysisSourceLabel, listAudioAnalysisEngineBadges } from "../app/lib/analyzer-disclaimer.js";
 
 const baseReport = {
   version: 2,
@@ -102,11 +102,26 @@ describe("getAudioAnalyzerDisclaimer", () => {
       "Hugging Face",
     );
     expect(getAudioAnalyzerDisclaimer({ analysisEngine: "sidecar+sonic" })).toContain("librosa");
+    expect(getAudioAnalyzerDisclaimer({ analysisEngine: "sidecar+sonic" })).toContain("chord");
     expect(getAudioAnalyzerDisclaimer({ analysisEngine: "sidecar+hf-genre+sonic" })).toContain(
       "Hugging Face",
     );
     expect(getAudioAnalyzerDisclaimer({ analysisEngine: "heuristic" })).toContain("local scan");
     expect(getAudioAnalyzerDisclaimer(null)).toContain("local scan");
+  });
+
+  it("formats source labels and engine badges for composite engines", () => {
+    expect(formatAudioAnalysisSourceLabel({ analysisEngine: "sidecar+sonic" })).toContain(
+      "librosa sidecar",
+    );
+    expect(formatAudioAnalysisSourceLabel({ analysisEngine: "sidecar+sonic" })).toContain(
+      "sonic signature",
+    );
+    expect(listAudioAnalysisEngineBadges({ analysisEngine: "sidecar+hf-genre+sonic" })).toEqual([
+      "librosa",
+      "HF genre",
+      "sonic",
+    ]);
   });
 });
 

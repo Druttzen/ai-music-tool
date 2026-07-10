@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState, memo } from "react";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { formatTime } from "../lib/audio-analyzer";
-import { getAudioAnalyzerDisclaimer } from "../lib/analyzer-disclaimer";
+import {
+  formatAudioAnalysisSourceLabel,
+  getAudioAnalyzerDisclaimer,
+  listAudioAnalysisEngineBadges,
+} from "../lib/analyzer-disclaimer";
 import { isLikelyInstrumentalTrack } from "../lib/instrumental-lyrics-from-track";
 import { STUDIO_EXPORT_PRESETS } from "../lib/audio-enhancer";
 import {
@@ -143,6 +147,10 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
 
   if (!analysis) return null;
 
+  const engineBadges = listAudioAnalysisEngineBadges(analysis);
+  const sourceLabel = formatAudioAnalysisSourceLabel(analysis);
+  const chordLine = (analysis.chordProgression || []).filter(Boolean).join(" → ");
+
   const setTags = (key, text) => onChange({ [key]: splitTags(text) });
   const setBpmFromText = (text) => {
     const n = parseInt(String(text).replace(/\D/g, ""), 10);
@@ -186,8 +194,20 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
         <div className="text-[10px] font-bold uppercase tracking-wider text-orange-200/90">Track</div>
         <div className="mt-1 truncate text-sm font-semibold text-white">{analysis.fileName}</div>
         <div className="mt-0.5 text-[11px] text-white/50">
-          {formatTime(0)} – {formatTime(analysis.duration)} · Local scan (edit before merge)
+          {formatTime(0)} – {formatTime(analysis.duration)} · {sourceLabel}
         </div>
+        {engineBadges.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {engineBadges.map((badge) => (
+              <span
+                key={badge}
+                className="rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-100"
+              >
+                {badge}
+              </span>
+            ))}
+          </div>
+        ) : null}
         {analysis.sourceEngine === "musicgen" ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="rounded-full border border-violet-400/35 bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-100">
@@ -205,6 +225,15 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
       <p className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">
         {getAudioAnalyzerDisclaimer(analysis)}
       </p>
+
+      {chordLine ? (
+        <p
+          className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 font-mono text-[10px] leading-relaxed text-cyan-100/90"
+          data-testid="analyzer-chord-strip"
+        >
+          Chords: {chordLine}
+        </p>
+      ) : null}
 
       <section className="rounded-2xl border border-amber-400/20 bg-black/30 p-3 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
