@@ -17,6 +17,8 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -65,16 +67,26 @@ jobs:
           if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
             echo "Deleting existing release ${TAG} (id ${RELEASE_ID})"
             gh api -X DELETE "repos/${REPO}/releases/${RELEASE_ID}"
+          else
+            echo "No existing release for ${TAG}"
           fi
-          echo "Pre-creating release ${TAG} so electron-builder only uploads assets"
-          gh api --method POST "repos/${REPO}/releases" \
-            -f tag_name="${TAG}" \
-            -f name="${TAG#v}" \
-            -f body="$(cat release-notes.md)" \
-            -f target_commitish="${TAG}" \
-            -F draft=false \
-            -F prerelease=false
       - name: Build and publish Windows installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/run-electron-builder.cjs --publish always
+      - name: Ensure all installer assets on GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -e
+          OUT=$(cat build/.electron-dist-output 2>/dev/null || echo electron-dist)
+          shopt -s nullglob
+          files=("${OUT}"/*Setup*.exe "${OUT}"/*Setup*.exe.blockmap "${OUT}"/latest.yml)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No installer artifacts in ${OUT}"
+            exit 1
+          fi
+          echo "Uploading ${#files[@]} asset(s) to ${TAG}"
+          gh release upload "$TAG" "${files[@]}" --clobber
