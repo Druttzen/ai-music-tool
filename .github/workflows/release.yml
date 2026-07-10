@@ -67,7 +67,13 @@ jobs:
             gh api -X DELETE "repos/${REPO}/releases/${RELEASE_ID}"
           fi
           echo "Pre-creating release ${TAG} so electron-builder only uploads assets"
-          gh release create "$TAG" --title "${TAG#v}" --notes-file release-notes.md --target "$TAG"
+          gh api --method POST "repos/${REPO}/releases" \
+            -f tag_name="${TAG}" \
+            -f name="${TAG#v}" \
+            -f body="$(cat release-notes.md)" \
+            -f target_commitish="${TAG}" \
+            -F draft=false \
+            -F prerelease=false
       - name: Build and publish Windows installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
