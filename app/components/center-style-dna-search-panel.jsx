@@ -300,6 +300,15 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
               >
                 Copy replication style
               </button>
+              {replication.udioProse ? (
+                <button
+                  type="button"
+                  className="mt-2 ml-2 rounded-xl border border-violet-300/40 px-3 py-1.5 text-[11px] font-bold text-violet-50 hover:bg-violet-500/20"
+                  onClick={() => copyToClipboard(replication.udioProse, "Udio prose copied")}
+                >
+                  Copy Udio prose
+                </button>
+              ) : null}
             </div>
           )}
 

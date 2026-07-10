@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.46.0",
+  "version": "0.47.0",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,

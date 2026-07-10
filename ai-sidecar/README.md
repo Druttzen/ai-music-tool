@@ -9,6 +9,7 @@ Local FastAPI service for track analysis (librosa) and optional ML capabilities 
 - Optional **`stems`** extra: torch + demucs (~2 GB download)
 - Optional **`vision`** extra: torch + transformers + Pillow + scikit-learn for future image caption/object analysis
 - **ffmpeg** on PATH for MP3/M4A uploads (WAV works without it). Windows: `winget install Gyan.FFmpeg`
+- **yt-dlp** on PATH for YouTube audio sonic analysis (`POST /youtube/sonic-signature`). Windows: `winget install yt-dlp.yt-dlp` or `pip install yt-dlp` in the sidecar venv
 
 ## Quick start
 
@@ -191,6 +192,9 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 |-------|---------|
 | `GET /health` | Liveness; includes vocal synthesis/DSP/RVC/DiffSinger flags |
 | `POST /analyze` | Librosa tempo/key/spectral/percussive report |
+| `POST /sonic-signature` | Chord/key/BPM fusion from uploaded audio |
+| `POST /youtube/resolve` | YouTube metadata (oEmbed + optional yt-dlp title) |
+| `POST /youtube/sonic-signature` | Download ≤120s audio via yt-dlp → sonic signature |
 | `POST /vocal-embed/plan` | Validate Vocal Embed Studio JSON plan from the app |
 | `GET /vocal-embed/models` | RVC / DiffSinger configuration status |
 | `POST /vocal-embed/synthesize` | Placement-mix + optional RVC/DiffSinger engines → mixed WAV |
