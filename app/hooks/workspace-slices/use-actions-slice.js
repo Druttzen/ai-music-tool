@@ -38,6 +38,8 @@ const ACTION_KEYS = [
   "generateHooks",
   "generateMusicFromPrompt",
   "generateVariations",
+  "generateVoiceStyleFromArtistId",
+  "generateVoiceStyleFromPreset",
   "generateVoiceStyleFromNames",
   "handoffTrackToVoiceCharacterStudio",
   "importProject",

@@ -41,6 +41,8 @@ export function buildProjectWorkspaceActions(s) {
     generateMusicFromPrompt: s.generateMusicFromPrompt,
     generateVariations: s.generateVariations,
     generateVoiceStyleFromNames: s.generateVoiceStyleFromNames,
+    generateVoiceStyleFromPreset: s.generateVoiceStyleFromPreset,
+    generateVoiceStyleFromArtistId: s.generateVoiceStyleFromArtistId,
     handoffTrackToVoiceCharacterStudio: s.handoffTrackToVoiceCharacterStudio,
     importProject: s.importProject,
     loadPresetObject: s.loadPresetObject,

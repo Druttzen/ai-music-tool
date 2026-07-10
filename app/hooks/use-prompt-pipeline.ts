@@ -16,7 +16,7 @@ import {
 } from "../lib/suno-guided-workflow";
 import { applySunoPasteToSlices } from "../lib/suno-reimport";
 import { buildUsableAnalyzerStylePrompt } from "../lib/analyzer-guided-merge";
-import { buildSunoVoiceStyleCompact } from "../lib/suno-voice-style";
+import { buildSunoVoiceStyleCompact, formatPublicName } from "../lib/suno-voice-style";
 import { useMemo } from "react";
 
 import type { PipelineInputFields } from "./use-pipeline-input";
@@ -337,15 +337,28 @@ export function usePromptPipeline(input: PipelineInputFields) {
     ],
   );
 
-  const voiceStyleCompact = useMemo(
-    () =>
-      buildSunoVoiceStyleCompact({
-        firstName: input.voiceRefFirstName,
-        lastName: input.voiceRefLastName,
-        selectedGenres: input.selectedGenres,
-      }),
-    [input.voiceRefFirstName, input.voiceRefLastName, input.selectedGenres],
-  );
+  const voiceStyleCompact = useMemo(() => {
+    const customLine = String(input.voiceStyleLine || "").trim();
+    if (customLine) {
+      const name = formatPublicName(input.voiceRefFirstName, input.voiceRefLastName);
+      return {
+        style: customLine,
+        lyricTag: name
+          ? `[Vocal character: ${name}-inspired dynamics — stylistic reference only, not imitation]`
+          : "[Vocal character: stylistic reference only, not imitation]",
+      };
+    }
+    return buildSunoVoiceStyleCompact({
+      firstName: input.voiceRefFirstName,
+      lastName: input.voiceRefLastName,
+      selectedGenres: input.selectedGenres,
+    });
+  }, [
+    input.voiceRefFirstName,
+    input.voiceRefLastName,
+    input.selectedGenres,
+    input.voiceStyleLine,
+  ]);
 
   const sourcePrompt = useMemo(
     () => buildSourcePrompt(input.audioAnalysis, input.imageAnalysis),

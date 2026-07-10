@@ -102,6 +102,7 @@ export function pickProjectActionInput(
     setVoiceRefFirstName: projectState.setVoiceRefFirstName,
     setVoiceRefLastName: projectState.setVoiceRefLastName,
     setVoiceStyleLine: projectState.setVoiceStyleLine,
+    styleDnaSettings: projectState.styleDnaSettings,
     structure: projectState.structure,
     tempo: projectState.tempo,
     variationCount: projectState.variationCount,

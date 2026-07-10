@@ -130,6 +130,26 @@ export function normalizeSpotifyTrackHit(track, features, artist) {
  * @param {string} query
  * @param {string} clientId
  * @param {string} clientSecret
+ * @param {number} [limit]
+ */
+export async function searchSpotifyArtists(query, clientId, clientSecret, limit = 3) {
+  const token = await getSpotifyAccessToken(clientId, clientSecret);
+  const q = encodeURIComponent(String(query).trim());
+  const data = await spotifyGet(`/search?q=${q}&type=artist&limit=${limit}`, token);
+  const items = data?.artists?.items;
+  if (!Array.isArray(items)) return [];
+  return items.map((artist) => ({
+    id: artist?.id || "",
+    name: artist?.name || "",
+    genres: Array.isArray(artist?.genres) ? artist.genres : [],
+    externalUrl: artist?.external_urls?.spotify || "",
+  }));
+}
+
+/**
+ * @param {string} query
+ * @param {string} clientId
+ * @param {string} clientSecret
  */
 export async function searchSpotifyStyleDnaHits(query, clientId, clientSecret) {
   const tracks = await searchSpotifyTracks(query, clientId, clientSecret, 5);

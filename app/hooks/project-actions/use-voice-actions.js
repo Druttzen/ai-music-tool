@@ -4,7 +4,16 @@ import { useCallback } from "react";
 import { resolveAudioCacheBlob } from "../../lib/audio-cache";
 import { buildStyleDnaPatch } from "../../lib/track-style-dna";
 import { resolvePolishStepIndex } from "../../lib/suno-guided-workflow";
-import { buildSunoVoiceStyleLine, formatPublicName } from "../../lib/suno-voice-style";
+import {
+  buildSunoVoiceStyleLine,
+  formatPublicName,
+  presetToVoiceProfile,
+} from "../../lib/suno-voice-style";
+import {
+  buildVoiceStyleFromProfile,
+  fetchArtistVoiceProfile,
+  lookupArtistVoiceProfile,
+} from "../../lib/voice-style-lookup";
 import {
   dispatchVoiceCharacterAnalyzeFile,
   scrollToVoiceCharacterStudioPanel,
@@ -23,31 +32,117 @@ export function useVoiceActions(deps) {
     setPromptEngine,
     setStatusWithTime,
     setVoiceStyleLine,
+    styleDnaSettings,
     voiceRefFirstName,
     voiceRefLastName,
   } = deps;
 
-  const generateVoiceStyleFromNames = useCallback(() => {
-    if (!formatPublicName(voiceRefFirstName, voiceRefLastName).trim()) {
-      setStatusWithTime("Enter at least a first name (last name optional for mononyms)");
-      return;
-    }
-    const line = buildSunoVoiceStyleLine({
-      firstName: voiceRefFirstName,
-      lastName: voiceRefLastName,
-      selectedGenres,
+  const generateVoiceStyleFromNames = useCallback(
+    async (options = {}) => {
+      const name = formatPublicName(voiceRefFirstName, voiceRefLastName).trim();
+      if (!name) {
+        setStatusWithTime("Enter at least a first name (last name optional for mononyms)");
+        return null;
+      }
+
+      if (options.profile) {
+        const built = buildVoiceStyleFromProfile(options.profile, {
+          selectedGenres,
+          referenceName: name,
+        });
+        setVoiceStyleLine(built.voiceStyleLine);
+        setStatusWithTime(
+          `Voice style from ${built.sources.join(" + ") || "reference"} — Suno 5.5 tokens ready`,
+        );
+        return built;
+      }
+
+      if (options.offlineProfile) {
+        const built = buildVoiceStyleFromProfile(options.offlineProfile, {
+          selectedGenres,
+          referenceName: name,
+        });
+        setVoiceStyleLine(built.voiceStyleLine);
+        setStatusWithTime("Voice style from preset seed — use Search for live MusicBrainz data");
+        return built;
+      }
+
+      setStatusWithTime(`Looking up ${name} online…`);
+      try {
+        const profile = await lookupArtistVoiceProfile(name, styleDnaSettings);
+        if (!profile) {
+          const line = buildSunoVoiceStyleLine({
+            firstName: voiceRefFirstName,
+            lastName: voiceRefLastName,
+            selectedGenres,
+            moodWords,
+          });
+          setVoiceStyleLine(line);
+          setStatusWithTime("No MusicBrainz match — used generic template", "warning");
+          return { voiceStyleLine: line, sources: [] };
+        }
+        const built = buildVoiceStyleFromProfile(profile, {
+          selectedGenres,
+          referenceName: name,
+        });
+        setVoiceStyleLine(built.voiceStyleLine);
+        setStatusWithTime(
+          `Voice style from ${built.sources.join(" + ")} — ${profile.genres.slice(0, 2).join(", ") || "artist match"}`,
+        );
+        return built;
+      } catch (err) {
+        const line = buildSunoVoiceStyleLine({
+          firstName: voiceRefFirstName,
+          lastName: voiceRefLastName,
+          selectedGenres,
+          moodWords,
+        });
+        setVoiceStyleLine(line);
+        setStatusWithTime(
+          err instanceof Error ? err.message : "Online lookup failed — used generic template",
+          "warning",
+        );
+        return { voiceStyleLine: line, sources: [] };
+      }
+    },
+    [
       moodWords,
-    });
-    setVoiceStyleLine(line);
-    setStatusWithTime("Voice style line generated");
-  }, [
-    moodWords,
-    selectedGenres,
-    setStatusWithTime,
-    setVoiceStyleLine,
-    voiceRefFirstName,
-    voiceRefLastName,
-  ]);
+      selectedGenres,
+      setStatusWithTime,
+      setVoiceStyleLine,
+      styleDnaSettings,
+      voiceRefFirstName,
+      voiceRefLastName,
+    ],
+  );
+
+  const generateVoiceStyleFromPreset = useCallback(
+    (preset) => {
+      const profile = presetToVoiceProfile(preset);
+      return generateVoiceStyleFromNames({ offlineProfile: profile });
+    },
+    [generateVoiceStyleFromNames],
+  );
+
+  const generateVoiceStyleFromArtistId = useCallback(
+    async (mbid, displayName) => {
+      setStatusWithTime(`Loading ${displayName || "artist"} from MusicBrainz…`);
+      try {
+        const profile = await fetchArtistVoiceProfile(mbid, styleDnaSettings);
+        if (!profile) {
+          setStatusWithTime("Artist lookup failed", "error");
+          return null;
+        }
+        return generateVoiceStyleFromNames({
+          profile,
+        });
+      } catch (err) {
+        setStatusWithTime(err instanceof Error ? err.message : "Artist lookup failed", "error");
+        return null;
+      }
+    },
+    [generateVoiceStyleFromNames, setStatusWithTime, styleDnaSettings],
+  );
 
   const applyStyleDnaToProject = useCallback(
     (dna) => {
@@ -109,6 +204,8 @@ export function useVoiceActions(deps) {
 
   return {
     generateVoiceStyleFromNames,
+    generateVoiceStyleFromPreset,
+    generateVoiceStyleFromArtistId,
     applyStyleDnaToProject,
     handoffTrackToVoiceCharacterStudio,
   };
