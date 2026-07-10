@@ -63,7 +63,7 @@ jobs:
         run: |
           set -e
           REPO="${GITHUB_REPOSITORY}"
-          RELEASE_ID=$(gh api "repos/${REPO}/releases/tags/${TAG}" --jq .id 2>/dev/null || true)
+          RELEASE_ID=$(gh release view "$TAG" --json id -q .id 2>/dev/null || true)
           if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
             echo "Deleting existing release ${TAG} (id ${RELEASE_ID})"
             gh api -X DELETE "repos/${REPO}/releases/${RELEASE_ID}"
