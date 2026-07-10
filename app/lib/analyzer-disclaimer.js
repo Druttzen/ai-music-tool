@@ -11,12 +11,14 @@ export const AUDIO_ANALYZER_DISCLAIMER_SIDECAR_HF =
 
 /** @param {{ analysisEngine?: string }|null|undefined} analysis */
 export function getAudioAnalyzerDisclaimer(analysis) {
-  if (analysis?.analysisEngine === "sidecar+hf-genre") {
+  const engine = String(analysis?.analysisEngine || "");
+  if (engine.includes("hf-genre")) {
     return AUDIO_ANALYZER_DISCLAIMER_SIDECAR_HF;
   }
-  return analysis?.analysisEngine === "sidecar"
-    ? AUDIO_ANALYZER_DISCLAIMER_SIDECAR
-    : AUDIO_ANALYZER_DISCLAIMER;
+  if (engine.includes("sidecar") || engine === "sonic") {
+    return AUDIO_ANALYZER_DISCLAIMER_SIDECAR;
+  }
+  return AUDIO_ANALYZER_DISCLAIMER;
 }
 
 export const IMAGE_ANALYZER_DISCLAIMER =

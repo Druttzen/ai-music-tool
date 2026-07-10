@@ -4,7 +4,9 @@ import {
   buildAlignPreviewPersistence,
   computeVocalEmbedCapabilities,
   hydrateAlignFromStoredSession,
+  resolveEffectiveVocalEmbedLyrics,
   resolveVocalEmbedEngineLabel,
+  shouldClearAlignOnEffectiveLyricsChange,
   shouldClearAlignOnGuideChange,
   shouldClearAlignOnInstrumentalChange,
   shouldClearAlignOnLyricsChange,
@@ -65,10 +67,12 @@ describe("vocal-embed-studio-utils", () => {
     ).toBe("Synthesize lyrics-only preview");
   });
 
-  it("clears align when instrumental file name changes", () => {
+  it("clears align when instrumental file name changes or track is cleared", () => {
     expect(shouldClearAlignOnInstrumentalChange("a.wav", "b.wav")).toBe(true);
     expect(shouldClearAlignOnInstrumentalChange("a.wav", "a.wav")).toBe(false);
     expect(shouldClearAlignOnInstrumentalChange(undefined, "a.wav")).toBe(false);
+    expect(shouldClearAlignOnInstrumentalChange("a.wav", undefined)).toBe(true);
+    expect(shouldClearAlignOnInstrumentalChange("a.wav", null)).toBe(true);
   });
 
   it("clears align when guide vocal file reference changes", () => {
@@ -86,6 +90,25 @@ describe("vocal-embed-studio-utils", () => {
       false,
     );
     expect(shouldClearAlignOnLyricsChange("[Verse]\nOne", "[Verse]\nTwo", null)).toBe(false);
+  });
+
+  it("prefers draft lyrics over generated lyrics for effective embed text", () => {
+    expect(resolveEffectiveVocalEmbedLyrics("[Verse]\nDraft", "[Verse]\nGenerated")).toBe(
+      "[Verse]\nDraft",
+    );
+    expect(resolveEffectiveVocalEmbedLyrics("", "[Verse]\nGenerated")).toBe("[Verse]\nGenerated");
+  });
+
+  it("clears align when effective lyrics change including draft edits", () => {
+    expect(
+      shouldClearAlignOnEffectiveLyricsChange("[Verse]\nOne", "[Verse]\nTwo", { word_count: 1 }),
+    ).toBe(true);
+    expect(
+      shouldClearAlignOnEffectiveLyricsChange("", "[Verse]\nTwo", { word_count: 1 }),
+    ).toBe(true);
+    expect(shouldClearAlignOnEffectiveLyricsChange("[Verse]\nOne", "[Verse]\nOne", { word_count: 1 })).toBe(
+      false,
+    );
   });
 
   it("hydrates stored align when instrumental names match", () => {

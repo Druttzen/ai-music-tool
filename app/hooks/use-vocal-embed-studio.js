@@ -34,6 +34,8 @@ import {
   computeVocalEmbedCapabilities,
   hydrateAlignFromStoredSession,
   resolveVocalEmbedEngineLabel,
+  resolveEffectiveVocalEmbedLyrics,
+  shouldClearAlignOnEffectiveLyricsChange,
   shouldClearAlignOnGuideChange,
   shouldClearAlignOnInstrumentalChange,
   shouldClearAlignOnLyricsChange,
@@ -66,6 +68,25 @@ export function useVocalEmbedStudio() {
   const instrumentalRef = useRef(audioAnalysis?.fileName);
   const guideVocalRef = useRef(guideVocalFile);
   const lyricsRef = useRef(generatedLyrics);
+  const draftLyricsRef = useRef(draftLyrics);
+  const effectiveLyricsRef = useRef(
+    resolveEffectiveVocalEmbedLyrics(draftLyrics, generatedLyrics),
+  );
+
+  const clearVocalEmbedSession = useCallback(() => {
+    setAlignPreview(null);
+    setStoredOpenvpiDs(null);
+    writeStoredVocalAlignPreview(null);
+    setDraftLyrics("");
+    setGuideVocalAttached(false);
+    setGuideVocalFile(null);
+    setGuideForLyricTiming(true);
+    draftLyricsRef.current = "";
+    guideVocalRef.current = null;
+    effectiveLyricsRef.current = resolveEffectiveVocalEmbedLyrics("", generatedLyrics);
+    lyricsRef.current = generatedLyrics;
+    if (guideInputRef.current) guideInputRef.current.value = "";
+  }, [generatedLyrics]);
 
   useEffect(() => {
     const stored = readStoredVocalAlignPreview();
@@ -75,22 +96,21 @@ export function useVocalEmbedStudio() {
         setAlignPreview(hydrated.alignPreview);
         setStoredOpenvpiDs(hydrated.storedOpenvpiDs);
       });
+      return;
     }
+    queueMicrotask(() => {
+      setAlignPreview(null);
+      setStoredOpenvpiDs(null);
+    });
   }, [audioAnalysis?.fileName]);
 
   useEffect(() => {
     const onWorkspaceReset = () => {
-      setAlignPreview(null);
-      setStoredOpenvpiDs(null);
-      setDraftLyrics("");
-      setGuideVocalAttached(false);
-      setGuideVocalFile(null);
-      setGuideForLyricTiming(true);
-      if (guideInputRef.current) guideInputRef.current.value = "";
+      clearVocalEmbedSession();
     };
     window.addEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
     return () => window.removeEventListener(PROJECT_WORKSPACE_RESET_EVENT, onWorkspaceReset);
-  }, []);
+  }, [clearVocalEmbedSession]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,10 +182,10 @@ export function useVocalEmbedStudio() {
 
   useEffect(() => {
     if (shouldClearAlignOnInstrumentalChange(instrumentalRef.current, audioAnalysis?.fileName)) {
-      persistAlignPreview(null);
+      clearVocalEmbedSession();
     }
     instrumentalRef.current = audioAnalysis?.fileName;
-  }, [audioAnalysis?.fileName, persistAlignPreview]);
+  }, [audioAnalysis?.fileName, clearVocalEmbedSession]);
 
   useEffect(() => {
     if (shouldClearAlignOnGuideChange(guideVocalRef.current, guideVocalFile)) {
@@ -175,8 +195,30 @@ export function useVocalEmbedStudio() {
   }, [guideVocalFile, persistAlignPreview]);
 
   useEffect(() => {
+    draftLyricsRef.current = draftLyrics;
+    const effective = resolveEffectiveVocalEmbedLyrics(draftLyrics, generatedLyrics);
+    if (
+      shouldClearAlignOnEffectiveLyricsChange(
+        effectiveLyricsRef.current,
+        effective,
+        alignPreview,
+      )
+    ) {
+      persistAlignPreview(null);
+    }
+    effectiveLyricsRef.current = effective;
+  }, [alignPreview, draftLyrics, generatedLyrics, persistAlignPreview]);
+
+  useEffect(() => {
     if (shouldClearAlignOnLyricsChange(lyricsRef.current, generatedLyrics, alignPreview)) {
       persistAlignPreview(null);
+    }
+    if (
+      lyricsRef.current !== generatedLyrics &&
+      String(draftLyricsRef.current || "").trim()
+    ) {
+      setDraftLyrics("");
+      draftLyricsRef.current = "";
     }
     lyricsRef.current = generatedLyrics;
   }, [alignPreview, generatedLyrics, persistAlignPreview]);

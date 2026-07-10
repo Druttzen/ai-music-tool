@@ -95,7 +95,28 @@ export function vocalEmbedSynthesizeButtonLabel({
  * @param {string|undefined|null} next
  */
 export function shouldClearAlignOnInstrumentalChange(prev, next) {
-  return !!(prev && next && prev !== next);
+  if (!prev) return false;
+  return String(prev) !== String(next ?? "");
+}
+
+/**
+ * Draft override wins over generated project lyrics in Vocal Embed Studio.
+ * @param {string} [draftLyrics]
+ * @param {string} [generatedLyrics]
+ */
+export function resolveEffectiveVocalEmbedLyrics(draftLyrics, generatedLyrics) {
+  return String(draftLyrics || "").trim() || String(generatedLyrics || "").trim();
+}
+
+/**
+ * @param {string|undefined|null} prevLyrics
+ * @param {string|undefined|null} nextLyrics
+ * @param {object|null|undefined} alignPreview
+ */
+export function shouldClearAlignOnEffectiveLyricsChange(prevLyrics, nextLyrics, alignPreview) {
+  if (!alignPreview) return false;
+  if (!prevLyrics && !nextLyrics) return false;
+  return String(prevLyrics || "") !== String(nextLyrics || "");
 }
 
 /**
