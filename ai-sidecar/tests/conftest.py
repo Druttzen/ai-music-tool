@@ -6,7 +6,11 @@ def pytest_configure(config):
     warnings.filterwarnings(
         "ignore",
         message="Using `httpx` with `starlette.testclient` is deprecated",
-        category=DeprecationWarning,
+    )
+    warnings.filterwarnings(
+        "ignore",
+        category=UserWarning,
+        module=r"librosa\.core\.spectrum",
     )
     warnings.filterwarnings(
         "ignore",

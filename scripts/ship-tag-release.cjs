@@ -14,7 +14,7 @@ function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, {
     stdio: "inherit",
     cwd: root,
-    shell: isWin && (cmd === "npm" || cmd === "git" || cmd.endsWith(".cmd")),
+    shell: isWin && (cmd === "npm" || cmd.endsWith(".cmd")),
     ...opts,
   });
   if (r.status !== 0) process.exit(r.status ?? 1);
