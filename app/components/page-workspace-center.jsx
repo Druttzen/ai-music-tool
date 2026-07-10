@@ -9,6 +9,7 @@ import {
 import { CenterGuidedPathPanel } from "./center-guided-path-panel";
 import { CenterIdeaPanel } from "./center-idea-panel";
 import { CenterLyricStylePanel } from "./center-lyric-style-panel";
+import { CenterSectionDawLite } from "./center-section-daw-lite";
 import { CenterMaestroChatPanel } from "./center-maestro-chat-panel";
 import { CenterMoodPanel } from "./center-mood-panel";
 import { CenterMusicControlsPanel } from "./center-music-controls-panel";
@@ -47,6 +48,7 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.lyricStyle} column="center">
         <CenterLyricStylePanel />
+        <CenterSectionDawLite />
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.voiceStyle} column="center">
         <CenterVoiceStylePanel />

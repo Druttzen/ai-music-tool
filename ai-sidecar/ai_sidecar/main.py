@@ -49,6 +49,8 @@ from .vocal_synth import (
     synthesize_vocal_embed_mix,
 )
 from .youtube_resolve import resolve_youtube_url
+from .sonic_signature import extract_sonic_signature
+from .acousticbrainz import fetch_acousticbrainz_features
 from .genre_classifier import active_genre_model_id, classify_music_genres, genre_classification_available
 from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
 from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
@@ -212,6 +214,50 @@ class YoutubeResolveResponse(BaseModel):
     provider: str
 
 
+class ChordPoint(BaseModel):
+    time_sec: float
+    chord: str
+    strength: float
+
+
+class TimelineSegment(BaseModel):
+    start_sec: float
+    end_sec: float
+    energy: float
+    brightness_hz: float
+
+
+class SonicSignatureResponse(BaseModel):
+    duration_sec: float
+    tempo_bpm: float
+    key_estimate: str
+    key_confidence: float
+    time_signature: int
+    loudness_db: float
+    spectral_centroid_hz: float
+    harmonic_ratio: float
+    percussive_ratio: float
+    beat_count: int
+    chord_progression: list[ChordPoint]
+    timeline_segments: list[TimelineSegment]
+    provider: str
+
+
+class AcousticBrainzResponse(BaseModel):
+    recording_mbid: str
+    provider: str
+    bpm: float | None = None
+    key_key: str | None = None
+    key_scale: str | None = None
+    key_strength: float | None = None
+    danceability: float | None = None
+    loudness: float | None = None
+    moods: list[str] = []
+    genres: list[str] = []
+    danceability_prob: float | None = None
+    voice_instrumental: float | None = None
+
+
 def _stems_available() -> bool:
     try:
         import demucs  # noqa: F401, PLC0415
@@ -255,6 +301,30 @@ def youtube_resolve(body: YoutubeResolveRequest) -> YoutubeResolveResponse:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"YouTube resolve failed: {exc}") from exc
     return YoutubeResolveResponse(**payload)
+
+
+@app.post("/sonic-signature", response_model=SonicSignatureResponse)
+async def sonic_signature(file: UploadFile = File(...)) -> SonicSignatureResponse:
+    """Rich librosa sonic signature — BPM, key+mode, chord progression, timeline."""
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty upload")
+    try:
+        payload = extract_sonic_signature(raw)
+    except Exception as exc:
+        if "librosa" in str(exc).lower() or "numpy" in str(exc).lower():
+            raise HTTPException(status_code=503, detail=f"analysis deps missing: {exc}") from exc
+        raise HTTPException(status_code=422, detail=f"sonic signature failed: {exc}") from exc
+    return SonicSignatureResponse(**payload)
+
+
+@app.get("/acousticbrainz/{recording_mbid}", response_model=AcousticBrainzResponse)
+def acousticbrainz_lookup(recording_mbid: str) -> AcousticBrainzResponse:
+    """Fetch archived AcousticBrainz features for a MusicBrainz recording MBID."""
+    data = fetch_acousticbrainz_features(recording_mbid)
+    if not data:
+        raise HTTPException(status_code=404, detail="no AcousticBrainz data for this recording")
+    return AcousticBrainzResponse(**data)
 
 
 @app.post("/vocal-embed/plan", response_model=VocalEmbedPlanResponse)

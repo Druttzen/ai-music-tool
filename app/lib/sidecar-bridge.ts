@@ -178,6 +178,74 @@ export async function resolveYoutubeViaSidecar(watchUrl: string): Promise<Youtub
   return res.json() as Promise<YoutubeResolvePayload>;
 }
 
+export interface SonicChordPoint {
+  time_sec: number;
+  chord: string;
+  strength: number;
+}
+
+export interface SonicTimelineSegment {
+  start_sec: number;
+  end_sec: number;
+  energy: number;
+  brightness_hz: number;
+}
+
+export interface SonicSignaturePayload {
+  duration_sec: number;
+  tempo_bpm: number;
+  key_estimate: string;
+  key_confidence: number;
+  time_signature: number;
+  loudness_db: number;
+  spectral_centroid_hz: number;
+  harmonic_ratio: number;
+  percussive_ratio: number;
+  beat_count: number;
+  chord_progression: SonicChordPoint[];
+  timeline_segments: SonicTimelineSegment[];
+  provider: string;
+}
+
+export interface AcousticBrainzPayload {
+  recording_mbid: string;
+  provider: string;
+  bpm?: number | null;
+  key_key?: string | null;
+  key_scale?: string | null;
+  key_strength?: number | null;
+  moods?: string[];
+  genres?: string[];
+}
+
+/** POST audio to /sonic-signature for rich librosa analysis. */
+export async function fetchSonicSignatureViaSidecar(
+  file: Blob,
+  fileName = "audio",
+): Promise<SonicSignaturePayload> {
+  const form = new FormData();
+  form.append("file", file, fileName);
+  const res = await fetch(`${sidecarBaseUrl()}/sonic-signature`, { method: "POST", body: form });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(detail || `sonic signature failed (${res.status})`);
+  }
+  return res.json() as Promise<SonicSignaturePayload>;
+}
+
+/** GET AcousticBrainz archive features by MusicBrainz recording MBID. */
+export async function fetchAcousticBrainzViaSidecar(
+  recordingMbid: string,
+): Promise<AcousticBrainzPayload> {
+  const res = await fetch(
+    `${sidecarBaseUrl()}/acousticbrainz/${encodeURIComponent(recordingMbid)}`,
+  );
+  if (!res.ok) {
+    throw new Error(`AcousticBrainz lookup failed (${res.status})`);
+  }
+  return res.json() as Promise<AcousticBrainzPayload>;
+}
+
 export interface SidecarStemFile {
   name: string;
   download_url: string;

@@ -189,6 +189,17 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
                   {hit.estimatedKey ? ` · ${hit.estimatedKey}` : ""}
                   {hit.genres?.length ? ` · ${hit.genres.join(", ")}` : ""}
                 </div>
+                {hit.confidence && (
+                  <div className="mt-1 text-[10px] text-indigo-200/70">
+                    BPM {hit.confidence.bpm?.level} · key {hit.confidence.key?.level} · genre{" "}
+                    {hit.confidence.genre?.level}
+                  </div>
+                )}
+                {hit.chordProgression?.length > 0 && (
+                  <div className="mt-1 font-mono text-[10px] text-white/40">
+                    {hit.chordProgression.join(" → ")}
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -198,6 +209,16 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
               <div className="mb-2 text-xs font-bold uppercase tracking-wider text-cyan-200/80">
                 Suno 5.5 replication style line
               </div>
+              {replication.confidenceBadge && (
+                <p className="mb-2 text-[10px] text-cyan-100/70" data-testid="style-dna-confidence">
+                  Confidence: {replication.confidenceBadge}
+                </p>
+              )}
+              {replication.chordStrip && (
+                <p className="mb-2 font-mono text-[10px] text-cyan-100/60">
+                  Chords: {replication.chordStrip}
+                </p>
+              )}
               <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-3 text-[11px] text-cyan-50">
                 {replication.styleLine}
               </pre>

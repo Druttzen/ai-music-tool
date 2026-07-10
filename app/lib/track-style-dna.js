@@ -22,6 +22,7 @@ import {
 } from "./spotify-style-dna";
 import { parseYoutubeReference, resolveYoutubeReference } from "./youtube-reference";
 import { resolveYoutubeMusicDna } from "./youtube-music-dna";
+import { enrichStyleDnaHit } from "./style-dna-enrich";
 import { isSpotifyStyleDnaReady } from "./style-dna-settings";
 
 const KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -275,9 +276,10 @@ export async function searchTrackStyleDna(input, settings) {
       settings.spotifyClientId,
       settings.spotifyClientSecret,
     );
+    const dna = await enrichStyleDnaHit(hit, null, settings);
     return {
       hits: [hit],
-      mapped: [buildStyleDnaFromHit(hit)],
+      mapped: [dna],
       provider: "spotify",
     };
   }
@@ -303,9 +305,12 @@ export async function searchTrackStyleDna(input, settings) {
         settings.spotifyClientSecret,
       );
       if (hits.length) {
+        const mapped = await Promise.all(
+          hits.map((hit) => enrichStyleDnaHit(hit, null, settings)),
+        );
         return {
           hits,
-          mapped: hits.map(buildStyleDnaFromHit),
+          mapped,
           provider: "spotify",
         };
       }
@@ -316,9 +321,10 @@ export async function searchTrackStyleDna(input, settings) {
 
   const mbHits = await searchMusicBrainzStyleDnaHits(query);
   if (!mbHits.length) throw new Error("No tracks found — try a different query");
+  const mapped = await Promise.all(mbHits.map((hit) => enrichStyleDnaHit(hit, null, settings)));
   return {
     hits: mbHits,
-    mapped: mbHits.map(buildStyleDnaFromHit),
+    mapped,
     provider: "musicbrainz",
   };
 }

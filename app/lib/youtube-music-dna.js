@@ -4,6 +4,10 @@
 
 import { buildStyleDnaFromHit, compactStyleDnaRule, searchTrackStyleDna } from "./track-style-dna";
 import { resolveYoutubeReference } from "./youtube-reference";
+import { generateSunoMetatagScaffold } from "./suno-metatag-generator";
+import { formatConfidenceBadge } from "./sonic-signature-fusion";
+import { buildUdioProsePrompt } from "./udio-prose-export";
+import { enrichStyleDnaHit } from "./style-dna-enrich";
 
 const OFFICIAL_SUFFIX =
   /\s*[\(\[]?(official\s*(music\s*)?video|audio|lyric|mv|hd|4k|remaster(?:ed)?|visualizer|live|topic).*$/i;
@@ -76,15 +80,28 @@ export function buildSunoReplicationPack(dna, youtube = {}) {
   ].filter(Boolean);
 
   const styleLine = styleParts.join(", ").slice(0, 980);
-  const lyricsMetatag = `[Reference vibe: ${dna.artist} — ${dna.title}; match groove and arrangement — stylistic reference only]`;
+  const structure =
+    dna.structureFromSections ||
+    inferSunoStructureFromDuration(youtube.durationSec);
+  const lyricsMetatag = generateSunoMetatagScaffold({
+    structure,
+    moodWords: dna.moodWords,
+    title: dna.title,
+    artist: dna.artist,
+  });
 
   return {
     styleLine,
     lyricsMetatag,
-    structure: inferSunoStructureFromDuration(youtube.durationSec),
+    structure,
     ruleLine: compactStyleDnaRule(dna),
     ideaLine: `Recreate the feel of ${dna.artist} — ${dna.title}${youtube.parsedTrack ? ` (${youtube.parsedTrack})` : ""} for Suno 5.5 — match tempo, key, groove, and vocal lane.`,
     excludeHints: "no random genre drift, no spoken word unless original is rap",
+    udioProse: buildUdioProsePrompt(dna, {
+      reference: `${dna.artist} — ${dna.title}`,
+    }),
+    confidenceBadge: formatConfidenceBadge(dna.confidence),
+    chordStrip: (dna.chordProgression || []).join(" → "),
     dna,
     youtube,
   };
@@ -137,6 +154,11 @@ export async function resolveYoutubeMusicDna(url, settings) {
 
   if (!bestDna) {
     throw lastError instanceof Error ? lastError : new Error("No matching track DNA found for this YouTube link");
+  }
+
+  const hit = searchResult?.hits?.[0];
+  if (hit) {
+    bestDna = await enrichStyleDnaHit(hit, null, settings);
   }
 
   if (youtube.tags?.length && bestDna.genres.length < 3) {

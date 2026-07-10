@@ -74,6 +74,11 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-200/80">
                 Suno 5.5 replication pack
               </div>
+              {studio.youtubeMusicDna.replication.confidenceBadge ? (
+                <p className="mt-1 text-[10px] text-emerald-100/70">
+                  {studio.youtubeMusicDna.replication.confidenceBadge}
+                </p>
+              ) : null}
               <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap text-[10px] text-emerald-50">
                 {studio.youtubeMusicDna.replication.styleLine}
               </pre>

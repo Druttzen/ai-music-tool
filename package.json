@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.41.2",
+  "version": "0.45.0",
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
@@ -40,6 +40,7 @@
     "sidecar:fg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1 -Foreground -IdleExitSec 0",
     "sidecar:watch": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -WatchOnly",
     "sidecar:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-sidecar.ps1",
+    "sidecar:mcp": "py -3.10 ai-sidecar/ai_sidecar/mcp_stdio.py",
     "build:sidecar": "node scripts/build-sidecar-bundle.cjs",
     "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-sidecar-binary.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -Tauri",
     "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-sidecar-binary.ps1 && cd src-tauri && cargo tauri build",
