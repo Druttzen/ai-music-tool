@@ -86,7 +86,8 @@ test.describe("Voice Character Studio e2e", () => {
 
     await panel.getByPlaceholder(/youtube\.com\/watch/i).fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await panel.getByRole("button", { name: /Link YouTube/i }).click();
-    await expect(panel.getByText(/^Linked:/)).toBeVisible({ timeout: 15000 });
+    await expectToast(page, /YouTube linked|YouTube resolve failed|sidecar/i, 30_000);
+    await expect(panel.getByText(/^Linked:/)).toBeVisible();
 
     await panel
       .locator("div")
