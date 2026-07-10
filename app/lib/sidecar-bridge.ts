@@ -219,6 +219,19 @@ export interface AcousticBrainzPayload {
   genres?: string[];
 }
 
+export async function fetchYoutubeSonicViaSidecar(watchUrl: string): Promise<SonicSignaturePayload> {
+  const res = await fetch(`${sidecarBaseUrl()}/youtube/sonic-signature`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: watchUrl }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(formatApiError(res.status, detail, "YouTube sonic signature"));
+  }
+  return res.json() as Promise<SonicSignaturePayload>;
+}
+
 /** POST audio to /sonic-signature for rich librosa analysis. */
 export async function fetchSonicSignatureViaSidecar(
   file: Blob,

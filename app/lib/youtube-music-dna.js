@@ -7,7 +7,7 @@ import { resolveYoutubeReference } from "./youtube-reference";
 import { generateSunoMetatagScaffold } from "./suno-metatag-generator";
 import { formatConfidenceBadge } from "./sonic-signature-fusion";
 import { buildUdioProsePrompt } from "./udio-prose-export";
-import { enrichStyleDnaHit } from "./style-dna-enrich";
+import { enrichStyleDnaHit, enrichStyleDnaWithYoutubeSonic } from "./style-dna-enrich";
 
 const OFFICIAL_SUFFIX =
   /\s*[\(\[]?(official\s*(music\s*)?video|audio|lyric|mv|hd|4k|remaster(?:ed)?|visualizer|live|topic).*$/i;
@@ -159,6 +159,9 @@ export async function resolveYoutubeMusicDna(url, settings) {
   const hit = searchResult?.hits?.[0];
   if (hit) {
     bestDna = await enrichStyleDnaHit(hit, null, settings);
+    if (youtube.watchUrl) {
+      bestDna = await enrichStyleDnaWithYoutubeSonic(youtube.watchUrl, bestDna, hit, settings);
+    }
   }
 
   if (youtube.tags?.length && bestDna.genres.length < 3) {

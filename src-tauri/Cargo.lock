@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ai-music-studio"
-version = "0.45.0"
+version = "0.46.0"
 dependencies = [
  "dsp-core",
  "open",
@@ -908,7 +908,7 @@ dependencies = [
 
 [[package]]
 name = "dsp-core"
-version = "0.45.0"
+version = "0.46.0"
 dependencies = [
  "anyhow",
  "ebur128",

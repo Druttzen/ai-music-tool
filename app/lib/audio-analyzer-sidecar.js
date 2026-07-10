@@ -154,3 +154,32 @@ export function mergeSidecarAnalysis(report, sidecar) {
   next.summary = buildAudioAnalysisSummary(next);
   return next;
 }
+
+/**
+ * Merge rich sonic signature (chords, key+mode) into analyzer report.
+ * @param {object} report
+ * @param {import("./sidecar-bridge").SonicSignaturePayload} sonic
+ */
+export function mergeSonicSignature(report, sonic) {
+  if (!sonic) return report;
+  const bpm = Math.round(sonic.tempo_bpm || report.bpm || 120);
+  const chords = (sonic.chord_progression || []).map((c) => c.chord).filter(Boolean);
+  const chordLine = chords.length ? chords.join(" → ") : "";
+  const trackSummary = `${report.trackSummary || ""}${chordLine ? ` Chords: ${chordLine}.` : ""}`.trim();
+  return {
+    ...report,
+    bpm,
+    estimatedBpm: `${bpm} BPM`,
+    estimatedKey: sonic.key_estimate || report.estimatedKey,
+    sonicSignature: sonic,
+    chordProgression: chords,
+    sidecarFeatures: {
+      ...(report.sidecarFeatures || {}),
+      sonicKeyConfidence: sonic.key_confidence,
+      loudnessDb: sonic.loudness_db,
+    },
+    trackSummary,
+    summary: buildAudioAnalysisSummary({ ...report, trackSummary, estimatedBpm: `${bpm} BPM`, estimatedKey: sonic.key_estimate || report.estimatedKey }),
+    analysisEngine: report.analysisEngine ? `${report.analysisEngine}+sonic` : "sonic",
+  };
+}

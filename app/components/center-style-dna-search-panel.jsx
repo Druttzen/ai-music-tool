@@ -8,6 +8,9 @@ import {
 } from "../context/project-workspace-context";
 import { saveStyleDnaSettings, isSpotifyStyleDnaReady } from "../lib/style-dna-settings";
 import { searchTrackStyleDna } from "../lib/track-style-dna";
+import { recognizeViaAudD } from "../lib/audd-resolve";
+import { fetchSpotifyStyleDnaHit } from "../lib/spotify-style-dna";
+import { enrichStyleDnaHit } from "../lib/style-dna-enrich";
 
 export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel() {
   const { styleDnaSettings } = useProjectWorkspaceProjectState();
@@ -20,6 +23,7 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
   const [provider, setProvider] = useState("");
   const [replication, setReplication] = useState(/** @type {object|null} */ (null));
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [auddBusy, setAuddBusy] = useState(false);
 
   const spotifyReady = isSpotifyStyleDnaReady(styleDnaSettings);
 
@@ -46,6 +50,48 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
       setBusy(false);
     }
   }, [query, styleDnaSettings, setStatusWithTime]);
+
+  const identifyFromAudio = useCallback(
+    async (file) => {
+      if (!file) return;
+      const token = String(styleDnaSettings.auddApiToken || "").trim();
+      if (!token) {
+        setError("Add AudD API token above to identify tracks from audio");
+        return;
+      }
+      setError("");
+      setAuddBusy(true);
+      try {
+        const id = await recognizeViaAudD({ apiToken: token, file });
+        const q = `${id.artist} ${id.title}`.trim();
+        setQuery(q);
+        if (id.spotifyId && isSpotifyStyleDnaReady(styleDnaSettings)) {
+          const hit = await fetchSpotifyStyleDnaHit(
+            id.spotifyId,
+            styleDnaSettings.spotifyClientId,
+            styleDnaSettings.spotifyClientSecret,
+          );
+          const dna = await enrichStyleDnaHit(hit, null, styleDnaSettings);
+          setResults([dna]);
+          setProvider("audd+spotify");
+          setSelectedIdx(0);
+          setStatusWithTime(`AudD identified: ${q}`);
+        } else {
+          const out = await searchTrackStyleDna(q, styleDnaSettings);
+          setResults(out.mapped);
+          setProvider(`audd+${out.provider}`);
+          setReplication(out.replication || null);
+          setSelectedIdx(0);
+          setStatusWithTime(`AudD identified: ${q}`);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "AudD identify failed");
+      } finally {
+        setAuddBusy(false);
+      }
+    },
+    [styleDnaSettings, setStatusWithTime],
+  );
 
   const selected = results[selectedIdx] || null;
 
@@ -107,6 +153,18 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
             Without Spotify, searches use MusicBrainz tags only (no audio feature DNA).
           </p>
         )}
+        <label className="mt-3 block">
+          <span className="mb-1 block text-[10px] uppercase text-white/40">Optional AudD token (identify from audio)</span>
+          <input
+            type="password"
+            value={styleDnaSettings.auddApiToken || ""}
+            onChange={(e) =>
+              setStyleDnaSettings({ ...styleDnaSettings, auddApiToken: e.target.value })
+            }
+            className="w-full rounded-xl border border-white/10 bg-black/30 p-2 text-xs text-white outline-none"
+            autoComplete="off"
+          />
+        </label>
       </div>
 
       <label className="block">
@@ -135,6 +193,19 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
         >
           {busy ? "Searching…" : "Search Style DNA"}
         </button>
+        <label className="rounded-2xl border border-white/15 bg-black/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10 cursor-pointer">
+          {auddBusy ? "Identifying…" : "Identify audio (AudD)"}
+          <input
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void identifyFromAudio(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
         {selected && (
           <>
             <button

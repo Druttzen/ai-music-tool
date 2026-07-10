@@ -28,7 +28,7 @@ import {
   patchAudioAnalysis,
   synthesizeWaveformPeaksFromAnalysis,
 } from "../lib/audio-analyzer";
-import { mergeSidecarAnalysis, buildSidecarFallbackReport } from "../lib/audio-analyzer-sidecar";
+import { mergeSidecarAnalysis, buildSidecarFallbackReport, mergeSonicSignature } from "../lib/audio-analyzer-sidecar";
 import { buildMusicGenAnalysisReport, downloadMusicGenBlob, enrichMusicGenReportWithSidecar } from "../lib/musicgen-preview";
 import {
   hasMeaningfulHighlightRange,
@@ -36,7 +36,7 @@ import {
 } from "../lib/audio-highlight-slice";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
-import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, fetchSonicSignatureViaSidecar, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
@@ -231,6 +231,12 @@ export function useAnalyzers({
           try {
             const sidecar = await analyzeAudioViaSidecar(file, file.name);
             finalReport = mergeSidecarAnalysis(report, sidecar);
+            try {
+              const sonic = await fetchSonicSignatureViaSidecar(file, file.name);
+              finalReport = mergeSonicSignature(finalReport, sonic);
+            } catch {
+              /* sonic signature optional */
+            }
           } catch (err) {
             const msg = err instanceof Error ? err.message : "Sidecar analyze failed";
             sidecarStatusMsg = `Heuristic report only — ${msg.slice(0, 80)}`;
@@ -258,7 +264,13 @@ export function useAnalyzers({
           try {
             const sidecar = await analyzeAudioViaSidecar(file, file.name);
             const fallback = buildSidecarFallbackReport(file.name, sidecar);
-            const finalReport = mergeSidecarAnalysis(fallback, sidecar);
+            let finalReport = mergeSidecarAnalysis(fallback, sidecar);
+            try {
+              const sonic = await fetchSonicSignatureViaSidecar(file, file.name);
+              finalReport = mergeSonicSignature(finalReport, sonic);
+            } catch {
+              /* optional */
+            }
             const cacheKey = makeAudioCacheKey(file);
             finalReport.audioCacheKey = cacheKey;
             syncCacheKeysRef(finalReport);

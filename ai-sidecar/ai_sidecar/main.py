@@ -49,6 +49,7 @@ from .vocal_synth import (
     synthesize_vocal_embed_mix,
 )
 from .youtube_resolve import resolve_youtube_url
+from .youtube_sonic import resolve_youtube_audio_sonic
 from .sonic_signature import extract_sonic_signature
 from .acousticbrainz import fetch_acousticbrainz_features
 from .genre_classifier import active_genre_model_id, classify_music_genres, genre_classification_available
@@ -198,6 +199,10 @@ class YoutubeResolveRequest(BaseModel):
     url: str
 
 
+class YoutubeSonicRequest(BaseModel):
+    url: str
+
+
 class YoutubeResolveResponse(BaseModel):
     video_id: str
     watch_url: str
@@ -301,6 +306,20 @@ def youtube_resolve(body: YoutubeResolveRequest) -> YoutubeResolveResponse:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"YouTube resolve failed: {exc}") from exc
     return YoutubeResolveResponse(**payload)
+
+
+@app.post("/youtube/sonic-signature", response_model=SonicSignatureResponse)
+def youtube_sonic_signature(body: YoutubeSonicRequest) -> SonicSignatureResponse:
+    """Download YouTube audio via yt-dlp and extract sonic signature (BPM, key, chords)."""
+    try:
+        payload = resolve_youtube_audio_sonic(body.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"YouTube sonic signature failed: {exc}") from exc
+    return SonicSignatureResponse(**{k: v for k, v in payload.items() if k not in ("video_id", "watch_url")})
 
 
 @app.post("/sonic-signature", response_model=SonicSignatureResponse)

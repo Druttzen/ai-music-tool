@@ -4,6 +4,7 @@ import { memo, useState } from "react";
 import { DropBox, Panel, Pill } from "./ui-blocks";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { VOICE_CHARACTER_DISCLAIMER } from "../lib/voice-character-preset";
+import { buildVoicesPrepKit } from "../lib/voices-prep-kit";
 import { VOICE_CHARACTER_STUDIO_PANEL_ID } from "../lib/voice-character-handoff";
 import { useCharacterVoiceStudio } from "../hooks/use-character-voice-studio";
 import { useProjectWorkspaceActions } from "../context/project-workspace-context";
@@ -13,6 +14,9 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
   const studio = useCharacterVoiceStudio();
   const [youtubeDraft, setYoutubeDraft] = useState("");
   const youtubeInputValue = studio.youtubeReference?.watchUrl ?? youtubeDraft;
+  const voicesPrep = studio.voiceAnalysis
+    ? buildVoicesPrepKit(studio.voiceAnalysis, studio.voiceAnalysis.duration)
+    : null;
 
   const handleLoadPreset = (name) => {
     studio.loadCharacterPreset(name);
@@ -103,6 +107,17 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
                 >
                   Copy style line
                 </button>
+                {studio.youtubeMusicDna.replication.udioProse ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyToClipboard(studio.youtubeMusicDna.replication.udioProse, "Udio prose copied")
+                    }
+                    className="rounded-xl border border-emerald-300/40 px-3 py-1.5 text-[11px] font-bold text-emerald-50 hover:bg-emerald-500/20"
+                  >
+                    Copy Udio prose
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -141,6 +156,26 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
                   </div>
                 ))}
               </div>
+              {voicesPrep ? (
+                <div
+                  className="rounded-2xl border border-violet-400/25 bg-violet-500/10 p-3"
+                  data-testid="voices-prep-kit"
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-violet-200/80">
+                    Suno 5.5 Voices prep kit
+                  </div>
+                  <ul className="mt-2 space-y-1 text-[10px] text-violet-50/90">
+                    {voicesPrep.checks.map((c) => (
+                      <li key={c.label}>
+                        {c.ok ? "✓" : "○"} {c.label}: {c.detail}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[10px] text-white/50">
+                    Audio influence suggestion: {voicesPrep.audioInfluencePct}% · {voicesPrep.verificationTip}
+                  </p>
+                </div>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {studio.voiceAnalysis.textureTags.map((tag) => (
                   <span

@@ -2,7 +2,7 @@
  * Enrich Style-DNA hits with AcousticBrainz + Spotify audio-analysis archive layers.
  */
 
-import { fetchAcousticBrainzViaSidecar } from "./sidecar-bridge";
+import { fetchAcousticBrainzViaSidecar, fetchYoutubeSonicViaSidecar } from "./sidecar-bridge";
 import { fuseStyleDnaWithSonicLayers } from "./sonic-signature-fusion";
 import {
   fetchSpotifyAudioAnalysis,
@@ -58,4 +58,31 @@ export async function enrichStyleDnaHit(hit, sonic, settings) {
       tags: hit.tags,
     }).styleTokens,
   };
+}
+
+/**
+ * Optional YouTube audio sonic layer (requires yt-dlp in sidecar).
+ * @param {string} watchUrl
+ * @param {object} dna
+ * @param {object} hit
+ * @param {{ spotifyClientId?: string, spotifyClientSecret?: string }} settings
+ */
+export async function enrichStyleDnaWithYoutubeSonic(watchUrl, dna, hit, settings) {
+  try {
+    const sonic = await fetchYoutubeSonicViaSidecar(watchUrl);
+    const fused = fuseStyleDnaWithSonicLayers(dna, sonic, null, null);
+    return {
+      ...fused.dna,
+      confidence: fused.confidence,
+      sonic: fused.sonic,
+      styleTokens: buildStyleDnaFromHit({
+        ...hit,
+        features: hit.features,
+        artistGenres: hit.artistGenres || [],
+        tags: hit.tags,
+      }).styleTokens,
+    };
+  } catch {
+    return dna;
+  }
 }

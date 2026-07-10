@@ -9,6 +9,7 @@ export const STYLE_DNA_SETTINGS_KEY = "ai_music_creator_style_dna_v1";
 export const DEFAULT_STYLE_DNA_SETTINGS = {
   spotifyClientId: "",
   spotifyClientSecret: "",
+  auddApiToken: "",
 };
 
 export function loadStyleDnaSettings() {
@@ -24,6 +25,7 @@ export function saveStyleDnaSettings(settings) {
     ...DEFAULT_STYLE_DNA_SETTINGS,
     spotifyClientId: String(settings.spotifyClientId || "").trim(),
     spotifyClientSecret: String(settings.spotifyClientSecret || "").trim(),
+    auddApiToken: String(settings.auddApiToken || "").trim(),
   };
   safeLocalStorage.setJSON(STYLE_DNA_SETTINGS_KEY, next);
 }

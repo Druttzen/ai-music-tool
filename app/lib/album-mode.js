@@ -79,7 +79,7 @@ function compactBible(bible) {
 export function soundBibleFromProject(projectState) {
   const p = projectState || {};
   return {
-    genres: p.genres || [],
+    genres: p.selectedGenres || p.genres || [],
     tempo: p.tempo || "",
     vocal: p.vocal || "",
     production: p.rules?.split("\n")[0] || "",

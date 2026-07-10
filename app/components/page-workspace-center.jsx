@@ -17,6 +17,7 @@ import { CenterProModePanel } from "./center-pro-mode-panel";
 import { CenterStyleDnaSearchPanel } from "./center-style-dna-search-panel";
 import { CenterSunoReimportPanel } from "./center-suno-reimport-panel";
 import { CenterVariationsPanel } from "./center-variations-panel";
+import { CenterSunoProToolsPanel } from "./center-suno-pro-tools-panel";
 import { CenterVoiceCharacterStudio } from "./center-voice-character-studio";
 import { CenterVocalEmbedStudio } from "./center-vocal-embed-studio";
 import { CenterVoiceStylePanel } from "./center-voice-style-panel";
@@ -82,6 +83,7 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.variations} column="center">
         <CenterVariationsPanel />
+        <CenterSunoProToolsPanel />
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.proMode} column="center">
         <CenterProModePanel />
