@@ -13,6 +13,8 @@ Tauri is the supported desktop path going forward. It bundles:
 
 The **Electron** installer (`npm run dist`, `main.js`) remains for existing installs but is **deprecated**. Do not start new desktop features on Electron IPC.
 
+**Sunset timeline:** Electron releases continue through **v0.41.x** for backward compatibility. New desktop work lands in Tauri only; `npm run dist` is no longer part of the default developer workflow.
+
 | Capability | Tauri (primary) | Electron (legacy) |
 |------------|-----------------|-------------------|
 | Auto-updates | Tauri updater (when configured) | `electron-updater` |
@@ -36,7 +38,10 @@ npm run electron   # requires npm run build first
 npm run dist       # Windows NSIS installer
 ```
 
-## CI
+## CI & releases
 
 - `tauri-smoke` — Tauri build smoke on every push
-- `release.yml` — publishes Windows installer on version tags (`npm run ship:tag`)
+- `release.yml` — publishes Windows **Electron** installer on `v*` tags
+- `tauri-studio-release.yml` — publishes **Tauri** studio builds on `studio-v*` tags
+
+`npm run ship:tag` pushes **both** `vX.Y.Z` and `studio-vX.Y.Z` so Electron and Tauri release workflows stay aligned.

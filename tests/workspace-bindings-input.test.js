@@ -3,7 +3,7 @@ import {
   pickPipelineInputFields,
   pickProjectActionInput,
   pickWorkspaceContextExtras,
-} from "../app/lib/workspace-bindings-input.js";
+} from "../app/lib/workspace-bindings-input.ts";
 
 describe("workspace-bindings-input", () => {
   const projectState = {

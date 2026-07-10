@@ -1,20 +1,15 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
-/** @type {React.Context<Record<string, unknown> | null>} */
-export const ProjectWorkspaceActionsContext = createContext(null);
+type WorkspaceSlice = Record<string, unknown>;
 
-/** @type {React.Context<Record<string, unknown> | null>} */
-export const ProjectWorkspaceProjectStateContext = createContext(null);
+export const ProjectWorkspaceActionsContext = createContext<WorkspaceSlice | null>(null);
+export const ProjectWorkspaceProjectStateContext = createContext<WorkspaceSlice | null>(null);
+export const ProjectWorkspaceAnalyzerStateContext = createContext<WorkspaceSlice | null>(null);
+export const ProjectWorkspacePromptStateContext = createContext<WorkspaceSlice | null>(null);
 
-/** @type {React.Context<Record<string, unknown> | null>} */
-export const ProjectWorkspaceAnalyzerStateContext = createContext(null);
-
-/** @type {React.Context<Record<string, unknown> | null>} */
-export const ProjectWorkspacePromptStateContext = createContext(null);
-
-function useSliceContext(context, label) {
+function useSliceContext(context: React.Context<WorkspaceSlice | null>, label: string) {
   const ctx = useContext(context);
   if (!ctx) {
     throw new Error(`${label} must be used within ProjectWorkspaceProviders`);
@@ -44,10 +39,7 @@ export function useProjectWorkspacePromptState() {
   return useSliceContext(ProjectWorkspacePromptStateContext, "useProjectWorkspacePromptState");
 }
 
-/**
- * Subscribe to all workspace slices — re-renders on any slice change.
- * Prefer the slice hooks above in memoized panels.
- */
+/** Subscribe to all workspace slices — re-renders on any slice change. */
 export function useProjectWorkspace() {
   const actions = useProjectWorkspaceActions();
   const projectState = useProjectWorkspaceProjectState();
@@ -56,11 +48,20 @@ export function useProjectWorkspace() {
   return { ...actions, ...projectState, ...analyzerState, ...promptState };
 }
 
-/**
- * @param {{ actions: Record<string, unknown>, projectState: Record<string, unknown>, analyzerState: Record<string, unknown>, promptState: Record<string, unknown> }} slices
- * @param {React.ReactNode} children
- */
-export function ProjectWorkspaceProviders({ slices, children }) {
+type WorkspaceSlices = {
+  actions: WorkspaceSlice;
+  projectState: WorkspaceSlice;
+  analyzerState: WorkspaceSlice;
+  promptState: WorkspaceSlice;
+};
+
+export function ProjectWorkspaceProviders({
+  slices,
+  children,
+}: {
+  slices: WorkspaceSlices;
+  children: ReactNode;
+}) {
   return (
     <ProjectWorkspaceActionsContext.Provider value={slices.actions}>
       <ProjectWorkspaceProjectStateContext.Provider value={slices.projectState}>

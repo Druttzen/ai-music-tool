@@ -293,7 +293,7 @@ export function useVocalEmbedStudio() {
     a.click();
     URL.revokeObjectURL(url);
     setStatusWithTime(
-      `OpenVPI .ds JSON downloaded (${payload.segment_count} segments${payload.align_method ? ` Â· ${payload.align_method}` : ""})`,
+      `OpenVPI .ds JSON downloaded (${payload.segment_count} segments${payload.align_method ? ` · ${payload.align_method}` : ""})`,
       "success",
     );
   }, [alignPreview, buildSidecarEnvelope, guideVocalFile, plan, setStatusWithTime]);
@@ -368,7 +368,7 @@ export function useVocalEmbedStudio() {
         openvpiDs: openvpiDs.segments?.length ? openvpiDs : null,
       });
       setStatusWithTime(
-        `Handoff pack downloaded (${preview.align_method} align Â· ${preview.word_count} words${openvpiDs.segments?.length ? " Â· OpenVPI .ds" : ""})`,
+        `Handoff pack downloaded (${preview.align_method} align · ${preview.word_count} words${openvpiDs.segments?.length ? " · OpenVPI .ds" : ""})`,
         "success",
       );
     } catch (err) {
@@ -402,7 +402,7 @@ export function useVocalEmbedStudio() {
       );
       persistAlignPreview(preview);
       setStatusWithTime(
-        `Alignment preview: ${preview.align_method} Â· ${preview.word_count} words`,
+        `Alignment preview: ${preview.align_method} · ${preview.word_count} words`,
         preview.align_method === "mfa" ? "success" : "info",
       );
     } catch (err) {
@@ -476,7 +476,7 @@ export function useVocalEmbedStudio() {
         vocalModels: models,
       });
       const timingNote =
-        plan.guideForLyricTiming && guideVocalFile ? " Â· guide timing on" : "";
+        plan.guideForLyricTiming && guideVocalFile ? " · guide timing on" : "";
       setStatusWithTime(
         `Vocal embed preview downloaded (${engineLabel}${timingNote}${alignNote})`,
         "success",
@@ -508,7 +508,7 @@ export function useVocalEmbedStudio() {
         guideVocalFile.name,
       );
       persistAlignPreview(preview);
-      await runSynthesizeMix(` Â· ${preview.align_method} align`, preview);
+      await runSynthesizeMix(` · ${preview.align_method} align`, preview);
     } catch (err) {
       setStatusWithTime(err instanceof Error ? err.message : "Align & synthesize failed", "error");
     } finally {
@@ -534,8 +534,8 @@ export function useVocalEmbedStudio() {
       }
       await runSynthesizeMix(
         storedOpenvpiDs?.segment_count
-          ? ` Â· OpenVPI inference (${storedOpenvpiDs.segment_count} ds segments)`
-          : " Â· OpenVPI DiffSinger inference",
+          ? ` · OpenVPI inference (${storedOpenvpiDs.segment_count} ds segments)`
+          : " · OpenVPI DiffSinger inference",
       );
     } catch (err) {
       setStatusWithTime(err instanceof Error ? err.message : "OpenVPI synthesis failed", "error");

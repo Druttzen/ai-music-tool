@@ -42,6 +42,24 @@ describe("project-state", () => {
     expect(next.guidedStep).toBe(0);
   });
 
+  it("RESET_BLANK clears voice fields and resets LLM/style DNA to defaults", () => {
+    const seeded = createInitialProjectState({
+      notes: "session notes",
+      voiceRefFirstName: "Ada",
+      voiceRefLastName: "Lovelace",
+      voiceStyleLine: "whispered soprano",
+      coProducerLlmSettings: { enabled: true, apiKey: "sk-test", model: "gpt-4" },
+      styleDnaSettings: { spotifyClientId: "id", spotifyClientSecret: "secret" },
+    });
+    const next = projectReducer(seeded, { type: "RESET_BLANK" });
+    expect(next.notes).toBe("");
+    expect(next.voiceRefFirstName).toBe("");
+    expect(next.voiceRefLastName).toBe("");
+    expect(next.voiceStyleLine).toBe("");
+    expect(next.coProducerLlmSettings).toEqual(createInitialProjectState().coProducerLlmSettings);
+    expect(next.styleDnaSettings).toEqual(createInitialProjectState().styleDnaSettings);
+  });
+
   it("normalizeLoadPayload clamps guided step", () => {
     expect(normalizeLoadPayload({ guidedStep: -3 }).guidedStep).toBe(0);
   });

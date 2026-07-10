@@ -19,50 +19,19 @@ import { buildUsableAnalyzerStylePrompt } from "../lib/analyzer-guided-merge";
 import { buildSunoVoiceStyleCompact } from "../lib/suno-voice-style";
 import { useMemo } from "react";
 
-/**
- * @typedef {object} PromptPipelineInput
- * @property {object} mood
- * @property {number} promptIntensity
- * @property {string} vocal
- * @property {boolean} instrumentalVocalFx
- * @property {number} lyricDensity
- * @property {string} lyricLanguage
- * @property {string} lyricTheme
- * @property {string} lyricStyle
- * @property {string} lyricMode
- * @property {string} lyricStructure
- * @property {string[]} selectedGenres
- * @property {string} tempo
- * @property {string[]} selectedSounds
- * @property {string[]} selectedRhythms
- * @property {string} idea
- * @property {string} structure
- * @property {string} rules
- * @property {string} mode
- * @property {string} promptFormat
- * @property {string} promptEngine
- * @property {string} coProducerOutput
- * @property {string} notes
- * @property {object|null} audioAnalysis
- * @property {object|null} imageAnalysis
- * @property {string} voiceStyleLine
- * @property {string} voiceRefFirstName
- * @property {string} voiceRefLastName
- * @property {string} generatedLyrics
- * @property {string} sunoPasteStyle
- * @property {string} sunoPasteLyrics
- * @property {boolean} sunoPasteActive
- */
+import type { PipelineInputFields } from "./use-pipeline-input";
 
-function buildSourcePrompt(audioAnalysis, imageAnalysis) {
-  return buildUsableAnalyzerStylePrompt(audioAnalysis, imageAnalysis);
+function buildSourcePrompt(
+  audioAnalysis: PipelineInputFields["audioAnalysis"],
+  imageAnalysis: PipelineInputFields["imageAnalysis"],
+) {
+  return buildUsableAnalyzerStylePrompt(audioAnalysis ?? null, imageAnalysis ?? null);
 }
 
 /**
  * Derives preview prompt strings, Suno field slices, validator warnings, and guided-path input.
- * @param {PromptPipelineInput} input
  */
-export function usePromptPipeline(input) {
+export function usePromptPipeline(input: PipelineInputFields) {
   const moodWords = useMemo(() => buildMoodWords(input.mood), [input.mood]);
 
   const intensityText = useMemo(

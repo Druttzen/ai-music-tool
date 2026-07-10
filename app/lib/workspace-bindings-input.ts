@@ -2,14 +2,21 @@
  * Pure argument builders for workspace actions + context (shared field wiring).
  */
 
-/**
- * @param {Record<string, unknown>} projectState
- * @param {Record<string, unknown>} analyzers
- * @param {Record<string, unknown>} pipeline
- * @param {Record<string, unknown>} snapshot
- * @param {{ avgScore: string, copyToClipboard: Function, resetSplash: Function, setStatusWithTime: Function }} externals
- */
-export function pickProjectActionInput(projectState, analyzers, pipeline, snapshot, externals) {
+type WorkspaceSlice = Record<string, unknown>;
+type WorkspaceExternals = {
+  avgScore: string;
+  copyToClipboard: (text: string, label?: string) => void;
+  resetSplash: () => void;
+  setStatusWithTime: (msg: string) => void;
+};
+
+export function pickProjectActionInput(
+  projectState: WorkspaceSlice,
+  analyzers: WorkspaceSlice,
+  pipeline: WorkspaceSlice,
+  snapshot: WorkspaceSlice,
+  externals: WorkspaceExternals,
+) {
   return {
     applyAudioToSunoStyle: analyzers.applyAudioToSunoStyle,
     audioAnalysis: analyzers.audioAnalysis,
@@ -107,15 +114,13 @@ export function pickProjectActionInput(projectState, analyzers, pipeline, snapsh
   };
 }
 
-/**
- * Context-only fields merged with action handlers for {@link useWorkspaceValue}.
- * @param {Record<string, unknown>} projectState
- * @param {Record<string, unknown>} analyzers
- * @param {Record<string, unknown>} pipeline
- * @param {Record<string, unknown>} snapshot
- * @param {{ setStatusWithTime: Function }} externals
- */
-export function pickWorkspaceContextExtras(projectState, analyzers, pipeline, snapshot, externals) {
+export function pickWorkspaceContextExtras(
+  projectState: WorkspaceSlice,
+  analyzers: WorkspaceSlice,
+  pipeline: WorkspaceSlice,
+  snapshot: WorkspaceSlice,
+  externals: Pick<WorkspaceExternals, "setStatusWithTime">,
+) {
   return {
     analyzeAudioFile: analyzers.analyzeAudioFile,
     analyzeImageFile: analyzers.analyzeImageFile,
@@ -240,11 +245,10 @@ export function pickWorkspaceContextExtras(projectState, analyzers, pipeline, sn
   };
 }
 
-/**
- * @param {Record<string, unknown>} projectState
- * @param {{ audioAnalysis: unknown, imageAnalysis: unknown }} analyzers
- */
-export function pickPipelineInputFields(projectState, analyzers) {
+export function pickPipelineInputFields(
+  projectState: WorkspaceSlice,
+  analyzers: { audioAnalysis: unknown; imageAnalysis: unknown },
+) {
   return {
     mood: projectState.mood,
     promptIntensity: projectState.promptIntensity,

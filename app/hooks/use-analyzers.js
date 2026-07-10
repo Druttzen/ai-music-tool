@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   buildAudioAnalyzerPatch,
   buildImageAnalyzerPatch,
@@ -36,17 +36,15 @@ import {
 } from "../lib/audio-highlight-slice";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
-import {
-  resolveSidecarAiStatus,
-  resolveSidecarGenerateAvailable,
-  sidecarProbeDelayMs,
-} from "../lib/analyzers-sidecar-probe";
-import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, getManagedSidecarStatus, isSidecarAvailable, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import { exportEnhancedFromBlob } from "../lib/studio-export-client";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
+import { useAnalyzerRefs } from "./analyzers/use-analyzer-refs";
+import { useE2eAudioFixtures } from "./analyzers/use-e2e-audio-fixtures";
+import { useSidecarStatus } from "./analyzers/use-sidecar-status";
 
 export function useAnalyzers({
   promptEngine,
@@ -54,127 +52,47 @@ export function useAnalyzers({
   applyAnalyzerPatch,
   setStatusWithTime,
 }) {
+  const refs = useAnalyzerRefs();
+  const {
+    audioAnalysisRef,
+    audioCacheKeyRef,
+    audioCacheKeysRef,
+    audioPreviewUrlRef,
+    canvasRef,
+    imagePreviewUrlRef,
+    loudnessGenRef,
+    rehydrateGenRef,
+    setAudioPreviewFromBlob: setPreviewFromBlob,
+  } = refs;
+
+  const { sidecarAiStatus, sidecarGenerateAvailable, setSidecarGenerateAvailable } =
+    useSidecarStatus();
+
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
   const [audioExportBusy, setAudioExportBusy] = useState(false);
   const [audioExportProgress, setAudioExportProgress] = useState(null);
   const [audioLoudness, setAudioLoudness] = useState(null);
   const [audioLoudnessBusy, setAudioLoudnessBusy] = useState(false);
-  const loudnessGenRef = useRef(0);
-  const audioAnalysisRef = useRef(null);
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const canvasRef = useRef(null);
-  const imagePreviewUrlRef = useRef(null);
-  const audioPreviewUrlRef = useRef(null);
-  const rehydrateGenRef = useRef(0);
-  const audioCacheKeyRef = useRef(null);
-  const audioCacheKeysRef = useRef([]);
-  const [sidecarAiStatus, setSidecarAiStatus] = useState("checking");
-  const [sidecarGenerateAvailable, setSidecarGenerateAvailable] = useState(false);
   const [stemSeparationBusy, setStemSeparationBusy] = useState(false);
   const [stemSeparationStems, setStemSeparationStems] = useState([]);
   const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
 
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    const handler = (event) => {
-      const detail = event?.detail;
-      if (!detail || typeof detail !== "object") return;
-      setAudioAnalysis(normalizeAudioAnalysis(detail));
-    };
-    window.addEventListener("aimc-e2e-set-audio-analysis", handler);
-    const patchHandler = (event) => {
-      const detail = event?.detail;
-      if (!detail || typeof detail !== "object") return;
-      setAudioAnalysis((prev) => (prev ? normalizeAudioAnalysis({ ...prev, ...detail }) : prev));
-    };
-    window.addEventListener("aimc-e2e-patch-audio-analysis", patchHandler);
-    return () => {
-      window.removeEventListener("aimc-e2e-set-audio-analysis", handler);
-      window.removeEventListener("aimc-e2e-patch-audio-analysis", patchHandler);
-    };
-  }, []);
+  useE2eAudioFixtures(setAudioAnalysis);
 
-  useEffect(() => {
-    let cancelled = false;
-    let timer = null;
-
-    const scheduleNext = (status) => {
-      if (cancelled) return;
-      timer = setTimeout(() => {
-        void probeSidecar();
-      }, sidecarProbeDelayMs(status));
-    };
-
-    const probeSidecar = async () => {
-      if (cancelled) return;
-      setSidecarAiStatus("checking");
-      let nextStatus = "offline";
-      try {
-        resetSidecarHealthCache();
-        const httpOk = await isSidecarAvailable();
-        let health = null;
-        if (httpOk) {
-          try {
-            health = await fetchSidecarHealth();
-          } catch {
-            health = null;
-          }
-        }
-        let tauriManaged = null;
-        if (!httpOk && isTauriApp()) {
-          tauriManaged = await getManagedSidecarStatus();
-        }
-        nextStatus = resolveSidecarAiStatus({
-          httpOk,
-          tauriManaged,
-          isTauri: isTauriApp(),
-        });
-        if (!cancelled) {
-          setSidecarGenerateAvailable(resolveSidecarGenerateAvailable({ health }));
-          setSidecarAiStatus(nextStatus);
-        }
-      } catch {
-        if (!cancelled) {
-          setSidecarAiStatus("offline");
-          setSidecarGenerateAvailable(false);
-        }
-      }
-      scheduleNext(nextStatus);
-    };
-
-    void probeSidecar();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
-
-  const setAudioPreviewFromBlob = useCallback((blob) => {
-    if (audioPreviewUrlRef.current) URL.revokeObjectURL(audioPreviewUrlRef.current);
-    const previewUrl = URL.createObjectURL(blob);
-    audioPreviewUrlRef.current = previewUrl;
-    setAudioPreviewUrl(previewUrl);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (imagePreviewUrlRef.current) {
-        URL.revokeObjectURL(imagePreviewUrlRef.current);
-        imagePreviewUrlRef.current = null;
-      }
-      if (audioPreviewUrlRef.current) {
-        URL.revokeObjectURL(audioPreviewUrlRef.current);
-        audioPreviewUrlRef.current = null;
-      }
-    };
-  }, []);
+  const setAudioPreviewFromBlob = useCallback(
+    (blob) => {
+      setAudioPreviewUrl(setPreviewFromBlob(blob));
+    },
+    [setPreviewFromBlob],
+  );
 
   const syncCacheKeysRef = useCallback((report) => {
     audioCacheKeysRef.current = report ? getAudioCacheKeysForAnalysis(report) : [];
     audioCacheKeyRef.current = report?.audioCacheKey || null;
-  }, []);
+  }, [audioCacheKeyRef, audioCacheKeysRef]);
 
   const resetAnalyzers = useCallback(() => {
     deleteAudioCacheEntries(audioCacheKeysRef.current);
@@ -194,7 +112,7 @@ export function useAnalyzers({
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
     }
-  }, []);
+  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, imagePreviewUrlRef]);
 
   const updateAudioAnalysis = useCallback((patch) => {
     setAudioAnalysis((prev) => patchAudioAnalysis(prev, patch));
@@ -211,7 +129,7 @@ export function useAnalyzers({
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
     }
-  }, []);
+  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef]);
 
   const clearImageAnalysis = useCallback(() => {
     setImageAnalysis(null);
@@ -220,7 +138,7 @@ export function useAnalyzers({
       URL.revokeObjectURL(imagePreviewUrlRef.current);
       imagePreviewUrlRef.current = null;
     }
-  }, []);
+  }, [imagePreviewUrlRef]);
 
   const attachAudioFile = useCallback(
     async (file) => {
@@ -428,12 +346,14 @@ export function useAnalyzers({
     audioAnalysis?.duration,
     audioAnalysis?.fileName,
     audioAnalysis?.waveformPeaks,
+    audioPreviewUrlRef,
+    rehydrateGenRef,
     setAudioPreviewFromBlob,
   ]);
 
   useEffect(() => {
     audioAnalysisRef.current = audioAnalysis;
-  }, [audioAnalysis]);
+  }, [audioAnalysis, audioAnalysisRef]);
 
   // Re-measure loudness only when the underlying audio source changes — keyed
   // on cache/lookup keys + preview url, NOT on the whole analysis object. This
@@ -503,7 +423,7 @@ export function useAnalyzers({
     return () => {
       cancelled = true;
     };
-  }, [loudnessSourceKey]);
+  }, [loudnessSourceKey, audioAnalysisRef, audioPreviewUrlRef, loudnessGenRef]);
 
   const navigateToPolishStep = useCallback(() => {
     setGuidedStep(resolvePolishStepIndex());
@@ -622,7 +542,7 @@ export function useAnalyzers({
         setStatusWithTime("Image analysis failed");
       }
     },
-    [applyAnalyzerPatch, setStatusWithTime],
+    [applyAnalyzerPatch, canvasRef, imagePreviewUrlRef, setStatusWithTime],
   );
 
   const exportEnhancedAudio = useCallback(
@@ -690,7 +610,7 @@ export function useAnalyzers({
         setAudioExportProgress(null);
       }
     },
-    [audioAnalysis, audioExportBusy, setStatusWithTime],
+    [audioAnalysis, audioExportBusy, audioPreviewUrlRef, setStatusWithTime],
   );
 
   const separateStems = useCallback(
@@ -860,7 +780,7 @@ export function useAnalyzers({
         setGenerateMusicBusy(false);
       }
     },
-    [applyAnalyzerPatch, generateMusicBusy, navigateToPolishStep, promptEngine, audioAnalysis, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
+    [applyAnalyzerPatch, generateMusicBusy, navigateToPolishStep, promptEngine, audioAnalysis, audioPreviewUrlRef, setAudioPreviewFromBlob, setSidecarGenerateAvailable, setStatusWithTime, syncCacheKeysRef],
   );
 
   const downloadStem = useCallback(

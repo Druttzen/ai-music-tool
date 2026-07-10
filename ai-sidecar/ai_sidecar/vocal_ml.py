@@ -230,10 +230,12 @@ def synthesize_lyrics_vocal(
             if w1 <= cursor:
                 break
             n = w1 - cursor
-            if n <= 0:
+            if n <= 1:
                 continue
             t = np.arange(n, dtype=np.float32) / sample_rate
             freq = _note_hz(plan, word_index)
+            if not np.isfinite(freq) or freq <= 0:
+                continue
             env = np.sin(np.pi * np.linspace(0, 1, n, dtype=np.float32)) ** 0.65
             tone = (0.18 * np.sin(2 * np.pi * freq * t) * env).astype(np.float32)
             stereo[0, cursor:w1] += tone

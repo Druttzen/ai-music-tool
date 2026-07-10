@@ -51,6 +51,7 @@ export function buildSunoVoiceStyleLine({
 
 /**
  * Optional shorter line for tight Style boxes + lyric tag suggestion.
+ * @param {{ firstName?: string, lastName?: string, selectedGenres?: string[] }} opts
  */
 export function buildSunoVoiceStyleCompact({ firstName, lastName, selectedGenres = [] }) {
   const name = formatPublicName(firstName, lastName);

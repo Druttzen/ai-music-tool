@@ -468,7 +468,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       </div>
 
       {lastSuggestions.length > 0 && !busy && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-2" data-testid="maestro-coach-chips">
           {lastSuggestions.map((s) => (
             <button
               key={s}

@@ -32,9 +32,13 @@ if (status.stdout?.trim()) {
 console.log(`ship-tag-release: check:full + e2e subset for ${tag}`);
 run(process.execPath, [path.join(__dirname, "run-check-full.cjs"), "--e2e-subset"]);
 
-console.log(`ship-tag-release: pushing tag ${tag} — release.yml publishes the Windows installer`);
+console.log(`ship-tag-release: pushing tags ${tag} + studio-${tag}`);
+const studioTag = `studio-${tag}`;
 run("git", ["tag", tag]);
+run("git", ["tag", studioTag]);
 run("git", ["push", "origin", "HEAD"]);
-run("git", ["push", "origin", tag]);
+run("git", ["push", "origin", tag, studioTag]);
 
-console.log("ship-tag-release: OK — https://github.com/Druttzen/ai-music-tool/actions/workflows/release.yml");
+console.log(
+  "ship-tag-release: OK — release.yml (Electron) + tauri-studio-release.yml (Tauri)",
+);
