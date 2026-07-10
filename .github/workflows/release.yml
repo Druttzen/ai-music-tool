@@ -1,6 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to rebuild (e.g. v0.47.1)"
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -13,6 +19,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -25,7 +33,7 @@ jobs:
       - name: Extract release notes from README
         shell: bash
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           export TAG_VER="${VERSION#v}"
           node <<'NODE'
@@ -45,6 +53,12 @@ jobs:
           fs.writeFileSync("release-notes.md", out.join("\n") + "\n");
           NODE
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
+      - name: Remove partial GitHub release (avoid electron-builder 422)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REF_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: node scripts/prepare-github-release-publish.cjs
       - name: Build and publish Windows installer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
