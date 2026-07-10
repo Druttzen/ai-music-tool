@@ -21,6 +21,8 @@ test.describe("Section DAW mood metatags", () => {
 
     const daw = sectionDawPanel(page);
     await daw.scrollIntoViewIfNeeded();
+    await daw.getByRole("button", { name: "+ verse" }).click();
+    await daw.getByRole("button", { name: "+ chorus" }).click();
     await daw.getByRole("button", { name: "Insert metatag scaffold" }).click();
 
     const lyrics = lyricStylePanel(page).locator("textarea").first();
