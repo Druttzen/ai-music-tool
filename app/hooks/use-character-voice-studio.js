@@ -27,7 +27,8 @@ import {
   VOICE_CHARACTER_ANALYZE_FILE_EVENT,
 } from "../lib/voice-character-handoff";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
-import { fetchYoutubeTitle, parseYoutubeReference } from "../lib/youtube-reference";
+import { parseYoutubeReference } from "../lib/youtube-reference";
+import { resolveYoutubeMusicDna } from "../lib/youtube-music-dna";
 import { APP_VERSION } from "../lib/music-config";
 import {
   useProjectWorkspaceActions,
@@ -38,7 +39,7 @@ import {
  * Voice Character Studio — analyze vocal files, optional YouTube reference metadata, character presets.
  */
 export function useCharacterVoiceStudio() {
-  const { selectedGenres, mood, promptEngine } = useProjectWorkspaceProjectState();
+  const { selectedGenres, mood, promptEngine, styleDnaSettings } = useProjectWorkspaceProjectState();
   const {
     setVoiceStyleLine,
     setVocal,
@@ -48,10 +49,15 @@ export function useCharacterVoiceStudio() {
     setStatusWithTime,
     setGuidedStep,
     captureSnapshot,
+    applyStyleDnaToProject,
+    setStructure,
+    setIdea,
+    copyToClipboard,
   } = useProjectWorkspaceActions();
   const [characterPresets, setCharacterPresets] = useState({});
   const [voiceAnalysis, setVoiceAnalysis] = useState(null);
   const [youtubeReference, setYoutubeReference] = useState(null);
+  const [youtubeMusicDna, setYoutubeMusicDna] = useState(null);
   const [busy, setBusy] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [voiceStyleCompact, setVoiceStyleCompact] = useState({ style: "", lyricTag: "" });
@@ -68,6 +74,7 @@ export function useCharacterVoiceStudio() {
     const normalized = normalizeCharacterVoiceStudioSession(session);
     setVoiceAnalysis(normalized.voiceAnalysis);
     setYoutubeReference(normalized.youtubeReference);
+    setYoutubeMusicDna(normalized.youtubeMusicDna || null);
     setPresetName(normalized.presetName);
     setVoiceStyleCompact(normalized.voiceStyleCompact);
   }, []);
@@ -89,9 +96,10 @@ export function useCharacterVoiceStudio() {
       voiceAnalysis,
       voiceStyleCompact,
       youtubeReference,
+      youtubeMusicDna,
       presetName,
     });
-  }, [voiceAnalysis, voiceStyleCompact, youtubeReference, presetName]);
+  }, [voiceAnalysis, voiceStyleCompact, youtubeReference, youtubeMusicDna, presetName]);
 
   const projectCtx = useCallback(
     () => ({
@@ -182,18 +190,61 @@ export function useCharacterVoiceStudio() {
         return;
       }
       setBusy(true);
-      const title = await fetchYoutubeTitle(ref.watchUrl);
-      setYoutubeReference({ ...ref, title: title || ref.videoId });
-      setBusy(false);
-      setStatusWithTime(
-        title
-          ? `YouTube reference linked: ${title} — now drop exported vocal audio`
-          : "YouTube reference linked — drop exported vocal audio for analysis",
-        "info",
-      );
+      try {
+        const bundle = await resolveYoutubeMusicDna(url, styleDnaSettings);
+        setYoutubeReference({
+          videoId: bundle.youtube.videoId,
+          watchUrl: bundle.youtube.watchUrl,
+          title: bundle.youtube.title,
+          authorName: bundle.youtube.authorName,
+          parsedArtist: bundle.youtube.parsedArtist,
+          parsedTrack: bundle.youtube.parsedTrack,
+          durationSec: bundle.youtube.durationSec,
+          provider: bundle.youtube.provider,
+        });
+        setYoutubeMusicDna(bundle);
+        setStatusWithTime(
+          `YouTube linked: ${bundle.dna.artist} — ${bundle.dna.title} (${bundle.provider}) — Suno replication pack ready`,
+          "success",
+        );
+      } catch (err) {
+        setYoutubeReference({
+          ...ref,
+          title: ref.videoId,
+        });
+        setYoutubeMusicDna(null);
+        setStatusWithTime(
+          err instanceof Error ? err.message : "YouTube resolve failed — start sidecar (npm run sidecar)",
+          "warning",
+        );
+      } finally {
+        setBusy(false);
+      }
     },
-    [setStatusWithTime],
+    [setStatusWithTime, styleDnaSettings],
   );
+
+  const applyYoutubeMusicDnaToProject = useCallback(() => {
+    if (!youtubeMusicDna?.replication) {
+      setStatusWithTime("Link a YouTube track first", "warning");
+      return;
+    }
+    captureSnapshot("before YouTube track DNA");
+    applyStyleDnaToProject(youtubeMusicDna.dna);
+    const rep = youtubeMusicDna.replication;
+    if (rep.structure) setStructure(rep.structure);
+    if (rep.ideaLine) setIdea(rep.ideaLine);
+    if (rep.styleLine) setVoiceStyleLine(rep.styleLine);
+    setStatusWithTime("Applied YouTube track DNA + Suno 5.5 replication pack to project");
+  }, [
+    applyStyleDnaToProject,
+    captureSnapshot,
+    setIdea,
+    setStructure,
+    setStatusWithTime,
+    setVoiceStyleLine,
+    youtubeMusicDna,
+  ]);
 
   const saveCharacterPreset = useCallback(() => {
     const name = presetName.trim();
@@ -315,12 +366,14 @@ export function useCharacterVoiceStudio() {
   const clearStudio = useCallback(() => {
     setVoiceAnalysis(null);
     setYoutubeReference(null);
+    setYoutubeMusicDna(null);
     setPresetName("");
     setVoiceStyleCompact({ style: "", lyricTag: "" });
     persistCharacterVoiceStudioSession({
       voiceAnalysis: null,
       voiceStyleCompact: { style: "", lyricTag: "" },
       youtubeReference: null,
+      youtubeMusicDna: null,
       presetName: "",
     });
     setStatusWithTime("Voice character studio cleared");
@@ -392,6 +445,7 @@ export function useCharacterVoiceStudio() {
     exportCharacterPresets,
     importCharacterPresets,
     linkYoutubeReference,
+    applyYoutubeMusicDnaToProject,
     analyzeVoiceFile,
     clearStudio,
     loadCharacterPreset,
@@ -402,5 +456,7 @@ export function useCharacterVoiceStudio() {
     voiceAnalysis,
     voiceStyleCompact,
     youtubeReference,
+    youtubeMusicDna,
+    copyToClipboard,
   };
 }

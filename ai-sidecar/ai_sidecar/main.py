@@ -48,6 +48,7 @@ from .vocal_synth import (
     synthesis_stack_available,
     synthesize_vocal_embed_mix,
 )
+from .youtube_resolve import resolve_youtube_url
 from .genre_classifier import active_genre_model_id, classify_music_genres, genre_classification_available
 from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
 from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
@@ -191,6 +192,26 @@ class ImageAnalysis(BaseModel):
     device: str
 
 
+class YoutubeResolveRequest(BaseModel):
+    url: str
+
+
+class YoutubeResolveResponse(BaseModel):
+    video_id: str
+    watch_url: str
+    title: str
+    author_name: str
+    thumbnail_url: str
+    duration_sec: float | None = None
+    parsed_artist: str
+    parsed_track: str
+    search_query: str
+    tags: list[str] = []
+    categories: list[str] = []
+    description_excerpt: str = ""
+    provider: str
+
+
 def _stems_available() -> bool:
     try:
         import demucs  # noqa: F401, PLC0415
@@ -222,6 +243,18 @@ def health() -> Health:
         vocal_diffsinger_available=diffsinger_configured(),
         generate_available=generation_available(),
     )
+
+
+@app.post("/youtube/resolve", response_model=YoutubeResolveResponse)
+def youtube_resolve(body: YoutubeResolveRequest) -> YoutubeResolveResponse:
+    """Resolve YouTube watch URL to public metadata (server-side oEmbed / optional yt-dlp)."""
+    try:
+        payload = resolve_youtube_url(body.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"YouTube resolve failed: {exc}") from exc
+    return YoutubeResolveResponse(**payload)
 
 
 @app.post("/vocal-embed/plan", response_model=VocalEmbedPlanResponse)

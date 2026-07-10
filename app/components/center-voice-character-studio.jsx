@@ -39,7 +39,7 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
         <label className="block">
           <div className="mb-1 text-xs font-bold uppercase tracking-wider text-white/45">
-            YouTube reference (metadata only)
+            YouTube reference (metadata + track DNA)
           </div>
           <input
             value={youtubeInputValue}
@@ -55,14 +55,56 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
           onClick={() => studio.linkYoutubeReference(youtubeInputValue)}
           className="self-end rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-xs font-bold text-white hover:bg-white/15 disabled:opacity-40"
         >
-          Link YouTube
+          {studio.busy ? "Resolving…" : "Link YouTube + fetch DNA"}
         </button>
       </div>
       {studio.youtubeReference ? (
-        <p className="mt-2 text-[11px] text-cyan-100/90">
-          Linked: {studio.youtubeReference.title || studio.youtubeReference.videoId} — export vocal audio locally,
-          then drop below.
-        </p>
+        <div className="mt-2 space-y-2">
+          <p className="text-[11px] text-cyan-100/90">
+            Linked: {studio.youtubeReference.title || studio.youtubeReference.videoId}
+            {studio.youtubeMusicDna?.dna
+              ? ` — ${studio.youtubeMusicDna.dna.artist} · ${studio.youtubeMusicDna.dna.title} (${studio.youtubeMusicDna.provider})`
+              : ""}
+          </p>
+          {studio.youtubeMusicDna?.replication ? (
+            <div
+              className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3"
+              data-testid="youtube-replication-pack"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-200/80">
+                Suno 5.5 replication pack
+              </div>
+              <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap text-[10px] text-emerald-50">
+                {studio.youtubeMusicDna.replication.styleLine}
+              </pre>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  data-testid="apply-youtube-dna"
+                  onClick={studio.applyYoutubeMusicDnaToProject}
+                  className="rounded-xl bg-emerald-300 px-3 py-1.5 text-[11px] font-bold text-black hover:bg-emerald-200"
+                >
+                  Apply track DNA to project
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyToClipboard(
+                      studio.youtubeMusicDna.replication.styleLine,
+                      "Suno style line copied",
+                    )
+                  }
+                  className="rounded-xl border border-emerald-300/40 px-3 py-1.5 text-[11px] font-bold text-emerald-50 hover:bg-emerald-500/20"
+                >
+                  Copy style line
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <p className="text-[10px] text-white/45">
+            Export vocal audio locally for trait analysis, then drop below.
+          </p>
+        </div>
       ) : null}
 
       <div className="mt-4">

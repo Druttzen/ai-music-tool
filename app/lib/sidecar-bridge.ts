@@ -126,7 +126,6 @@ export async function isSidecarAvailable(): Promise<boolean> {
   return health !== null;
 }
 
-/** Fetch full /health payload (null when unreachable). */
 export async function fetchSidecarHealth(): Promise<SidecarHealth | null> {
   if (shouldReuseHealthCache(healthCache, Date.now())) {
     return healthCache!.ok ? (healthCache!.body ?? null) : null;
@@ -147,6 +146,36 @@ export async function fetchSidecarHealth(): Promise<SidecarHealth | null> {
     healthCache = { ok: false, at: Date.now() };
     return null;
   }
+}
+
+export interface YoutubeResolvePayload {
+  video_id: string;
+  watch_url: string;
+  title: string;
+  author_name: string;
+  thumbnail_url: string;
+  duration_sec: number | null;
+  parsed_artist: string;
+  parsed_track: string;
+  search_query: string;
+  tags: string[];
+  categories: string[];
+  description_excerpt: string;
+  provider: string;
+}
+
+/** Resolve YouTube metadata server-side (avoids browser CORS on oEmbed). */
+export async function resolveYoutubeViaSidecar(watchUrl: string): Promise<YoutubeResolvePayload> {
+  const res = await fetch(`${sidecarBaseUrl()}/youtube/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: watchUrl }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(detail || `YouTube resolve failed (${res.status})`);
+  }
+  return res.json() as Promise<YoutubeResolvePayload>;
 }
 
 export interface SidecarStemFile {

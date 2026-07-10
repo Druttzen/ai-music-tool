@@ -85,7 +85,7 @@ test.describe("Voice Character Studio e2e", () => {
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(CHARACTER_PRESETS_FIXTURE);
 
     await panel.getByPlaceholder(/youtube\.com\/watch/i).fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-    await panel.getByRole("button", { name: "Link YouTube" }).click();
+    await panel.getByRole("button", { name: /Link YouTube/i }).click();
     await expect(panel.getByText(/^Linked:/)).toBeVisible({ timeout: 15000 });
 
     await panel

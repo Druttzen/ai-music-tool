@@ -46,6 +46,7 @@ export function normalizeCharacterVoiceStudioSession(raw) {
       voiceAnalysis: null,
       voiceStyleCompact: { ...EMPTY_COMPACT },
       youtubeReference: null,
+      youtubeMusicDna: null,
       presetName: "",
     };
   }
@@ -58,10 +59,15 @@ export function normalizeCharacterVoiceStudioSession(raw) {
           lyricTag: String(session.voiceStyleCompact.lyricTag || ""),
         }
       : { ...EMPTY_COMPACT };
+  const youtubeMusicDna =
+    session.youtubeMusicDna && typeof session.youtubeMusicDna === "object"
+      ? session.youtubeMusicDna
+      : null;
   return {
     voiceAnalysis,
     voiceStyleCompact: compact,
     youtubeReference: normalizeYoutubeReference(session.youtubeReference),
+    youtubeMusicDna,
     presetName: String(session.presetName || "").trim(),
   };
 }
@@ -73,6 +79,7 @@ export function isCharacterVoiceStudioSessionEmpty(session) {
   return (
     !session.voiceAnalysis &&
     !session.youtubeReference &&
+    !session.youtubeMusicDna &&
     !session.presetName &&
     !session.voiceStyleCompact.style &&
     !session.voiceStyleCompact.lyricTag

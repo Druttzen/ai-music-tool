@@ -18,6 +18,7 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
   const [error, setError] = useState("");
   const [results, setResults] = useState(/** @type {Array<object>} */ ([]));
   const [provider, setProvider] = useState("");
+  const [replication, setReplication] = useState(/** @type {object|null} */ (null));
   const [selectedIdx, setSelectedIdx] = useState(0);
 
   const spotifyReady = isSpotifyStyleDnaReady(styleDnaSettings);
@@ -29,6 +30,7 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
       const out = await searchTrackStyleDna(query, styleDnaSettings);
       setResults(out.mapped);
       setProvider(out.provider);
+      setReplication(out.replication || null);
       setSelectedIdx(0);
       setStatusWithTime(
         out.resolvedQuery
@@ -37,6 +39,7 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
       );
     } catch (err) {
       setResults([]);
+      setReplication(null);
       setError(err instanceof Error ? err.message : "Search failed");
       setStatusWithTime("Style DNA search failed", "error");
     } finally {
@@ -189,6 +192,24 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
               </button>
             ))}
           </div>
+
+          {replication && (
+            <div className="rounded-2xl border border-cyan-400/25 bg-cyan-950/20 p-3" data-testid="style-dna-replication-pack">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wider text-cyan-200/80">
+                Suno 5.5 replication style line
+              </div>
+              <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded-xl bg-black/40 p-3 text-[11px] text-cyan-50">
+                {replication.styleLine}
+              </pre>
+              <button
+                type="button"
+                className="mt-2 rounded-xl border border-cyan-300/40 px-3 py-1.5 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/20"
+                onClick={() => copyToClipboard(replication.styleLine, "Replication style copied")}
+              >
+                Copy replication style
+              </button>
+            </div>
+          )}
 
           {selected && (
             <div className="rounded-2xl border border-emerald-400/25 bg-emerald-950/20 p-3">

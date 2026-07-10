@@ -20,7 +20,8 @@ import {
   parseSpotifyTrackUrl,
   searchSpotifyStyleDnaHits,
 } from "./spotify-style-dna";
-import { fetchYoutubeTitle, parseYoutubeReference } from "./youtube-reference";
+import { parseYoutubeReference, resolveYoutubeReference } from "./youtube-reference";
+import { resolveYoutubeMusicDna } from "./youtube-music-dna";
 import { isSpotifyStyleDnaReady } from "./style-dna-settings";
 
 const KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -283,29 +284,14 @@ export async function searchTrackStyleDna(input, settings) {
 
   const yt = parseYoutubeReference(query);
   if (yt?.watchUrl) {
-    const title = await fetchYoutubeTitle(yt.watchUrl);
-    const searchQ = title || query;
-    if (spotifyReady) {
-      const hits = await searchSpotifyStyleDnaHits(
-        searchQ,
-        settings.spotifyClientId,
-        settings.spotifyClientSecret,
-      );
-      if (hits.length) {
-        return {
-          hits,
-          mapped: hits.map(buildStyleDnaFromHit),
-          provider: "spotify",
-          resolvedQuery: title,
-        };
-      }
-    }
-    const mbHits = await searchMusicBrainzStyleDnaHits(searchQ);
+    const bundle = await resolveYoutubeMusicDna(query, settings);
     return {
-      hits: mbHits,
-      mapped: mbHits.map(buildStyleDnaFromHit),
-      provider: "musicbrainz",
-      resolvedQuery: title,
+      hits: bundle.hits,
+      mapped: [bundle.dna],
+      provider: bundle.provider,
+      resolvedQuery: bundle.youtube.searchQuery || bundle.youtube.title,
+      youtube: bundle.youtube,
+      replication: bundle.replication,
     };
   }
 
