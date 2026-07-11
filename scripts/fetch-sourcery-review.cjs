@@ -23,8 +23,21 @@ function gh(args) {
   return r.stdout.trim();
 }
 
+function git(args) {
+  const r = spawnSync("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+  if (r.status !== 0) {
+    process.stderr.write(r.stderr || "git command failed\n");
+    process.exit(r.status ?? 1);
+  }
+  return r.stdout.trim();
+}
+
 function branchName() {
-  return gh(["git", "branch", "--show-current"]);
+  return git(["branch", "--show-current"]);
 }
 
 function findOpenPr() {
