@@ -10,6 +10,7 @@
 const { spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { importFailSafeBot } = require("./fail-safe-bot-import.cjs");
 
 const root = path.join(__dirname, "..");
 const isWin = process.platform === "win32";
@@ -18,7 +19,7 @@ const jsonOut = process.argv.includes("--json");
 const lastRunPath = path.join(root, ".fail-safe-last-run.json");
 
 async function loadClassifier() {
-  return import(path.join(root, "app/lib/fail-safe-bot.js"));
+  return importFailSafeBot();
 }
 
 function writeLastRun(payload) {
