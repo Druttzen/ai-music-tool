@@ -5,11 +5,16 @@
 #>
 param(
   [switch]$Foreground,
-  [int]$IdleExitSec = 300
+  [int]$IdleExitSec = 300,
+  [switch]$Maintainer
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+$env:AIMC_REPO_ROOT = $root
+if ($Maintainer) {
+  $env:AIMC_MAINTAINER = "1"
+}
 $sidecar = Join-Path $root "ai-sidecar"
 $venv = Join-Path $sidecar ".venv"
 $pidFile = Join-Path $sidecar ".sidecar.pid"

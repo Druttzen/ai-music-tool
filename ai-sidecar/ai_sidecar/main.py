@@ -56,6 +56,7 @@ from .genre_classifier import active_genre_model_id, classify_music_genres, genr
 from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
 from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
 from .musicgen import active_musicgen_model_id, generate_music_wav, generation_available
+from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer_enabled, repo_root
 from .idle import (
     configure_idle_exit,
     hold_dev_session,
@@ -180,6 +181,8 @@ class Health(BaseModel):
     vocal_rvc_available: bool
     vocal_diffsinger_available: bool
     generate_available: bool
+    fix_push_available: bool = False
+    maintainer_mode: bool = False
 
 
 class GenrePrediction(BaseModel):
@@ -311,7 +314,23 @@ def health() -> Health:
         vocal_rvc_available=rvc_ready(),
         vocal_diffsinger_available=diffsinger_configured(),
         generate_available=generation_available(),
+        fix_push_available=maintainer_enabled() and bool(repo_root()),
+        maintainer_mode=maintainer_enabled(),
     )
+
+
+@app.get("/fail-safe/capabilities")
+def fail_safe_capabilities() -> dict[str, bool | str]:
+    return {
+        "maintainer_mode": maintainer_enabled(),
+        "fix_push_available": maintainer_enabled(),
+        "repo_root": os.environ.get("AIMC_REPO_ROOT", ""),
+    }
+
+
+@app.post("/fail-safe/fix-push", response_model=FixPushResponse)
+def fail_safe_fix_push(body: FixPushRequest) -> FixPushResponse:
+    return fix_push(body)
 
 
 @app.post("/youtube/resolve", response_model=YoutubeResolveResponse)

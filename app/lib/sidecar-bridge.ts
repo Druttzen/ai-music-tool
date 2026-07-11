@@ -22,6 +22,8 @@ export interface SidecarHealth {
   vocal_rvc_available?: boolean;
   vocal_diffsinger_available?: boolean;
   generate_available?: boolean;
+  fix_push_available?: boolean;
+  maintainer_mode?: boolean;
 }
 
 export interface SidecarAnalysis {
@@ -689,4 +691,56 @@ export async function exportOpenvpiDsViaSidecar(
   }
 
   return res.json() as Promise<OpenvpiDsExportResponse>;
+}
+
+export interface FailSafeFixPushResult {
+  ok: boolean;
+  stage: string;
+  message: string;
+  branch?: string | null;
+  commit?: string | null;
+  pr_url?: string | null;
+  changed?: boolean | null;
+  workflow_url?: string | null;
+}
+
+export async function fetchFailSafeCapabilities(): Promise<{
+  maintainer_mode: boolean;
+  fix_push_available: boolean;
+  repo_root?: string;
+} | null> {
+  try {
+    const headers = await sidecarAuthHeaders();
+    const res = await fetch(`${sidecarBaseUrl()}/fail-safe/capabilities`, { headers });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+/** Maintainer mode: run fail-safe fix, commit, push (local git) or cloud dispatch. */
+export async function runFailSafeFixPush(options: {
+  mode?: "local" | "cloud";
+  githubToken?: string;
+} = {}): Promise<FailSafeFixPushResult> {
+  const headers = await sidecarAuthHeaders({ "Content-Type": "application/json" });
+  const res = await fetch(`${sidecarBaseUrl()}/fail-safe/fix-push`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      mode: options.mode || "local",
+      github_token: options.githubToken || undefined,
+    }),
+  });
+  let body: FailSafeFixPushResult;
+  try {
+    body = (await res.json()) as FailSafeFixPushResult;
+  } catch {
+    throw new Error(formatApiError(`Fix & push failed (${res.status})`));
+  }
+  if (!res.ok && body?.message) {
+    throw new Error(body.message);
+  }
+  return body;
 }

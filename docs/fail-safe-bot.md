@@ -10,6 +10,41 @@ npm run bots:install
 
 Installs pre-push hook + Sourcery + Fail-safe Cursor rules into `.cursor/`.
 
+## In-app fix & push (auto-update path)
+
+Maintainers can **fix code from the app** and push to GitHub so all users receive updates via Electron/Tauri auto-update after merge + release.
+
+### Enable maintainer mode
+
+```bash
+npm run sidecar:maintainer
+```
+
+Sets `AIMC_MAINTAINER=1` and `AIMC_REPO_ROOT` on the sidecar. In the app, expand **Fail-safe bot** and click **Fix & push**.
+
+Flow:
+1. Runs `npm run fail-safe:run` (classify + auto-fix)
+2. Commits tracked changes
+3. Pushes branch `cursor/fail-safe-auto-*` (or `master` if `AIMC_FIX_PUSH_MASTER=1`)
+4. Opens a PR when `gh` is available
+
+### Cloud fix (no local git)
+
+Save a GitHub PAT (repo scope) in the expanded panel, or:
+
+```bash
+AIMC_GITHUB_TOKEN=ghp_... npm run fail-safe:fix-push:cloud
+```
+
+Triggers `.github/workflows/fail-safe-auto-fix.yml` via `repository_dispatch`.
+
+### CLI
+
+| Command | Action |
+|---------|--------|
+| `AIMC_FIX_PUSH=1 npm run fail-safe:fix-push` | Local fix + commit + push |
+| `npm run fail-safe:fix-push:cloud` | Dispatch cloud workflow |
+
 ## In-app panel
 
 **Drag & Drop Analyzers** includes a **Fail-safe bot** strip that:
