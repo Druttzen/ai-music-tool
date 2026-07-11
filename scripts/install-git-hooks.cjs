@@ -16,11 +16,25 @@ function resolveGitDir() {
     stdio: ["ignore", "pipe", "pipe"],
     shell: process.platform === "win32",
   });
+
+  if (r.error) {
+    const code = r.error.code || "";
+    if (code === "ENOENT") {
+      console.error("install-git-hooks: git is not installed or not available on PATH");
+      console.error(`  (${r.error.message})`);
+    } else {
+      console.error("install-git-hooks: failed to run git");
+      console.error(`  (${r.error.message})`);
+    }
+    process.exit(1);
+  }
+
   if (r.status !== 0 || !String(r.stdout || "").trim()) {
     console.error("install-git-hooks: not a git repository (git rev-parse --git-dir failed)");
     if (r.stderr) process.stderr.write(r.stderr);
-    process.exit(1);
+    process.exit(r.status ?? 1);
   }
+
   const gitDir = String(r.stdout).trim();
   return path.isAbsolute(gitDir) ? gitDir : path.resolve(root, gitDir);
 }
