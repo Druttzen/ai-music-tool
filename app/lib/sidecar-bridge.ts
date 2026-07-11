@@ -737,7 +737,7 @@ export async function runFailSafeFixPush(options: {
   try {
     body = (await res.json()) as FailSafeFixPushResult;
   } catch {
-    throw new Error(formatApiError(`Fix & push failed (${res.status})`));
+    throw new Error(formatApiError(res.status, "", "Fix & push"));
   }
   if (!res.ok && body?.message) {
     throw new Error(body.message);
