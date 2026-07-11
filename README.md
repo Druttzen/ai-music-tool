@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.49.0**
+**Version 0.50.0**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build (primary) with native DSP export and Python sidecar integration. Legacy **Electron** Windows installer remains but is deprecated — see [docs/desktop.md](docs/desktop.md).
+
+## Highlights (v0.50.0)
+
+- **Canvas Tool handoff** — drop artwork in Analyzers, then **Open in Canvas Tool → Spotify loop**; Tauri-native export + shared `handoff.json` protocol with Electron legacy path.
+- **Shared suite paths** — `lib/suite-handoff-paths.json` keeps Tauri and Electron aligned on `Documents/AI Suite` and canvas executable discovery.
+- **Fail-safe bot fixes** — workflow can post commit comments on `master` (`contents: write`); Windows CLI import fixed for local `npm run fail-safe:run`.
 
 ## Highlights (v0.49.0)
 
