@@ -529,6 +529,10 @@ npm run hooks:install         # auto-run check:ci on git push
 
 Skip the pre-push hook once: `SKIP_CI_PREFLIGHT=1 git push`
 
+Skip the pre-push hook once: `SKIP_CI_PREFLIGHT=1 git push`
+
+**Fail-safe bot:** [docs/fail-safe-bot.md](docs/fail-safe-bot.md) — in-app health panel + `npm run fail-safe:run` (auto-fix CI) + PR diagnosis workflow.
+
 **Sourcery auto-fix:** [docs/sourcery-auto-fix.md](docs/sourcery-auto-fix.md) — `npm run sourcery:install-cursor`, `npm run sourcery:auto`, optional Cursor Automation.
 
 Full CI parity including Playwright e2e (restarts sidecar):

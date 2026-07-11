@@ -1,0 +1,18 @@
+---
+description: Auto-fix CI/build failures when fail-safe bot output appears in chat
+alwaysApply: true
+---
+
+# Fail-safe bot auto-fix
+
+When the user message includes **fail-safe bot** output (`FAIL-SAFE BOT`, `ci-gates — FAILED`, `npm run fail-safe:auto`, or classified CI failure log):
+
+1. **Treat as fix request** — implement fixes without re-asking unless blocked on product decisions.
+2. **Use classified playbooks** from `app/lib/fail-safe-bot.js` — prefer minimal diffs.
+3. **Verify** with `npm run check:ci` (add `check:ci:e2e-subset` if e2e files changed).
+4. **Commit and push** per git rules when allowed.
+5. **Summarize** fixes vs items needing manual work.
+
+Safe auto-fixes already attempted by `npm run fail-safe:run`: rust lock refresh, eslint --fix, catalog import. Do not repeat unless still failing.
+
+Skip duplicate work already fixed on the branch.
