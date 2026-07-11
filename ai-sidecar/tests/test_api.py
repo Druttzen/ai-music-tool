@@ -126,3 +126,29 @@ def test_generate_without_extra_returns_503():
     res = client.post("/generate", json={"prompt": "dark techno groove", "duration_sec": 5})
     assert res.status_code == 503
     assert "generate" in res.json()["detail"].lower()
+
+
+def test_youtube_resolve_rejects_empty_url():
+    res = client.post("/youtube/resolve", json={"url": ""})
+    assert res.status_code in (400, 422)
+
+
+def test_vocal_embed_plan_rejects_wrong_kind():
+    res = client.post(
+        "/vocal-embed/plan",
+        json={
+            "kind": "wrong_kind",
+            "version": 1,
+            "createdAt": "2026-01-01T00:00:00.000Z",
+            "plan": {},
+        },
+    )
+    assert res.status_code == 422
+
+
+def test_vocal_embed_models_lists_status_keys():
+    res = client.get("/vocal-embed/models")
+    assert res.status_code == 200
+    body = res.json()
+    assert "rvc_ready" in body
+    assert "diffsinger_configured" in body
