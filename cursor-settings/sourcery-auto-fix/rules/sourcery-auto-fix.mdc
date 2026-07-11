@@ -1,0 +1,19 @@
+---
+description: Auto-address Sourcery AI bot PR review comments — implement fixes without re-asking
+alwaysApply: true
+---
+
+# Sourcery review auto-fix
+
+When the user message includes **Sourcery** review text (from `@sourcery-ai[bot]`, "Prompt for AI Agents", "issue_to_address", or output of `npm run sourcery:fetch`):
+
+1. **Treat as a fix request** — do not ask "should I implement?" unless blocked on a product decision.
+2. **Parse all issues** — Overall Comments + Individual Comments + inline suggestions.
+3. **Implement** focused fixes on the current branch; match existing code style.
+4. **Verify** — run `npm run check:ci` (add `npm run check:ci:e2e-subset` if e2e-sensitive files changed).
+5. **Commit and push** when the user's git rules allow commits; use branch prefix `cursor/` if creating a branch.
+6. **Summarize** what was fixed vs skipped (with reason).
+
+Skip: marketing links, "click 👍", Sourcery engagement boilerplate, duplicate items already fixed on `master`.
+
+Prefer tightening heuristics over broad string matches; prefer single source of truth (no duplicate CI steps).

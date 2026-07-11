@@ -6,19 +6,26 @@ Automatically forward Sourcery AI PR reviews to the agent and apply fixes.
 
 | Layer | Purpose |
 |-------|---------|
-| `.cursor/rules/sourcery-auto-fix.mdc` | Agent always implements Sourcery issues when review text appears in chat |
-| `.cursor/hooks.json` | Prepends auto-fix instructions when you paste Sourcery comments |
+| `cursor-settings/sourcery-auto-fix/` | Tracked source for rule + hook (`.cursor/` is gitignored) |
+| `npm run sourcery:install-cursor` | Copies rule/hook into `.cursor/` and merges `hooks.json` |
 | `npm run sourcery:fetch` | Pulls latest `@sourcery-ai[bot]` comments from the open PR for current branch |
+| `npm run sourcery:auto` | Prints a full agent prompt (fetch + auto-fix instructions) |
+
+After clone or pull, run once:
+
+```bash
+npm run sourcery:install-cursor
+```
 
 ## Manual workflow (local)
 
 ```bash
-npm run sourcery:fetch
+npm run sourcery:auto
 ```
 
-Copy the output into Agent chat, or say: **"apply sourcery review"** after running fetch.
+Copy the output into Agent chat (the hook and rule auto-trigger fixes when Sourcery text is present).
 
-The hook fires automatically when your message mentions Sourcery / `issue_to_address`.
+Or paste a Sourcery PR comment directly — the `beforeSubmitPrompt` hook prepends auto-fix instructions.
 
 ## Pre-push (optional)
 
@@ -30,32 +37,22 @@ npm run hooks:install
 
 ## Fully automatic (Cursor Automation — recommended)
 
-Use a **Cursor Automation** so a cloud agent runs when Sourcery comments on a PR:
+A **Cursor Automation** draft is available in the repo (open via Cursor → Automations):
 
-1. Open **Cursor → Automations → New**
-2. **Trigger:** GitHub → Pull request → **Comment added**
-3. **Repo:** `Druttzen/ai-music-tool`
-4. **Tools:** Comment on PRs
-5. **Instructions:**
+- **Trigger:** GitHub → Pull request → **Comment added**
+- **Repo:** `Druttzen/ai-music-tool`
+- **When:** comment from `sourcery-ai[bot]` or body contains Sourcery review markers
 
-```
-When the new PR comment is from sourcery-ai[bot] (or the body contains "Prompt for AI Agents" / issue_to_address):
+The agent checks out the PR branch, implements fixes, runs `npm run check:ci`, pushes, and replies on the PR.
 
-1. Read every actionable issue in the Sourcery review.
-2. Check out the PR branch and implement minimal fixes.
-3. Run npm run check:ci (add check:ci:e2e-subset if e2e files changed).
-4. Commit, push to the PR branch.
-5. Reply on the PR with a short summary of fixes.
-
-Skip Sourcery marketing/engagement text. Do not merge unless CI is green.
-```
-
-Enable **Cloud Agent** in the automation if you want this to run without the desktop IDE open.
+Enable **Cloud Agent** if you want this without the desktop IDE open.
 
 ## npm scripts
 
 | Script | Action |
 |--------|--------|
+| `npm run sourcery:install-cursor` | Install rule + hook into `.cursor/` |
 | `npm run sourcery:fetch` | Print Sourcery review text for current branch PR |
+| `npm run sourcery:auto` | Fetch + format agent prompt for auto-fix |
 | `npm run check:ci` | Local CI gate before push |
 | `npm run hooks:install` | Install pre-push `check:ci` hook |
