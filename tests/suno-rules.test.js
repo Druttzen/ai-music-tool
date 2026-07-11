@@ -3,6 +3,7 @@ import {
   buildSunoStyleBoxPrompt,
   buildSunoLyricsBoxPrompt,
   buildStandardPrompt,
+  buildSunoLikePrompt,
   SUNO_AUTO_FIX_DEFAULTS,
   validateSunoLikePrompt,
 } from "../app/lib/suno-rules.js";
@@ -70,6 +71,46 @@ describe("suno-rules", () => {
     const p = buildStandardPrompt({ ...base, format: "Detailed" });
     expect(p).toContain("SONG MAP:");
     expect(p).toContain("Intensity:");
+  });
+
+  it("buildStandardPrompt includes score focus when bass is weak", () => {
+    const p = buildStandardPrompt({
+      ...base,
+      format: "Compressed",
+      scores: { bass: 2, rhythm: 4, identity: 4, clarity: 4 },
+    });
+    expect(p).toContain("SCORE FOCUS:");
+    expect(p).toContain("sub foundation");
+  });
+
+  it("buildSunoStyleBoxPrompt includes score focus block", () => {
+    const s = buildSunoStyleBoxPrompt({
+      ...base,
+      scores: { bass: 5, rhythm: 5, identity: 4, clarity: 4 },
+    });
+    expect(s).toContain("SCORE FOCUS:");
+    expect(s).toContain("tight rhythmic pocket");
+  });
+
+  it("buildSunoStyleBoxPrompt omits score focus for neutral scores", () => {
+    const s = buildSunoStyleBoxPrompt({
+      ...base,
+      scores: { bass: 4, rhythm: 4, identity: 4, clarity: 4 },
+    });
+    expect(s).not.toContain("SCORE FOCUS:");
+  });
+
+  it("buildSunoLikePrompt omits score focus when scores are omitted", () => {
+    const p = buildSunoLikePrompt({ ...base });
+    expect(p).not.toContain("SCORE FOCUS:");
+  });
+
+  it("buildSunoLikePrompt omits score focus for neutral scores", () => {
+    const p = buildSunoLikePrompt({
+      ...base,
+      scores: { bass: 4, rhythm: 4, identity: 4, clarity: 4 },
+    });
+    expect(p).not.toContain("SCORE FOCUS:");
   });
 
   it("SUNO_AUTO_FIX_DEFAULTS provides genre and structure fallbacks", () => {

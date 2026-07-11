@@ -2,6 +2,14 @@ import { validateSunoFieldLengths } from "./suno-limits";
 import { getSunoCatalogSyncCached } from "./suno-catalog-loader";
 import { INSTRUMENTAL_LYRICS_SCAFFOLD, selectNegativeGuards } from "./suno-negative-guards";
 import { formatTempoWithDescriptor, tempoAlreadyHasDescriptor } from "./tempo-descriptors";
+import { scorePromptHints } from "./track-scoring";
+
+/** Append score-driven production hints when any dimension is set. */
+function scoreFocusBlock(scores) {
+  const hints = scorePromptHints(scores);
+  if (!hints.length) return "";
+  return `\n\nSCORE FOCUS:\n${hints.join(", ")}`;
+}
 
 /** Suno v5.5 community guidance: focused Style tag count. */
 export const SUNO_STYLE_DESCRIPTOR_RANGE = { min: 4, max: 8 };
@@ -41,6 +49,7 @@ export function buildStandardPrompt({
   imageAnalysis,
   coProducerOutput,
   notes,
+  scores,
 }) {
   const genreLine = `${selectedGenres.join(" + ") || "Electronic"} | ${tempo} | ${moodWords}`;
 
@@ -51,7 +60,7 @@ Rhythm: ${selectedRhythms.join(", ") || "steady groove"}
 Vocals: ${vocalText}
 Goal: ${idea}
 Lyrics: ${vocal === "Instrumental" ? "instrumental only" : `${lyricStyle}, ${lyricTheme}`}
-Rules: ${rules}`;
+Rules: ${rules}${scoreFocusBlock(scores)}`;
   }
 
   if (format === "Detailed") {
@@ -85,7 +94,7 @@ CO-PRODUCER:
 ${coProducerOutput || "No co-producer notes yet."}
 
 NOTES:
-${notes || "No extra notes."}`;
+${notes || "No extra notes."}${scoreFocusBlock(scores)}`;
   }
 
   return `STYLE:
@@ -107,7 +116,7 @@ RULES:
 ${rules}
 Intensity: ${intensityText} | Mode: ${mode}
 
-${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}`;
+${coProducerOutput ? `CO-PRODUCER:\n${coProducerOutput}` : ""}${scoreFocusBlock(scores)}`;
 }
 
 /**
@@ -127,6 +136,7 @@ export function buildSunoStyleBoxPrompt({
   intensityText,
   mode,
   voiceStyleReference = "",
+  scores,
 }) {
   const styleLine = `${selectedGenres.join(" + ") || "Electronic"} | ${
     tempo && !tempoAlreadyHasDescriptor(tempo) ? formatTempoWithDescriptor(tempo) : tempo
@@ -171,7 +181,7 @@ ${rules}
 ARC:
 ${intensityText}
 MODE:
-${mode}`;
+${mode}${scoreFocusBlock(scores)}`;
 }
 
 /** Text for Suno **Lyrics** field — structure / lyric direction only (no style DNA). */
@@ -198,6 +208,7 @@ export function buildSunoLikePrompt({
   intensityText,
   mode,
   voiceStyleReference = "",
+  scores,
 }) {
   const params = {
     selectedGenres,
@@ -213,6 +224,7 @@ export function buildSunoLikePrompt({
     intensityText,
     mode,
     voiceStyleReference,
+    scores,
   };
   const styleBlock = buildSunoStyleBoxPrompt(params);
   const lyricBlock =

@@ -25,7 +25,7 @@ from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from .vocal_embed import (
@@ -63,6 +63,9 @@ from .idle import (
     start_idle_watchdog,
     touch_activity,
 )
+
+_SIDECAR_TOKEN = os.environ.get("AIMC_SIDECAR_TOKEN", "").strip()
+_SIDECAR_AUTH_HEADER = "x-aimc-sidecar-token"
 
 _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -107,7 +110,6 @@ async def _lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="AI Music Creator — AI Sidecar",
-    version="0.1.0",
     lifespan=_lifespan,
 )
 
@@ -124,6 +126,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _sidecar_token_auth(request: Request, call_next):
+    """When AIMC_SIDECAR_TOKEN is set, require matching header on non-public routes."""
+    if not _SIDECAR_TOKEN:
+        return await call_next(request)
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    path = request.url.path
+    if path in ("/health", "/docs", "/openapi.json", "/redoc"):
+        return await call_next(request)
+    token = request.headers.get(_SIDECAR_AUTH_HEADER)
+    if token != _SIDECAR_TOKEN:
+        return JSONResponse(status_code=401, content={"detail": "Invalid or missing sidecar token"})
+    return await call_next(request)
 
 
 @app.middleware("http")

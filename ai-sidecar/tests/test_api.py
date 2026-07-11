@@ -152,3 +152,30 @@ def test_vocal_embed_models_lists_status_keys():
     body = res.json()
     assert "rvc_ready" in body
     assert "diffsinger_configured" in body
+
+
+def test_analyze_requires_token_when_configured(monkeypatch):
+    monkeypatch.setattr("ai_sidecar.main._SIDECAR_TOKEN", "test-secret")
+    wav = _make_tone_wav()
+    res = client.post(
+        "/analyze",
+        files={"file": ("tone.wav", BytesIO(wav), "audio/wav")},
+    )
+    assert res.status_code == 401
+
+
+def test_analyze_accepts_valid_sidecar_token(monkeypatch):
+    monkeypatch.setattr("ai_sidecar.main._SIDECAR_TOKEN", "test-secret")
+    wav = _make_tone_wav()
+    res = client.post(
+        "/analyze",
+        files={"file": ("tone.wav", BytesIO(wav), "audio/wav")},
+        headers={"x-aimc-sidecar-token": "test-secret"},
+    )
+    assert res.status_code == 200
+
+
+def test_health_unauthenticated_when_token_configured(monkeypatch):
+    monkeypatch.setattr("ai_sidecar.main._SIDECAR_TOKEN", "test-secret")
+    res = client.get("/health")
+    assert res.status_code == 200

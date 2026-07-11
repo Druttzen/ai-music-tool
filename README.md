@@ -9,7 +9,8 @@ A Next.js app for building dense, reproducible prompts for AI music workflows (e
 - **Track Scoring wired** — low dimension scores inject production hints into Suno Style paste, Co-Producer advisory, Maestro snapshot, and history restore labels.
 - **Album mode persistence** — track roles/titles/ideas saved in project JSON; reorder, add/remove tracks, copy per-track style + metatag.
 - **My Taste weighting** — high-scoring history entries count double; low scores excluded from taste profile.
-- **Release e2e subset** — Section DAW mood + Suno Pro tools specs in `npm run test:e2e:subset`.
+- **Security hardening** — optional sidecar token auth, credential reset on blank slate, [SECURITY.md](SECURITY.md), Tauri CSP, Tauri release runs `check:full`.
+- **Release e2e subset** — persistence + reset-blank specs added alongside Section DAW mood + Suno Pro tools.
 - **Docs** — [Voice Character YouTube + yt-dlp](docs/voice-character-youtube.md), [style catalog research](docs/style-catalog-research.md), Electron sunset note in [desktop.md](docs/desktop.md).
 
 ## Highlights (v0.47.3)

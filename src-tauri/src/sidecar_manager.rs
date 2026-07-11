@@ -27,6 +27,8 @@ pub struct SidecarStatus {
     pub bundled: bool,
     pub port: u16,
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
 }
 
 enum SidecarChild {
@@ -61,6 +63,7 @@ struct SidecarInner {
     spawned: bool,
     bundled: bool,
     error: Option<String>,
+    auth_token: Option<String>,
 }
 
 impl Default for SidecarInner {
@@ -71,6 +74,7 @@ impl Default for SidecarInner {
             spawned: false,
             bundled: false,
             error: None,
+            auth_token: None,
         }
     }
 }
@@ -125,7 +129,11 @@ impl SidecarManager {
         }
 
         let app = self.app.lock().ok().and_then(|g| g.clone());
-        match spawn_sidecar_process(app.as_ref()) {
+        if guard.auth_token.is_none() {
+            guard.auth_token = Some(new_sidecar_token());
+        }
+        let token = guard.auth_token.clone().unwrap_or_default();
+        match spawn_sidecar_process(app.as_ref(), &token) {
             Ok((child, bundled)) => {
                 guard.child = Some(child);
                 guard.spawned = true;
@@ -173,6 +181,7 @@ impl SidecarManager {
             bundled: guard.bundled,
             port: SIDECAR_PORT,
             error: guard.error.clone(),
+            auth_token: guard.auth_token.clone(),
         }
     }
 
@@ -240,7 +249,11 @@ fn health_check() -> bool {
         .unwrap_or(false)
 }
 
-fn spawn_bundled_sidecar(app: &AppHandle) -> Result<SidecarChild, String> {
+fn new_sidecar_token() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+fn spawn_bundled_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, String> {
     let port = SIDECAR_PORT.to_string();
     let (_rx, child) = app
         .shell()
@@ -254,6 +267,7 @@ fn spawn_bundled_sidecar(app: &AppHandle) -> Result<SidecarChild, String> {
             "--idle-exit-sec",
             SIDECAR_IDLE_EXIT_SEC,
         ])
+        .env("AIMC_SIDECAR_TOKEN", token)
         .spawn()
         .map_err(|e| format!("failed to spawn bundled sidecar: {e}"))?;
     Ok(SidecarChild::Bundled(child))
@@ -326,7 +340,7 @@ fn resolve_python_executable(sidecar_dir: &Path) -> Option<PathBuf> {
     None
 }
 
-fn spawn_dev_sidecar() -> Result<SidecarChild, String> {
+fn spawn_dev_sidecar(token: &str) -> Result<SidecarChild, String> {
     let sidecar_dir = resolve_sidecar_dir()
         .ok_or_else(|| "ai-sidecar directory not found".to_string())?;
 
@@ -346,6 +360,7 @@ fn spawn_dev_sidecar() -> Result<SidecarChild, String> {
         &SIDECAR_PORT.to_string(),
     ])
     .env("SIDECAR_IDLE_EXIT_SEC", SIDECAR_IDLE_EXIT_SEC)
+    .env("AIMC_SIDECAR_TOKEN", token)
     .current_dir(&sidecar_dir)
     .stdin(Stdio::null())
     .stdout(Stdio::null())
@@ -362,20 +377,20 @@ fn spawn_dev_sidecar() -> Result<SidecarChild, String> {
 }
 
 /// Prefer dev venv in debug builds; packaged binary in release.
-fn spawn_sidecar_process(app: Option<&AppHandle>) -> Result<(SidecarChild, bool), String> {
+fn spawn_sidecar_process(app: Option<&AppHandle>, token: &str) -> Result<(SidecarChild, bool), String> {
     #[cfg(debug_assertions)]
     {
-        if let Ok(child) = spawn_dev_sidecar() {
+        if let Ok(child) = spawn_dev_sidecar(token) {
             return Ok((child, false));
         }
     }
 
     if let Some(handle) = app {
-        if let Ok(child) = spawn_bundled_sidecar(handle) {
+        if let Ok(child) = spawn_bundled_sidecar(handle, token) {
             return Ok((child, true));
         }
     }
-    Ok((spawn_dev_sidecar()?, false))
+    Ok((spawn_dev_sidecar(token)?, false))
 }
 
 #[cfg(test)]

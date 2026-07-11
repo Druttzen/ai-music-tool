@@ -4,11 +4,21 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 
 SIDECAR = "http://127.0.0.1:8723"
+_SIDECAR_TOKEN = os.environ.get("AIMC_SIDECAR_TOKEN", "").strip()
+_AUTH_HEADER = "x-aimc-sidecar-token"
+
+
+def _sidecar_headers(extra: dict | None = None) -> dict:
+    headers = dict(extra or {})
+    if _SIDECAR_TOKEN:
+        headers[_AUTH_HEADER] = _SIDECAR_TOKEN
+    return headers
 
 
 def _post_json(path: str, payload: dict) -> dict:
@@ -16,7 +26,7 @@ def _post_json(path: str, payload: dict) -> dict:
     req = urllib.request.Request(
         f"{SIDECAR}{path}",
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers=_sidecar_headers({"Content-Type": "application/json"}),
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310

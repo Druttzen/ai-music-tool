@@ -13,6 +13,8 @@ const specs = [
   "tests/e2e/coach-maestro-vocal-handoff.spec.js",
   "tests/e2e/section-daw-mood.spec.js",
   "tests/e2e/suno-pro-tools.spec.js",
+  "tests/e2e/project-persistence.spec.js",
+  "tests/e2e/reset-blank-state.spec.js",
 ];
 
 const r = spawnSync("npx", ["playwright", "test", ...specs, "--workers=1"], {
