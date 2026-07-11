@@ -110,6 +110,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "lib/suite-bridge.cjs",
       "out/**/*",
       "icon.ico"
     ],

@@ -115,6 +115,34 @@ function resolveVideoCreatorExecutable() {
   return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
 }
 
+function setupSuiteCanvasBridge() {
+  const suiteBridge = require("./lib/suite-bridge.cjs");
+
+  ipcMain.handle("suite:open-canvas", async (_event, payload) => {
+    try {
+      const buffer = payload?.buffer;
+      if (!buffer?.byteLength) {
+        return { ok: false, error: "No image data" };
+      }
+      suiteBridge.ensureSuiteDirs();
+      const ext = String(payload?.ext || "png").replace(/^\./, "");
+      const stamp = Date.now();
+      const artPath = path.join(suiteBridge.EXPORTS_DIR, `album-art-${stamp}.${ext}`);
+      fs.writeFileSync(artPath, Buffer.from(buffer));
+      const exe = suiteBridge.openInCanvasFromMusic({
+        title: String(payload?.title || "Untitled Track"),
+        artist: String(payload?.artist || "Unknown Artist"),
+        albumArtPath: artPath,
+        motionHint: String(payload?.motionHint || "cinematic drift, 8 seconds"),
+        durationSec: Number(payload?.durationSec) || 8,
+      });
+      return { ok: true, launched: true, exe };
+    } catch (err) {
+      return { ok: false, error: err?.message || "Failed to open Canvas Tool" };
+    }
+  });
+}
+
 function setupVideoHandoffIpc() {
   ipcMain.handle("handoff:export-video", async (_event, payload) => {
     try {
@@ -176,6 +204,7 @@ function openReadmeOnce() {
 
 app.whenReady().then(() => {
   setupVideoHandoffIpc();
+  setupSuiteCanvasBridge();
   createWindow();
   setupAutoUpdater();
 });
