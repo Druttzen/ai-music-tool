@@ -202,3 +202,20 @@ npm run test:smoke:stems        # installs stems extra + Demucs UI e2e
 | `POST /generate` | Optional MusicGen text-to-music WAV (requires `generate` extra) |
 | `POST /separate` | Demucs stem separation (requires `stems` extra) |
 | `GET /separate/download/{job_id}/{filename}` | Download one stem WAV |
+
+## Optional auth token
+
+When `AIMC_SIDECAR_TOKEN` is set, protected routes require header `X-AIMC-Sidecar-Token`. `/health` stays public. Tauri Studio sets this automatically for managed sidecars. See [SECURITY.md](../SECURITY.md).
+
+## MCP stdio bridge
+
+`ai_sidecar/mcp_stdio.py` exposes analyze/health tools over MCP stdio for agent integrations:
+
+```bash
+# Sidecar must be running (npm run sidecar)
+python -m ai_sidecar.mcp_stdio
+# With token auth:
+AIMC_SIDECAR_TOKEN=your-token python -m ai_sidecar.mcp_stdio
+```
+
+Set `AIMC_SIDECAR_TOKEN` in the environment when the sidecar was started with a token.

@@ -91,6 +91,7 @@ export function usePromptPipeline(input: PipelineInputFields) {
       imageAnalysis: input.imageAnalysis,
       coProducerOutput: input.coProducerOutput,
       notes: input.notes,
+      scores: input.scores,
     }),
     [
       input.selectedGenres,
@@ -112,6 +113,7 @@ export function usePromptPipeline(input: PipelineInputFields) {
       input.imageAnalysis,
       input.coProducerOutput,
       input.notes,
+      input.scores,
     ],
   );
 

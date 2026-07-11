@@ -1,0 +1,59 @@
+# Security
+
+AI Music Creator is a **local-first** prompt studio. This document summarizes how secrets, network exposure, and optional ML stacks are handled.
+
+## Reporting issues
+
+Open a [GitHub issue](https://github.com/Druttzen/ai-music-tool/issues) with **Security** in the title for suspected vulnerabilities. Do not paste live API keys.
+
+## API keys and credentials
+
+| Storage | Keys | Included in project export? |
+|---------|------|----------------------------|
+| `localStorage` | Co-Producer LLM (`apiKey`), Style DNA (Spotify/AudD) | **No** — project autosave uses `SNAPSHOT_FIELD_KEYS` only |
+| Project JSON / bundle | Genres, lyrics, presets, voice profiles | Yes (creative data only) |
+
+**Reset to Default** clears Co-Producer LLM and Style DNA keys via `clearStoredCredentials()`. Export shows a reminder when credentials are still stored locally.
+
+Never commit `.env` files or paste keys into issues.
+
+## AI sidecar (localhost)
+
+The Python sidecar binds to **127.0.0.1:8723** by default. It has **no user accounts**; security relies on loopback binding and optional token auth.
+
+### Optional token (`AIMC_SIDECAR_TOKEN`)
+
+When set, all routes except `/health`, `/docs`, and `/openapi.json` require header:
+
+```http
+X-AIMC-Sidecar-Token: <token>
+```
+
+- **Tauri Studio** generates a token when spawning the managed sidecar and passes it to the webview over IPC (`SidecarStatus.auth_token`).
+- **Manual dev** (`npm run sidecar`) leaves the token unset — backward compatible for browser dev.
+- **MCP stdio bridge** (`ai_sidecar/mcp_stdio.py`) reads `AIMC_SIDECAR_TOKEN` from the environment when calling the sidecar.
+
+Threat model: protects against **other local processes** on the same machine calling the sidecar. It does not protect against malware running as the same user.
+
+## Desktop CSP (Tauri)
+
+Tauri Studio uses a restrictive Content-Security-Policy (see `src-tauri/tauri.conf.json`): scripts and styles from `'self'`, `connect-src` limited to localhost sidecar and GitHub release checks.
+
+## MusicGen / Audiocraft
+
+MusicGen weights are **CC-BY-NC** (non-commercial). The sidecar and UI warn before generation. Do not use generated audio commercially without a separate license from Meta.
+
+## Release trains
+
+Two tag families ship installers:
+
+| Tag | Target |
+|-----|--------|
+| `v*` | Legacy Electron (Windows, deprecated) |
+| `studio-v*` | Tauri Studio (primary) |
+
+Both run `npm run check:full` (unit + lint + build + sidecar pytest) before building.
+
+## Electron sunset
+
+Electron builds remain for auto-update users through v0.48.x; new features target Tauri. See [docs/desktop.md](docs/desktop.md).

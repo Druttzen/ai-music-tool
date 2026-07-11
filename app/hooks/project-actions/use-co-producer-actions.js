@@ -8,6 +8,7 @@ import {
 import { generateCoProducerAdvisoryWithLlm } from "../../lib/co-producer-advisory-llm";
 import { isCoProducerLlmReady } from "../../lib/co-producer-llm";
 import { uniq } from "../../lib/music-helpers";
+import { scorePromptHints } from "../../lib/track-scoring";
 
 export function useCoProducerActions(deps) {
   const {
@@ -136,6 +137,10 @@ export function useCoProducerActions(deps) {
     ];
     const extraRhythms = ["Breakbeat", "Halftime", "Rolling", "Off-grid", "Syncopated"];
     const modes = ["Control", "Hybrid", "Chaos"];
+    const scoreHints = scorePromptHints(scores);
+    const scoreBlock = scoreHints.length
+      ? `Score focus:\n${scoreHints.join(", ")}\n\n`
+      : "";
     const output = [];
     for (let i = 0; i < variationCount; i++) {
       const soundAdd = extraSounds[(i + selectedSounds.length) % extraSounds.length];
@@ -183,7 +188,9 @@ Generation Mode:
 ${modePick} mode.
 
 Variation Note:
-Variation ${i + 1}: keep the core identity, change texture and movement without losing the main style.`;
+Variation ${i + 1}: keep the core identity, change texture and movement without losing the main style.
+
+${scoreBlock}`;
       output.push({ id: Date.now() + i, title: `Variation ${i + 1}`, prompt: varPrompt });
     }
     setVariations(output);
@@ -203,6 +210,7 @@ Variation ${i + 1}: keep the core identity, change texture and movement without 
     moodWords,
     prompt,
     rules,
+    scores,
     selectedGenres,
     selectedRhythms,
     selectedSounds,

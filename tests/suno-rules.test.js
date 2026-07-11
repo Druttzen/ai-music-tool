@@ -72,6 +72,25 @@ describe("suno-rules", () => {
     expect(p).toContain("Intensity:");
   });
 
+  it("buildStandardPrompt includes score focus when bass is weak", () => {
+    const p = buildStandardPrompt({
+      ...base,
+      format: "Compressed",
+      scores: { bass: 2, rhythm: 4, identity: 4, clarity: 4 },
+    });
+    expect(p).toContain("SCORE FOCUS:");
+    expect(p).toContain("sub foundation");
+  });
+
+  it("buildSunoStyleBoxPrompt includes score focus block", () => {
+    const s = buildSunoStyleBoxPrompt({
+      ...base,
+      scores: { bass: 5, rhythm: 5, identity: 4, clarity: 4 },
+    });
+    expect(s).toContain("SCORE FOCUS:");
+    expect(s).toContain("tight rhythmic pocket");
+  });
+
   it("SUNO_AUTO_FIX_DEFAULTS provides genre and structure fallbacks", () => {
     expect(SUNO_AUTO_FIX_DEFAULTS.genres).toEqual(["Techno"]);
     expect(SUNO_AUTO_FIX_DEFAULTS.structure.length).toBeGreaterThan(8);

@@ -36,6 +36,7 @@ import {
 import { isElectronApp } from "../../lib/electron-bridge";
 import { isTauriApp } from "../../lib/dsp-bridge";
 import { exportVideoHandoffNative } from "../../lib/video-handoff-bridge";
+import { CREDENTIAL_STORAGE_NOTICE, hasStoredCredentials } from "../../lib/credential-storage";
 import { safeLocalStorage, storageFailureMessage } from "../../lib/safe-local-storage";
 
 export function useExportActions(deps) {
@@ -106,12 +107,13 @@ export function useExportActions(deps) {
     a.download = "ai-music-bundle.json";
     a.click();
     URL.revokeObjectURL(url);
+    const credNote = hasStoredCredentials() ? ` ${CREDENTIAL_STORAGE_NOTICE}` : "";
     setStatusWithTime(
       vocalEmbed
         ? openvpiDs
-          ? "Exported project bundle (vocal align + OpenVPI .ds)"
-          : "Exported project bundle (includes vocal align preview)"
-        : "Exported project bundle (project + style presets + voice profile)",
+          ? `Exported project bundle (vocal align + OpenVPI .ds).${credNote}`
+          : `Exported project bundle (includes vocal align preview).${credNote}`
+        : `Exported project bundle (project + style presets + voice profile).${credNote}`,
     );
   }, [
     audioAnalysis,

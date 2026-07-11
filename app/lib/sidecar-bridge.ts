@@ -48,6 +48,41 @@ export interface SidecarManagedStatus {
   bundled: boolean;
   port: number;
   error: string | null;
+  auth_token?: string | null;
+}
+
+const SIDECAR_AUTH_HEADER = "X-AIMC-Sidecar-Token";
+
+let cachedSidecarAuthToken: string | null | undefined;
+
+async function resolveSidecarAuthToken(): Promise<string | null> {
+  if (cachedSidecarAuthToken !== undefined) return cachedSidecarAuthToken;
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SIDECAR_TOKEN) {
+    cachedSidecarAuthToken = String(process.env.NEXT_PUBLIC_SIDECAR_TOKEN);
+    return cachedSidecarAuthToken;
+  }
+  if (isTauriApp()) {
+    try {
+      const status = await getManagedSidecarStatus();
+      cachedSidecarAuthToken = status?.auth_token?.trim() || null;
+      return cachedSidecarAuthToken;
+    } catch {
+      cachedSidecarAuthToken = null;
+      return null;
+    }
+  }
+  cachedSidecarAuthToken = null;
+  return null;
+}
+
+/** @internal Test helper — merge optional sidecar auth into fetch headers. */
+export async function sidecarAuthHeaders(
+  extra: Record<string, string> = {},
+): Promise<Record<string, string>> {
+  const headers = { ...extra };
+  const token = await resolveSidecarAuthToken();
+  if (token) headers[SIDECAR_AUTH_HEADER] = token;
+  return headers;
 }
 
 export const HEALTH_OK_TTL_MS = 15_000;
@@ -77,6 +112,7 @@ function sidecarBaseUrl(): string {
 /** Clear cached health (e.g. after starting the sidecar). */
 export function resetSidecarHealthCache(): void {
   healthCache = null;
+  cachedSidecarAuthToken = undefined;
 }
 
 function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -169,7 +205,7 @@ export interface YoutubeResolvePayload {
 export async function resolveYoutubeViaSidecar(watchUrl: string): Promise<YoutubeResolvePayload> {
   const res = await fetch(`${sidecarBaseUrl()}/youtube/resolve`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ url: watchUrl }),
   });
   if (!res.ok) {
@@ -222,7 +258,7 @@ export interface AcousticBrainzPayload {
 export async function fetchYoutubeSonicViaSidecar(watchUrl: string): Promise<SonicSignaturePayload> {
   const res = await fetch(`${sidecarBaseUrl()}/youtube/sonic-signature`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ url: watchUrl }),
   });
   if (!res.ok) {
@@ -239,7 +275,11 @@ export async function fetchSonicSignatureViaSidecar(
 ): Promise<SonicSignaturePayload> {
   const form = new FormData();
   form.append("file", file, fileName);
-  const res = await fetch(`${sidecarBaseUrl()}/sonic-signature`, { method: "POST", body: form });
+  const res = await fetch(`${sidecarBaseUrl()}/sonic-signature`, {
+    method: "POST",
+    headers: await sidecarAuthHeaders(),
+    body: form,
+  });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(detail || `sonic signature failed (${res.status})`);
@@ -251,9 +291,9 @@ export async function fetchSonicSignatureViaSidecar(
 export async function fetchAcousticBrainzViaSidecar(
   recordingMbid: string,
 ): Promise<AcousticBrainzPayload> {
-  const res = await fetch(
-    `${sidecarBaseUrl()}/acousticbrainz/${encodeURIComponent(recordingMbid)}`,
-  );
+  const res = await fetch(`${sidecarBaseUrl()}/acousticbrainz/${encodeURIComponent(recordingMbid)}`, {
+    headers: await sidecarAuthHeaders(),
+  });
   if (!res.ok) {
     throw new Error(`AcousticBrainz lookup failed (${res.status})`);
   }
@@ -287,6 +327,7 @@ export async function separateStemsViaSidecar(
 
   const res = await fetch(`${sidecarBaseUrl()}/separate?model_name=${encodeURIComponent(modelName)}`, {
     method: "POST",
+    headers: await sidecarAuthHeaders(),
     body: form,
   });
 
@@ -307,7 +348,7 @@ export async function separateStemsViaSidecar(
 /** Download one stem WAV from the sidecar by relative download_url. */
 export async function downloadSidecarStem(relativeUrl: string, saveAs: string): Promise<void> {
   const url = `${sidecarBaseUrl()}${relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: await sidecarAuthHeaders() });
   if (!res.ok) {
     throw new Error(`stem download failed (${res.status})`);
   }
@@ -369,7 +410,9 @@ export interface SidecarVocalModelStatus {
 /** GET /vocal-embed/models — RVC / DiffSinger configuration status. */
 export async function fetchVocalEmbedModels(): Promise<SidecarVocalModelStatus | null> {
   try {
-    const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/models`);
+    const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/models`, {
+      headers: await sidecarAuthHeaders(),
+    });
     if (!res.ok) return null;
     return res.json() as Promise<SidecarVocalModelStatus>;
   } catch {
@@ -385,7 +428,7 @@ export async function submitVocalEmbedPlanToSidecar(
 ): Promise<SidecarVocalEmbedPlanResponse> {
   const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/plan`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(envelope),
   });
 
@@ -419,6 +462,7 @@ export async function synthesizeVocalEmbedViaSidecar(
 
   const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/synthesize`, {
     method: "POST",
+    headers: await sidecarAuthHeaders(),
     body: form,
   });
 
@@ -451,6 +495,7 @@ export async function analyzeAudioViaSidecar(
 
   const res = await fetch(`${sidecarBaseUrl()}/analyze`, {
     method: "POST",
+    headers: await sidecarAuthHeaders(),
     body: form,
   });
 
@@ -482,6 +527,7 @@ export async function analyzeImageViaSidecar(
 
   const res = await fetch(`${sidecarBaseUrl()}/analyze-image`, {
     method: "POST",
+    headers: await sidecarAuthHeaders(),
     body: form,
   });
 
@@ -508,7 +554,7 @@ export async function generateMusicViaSidecar(
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const res = await fetch(`${sidecarBaseUrl()}/generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ prompt, duration_sec: durationSec }),
   });
 
@@ -545,6 +591,7 @@ export async function generateMusicWithMelodyViaSidecar(
 
   const res = await fetch(`${sidecarBaseUrl()}/generate/melody`, {
     method: "POST",
+    headers: await sidecarAuthHeaders(),
     body: form,
   });
 
@@ -585,6 +632,7 @@ export async function previewVocalAlignViaSidecar(
 
   const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/align-preview`, {
     method: "POST",
+    headers: await sidecarAuthHeaders(),
     body: form,
   });
 
@@ -623,6 +671,7 @@ export async function exportOpenvpiDsViaSidecar(
 
   const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/ds-export`, {
     method: "POST",
+    headers: await sidecarAuthHeaders(),
     body: form,
   });
 
