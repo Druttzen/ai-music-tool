@@ -288,3 +288,22 @@ export function formatReportSummary(report) {
   }
   return lines.join("\n").trim();
 }
+
+/** Issues that need attention in the UI (warn/fail). */
+export function getActionableIssues(issues) {
+  return (issues || []).filter((i) => i.severity === "warn" || i.severity === "fail");
+}
+
+/**
+ * @param {number} at — epoch ms
+ * @param {number} [now] — for tests
+ */
+export function formatScanAge(at, now = Date.now()) {
+  if (!at) return null;
+  const sec = Math.max(0, Math.round((now - at) / 1000));
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  return `${hr}h ago`;
+}

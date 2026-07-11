@@ -3,6 +3,8 @@ import {
   buildRuntimeHealthReport,
   classifyFailureText,
   formatAgentFixPrompt,
+  formatScanAge,
+  getActionableIssues,
   overallSeverity,
 } from "../app/lib/fail-safe-bot.js";
 
@@ -60,5 +62,20 @@ describe("fail-safe-bot", () => {
     expect(prompt).toContain("FAIL-SAFE BOT");
     expect(prompt).toContain("cursor/test");
     expect(prompt).toMatch(/pytest|CI gate/i);
+  });
+
+  it("getActionableIssues filters warn and fail only", () => {
+    const issues = getActionableIssues([
+      { id: "a", severity: "ok", title: "info", detail: "", fixCommands: [] },
+      { id: "b", severity: "warn", title: "warn", detail: "", fixCommands: [] },
+    ]);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].id).toBe("b");
+  });
+
+  it("formatScanAge formats relative time", () => {
+    const now = 1_000_000;
+    expect(formatScanAge(now - 30_000, now)).toBe("30s ago");
+    expect(formatScanAge(now - 120_000, now)).toBe("2m ago");
   });
 });

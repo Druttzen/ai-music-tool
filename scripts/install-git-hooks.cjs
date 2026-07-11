@@ -43,17 +43,29 @@ const hooksDir = path.join(resolveGitDir(), "hooks");
 fs.mkdirSync(hooksDir, { recursive: true });
 
 const prePush = `#!/bin/sh
-# AI Music Creator — pre-push CI gate (npm run hooks:install)
+# AI Music Creator — pre-push CI gate (npm run bots:install)
 if [ "$SKIP_CI_PREFLIGHT" = "1" ]; then
   echo "pre-push: SKIP_CI_PREFLIGHT=1 — skipping check:ci"
   exit 0
 fi
+if [ "$FAIL_SAFE_PRE_PUSH" = "1" ]; then
+  echo "pre-push: FAIL_SAFE_PRE_PUSH=1 — running npm run fail-safe:run"
+  npm run fail-safe:run || exit 1
+  exit 0
+fi
 echo "pre-push: running npm run check:ci (set SKIP_CI_PREFLIGHT=1 to skip)"
-npm run check:ci || exit 1
+npm run check:ci || {
+  echo ""
+  echo "pre-push: failed — try: npm run fail-safe:run"
+  echo "  auto-fix on push: FAIL_SAFE_PRE_PUSH=1 git push"
+  echo "  skip once: SKIP_CI_PREFLIGHT=1 git push"
+  exit 1
+}
 `;
 
 const hookPath = path.join(hooksDir, "pre-push");
 fs.writeFileSync(hookPath, prePush.replace(/\r\n/g, "\n"), { mode: 0o755 });
 console.log("Installed pre-push hook →", hookPath);
 console.log("  Runs: npm run check:ci");
+console.log("  Auto-fix mode: FAIL_SAFE_PRE_PUSH=1 git push");
 console.log("  Skip once: SKIP_CI_PREFLIGHT=1 git push");

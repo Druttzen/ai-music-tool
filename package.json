@@ -60,6 +60,7 @@
     "fail-safe:fetch-ci": "node scripts/fetch-ci-failure.cjs",
     "fail-safe:auto": "node scripts/fail-safe-bot-agent.cjs",
     "fail-safe:install-cursor": "node scripts/install-fail-safe-cursor-setting.cjs",
+    "bots:install": "node scripts/install-cursor-bot-settings.cjs",
     "ship:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ship-preflight.ps1",
     "ship:tag": "node scripts/ship-tag-release.cjs",
     "build": "next build",

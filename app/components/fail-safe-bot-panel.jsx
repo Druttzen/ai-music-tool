@@ -1,6 +1,11 @@
 "use client";
 
 import { memo, useState } from "react";
+import {
+  formatScanAge,
+  getActionableIssues,
+  overallSeverity,
+} from "../lib/fail-safe-bot";
 import { useFailSafeBot } from "../hooks/use-fail-safe-bot";
 import {
   useProjectWorkspaceActions,
@@ -24,11 +29,23 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
   const [expanded, setExpanded] = useState(false);
 
   const checking = !mounted || busy || sidecarAiStatus === "checking";
-  const overall = mounted && report ? report.overall : "ok";
-  const topIssue = report?.issues?.find((i) => i.severity !== "ok") || report?.issues?.[0];
+  const actionable = getActionableIssues(report?.issues);
+  const overall =
+    mounted && report
+      ? actionable.length
+        ? overallSeverity(actionable)
+        : report.overall
+      : "ok";
+  const topIssue = actionable[0] || report?.issues?.[0];
+  const displayIssues = expanded
+    ? report?.issues || []
+    : actionable.length
+      ? actionable
+      : report?.issues?.slice(0, 1) || [];
   const fixCount = mounted
-    ? (report?.issues || []).flatMap((i) => i.fixCommands || []).filter(Boolean).length
+    ? displayIssues.flatMap((i) => i.fixCommands || []).filter(Boolean).length
     : 0;
+  const scanAge = mounted && report?.at ? formatScanAge(report.at) : null;
 
   const statusClass = checking
     ? SEVERITY_STYLES.checking
@@ -64,6 +81,9 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
             Fail-safe bot
           </span>
           <span className="truncate text-white/85">{statusLabel}</span>
+          {scanAge ? (
+            <span className="shrink-0 text-[10px] text-white/40">· {scanAge}</span>
+          ) : null}
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
           {fixCount > 0 ? (
@@ -86,9 +106,9 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
         </div>
       </div>
 
-      {expanded && mounted && report?.issues?.length ? (
+      {expanded && mounted && displayIssues.length ? (
         <ul className="mt-2 space-y-2 border-t border-white/10 pt-2 text-[10px] text-white/75">
-          {report.issues.map((issue) => (
+          {displayIssues.map((issue) => (
             <li key={issue.id}>
               <span className="font-bold text-white/90">[{issue.severity}] {issue.title}</span>
               {issue.detail ? <p className="mt-0.5 text-white/60">{issue.detail}</p> : null}
@@ -108,7 +128,9 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
       ) : null}
 
       <p className="mt-1.5 text-[10px] text-white/45">
-        CI/build: run <span className="text-white/65">npm run fail-safe:run</span> before push
+        CI/build: <span className="text-white/65">npm run fail-safe:run</span>
+        {" · "}
+        setup: <span className="text-white/65">npm run bots:install</span>
       </p>
     </div>
   );

@@ -47,4 +47,6 @@ When `check` fails, fix before waiting on slower e2e jobs.
 
 `npm run fail-safe:run` runs `check:ci`, classifies failures, and auto-fixes rust lock drift / eslint / catalog drift once before retrying.
 
-See [fail-safe-bot.md](fail-safe-bot.md) for in-app panel, GitHub PR comments, and agent prompts.
+See [fail-safe-bot.md](fail-safe-bot.md) for in-app panel, GitHub PR/master comments, and agent prompts.
+
+One-shot setup: `npm run bots:install`

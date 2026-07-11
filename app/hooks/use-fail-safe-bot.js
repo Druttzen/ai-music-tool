@@ -5,6 +5,7 @@ import {
   buildRuntimeHealthReport,
   FAIL_SAFE_STORAGE_KEY,
   formatReportSummary,
+  getActionableIssues,
 } from "../lib/fail-safe-bot";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
@@ -73,7 +74,9 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
 
   const copyFixCommands = useCallback(async () => {
     if (!report?.issues?.length) return false;
-    const cmds = report.issues.flatMap((i) => i.fixCommands || []).filter(Boolean);
+    const actionable = getActionableIssues(report.issues);
+    const source = actionable.length ? actionable : report.issues;
+    const cmds = source.flatMap((i) => i.fixCommands || []).filter(Boolean);
     if (!cmds.length) return false;
     const text = cmds.join("\n");
     try {

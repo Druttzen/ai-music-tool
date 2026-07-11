@@ -15,9 +15,18 @@ const root = path.join(__dirname, "..");
 const isWin = process.platform === "win32";
 const dryRun = process.argv.includes("--dry");
 const jsonOut = process.argv.includes("--json");
+const lastRunPath = path.join(root, ".fail-safe-last-run.json");
 
 async function loadClassifier() {
   return import(path.join(root, "app/lib/fail-safe-bot.js"));
+}
+
+function writeLastRun(payload) {
+  try {
+    fs.writeFileSync(lastRunPath, `${JSON.stringify(payload, null, 2)}\n`);
+  } catch {
+    /* ignore */
+  }
 }
 
 function runCapture(cmd, args, cwd = root) {
@@ -69,7 +78,8 @@ async function main() {
   const gate = runCapture("npm", ["run", "check:ci"]);
 
   if (gate.status === 0) {
-    const ok = { ok: true, message: "check:ci passed" };
+    const ok = { ok: true, at: Date.now(), message: "check:ci passed" };
+    writeLastRun(ok);
     if (jsonOut) {
       console.log(JSON.stringify(ok, null, 2));
     } else {
@@ -80,6 +90,14 @@ async function main() {
 
   const issues = classifyFailureText(gate.text);
   const autoFixable = issues.filter((i) => AUTO_FIXERS[i.id]);
+  const failPayload = {
+    ok: false,
+    at: Date.now(),
+    gateExit: gate.status,
+    issues,
+    autoFixable: autoFixable.map((i) => i.id),
+  };
+  writeLastRun(failPayload);
 
   if (jsonOut) {
     console.log(
@@ -116,6 +134,8 @@ async function main() {
   console.log("\nfail-safe-bot — re-running check:ci after auto-fix …");
   const retry = runInherit("npm", ["run", "check:ci"]);
   if (retry === 0) {
+    const ok = { ok: true, at: Date.now(), message: "check:ci passed after auto-fix", autoFixed: autoFixable.map((i) => i.id) };
+    writeLastRun(ok);
     console.log("\nfail-safe-bot — OK after auto-fix");
     process.exit(0);
   }
