@@ -14,7 +14,9 @@ import { fetchSidecarHealth } from "../lib/sidecar-bridge";
  * @param {{ sidecarAiStatus?: string, sidecarGenerateAvailable?: boolean }} params
  */
 export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {}) {
-  const [report, setReport] = useState(null);
+  const [report, setReport] = useState(() =>
+    safeLocalStorage.getJSON(FAIL_SAFE_STORAGE_KEY, null),
+  );
   const [busy, setBusy] = useState(false);
 
   const probe = useCallback(async () => {
@@ -41,12 +43,10 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
   }, [sidecarAiStatus, sidecarGenerateAvailable]);
 
   useEffect(() => {
-    const cached = safeLocalStorage.getJSON(FAIL_SAFE_STORAGE_KEY, null);
-    if (cached?.at) setReport(cached);
-  }, []);
-
-  useEffect(() => {
-    void probe();
+    const timer = setTimeout(() => {
+      void probe();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [probe]);
 
   const copyFixCommands = useCallback(async () => {
