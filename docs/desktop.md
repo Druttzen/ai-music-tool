@@ -13,7 +13,7 @@ Tauri is the supported desktop path going forward. It bundles:
 
 The **Electron** installer (`npm run dist`, `main.js`) remains for existing installs but is **deprecated**. Do not start new desktop features on Electron IPC.
 
-**Sunset timeline:** Electron releases continue through **v0.41.x** for backward compatibility. New desktop work lands in Tauri only; `npm run dist` is no longer part of the default developer workflow.
+**Sunset timeline:** Electron releases continue through **v0.48.x** for backward compatibility. **v0.49+** will be Tauri-only on the release train; `npm run dist` remains available for maintenance builds but is not part of `npm run ship:tag` or the default developer workflow.
 
 | Capability | Tauri (primary) | Electron (legacy) |
 |------------|-----------------|-------------------|
