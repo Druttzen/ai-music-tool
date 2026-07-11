@@ -53,6 +53,7 @@
     "check:ci": "node scripts/run-ci-gates.cjs",
     "check:ci:e2e-subset": "node scripts/run-ci-gates.cjs --e2e-subset",
     "hooks:install": "node scripts/install-git-hooks.cjs",
+    "sourcery:fetch": "node scripts/fetch-sourcery-review.cjs",
     "ship:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ship-preflight.ps1",
     "ship:tag": "node scripts/ship-tag-release.cjs",
     "build": "next build",
