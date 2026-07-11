@@ -21,6 +21,7 @@ dependencies = [
 name = "ai-music-studio"
 version = "0.49.0"
 dependencies = [
+ "chrono",
  "dsp-core",
  "open",
  "reqwest 0.12.28",

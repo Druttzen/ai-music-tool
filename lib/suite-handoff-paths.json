@@ -1,0 +1,19 @@
+{
+  "suitePathFromHome": ["Documents", "AI Suite"],
+  "exportsSubdir": "exports",
+  "handoffFile": "handoff.json",
+  "canvasCandidates": {
+    "windows": [
+      "$LOCALAPPDATA/Programs/ai-canvas-tool/AI Canvas Tool.exe",
+      "$LOCALAPPDATA/Programs/AI Canvas Tool/AI Canvas Tool.exe",
+      "$ProgramFiles/AI Canvas Tool/AI Canvas Tool.exe",
+      "$USERPROFILE/ai-canvas-tool/release/win-unpacked/AI Canvas Tool.exe",
+      "$USERPROFILE/ai-suite/ai-canvas-tool/release/win-unpacked/AI Canvas Tool.exe"
+    ],
+    "macos": [
+      "/Applications/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool",
+      "$HOME/Applications/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool"
+    ],
+    "linux": ["$HOME/.local/bin/ai-canvas-tool"]
+  }
+}

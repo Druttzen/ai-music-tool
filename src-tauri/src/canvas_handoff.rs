@@ -3,9 +3,32 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
 
+use chrono::Utc;
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
+
+const CONFIG_JSON: &str = include_str!("../../lib/suite-handoff-paths.json");
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SuiteHandoffConfig {
+    suite_path_from_home: Vec<String>,
+    exports_subdir: String,
+    handoff_file: String,
+    canvas_candidates: CanvasCandidates,
+}
+
+#[derive(Debug, Deserialize)]
+struct CanvasCandidates {
+    windows: Vec<String>,
+    #[allow(dead_code)]
+    macos: Vec<String>,
+    #[allow(dead_code)]
+    linux: Vec<String>,
+}
 
 #[derive(Debug, Serialize)]
 pub struct CanvasHandoffResult {
@@ -16,106 +39,65 @@ pub struct CanvasHandoffResult {
     pub error: Option<String>,
 }
 
-fn suite_dir() -> PathBuf {
-    #[cfg(target_os = "windows")]
-    {
-        let home = std::env::var("USERPROFILE")
-            .ok()
-            .map(PathBuf::from)
-            .or_else(dirs_documents_home)
-            .unwrap_or_else(|| PathBuf::from("."));
-        return home.join("Documents").join("AI Suite");
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        dirs_documents_home()
-            .map(|d| d.join("AI Suite"))
-            .unwrap_or_else(|| PathBuf::from("AI Suite"))
-    }
+fn config() -> &'static SuiteHandoffConfig {
+    static CONFIG: OnceLock<SuiteHandoffConfig> = OnceLock::new();
+    CONFIG.get_or_init(|| {
+        serde_json::from_str(CONFIG_JSON).expect("parse lib/suite-handoff-paths.json")
+    })
 }
 
-fn dirs_documents_home() -> Option<PathBuf> {
+fn user_home() -> PathBuf {
     std::env::var("HOME")
-        .ok()
+        .or_else(|_| std::env::var("USERPROFILE"))
         .map(PathBuf::from)
-        .or_else(|| std::env::var("USERPROFILE").ok().map(PathBuf::from))
+        .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-fn ensure_suite_dirs(exports: &Path) -> Result<(), String> {
-    fs::create_dir_all(exports).map_err(|e| e.to_string())
+fn suite_dir() -> PathBuf {
+    let mut dir = user_home();
+    for segment in &config().suite_path_from_home {
+        dir.push(segment);
+    }
+    dir
 }
 
-fn resolve_canvas_executable() -> Option<PathBuf> {
+fn expand_path_template(template: &str) -> PathBuf {
+    let mut s = template.to_string();
+    if let Ok(v) = std::env::var("HOME") {
+        s = s.replace("$HOME", &v);
+    }
+    if let Ok(v) = std::env::var("USERPROFILE") {
+        s = s.replace("$USERPROFILE", &v);
+    }
+    if let Ok(v) = std::env::var("LOCALAPPDATA") {
+        s = s.replace("$LOCALAPPDATA", &v);
+    }
+    if let Ok(v) = std::env::var("ProgramFiles") {
+        s = s.replace("$ProgramFiles", &v);
+    }
+    PathBuf::from(s)
+}
+
+fn canvas_platform_candidates() -> &'static [String] {
     #[cfg(target_os = "windows")]
     {
-        let local = std::env::var("LOCALAPPDATA").ok();
-        let pf = std::env::var("ProgramFiles").ok();
-        let profile = std::env::var("USERPROFILE").ok();
-        let mut candidates: Vec<PathBuf> = Vec::new();
-        if let Some(l) = local {
-            candidates.push(
-                PathBuf::from(&l)
-                    .join("Programs")
-                    .join("ai-canvas-tool")
-                    .join("AI Canvas Tool.exe"),
-            );
-            candidates.push(
-                PathBuf::from(&l)
-                    .join("Programs")
-                    .join("AI Canvas Tool")
-                    .join("AI Canvas Tool.exe"),
-            );
-        }
-        if let Some(p) = pf {
-            candidates.push(
-                PathBuf::from(p)
-                    .join("AI Canvas Tool")
-                    .join("AI Canvas Tool.exe"),
-            );
-        }
-        if let Some(h) = profile {
-            candidates.push(
-                PathBuf::from(&h)
-                    .join("ai-canvas-tool")
-                    .join("release")
-                    .join("win-unpacked")
-                    .join("AI Canvas Tool.exe"),
-            );
-            candidates.push(
-                PathBuf::from(&h)
-                    .join("ai-suite")
-                    .join("ai-canvas-tool")
-                    .join("release")
-                    .join("win-unpacked")
-                    .join("AI Canvas Tool.exe"),
-            );
-        }
-        return candidates.into_iter().find(|p| p.is_file());
+        return &config().canvas_candidates.windows;
     }
     #[cfg(target_os = "macos")]
     {
-        let mut candidates: Vec<PathBuf> = vec![
-            PathBuf::from("/Applications/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool"),
-        ];
-        if let Some(home) = dirs_documents_home() {
-            candidates.push(
-                home.join("Applications")
-                    .join("AI Canvas Tool.app")
-                    .join("Contents/MacOS/AI Canvas Tool"),
-            );
-        }
-        return candidates.into_iter().find(|p| p.is_file());
+        return &config().canvas_candidates.macos;
     }
-    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
-        if let Some(home) = dirs_documents_home() {
-            let candidate = home.join(".local/bin/ai-canvas-tool");
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-        }
-        None
+        return &config().canvas_candidates.linux;
     }
+}
+
+fn resolve_canvas_executable() -> Option<PathBuf> {
+    canvas_platform_candidates()
+        .iter()
+        .map(|t| expand_path_template(t))
+        .find(|p| p.is_file())
 }
 
 fn launch_canvas_tool(handoff_file: &Path) -> bool {
@@ -142,6 +124,10 @@ fn sanitize_ext(ext: &str) -> String {
     }
 }
 
+fn handoff_timestamp_iso() -> String {
+    Utc::now().to_rfc3339()
+}
+
 #[tauri::command]
 pub fn export_canvas_handoff(
     title: String,
@@ -162,14 +148,14 @@ pub fn export_canvas_handoff(
     }
 
     let suite = suite_dir();
-    let exports = suite.join("exports");
-    if let Err(e) = ensure_suite_dirs(&exports) {
+    let exports = suite.join(&config().exports_subdir);
+    if fs::create_dir_all(&exports).is_err() {
         return CanvasHandoffResult {
             ok: false,
             launched: false,
             album_art_path: None,
             handoff_path: None,
-            error: Some(e),
+            error: Some("could not create exports directory".to_string()),
         };
     }
 
@@ -190,10 +176,10 @@ pub fn export_canvas_handoff(
         };
     }
 
-    let handoff_path = suite.join("handoff.json");
+    let handoff_path = suite.join(&config().handoff_file);
     let handoff = json!({
         "version": 1,
-        "timestamp": iso_now(),
+        "timestamp": handoff_timestamp_iso(),
         "source": "ai-music-tool",
         "track": {
             "title": title,
@@ -232,12 +218,4 @@ pub fn export_canvas_handoff(
         handoff_path: Some(handoff_path.to_string_lossy().into_owned()),
         error: None,
     }
-}
-
-fn iso_now() -> String {
-    let ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-    format!("{ms}")
 }

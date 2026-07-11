@@ -8,6 +8,8 @@ After dropping an image in **Drag & Drop Analyzers**, click **Open in Canvas Too
 2. `handoff.json` is written with track title, artist, and art path
 3. **AI Canvas Tool** launches and imports the handoff automatically (when installed)
 
+Shared paths and canvas executable candidates live in [`lib/suite-handoff-paths.json`](../lib/suite-handoff-paths.json) (used by Tauri and Electron).
+
 ## Desktop builds
 
 | Build | Bridge |

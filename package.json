@@ -111,6 +111,8 @@
       "main.js",
       "preload.js",
       "lib/suite-bridge.cjs",
+      "lib/suite-handoff-config.cjs",
+      "lib/suite-handoff-paths.json",
       "out/**/*",
       "icon.ico"
     ],

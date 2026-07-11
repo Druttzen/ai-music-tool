@@ -124,12 +124,9 @@ function setupSuiteCanvasBridge() {
       if (!buffer?.byteLength) {
         return { ok: false, error: "No image data" };
       }
-      suiteBridge.ensureSuiteDirs();
       const ext = String(payload?.ext || "png").replace(/^\./, "");
-      const stamp = Date.now();
-      const artPath = path.join(suiteBridge.EXPORTS_DIR, `album-art-${stamp}.${ext}`);
-      fs.writeFileSync(artPath, Buffer.from(buffer));
-      const exe = suiteBridge.openInCanvasFromMusic({
+      const artPath = await suiteBridge.writeArtworkExport(Buffer.from(buffer), ext);
+      const exe = await suiteBridge.openInCanvasFromMusic({
         title: String(payload?.title || "Untitled Track"),
         artist: String(payload?.artist || "Unknown Artist"),
         albumArtPath: artPath,
