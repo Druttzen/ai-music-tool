@@ -11,6 +11,7 @@ export function useFailSafeFixSession({
   fixAndPush,
   fixPushAvailable = false,
   autoStartFix = true,
+  autoNotify = true,
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState("idle");
@@ -89,18 +90,20 @@ export function useFailSafeFixSession({
   );
 
   useEffect(() => {
-    if (!actionableIssues.length) return undefined;
-    const fp = actionableIssues.map((i) => i.id).join("|");
+    if (!autoNotify) return undefined;
+    const critical = actionableIssues.filter((i) => i.severity === "fail");
+    if (!critical.length) return undefined;
+    const fp = critical.map((i) => i.id).join("|");
     if (notifiedRef.current === fp || phase === "running") return undefined;
     notifiedRef.current = fp;
     const timer = setTimeout(() => {
-      openBugDialog(actionableIssues, {
+      openBugDialog(critical, {
         autoFix: autoStartFix && fixPushAvailable,
         mode: "local",
       });
     }, 0);
     return () => clearTimeout(timer);
-  }, [actionableIssues, autoStartFix, fixPushAvailable, openBugDialog, phase]);
+  }, [actionableIssues, autoNotify, autoStartFix, fixPushAvailable, openBugDialog, phase]);
 
   useEffect(() => () => clearTick(), [clearTick]);
 

@@ -11,6 +11,7 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
     NEXT_PUBLIC_SIDECAR_URL: process.env.NEXT_PUBLIC_SIDECAR_URL || "http://127.0.0.1:8723",
+    NEXT_PUBLIC_E2E: process.env.NEXT_PUBLIC_E2E || "",
   },
   images: {
     unoptimized: true

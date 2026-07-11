@@ -40,6 +40,16 @@ export async function enableGuidedStepCoach(page) {
   });
 }
 
+export async function dismissFailSafeDialog(page) {
+  const dialog = page.getByTestId("fail-safe-fix-dialog");
+  if (await dialog.isVisible().catch(() => false)) {
+    const btn = page.getByTestId("fail-safe-fix-dialog-finished");
+    if (await btn.isEnabled().catch(() => false)) {
+      await btn.click();
+    }
+  }
+}
+
 export async function dismissSplash(page) {
   await page.addInitScript(() => {
     try {
@@ -51,6 +61,7 @@ export async function dismissSplash(page) {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
   await skipSplashIfVisible(page);
+  await dismissFailSafeDialog(page);
 }
 
 export async function skipSplashIfVisible(page) {

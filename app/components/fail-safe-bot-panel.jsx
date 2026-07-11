@@ -67,6 +67,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     fixAndPush,
     fixPushAvailable,
     autoStartFix: fixPushAvailable,
+    autoNotify: process.env.NEXT_PUBLIC_E2E !== "1",
   });
 
   const statusClass = checking
