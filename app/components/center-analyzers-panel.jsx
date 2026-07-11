@@ -62,6 +62,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     generateMusicFromPrompt,
     applyImageToSunoStyle,
     copyToClipboard,
+    openInCanvasTool,
   } = useProjectWorkspaceActions();
 
   const defaultMusicGenPrompt = useMemo(
@@ -209,14 +210,27 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             accept={SUPPORTED_IMAGE_ACCEPT}
             onFile={analyzeImageFile}
           >
-            {imagePreview && (
+            {imagePreview ? (
               /* eslint-disable-next-line @next/next/no-img-element -- blob Object URLs from analyzer */
               <img
                 src={imagePreview}
                 alt="Image preview"
                 className="mx-auto mt-3 max-h-40 rounded-2xl object-contain"
               />
-            )}
+            ) : null}
+            {imagePreview ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void openInCanvasTool();
+                }}
+                className="mt-3 w-full rounded-2xl border border-emerald-400/45 bg-emerald-500/20 py-2.5 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30"
+              >
+                Open in Canvas Tool → Spotify loop
+              </button>
+            ) : null}
             {imageAnalysis ? (
               <div className="mt-3 text-left">
                 <p className="mb-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">

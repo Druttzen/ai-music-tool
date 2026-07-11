@@ -1,5 +1,6 @@
 //! Tauri application logic for AI Music Creator (Path B).
 
+mod canvas_handoff;
 mod sidecar_manager;
 mod video_handoff;
 
@@ -9,6 +10,7 @@ use std::time::Duration;
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness};
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use tauri::{Manager, RunEvent};
+use canvas_handoff::export_canvas_handoff;
 use video_handoff::export_video_handoff;
 
 #[tauri::command]
@@ -72,6 +74,7 @@ pub fn run() {
             sidecar_status,
             ensure_sidecar,
             export_video_handoff,
+            export_canvas_handoff,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

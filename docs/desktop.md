@@ -8,6 +8,7 @@ Tauri is the supported desktop path going forward. It bundles:
 - Native **dsp-core** (EBU R128 LUFS, encoded-audio loudness, studio export)
 - Managed Python **AI sidecar** spawn on demand
 - Native **video handoff** to AI Video Creator via `video-handoff-bridge.ts`
+- Native **canvas handoff** to AI Canvas Tool for Spotify loops via `canvas-handoff-bridge.ts` — see [canvas-handoff.md](canvas-handoff.md)
 
 ## Legacy: Electron
 
@@ -21,6 +22,7 @@ The **Electron** installer (`npm run dist`, `main.js`) remains for existing inst
 | Native DSP | `dsp-bridge.ts` | Browser / lamejs only |
 | Sidecar | Managed spawn in Tauri shell | Manual `npm run sidecar` |
 | Video handoff | `exportVideoHandoffNative` | `window.electronAPI.exportVideoHandoff` |
+| Canvas handoff | `exportCanvasHandoffNative` | `window.electronAPI.openInCanvasTool` |
 
 Electron is tried **after** Tauri in `exportVideoHandoff` so Tauri builds get the native path first.
 

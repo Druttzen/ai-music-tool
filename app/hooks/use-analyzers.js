@@ -46,12 +46,19 @@ import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { useAnalyzerRefs } from "./analyzers/use-analyzer-refs";
 import { useE2eAudioFixtures } from "./analyzers/use-e2e-audio-fixtures";
 import { useSidecarStatus } from "./analyzers/use-sidecar-status";
+import {
+  deriveCanvasMotionHint,
+  deriveCanvasTrackMeta,
+  openImageInCanvasTool,
+} from "../lib/suite-canvas-client";
 
 export function useAnalyzers({
   promptEngine,
   setGuidedStep,
   applyAnalyzerPatch,
   setStatusWithTime,
+  idea = "",
+  lyricTheme = "",
 }) {
   const refs = useAnalyzerRefs();
   const {
@@ -828,6 +835,52 @@ export function useAnalyzers({
     [audioAnalysis, setStatusWithTime],
   );
 
+  const openInCanvasTool = useCallback(async () => {
+    if (!imagePreview) {
+      setStatusWithTime("Drop an image first to open in Canvas Tool");
+      return;
+    }
+    try {
+      setStatusWithTime("Opening AI Canvas Tool…");
+      const { title, artist } = deriveCanvasTrackMeta({
+        idea,
+        lyricTheme,
+        audioAnalysis,
+        imageAnalysis,
+      });
+      const motionHint = deriveCanvasMotionHint(imageAnalysis);
+      const ext = (imageAnalysis?.fileName || "").split(".").pop() || "png";
+      const result = await openImageInCanvasTool({
+        imagePreviewUrl: imagePreview,
+        title,
+        artist,
+        motionHint,
+        ext,
+      });
+      if (result?.ok) {
+        setStatusWithTime(
+          result.launched
+            ? "AI Canvas Tool opened — artwork imported"
+            : "Artwork exported — open AI Canvas Tool from AI Suite/exports",
+        );
+      } else {
+        setStatusWithTime(result?.error || "Could not open Canvas Tool", "error");
+      }
+    } catch (err) {
+      setStatusWithTime(
+        err instanceof Error ? err.message : "Could not open Canvas Tool",
+        "error",
+      );
+    }
+  }, [
+    audioAnalysis,
+    idea,
+    imageAnalysis,
+    imagePreview,
+    lyricTheme,
+    setStatusWithTime,
+  ]);
+
   const setAudioAnalysisNormalized = useCallback((value) => {
     if (!value) {
       syncCacheKeysRef(null);
@@ -860,6 +913,7 @@ export function useAnalyzers({
     generateMusicFromPrompt,
     imageAnalysis,
     imagePreview,
+    openInCanvasTool,
     resetAnalyzers,
     setAudioAnalysis: setAudioAnalysisNormalized,
     setImageAnalysis,

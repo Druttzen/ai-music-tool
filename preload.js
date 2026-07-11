@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("app-update-status", handler);
   },
   exportVideoHandoff: (payload) => ipcRenderer.invoke("handoff:export-video", payload),
+  openInCanvasTool: (payload) => ipcRenderer.invoke("suite:open-canvas", payload),
 });

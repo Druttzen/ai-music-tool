@@ -5,6 +5,7 @@
  */
 const { spawnSync } = require("child_process");
 const path = require("path");
+const { importFailSafeBot } = require("./fail-safe-bot-import.cjs");
 
 const root = path.join(__dirname, "..");
 const fetchScript = path.join(__dirname, "fetch-ci-failure.cjs");
@@ -19,7 +20,7 @@ const fetchResult = spawnSync(process.execPath, [fetchScript], {
 const log = (fetchResult.stdout || fetchResult.stderr || "").trim();
 
 async function main() {
-  const { formatAgentFixPrompt } = await import(path.join(root, "app/lib/fail-safe-bot.js"));
+  const { formatAgentFixPrompt } = await importFailSafeBot();
   const branch = spawnSync("git", ["branch", "--show-current"], {
     cwd: root,
     encoding: "utf8",

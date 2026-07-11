@@ -43,6 +43,7 @@ const ACTION_KEYS = [
   "generateVoiceStyleFromNames",
   "handoffTrackToVoiceCharacterStudio",
   "importProject",
+  "openInCanvasTool",
   "loadPresetObject",
   "resetAll",
   "restoreHistory",

@@ -3,9 +3,7 @@
  * Format a PR comment body from CI failure log text (stdin or file path arg).
  */
 const fs = require("fs");
-const path = require("path");
-
-const root = path.join(__dirname, "..");
+const { importFailSafeBot } = require("./fail-safe-bot-import.cjs");
 
 async function main() {
   const arg = process.argv[2];
@@ -13,9 +11,7 @@ async function main() {
     ? fs.readFileSync(arg, "utf8")
     : fs.readFileSync(0, "utf8");
 
-  const { classifyFailureText, formatReportSummary } = await import(
-    path.join(root, "app/lib/fail-safe-bot.js"),
-  );
+  const { classifyFailureText, formatReportSummary } = await importFailSafeBot();
 
   const issues = classifyFailureText(log);
   const report = {

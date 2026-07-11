@@ -45,6 +45,7 @@ export function buildProjectWorkspaceActions(s) {
     generateVoiceStyleFromArtistId: s.generateVoiceStyleFromArtistId,
     handoffTrackToVoiceCharacterStudio: s.handoffTrackToVoiceCharacterStudio,
     importProject: s.importProject,
+    openInCanvasTool: s.openInCanvasTool,
     loadPresetObject: s.loadPresetObject,
     resetAll: s.resetAll,
     restoreHistory: s.restoreHistory,
