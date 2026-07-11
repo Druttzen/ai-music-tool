@@ -513,11 +513,21 @@ Packaged builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startu
 npm run build
 ```
 
-**Pre-ship check** (unit tests, ESLint, production build, sidecar pytest):
+**Pre-ship check** (unit tests, ESLint, production build, sidecar pytest, Rust lockfiles):
 
 ```bash
 npm run check:full
 ```
+
+**Before push** (recommended — catches most CI failures locally):
+
+```bash
+npm run check:ci              # check:full + rust lockfiles
+npm run check:ci:e2e-subset   # + Playwright release subset
+npm run hooks:install         # auto-run check:ci on git push
+```
+
+Skip the pre-push hook once: `SKIP_CI_PREFLIGHT=1 git push`
 
 Full CI parity including Playwright e2e (restarts sidecar):
 
