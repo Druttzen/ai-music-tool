@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "node .cursor/hooks/sourcery-auto-fix.mjs",
+        "matcher": "sourcery|Sourcery|issue_to_address|Prompt for AI Agents"
+      }
+    ]
+  }
+}
