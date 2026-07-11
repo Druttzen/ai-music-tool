@@ -2,7 +2,7 @@
 /**
  * Local CI parity gate — run before push to catch the failures that break GitHub Actions most often.
  *
- * Always: npm run check:full + verify-rust-locks
+ * Always: npm run check:full (includes rust lockfile verify)
  * Optional: --e2e-subset (Playwright release subset + sidecar)
  */
 const { spawnSync } = require("child_process");
@@ -12,24 +12,25 @@ const root = path.join(__dirname, "..");
 const withE2eSubset = process.argv.includes("--e2e-subset");
 const isWin = process.platform === "win32";
 
-function run(label, cmd, args) {
+function fail(label, status) {
+  console.error(`\nci-gates — FAILED at: ${label}`);
+  process.exit(status ?? 1);
+}
+
+function runNpm(args, label) {
   console.log(`\nci-gates — ${label}`);
-  const r = spawnSync(cmd, args, {
+  const r = spawnSync("npm", args, {
     stdio: "inherit",
     cwd: root,
-    shell: isWin && (cmd === "npm" || cmd === "cargo" || cmd.endsWith(".cmd")),
+    shell: isWin,
   });
-  if (r.status !== 0) {
-    console.error(`\nci-gates — FAILED at: ${label}`);
-    process.exit(r.status ?? 1);
-  }
+  if (r.status !== 0) fail(label, r.status);
 }
 
-run("check:full", "npm", ["run", "check:full"]);
-run("rust lockfiles", process.execPath, [path.join(__dirname, "verify-rust-locks.cjs")]);
+runNpm(["run", "check:full"], "check:full");
 
 if (withE2eSubset) {
-  run("e2e subset", "npm", ["run", "test:e2e:subset"]);
+  runNpm(["run", "test:e2e:subset"], "e2e subset");
 }
 
-console.log("\nci-gates — OK (matches core CI check + rust-locks jobs)");
+console.log("\nci-gates — OK (matches core CI check job)");

@@ -20,8 +20,6 @@ jobs:
           python-version: "3.11"
       - run: npm ci
       - uses: dtolnay/rust-toolchain@stable
-      - name: Verify Rust lockfiles (Cargo.toml ↔ Cargo.lock)
-        run: node scripts/verify-rust-locks.cjs
       - run: npm run check:full
 
   awesome-suno-sync:

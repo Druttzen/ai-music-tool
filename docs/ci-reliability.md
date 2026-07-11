@@ -36,7 +36,7 @@ git add src-tauri/Cargo.lock
 
 | Job | Purpose |
 |-----|---------|
-| `check` | `check:full` + rust locks (fail fast) |
+| `check` | `check:full` (unit, lint, build, pytest, rust locks) |
 | `tauri-smoke` | Full Tauri compile on Linux |
 | `e2e-subset` | Release Playwright subset |
 | `e2e` | Full Playwright suite |
