@@ -28,6 +28,9 @@ run("npm", ["run", "check"]);
 console.log("check:full — sidecar pytest");
 run(process.execPath, [path.join(__dirname, "run-pytest-sidecar.cjs")]);
 
+console.log("check:full — rust lockfiles");
+run(process.execPath, [path.join(__dirname, "verify-rust-locks.cjs")]);
+
 if (withE2eSubset) {
   console.log("check:full — Playwright e2e subset (sidecar smoke wrapper)");
   if (isWin) {
