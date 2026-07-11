@@ -129,6 +129,7 @@ export function usePromptPipeline(input: PipelineInputFields) {
       generatedLyrics: input.generatedLyrics,
       lyricTheme: input.lyricTheme,
       lyricStructure: input.lyricStructure,
+      scores: input.scores,
     }),
     [
       input.selectedGenres,
@@ -143,6 +144,7 @@ export function usePromptPipeline(input: PipelineInputFields) {
       input.generatedLyrics,
       input.lyricTheme,
       input.lyricStructure,
+      input.scores,
     ],
   );
 
@@ -197,6 +199,7 @@ export function usePromptPipeline(input: PipelineInputFields) {
       generatedLyrics: input.generatedLyrics,
       lyricPrompt,
       instrumentalVocalFx: input.instrumentalVocalFx,
+      scores: input.scores,
     };
     return {
       style: buildSunoPastedStyleLine(guided),
@@ -225,6 +228,7 @@ export function usePromptPipeline(input: PipelineInputFields) {
     input.lyricMode,
     input.generatedLyrics,
     input.instrumentalVocalFx,
+    input.scores,
   ]);
 
   const sunoFieldSlices = useMemo(

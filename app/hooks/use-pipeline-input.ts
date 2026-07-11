@@ -33,6 +33,8 @@ export interface PipelineInputFields {
   voiceRefFirstName: ProjectState["voiceRefFirstName"];
   voiceRefLastName: ProjectState["voiceRefLastName"];
   generatedLyrics: ProjectState["generatedLyrics"];
+  scores: ProjectState["scores"];
+  albumRoles: ProjectState["albumRoles"];
   sunoPasteStyle: ProjectState["sunoPasteStyle"];
   sunoPasteLyrics: ProjectState["sunoPasteLyrics"];
   sunoPasteActive: ProjectState["sunoPasteActive"];
@@ -71,6 +73,8 @@ export function usePipelineInput(fields: PipelineInputFields) {
     voiceRefFirstName,
     voiceRefLastName,
     generatedLyrics,
+    scores,
+    albumRoles,
     sunoPasteStyle,
     sunoPasteLyrics,
     sunoPasteActive,
@@ -121,6 +125,8 @@ export function usePipelineInput(fields: PipelineInputFields) {
       voiceRefFirstName,
       voiceRefLastName,
       generatedLyrics,
+      scores,
+      albumRoles,
       sunoPasteStyle,
       sunoPasteLyrics,
       sunoPasteActive,
@@ -154,6 +160,8 @@ export function usePipelineInput(fields: PipelineInputFields) {
       voiceRefFirstName,
       voiceRefLastName,
       generatedLyrics,
+      scores,
+      albumRoles,
       sunoPasteStyle,
       sunoPasteLyrics,
       sunoPasteActive,

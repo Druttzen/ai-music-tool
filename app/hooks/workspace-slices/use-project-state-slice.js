@@ -33,6 +33,7 @@ const PROJECT_KEYS = [
   "promptIntensity",
   "rules",
   "scores",
+  "albumRoles",
   "selectedGenres",
   "selectedHistoryId",
   "selectedRhythms",

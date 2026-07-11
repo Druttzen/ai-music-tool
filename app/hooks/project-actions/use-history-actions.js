@@ -53,7 +53,8 @@ export function useHistoryActions(deps) {
     (item) => {
       loadState(item.state);
       setSelectedHistoryId(item.id);
-      setStatusWithTime(`Restored: ${item.label}`);
+      const scoreNote = item.avgScore ? ` · score ${item.avgScore}/5` : "";
+      setStatusWithTime(`Restored: ${item.label}${scoreNote}`);
     },
     [loadState, setSelectedHistoryId, setStatusWithTime],
   );

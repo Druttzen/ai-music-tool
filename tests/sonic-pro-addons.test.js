@@ -6,7 +6,7 @@ import { buildUdioProsePrompt } from "../app/lib/udio-prose-export.js";
 import { generateSunoMetatagScaffold } from "../app/lib/suno-metatag-generator.js";
 import { buildVoicesPrepKit } from "../app/lib/voices-prep-kit.js";
 import { fixSunoPronunciation } from "../app/lib/pronunciation-engine.js";
-import { buildAlbumSequence, soundBibleFromProject } from "../app/lib/album-mode.js";
+import { buildAlbumSequence, DEFAULT_ALBUM_ROLES, normalizeAlbumRoles, soundBibleFromProject } from "../app/lib/album-mode.js";
 
 describe("suno-prompt-critic", () => {
   it("scores detailed style higher than empty", () => {
@@ -102,5 +102,17 @@ describe("suno 5.5 pro addons", () => {
     ]);
     expect(tracks[0].styleLine).toContain("sunrise over the city");
     expect(tracks[0].styleLine).toContain("C major");
+  });
+
+  it("normalizeAlbumRoles restores defaults and clamps fields", () => {
+    expect(normalizeAlbumRoles([])).toHaveLength(3);
+    const roles = normalizeAlbumRoles([
+      { role: "invalid", title: "Custom", idea: "hook" },
+      { role: "closer", title: "End", idea: "" },
+    ]);
+    expect(roles[0].role).toBe("opener");
+    expect(roles[0].title).toBe("Custom");
+    expect(roles[1].role).toBe("closer");
+    expect(DEFAULT_ALBUM_ROLES).toHaveLength(3);
   });
 });

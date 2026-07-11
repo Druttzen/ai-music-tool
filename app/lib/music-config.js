@@ -1,4 +1,5 @@
 import { lyricLanguageOptions as sunoLyricLanguageOptions } from "./suno-lyric-languages";
+import { DEFAULT_ALBUM_ROLES } from "./album-mode";
 import {
   genreOptions as sunoGenreOptions,
   rhythmOptions as sunoRhythmOptions,
@@ -17,7 +18,7 @@ export const HISTORY_KEY = "ai_music_creator_prompt_history_v1";
 export const APP_VERSION =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION
     ? process.env.NEXT_PUBLIC_APP_VERSION
-    : "0.47.3";
+    : "0.48.0";
 export const AUTHOR = "DJ M@D";
 
 export const DEFAULT_STATE = {
@@ -35,6 +36,7 @@ export const DEFAULT_STATE = {
   rules: "clean production, consistent style, strong low end, no unwanted vocal artifacts",
   notes: "",
   scores: { bass: 4, rhythm: 4, identity: 4, clarity: 4 },
+  albumRoles: DEFAULT_ALBUM_ROLES.map((r) => ({ ...r })),
   mood: { darkness: 70, energy: 80, aggression: 65, emotion: 35, complexity: 55, space: 60 },
   lyricTheme: "underground pressure, personal power, night movement",
   lyricLanguage: "English",
@@ -82,6 +84,7 @@ export const BLANK_STATE = {
   rules: "",
   notes: "",
   scores: { bass: 3, rhythm: 3, identity: 3, clarity: 3 },
+  albumRoles: DEFAULT_ALBUM_ROLES.map((r) => ({ ...r })),
   mood: { darkness: 50, energy: 50, aggression: 50, emotion: 50, complexity: 50, space: 50 },
   lyricTheme: "",
   lyricLanguage: BLANK_LYRIC_LANGUAGE,

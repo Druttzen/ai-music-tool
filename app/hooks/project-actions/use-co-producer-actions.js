@@ -26,6 +26,7 @@ export function useCoProducerActions(deps) {
     patch,
     prompt,
     rules,
+    scores,
     selectedGenres,
     selectedRhythms,
     selectedSounds,
@@ -64,6 +65,7 @@ export function useCoProducerActions(deps) {
       idea,
       musicGenAvailable: !!sidecarGenerateAvailable,
       audioAnalysis,
+      scores,
     };
 
     let output;
@@ -109,6 +111,7 @@ export function useCoProducerActions(deps) {
     mood,
     moodWords,
     patch,
+    scores,
     selectedGenres,
     selectedRhythms,
     selectedSounds,

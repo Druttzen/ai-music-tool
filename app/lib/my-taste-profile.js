@@ -3,13 +3,27 @@
  */
 
 /**
+ * @param {string|number|undefined} avgScore
+ */
+function historySampleWeight(avgScore) {
+  const n = Number(avgScore);
+  if (!Number.isFinite(n)) return 1;
+  if (n < 3) return 0;
+  if (n >= 4) return 2;
+  return 1;
+}
+
+/**
  * @param {{ history?: object[], current?: object|null, customPresets?: Record<string, object> }} sources
  */
 export function collectProjectSnapshots(sources = {}) {
   const snaps = [];
   if (sources.current && typeof sources.current === "object") snaps.push(sources.current);
   for (const item of sources.history || []) {
-    if (item?.state && typeof item.state === "object") snaps.push(item.state);
+    if (item?.state && typeof item.state === "object") {
+      const weight = historySampleWeight(item.avgScore);
+      for (let i = 0; i < weight; i += 1) snaps.push(item.state);
+    }
   }
   for (const preset of Object.values(sources.customPresets || {})) {
     if (preset && typeof preset === "object") snaps.push(preset);

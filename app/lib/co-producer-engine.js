@@ -1,4 +1,5 @@
 import { uniq } from "./music-helpers";
+import { scoreAdvisoryLines, formatScoreSummary } from "./track-scoring";
 
 /**
  * @param {object|null|undefined} audioAnalysis
@@ -88,6 +89,7 @@ export function buildCoProducerAdvisoryReport({
   mode,
   musicGenAvailable = false,
   audioAnalysis = null,
+  scores = null,
 }) {
   const suggestions = [];
   const fixesToApply = [];
@@ -138,6 +140,10 @@ export function buildCoProducerAdvisoryReport({
     );
   }
 
+  suggestions.push(...scoreAdvisoryLines(scores));
+
+  const scoreLine = formatScoreSummary(scores);
+
   const moodDirective =
     mood.darkness > 65
       ? "Lean into dark imagery, low-end pressure, shadowy atmosphere, and mechanical tension."
@@ -149,6 +155,7 @@ Main identity: ${selectedGenres[0] || "Electronic"} with ${selectedGenres[1] || 
 Best tempo target: ${tempo}
 Mood translation: ${moodWords}
 Sound focus: ${selectedSounds.slice(0, 5).join(", ") || "bass, drums, atmosphere"}
+${scoreLine ? `Track scoring: ${scoreLine}` : ""}
 
 Recommended direction:
 ${moodDirective}

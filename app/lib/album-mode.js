@@ -2,6 +2,34 @@
  * Album mode — cohesive multi-track Suno project sequences.
  */
 
+export const DEFAULT_ALBUM_ROLES = [
+  { role: "opener", title: "Track 1 — Opener", idea: "" },
+  { role: "single", title: "Track 2 — Single", idea: "" },
+  { role: "closer", title: "Track 3 — Closer", idea: "" },
+];
+
+export const ALBUM_ROLE_OPTIONS = ["opener", "single", "interlude", "album cut", "closer"];
+
+/**
+ * @param {unknown} roles
+ * @returns {typeof DEFAULT_ALBUM_ROLES}
+ */
+export function normalizeAlbumRoles(roles) {
+  if (!Array.isArray(roles) || !roles.length) return DEFAULT_ALBUM_ROLES.map((r) => ({ ...r }));
+  return roles.map((row, index) => {
+    const track = row && typeof row === "object" ? row : {};
+    const role =
+      typeof track.role === "string" && ALBUM_ROLE_OPTIONS.includes(track.role)
+        ? track.role
+        : inferRole(index, roles.length);
+    return {
+      role,
+      title: String(track.title || `Track ${index + 1}`).slice(0, 120),
+      idea: String(track.idea || "").slice(0, 240),
+    };
+  });
+}
+
 /**
  * @param {object} soundBible — shared genres, tempo, vocal, production
  * @param {object[]} trackRoles — { role, title, idea }

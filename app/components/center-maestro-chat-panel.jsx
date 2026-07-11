@@ -87,6 +87,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
     voiceStyleLine,
     generatedLyrics,
     coProducerLlmSettings,
+    scores,
   } = useProjectWorkspaceProjectState();
   const { voiceStyleCompact } = useProjectWorkspacePromptState();
   const { setShowAll } = useGuidedFocus();
@@ -164,6 +165,16 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       voiceStyleLine,
       voiceStyleCompact,
       generatedLyrics,
+      scores,
+      avgScore: scores
+        ? (
+            (Number(scores.bass) +
+              Number(scores.rhythm) +
+              Number(scores.identity) +
+              Number(scores.clarity)) /
+            4
+          ).toFixed(1)
+        : "",
       hasAudioAnalysis: !!audioAnalysis,
       hasImageAnalysis: !!imageAnalysis,
       hasMusicGenSketch: audioAnalysis?.sourceEngine === "musicgen",
@@ -196,6 +207,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       voiceStyleLine,
       voiceStyleCompact,
       generatedLyrics,
+      scores,
       audioAnalysis,
       imageAnalysis,
       sidecarGenerateAvailable,

@@ -13,6 +13,7 @@
 import { z } from "zod";
 import { DEFAULT_STATE } from "./music-config";
 import { normalizeLyricLanguage } from "./suno-lyric-languages";
+import { normalizeAlbumRoles } from "./album-mode";
 
 type LoadData = Record<string, unknown>;
 
@@ -63,6 +64,12 @@ export const PROJECT_FIELDS: ProjectFieldDef[] = [
   core("rules"),
   core("notes"),
   core("scores"),
+  field("albumRoles", {
+    load: true,
+    patch: true,
+    snapshot: true,
+    normalize: (d) => normalizeAlbumRoles(d.albumRoles),
+  }),
   core("mood"),
 
   // Analyzer references: persisted in snapshots, but not patchable setters and
@@ -171,6 +178,11 @@ const scoresSchema = z.object({
   identity: z.number(),
   clarity: z.number(),
 });
+const albumRoleSchema = z.object({
+  role: z.string(),
+  title: z.string(),
+  idea: z.string(),
+});
 const moodSchema = z.object({
   darkness: z.number(),
   energy: z.number(),
@@ -200,6 +212,7 @@ export const ProjectStateSchema = z.object({
   rules: z.string(),
   notes: z.string(),
   scores: scoresSchema,
+  albumRoles: z.array(albumRoleSchema),
   mood: moodSchema,
   lyricTheme: z.string(),
   lyricLanguage: z.string(),

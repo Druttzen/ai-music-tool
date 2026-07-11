@@ -279,6 +279,8 @@ export function pickPipelineInputFields(
     voiceRefFirstName: projectState.voiceRefFirstName,
     voiceRefLastName: projectState.voiceRefLastName,
     generatedLyrics: projectState.generatedLyrics,
+    scores: projectState.scores,
+    albumRoles: projectState.albumRoles,
     sunoPasteStyle: projectState.sunoPasteStyle,
     sunoPasteLyrics: projectState.sunoPasteLyrics,
     sunoPasteActive: projectState.sunoPasteActive,

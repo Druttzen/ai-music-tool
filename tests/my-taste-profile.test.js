@@ -34,6 +34,24 @@ describe("my-taste-profile", () => {
     expect(profile.magicStyleLine).toMatch(/Female Lead/i);
   });
 
+  it("prefers high-scoring history when weighting taste profile", () => {
+    const weighted = buildMyTasteProfile({
+      current: { selectedGenres: ["Pop"], tempo: "120 BPM", vocal: "Female Lead" },
+      history: [
+        {
+          avgScore: "4.5",
+          state: { selectedGenres: ["Synth Pop"], tempo: "118 BPM", vocal: "Female Lead" },
+        },
+        {
+          avgScore: "2.0",
+          state: { selectedGenres: ["Death Metal"], tempo: "200 BPM", vocal: "Male Lead" },
+        },
+      ],
+    });
+    expect(weighted.topGenres[0]).toMatch(/Synth Pop/i);
+    expect(weighted.topGenres.join(" ")).not.toMatch(/Death Metal/i);
+  });
+
   it("dedupes track summaries for custom model pack input", () => {
     const tracks = trackSummariesFromWorkspace(
       { idea: "Track A", tempo: "120 BPM", selectedGenres: ["Pop"] },

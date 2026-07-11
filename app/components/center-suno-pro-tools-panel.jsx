@@ -1,21 +1,20 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useMemo } from "react";
 import { Panel } from "./ui-blocks";
 import {
   useProjectWorkspaceActions,
   useProjectWorkspaceProjectState,
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
-import { buildAlbumSequence, soundBibleFromProject } from "../lib/album-mode";
+import {
+  ALBUM_ROLE_OPTIONS,
+  buildAlbumSequence,
+  normalizeAlbumRoles,
+  soundBibleFromProject,
+} from "../lib/album-mode";
 import { buildCustomModelPack } from "../lib/custom-model-pack";
 import { buildMyTasteProfile, trackSummariesFromWorkspace } from "../lib/my-taste-profile";
-
-const DEFAULT_ROLES = [
-  { role: "opener", title: "Track 1 — Opener", idea: "" },
-  { role: "single", title: "Track 2 — Single", idea: "" },
-  { role: "closer", title: "Track 3 — Closer", idea: "" },
-];
 
 export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
   const state = useProjectWorkspaceProjectState();
@@ -26,9 +25,13 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
     setSelectedGenres,
     setTempo,
     setVocal,
+    setAlbumRoles,
   } = useProjectWorkspaceActions();
 
-  const [albumRoles, setAlbumRoles] = useState(DEFAULT_ROLES);
+  const albumRoles = useMemo(
+    () => normalizeAlbumRoles(state.albumRoles),
+    [state.albumRoles],
+  );
 
   const taste = useMemo(
     () =>
@@ -50,10 +53,34 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
     [state],
   );
 
+  const updateRoles = (next) => setAlbumRoles(normalizeAlbumRoles(next));
+
   const updateRole = (index, field, value) => {
-    setAlbumRoles((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
-    );
+    updateRoles(albumRoles.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  };
+
+  const moveRole = (index, delta) => {
+    const next = [...albumRoles];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    updateRoles(next);
+  };
+
+  const addTrack = () => {
+    updateRoles([
+      ...albumRoles,
+      {
+        role: "album cut",
+        title: `Track ${albumRoles.length + 1}`,
+        idea: "",
+      },
+    ]);
+  };
+
+  const removeTrack = (index) => {
+    if (albumRoles.length <= 1) return;
+    updateRoles(albumRoles.filter((_, i) => i !== index));
   };
 
   return (
@@ -116,15 +143,42 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
         </section>
 
         <section className="rounded-2xl border border-fuchsia-400/25 bg-fuchsia-950/20 p-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-fuchsia-200/90">Album mode</div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-fuchsia-200/90">Album mode</div>
+            <button
+              type="button"
+              onClick={addTrack}
+              className="rounded-lg border border-fuchsia-300/30 px-2 py-1 text-[10px] font-bold text-fuchsia-50"
+            >
+              + Add track
+            </button>
+          </div>
           <p className="mt-1 text-[11px] text-white/55">
             Shared sound bible: {(state.selectedGenres || []).slice(0, 2).join(" + ") || "set genres"} ·{" "}
             {state.tempo || "tempo ?"}
           </p>
           <div className="mt-2 space-y-2">
             {albumRoles.map((role, idx) => (
-              <div key={role.role + idx} className="rounded-xl border border-white/10 bg-black/30 p-2">
-                <div className="grid gap-2 sm:grid-cols-2">
+              <div
+                key={`${role.role}-${idx}-${role.title}`}
+                className="rounded-xl border border-white/10 bg-black/30 p-2"
+                data-testid={`album-track-row-${idx}`}
+              >
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <label className="text-[10px] text-white/50">
+                    Role
+                    <select
+                      value={role.role}
+                      onChange={(e) => updateRole(idx, "role", e.target.value)}
+                      className="mt-0.5 w-full rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-[11px] text-white"
+                    >
+                      {ALBUM_ROLE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="text-[10px] text-white/50">
                     Title
                     <input
@@ -143,29 +197,75 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
                     />
                   </label>
                 </div>
-                <div className="mt-2 text-[11px] font-bold text-fuchsia-100">
-                  {albumTracks[idx]?.index}. {role.title}{" "}
-                  <span className="text-white/40">({role.role})</span>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="text-[11px] font-bold text-fuchsia-100">
+                    {albumTracks[idx]?.index}. {role.title}{" "}
+                    <span className="text-white/40">({role.role})</span>
+                  </div>
+                  <div className="ml-auto flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => moveRole(idx, -1)}
+                      className="rounded-lg border border-white/15 px-2 py-0.5 text-[10px] text-white/70 disabled:opacity-30"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === albumRoles.length - 1}
+                      onClick={() => moveRole(idx, 1)}
+                      className="rounded-lg border border-white/15 px-2 py-0.5 text-[10px] text-white/70 disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      disabled={albumRoles.length <= 1}
+                      onClick={() => removeTrack(idx)}
+                      className="rounded-lg border border-red-400/30 px-2 py-0.5 text-[10px] text-red-200 disabled:opacity-30"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
                 <pre className="mt-1 max-h-16 overflow-auto whitespace-pre-wrap text-[10px] text-white/65">
                   {albumTracks[idx]?.styleLine}
                 </pre>
-                <button
-                  type="button"
-                  onClick={() =>
-                    copyToClipboard(albumTracks[idx]?.styleLine || "", `Album track ${idx + 1} style copied`)
-                  }
-                  className="mt-1 rounded-lg border border-fuchsia-300/30 px-2 py-1 text-[10px] font-bold text-fuchsia-50"
-                >
-                  Copy style
-                </button>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyToClipboard(albumTracks[idx]?.styleLine || "", `Album track ${idx + 1} style copied`)
+                    }
+                    className="rounded-lg border border-fuchsia-300/30 px-2 py-1 text-[10px] font-bold text-fuchsia-50"
+                  >
+                    Copy style
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyToClipboard(
+                        albumTracks[idx]?.lyricsMetatag || "",
+                        `Album track ${idx + 1} metatag copied`,
+                      )
+                    }
+                    className="rounded-lg border border-fuchsia-300/30 px-2 py-1 text-[10px] font-bold text-fuchsia-50"
+                  >
+                    Copy metatag
+                  </button>
+                </div>
               </div>
             ))}
           </div>
           <button
             type="button"
             onClick={() => {
-              const json = JSON.stringify({ soundBible: soundBibleFromProject(state), tracks: albumTracks }, null, 2);
+              const json = JSON.stringify(
+                { soundBible: soundBibleFromProject(state), tracks: albumTracks, albumRoles },
+                null,
+                2,
+              );
               copyToClipboard(json, "Album sequence JSON copied");
             }}
             className="mt-2 rounded-xl border border-fuchsia-300/30 px-3 py-1.5 text-[10px] font-bold text-fuchsia-50"

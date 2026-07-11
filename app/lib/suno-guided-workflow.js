@@ -2,6 +2,7 @@ import { stylePresets } from "./music-config";
 import { SUNO_LYRICS_CHAR_TYPICAL_MAX, SUNO_STYLE_CHAR_CAP } from "./suno-limits";
 import { selectNegativeGuards, INSTRUMENTAL_LYRICS_SCAFFOLD } from "./suno-negative-guards";
 import { formatTempoWithDescriptor, tempoAlreadyHasDescriptor } from "./tempo-descriptors";
+import { scorePromptHints } from "./track-scoring";
 
 /** One-line blurb for factory Style Preset buttons (left column). */
 export const FACTORY_PRESET_BLURBS = {
@@ -222,6 +223,7 @@ export function buildSunoPastedStyleLine(p) {
     rules = "",
     voiceStyleReference = "",
     voiceStyleLine = "",
+    scores = null,
   } = p;
   const voiceRef = normalizeToken(voiceStyleLine || voiceStyleReference).slice(0, 120);
 
@@ -250,6 +252,7 @@ export function buildSunoPastedStyleLine(p) {
   const r = normalizeToken(rules).replace(/\n/g, ", ");
   if (r) pushTokens(parts, r.split(/,\s*/).slice(0, 10));
   if (voiceRef && vocal !== "Instrumental") parts.push(voiceRef);
+  pushTokens(parts, scorePromptHints(scores));
 
   return joinWithCap(parts, SUNO_STYLE_CHAR_CAP);
 }
