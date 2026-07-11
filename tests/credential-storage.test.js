@@ -37,6 +37,24 @@ describe("credential-storage", () => {
     expect(hasStoredCredentials()).toBe(false);
   });
 
+  it("ignores whitespace-only LLM api key", () => {
+    localStorage.setItem(LLM_SETTINGS_KEY, JSON.stringify({ apiKey: "   " }));
+    expect(hasStoredCredentials()).toBe(false);
+  });
+
+  it("ignores empty auddApiToken", () => {
+    localStorage.setItem(STYLE_DNA_SETTINGS_KEY, JSON.stringify({ auddApiToken: "" }));
+    expect(hasStoredCredentials()).toBe(false);
+  });
+
+  it("detects stored spotify client secret", () => {
+    localStorage.setItem(
+      STYLE_DNA_SETTINGS_KEY,
+      JSON.stringify({ spotifyClientSecret: "secret-value" }),
+    );
+    expect(hasStoredCredentials()).toBe(true);
+  });
+
   it("exports a user-facing notice string", () => {
     expect(CREDENTIAL_STORAGE_NOTICE).toMatch(/localStorage/i);
   });

@@ -3,6 +3,7 @@ import {
   buildSunoStyleBoxPrompt,
   buildSunoLyricsBoxPrompt,
   buildStandardPrompt,
+  buildSunoLikePrompt,
   SUNO_AUTO_FIX_DEFAULTS,
   validateSunoLikePrompt,
 } from "../app/lib/suno-rules.js";
@@ -89,6 +90,27 @@ describe("suno-rules", () => {
     });
     expect(s).toContain("SCORE FOCUS:");
     expect(s).toContain("tight rhythmic pocket");
+  });
+
+  it("buildSunoStyleBoxPrompt omits score focus for neutral scores", () => {
+    const s = buildSunoStyleBoxPrompt({
+      ...base,
+      scores: { bass: 4, rhythm: 4, identity: 4, clarity: 4 },
+    });
+    expect(s).not.toContain("SCORE FOCUS:");
+  });
+
+  it("buildSunoLikePrompt omits score focus when scores are omitted", () => {
+    const p = buildSunoLikePrompt({ ...base });
+    expect(p).not.toContain("SCORE FOCUS:");
+  });
+
+  it("buildSunoLikePrompt omits score focus for neutral scores", () => {
+    const p = buildSunoLikePrompt({
+      ...base,
+      scores: { bass: 4, rhythm: 4, identity: 4, clarity: 4 },
+    });
+    expect(p).not.toContain("SCORE FOCUS:");
   });
 
   it("SUNO_AUTO_FIX_DEFAULTS provides genre and structure fallbacks", () => {

@@ -250,12 +250,7 @@ fn health_check() -> bool {
 }
 
 fn new_sidecar_token() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    format!("aimc-{:x}-{}", nanos, std::process::id())
+    uuid::Uuid::new_v4().to_string()
 }
 
 fn spawn_bundled_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, String> {

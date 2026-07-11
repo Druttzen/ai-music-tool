@@ -75,7 +75,9 @@ async function resolveSidecarAuthToken(): Promise<string | null> {
   return null;
 }
 
-/** @internal Test helper — merge optional sidecar auth into fetch headers. */
+/**
+ * Merge optional sidecar auth into fetch headers for production sidecar requests.
+ */
 export async function sidecarAuthHeaders(
   extra: Record<string, string> = {},
 ): Promise<Record<string, string>> {
