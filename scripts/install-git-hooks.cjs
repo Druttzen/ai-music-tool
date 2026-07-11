@@ -5,16 +5,27 @@
  */
 const fs = require("fs");
 const path = require("path");
+const { spawnSync } = require("child_process");
 
 const root = path.join(__dirname, "..");
-const gitDir = path.join(root, ".git");
-const hooksDir = path.join(gitDir, "hooks");
 
-if (!fs.existsSync(gitDir)) {
-  console.error("install-git-hooks: not a git repository (.git missing)");
-  process.exit(1);
+function resolveGitDir() {
+  const r = spawnSync("git", ["rev-parse", "--git-dir"], {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    shell: process.platform === "win32",
+  });
+  if (r.status !== 0 || !String(r.stdout || "").trim()) {
+    console.error("install-git-hooks: not a git repository (git rev-parse --git-dir failed)");
+    if (r.stderr) process.stderr.write(r.stderr);
+    process.exit(1);
+  }
+  const gitDir = String(r.stdout).trim();
+  return path.isAbsolute(gitDir) ? gitDir : path.resolve(root, gitDir);
 }
 
+const hooksDir = path.join(resolveGitDir(), "hooks");
 fs.mkdirSync(hooksDir, { recursive: true });
 
 const prePush = `#!/bin/sh

@@ -11,6 +11,22 @@ const crates = [
   { dir: "src-tauri", label: "Tauri shell" },
 ];
 
+function reportCargoToolingFailure(relDir, stderr, status, message) {
+  console.error(`\nFailed to run cargo in ${relDir}.`);
+  console.error("Fix: ensure `cargo` is installed and available on your PATH.\n");
+  if (message) console.error(message);
+  if (stderr) process.stderr.write(stderr);
+  process.exit(status ?? 1);
+}
+
+function reportLockDrift(relDir, stderr, status) {
+  console.error(`\nCargo.lock is out of sync in ${relDir}.`);
+  console.error("Fix: cd", relDir, "&& cargo build");
+  console.error("Then commit the updated Cargo.lock.\n");
+  if (stderr) process.stderr.write(stderr);
+  process.exit(status ?? 1);
+}
+
 function verifyLocked(relDir, label) {
   const cwd = path.join(root, relDir);
   console.log(`verify-rust-locks — ${label} (${relDir})`);
@@ -20,13 +36,27 @@ function verifyLocked(relDir, label) {
     stdio: ["ignore", "ignore", "pipe"],
     shell: process.platform === "win32",
   });
-  if (r.status !== 0) {
-    console.error(`\nCargo.lock is out of sync in ${relDir}.`);
-    console.error("Fix: cd", relDir, "&& cargo build");
-    console.error("Then commit the updated Cargo.lock.\n");
-    if (r.stderr) process.stderr.write(r.stderr);
-    process.exit(r.status ?? 1);
+
+  if (r.status === 0) return;
+
+  if (r.error) {
+    reportCargoToolingFailure(relDir, r.stderr, 1, r.error.message);
   }
+
+  const stderr = r.stderr || "";
+  const lowerStderr = stderr.toLowerCase();
+  const isToolingIssue =
+    lowerStderr.includes("error: failed to run `cargo`") ||
+    lowerStderr.includes("is not installed") ||
+    lowerStderr.includes("could not execute process") ||
+    lowerStderr.includes("not found") ||
+    lowerStderr.includes("enoent");
+
+  if (isToolingIssue) {
+    reportCargoToolingFailure(relDir, stderr, r.status);
+  }
+
+  reportLockDrift(relDir, stderr, r.status);
 }
 
 for (const crate of crates) {
