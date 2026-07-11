@@ -42,3 +42,9 @@ git add src-tauri/Cargo.lock
 | `e2e` | Full Playwright suite |
 
 When `check` fails, fix before waiting on slower e2e jobs.
+
+## Fail-safe bot
+
+`npm run fail-safe:run` runs `check:ci`, classifies failures, and auto-fixes rust lock drift / eslint / catalog drift once before retrying.
+
+See [fail-safe-bot.md](fail-safe-bot.md) for in-app panel, GitHub PR comments, and agent prompts.

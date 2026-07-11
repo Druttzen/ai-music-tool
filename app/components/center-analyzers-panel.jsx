@@ -13,6 +13,7 @@ import {
 import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
+import { FailSafeBotPanel } from "./fail-safe-bot-panel";
 import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
   SUNO_LYRICS_CHAR_WARN,
@@ -124,6 +125,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 : "needs sidecar"}
           </span>
         </div>
+        <FailSafeBotPanel />
         <div
           className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
             sunoFieldSlices.style.length > SUNO_STYLE_CHAR_CAP
