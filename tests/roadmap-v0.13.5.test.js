@@ -37,6 +37,17 @@ describe("suno-negative-guards", () => {
     expect(guards.some((g) => g.includes("hum") || g.includes("intro"))).toBe(true);
   });
 
+  it("selects preservation, stereo-safety, and dynamic-master guard packs", () => {
+    const guards = selectNegativeGuards({
+      extraPacks: ["preserveInstrumentation", "stereoSafe", "dynamicMaster"],
+      max: 9,
+    });
+
+    expect(guards).toContain("no added instruments");
+    expect(guards).toContain("no exaggerated stereo widening");
+    expect(guards).toContain("no over-compressed master");
+  });
+
   it("exports instrumental lyric scaffold with dual tags", () => {
     expect(INSTRUMENTAL_LYRICS_SCAFFOLD).toContain("[Instrumental]");
     expect(INSTRUMENTAL_LYRICS_SCAFFOLD).toContain("[No Vocals]");

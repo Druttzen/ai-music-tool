@@ -29,6 +29,12 @@ export function isEnglishOnlyPromptLine(s) {
 
 const CATALOG_LABELS = {
   productionMixSpatial: "Catalog — Production / mix / spatial",
+  vocalProduction: "Catalog — Vocal production",
+  grooveTiming: "Catalog — Groove & timing",
+  dynamicsTransients: "Catalog — Dynamics & transients",
+  tonalBalance: "Catalog — Tonal balance",
+  spaceStereo: "Catalog — Space & stereo",
+  arrangementEnergy: "Catalog — Arrangement & energy",
   epicOrchestralFilm: "Catalog — Epic / orchestral / film",
   rootsWorshipWorld: "Catalog — Roots / worship / world",
   electronicClub: "Catalog — Electronic / club",

@@ -12,7 +12,7 @@ export const stylePromptCatalog = {
   productionMixSpatial: [
     "clean broadcast-ready mix, polished master",
     "Hi-Fi",
-    "Dolby Atmos spatial surround",
+    "immersive three-dimensional stereo soundstage",
     "three-dimensional sound",
     "warm vintage production",
     "dry intimate mix",
@@ -23,6 +23,91 @@ export const stylePromptCatalog = {
     "echo with reverb and delay",
     "side-chain compression pump",
     "immersive stereo width",
+  ],
+
+  vocalProduction: [
+    "dry intimate close-mic lead vocal",
+    "airy lead vocal with restrained ambience",
+    "forward lead vocal above the instrumental",
+    "embedded vocal blended naturally into the mix",
+    "distant ethereal vocal behind the arrangement",
+    "double-tracked lead vocal in the chorus",
+    "layered harmony stack widening the chorus",
+    "call-and-response lead and backing vocals",
+    "controlled vibrato with clear articulation",
+    "breathy restrained verse into a full belted chorus",
+    "rhythmic spoken delivery with minimal pitch movement",
+    "organic chant ensemble with natural room ambience",
+  ],
+
+  grooveTiming: [
+    "straight quantized sixteenth-note drive",
+    "loose humanized percussion timing",
+    "behind-the-beat laid-back pocket",
+    "slightly ahead-of-the-beat urgent momentum",
+    "swung sixteenth-note groove",
+    "shuffle triplet pulse",
+    "half-time drum feel over full-time harmonic motion",
+    "double-time percussion energy over a steady pulse",
+    "syncopated kick and bass conversation",
+    "four-on-the-floor club drive",
+    "rolling triplet bass and percussion pattern",
+    "offbeat accents with a stable downbeat anchor",
+  ],
+
+  dynamicsTransients: [
+    "punchy dynamics with preserved transients",
+    "soft rounded attacks and gentle sustain",
+    "wide dynamic arc from restrained verse to explosive chorus",
+    "dense controlled energy without audible pumping",
+    "tight kick impact without aggressive limiting",
+    "high crest-factor drums with clear attack and decay",
+    "sustained loudness with clean transient definition",
+    "gradual crescendo with increasing density and intensity",
+    "microdynamic vocal detail preserved above the arrangement",
+    "controlled sub-bass envelope with room for the kick transient",
+  ],
+
+  tonalBalance: [
+    "warm mid-forward tonal balance",
+    "dark controlled high end without dullness",
+    "airy upper detail without harshness",
+    "clean sub-bass with reduced low-mid mud",
+    "clear vocal-presence range without nasal resonance",
+    "bright percussion with smooth sibilance",
+    "full low end with an uncluttered midrange",
+    "balanced neutral spectrum with natural warmth",
+    "soft top end with solid low-mid body",
+    "lean controlled bass with open mids and highs",
+  ],
+
+  spaceStereo: [
+    "narrow intimate verses expanding into wide choruses",
+    "center-focused mono-compatible low end",
+    "short natural room ambience",
+    "deep front-to-back layering with a stable center image",
+    "wide stereo image with strong mono compatibility",
+    "sparse delay throws at phrase endings",
+    "long atmospheric reverb tails without masking transients",
+    "dry foreground elements against a distant ambient background",
+    "subtle stereo movement around a centered lead",
+    "compact close soundstage with minimal ambience",
+    "cinematic depth without exaggerated stereo widening",
+  ],
+
+  arrangementEnergy: [
+    "immediate cold open with the main hook",
+    "slow-burn introduction that gradually reveals the groove",
+    "clear tension-and-release progression across sections",
+    "false drop followed by a full-impact release",
+    "stripped breakdown with only the core motif and ambience",
+    "final-chorus expansion with added harmony and rhythmic density",
+    "energy reset before the final build",
+    "short functional intro leading quickly to the first section",
+    "clean decisive ending without a fade",
+    "long decaying outro with elements dropping away gradually",
+    "alternating sparse and dense sections for contrast",
+    "continuous evolving arrangement without abrupt genre changes",
   ],
 
   epicOrchestralFilm: [
@@ -663,6 +748,55 @@ export const stylePromptCatalog = {
 /** Long-form reference prose users can paste or trim for Suno-style prompts. */
 export const referencePromptBlocks = [
   {
+    id: "subtle-reference-remaster",
+    title: "Subtle reference-guided remaster (preserve identity)",
+    body: `Create a subtle remaster that remains as close as possible to the original performance, structure, timing, instrumentation, vocals, and emotional character. Prioritize a cleaner overall balance, controlled low end, clear midrange, smooth high frequencies, and natural instrument separation. Avoid added instruments, altered vocal delivery, exaggerated stereo widening, excessive reverb, harsh brightness, and aggressive limiting.
+
+Desired direction: [describe 3–5 audible qualities].
+
+Use the reference only as broad guidance for tonal balance, dynamics, and spatial character—not as an exact imitation. For the closest preservation, use Suno Remaster with Subtle variation strength; generated results may still differ from the original.`,
+  },
+  {
+    id: "transparent-cleanup-remaster",
+    title: "Transparent cleanup remaster",
+    body: `Create a conservative cleanup remaster that stays close to the original song. Reduce muddiness, harshness, and masking while preserving the performance, timing, dynamics, vocal character, and instrument balance. Keep the stereo image natural and avoid new instruments, heavy saturation, excessive reverb, or aggressive limiting. Use Subtle variation strength and compare every result against the original.`,
+  },
+  {
+    id: "club-oriented-polish",
+    title: "Club-oriented polish",
+    body: `Refine this track for a controlled club-oriented presentation: focused mono-compatible sub-bass, clear kick impact, stable low end, crisp percussion, and energetic but non-harsh highs. Preserve the song's identity and arrangement. Avoid uncontrolled stereo bass, flattened transients, brittle brightness, and unnecessary new musical elements. Treat any reference as broad guidance for energy and tonal balance only.`,
+  },
+  {
+    id: "dynamic-cinematic-polish",
+    title: "Dynamic cinematic polish",
+    body: `Refine this track with a wide dynamic arc, deep front-to-back layering, controlled low-frequency weight, and smooth atmospheric detail. Preserve quiet-to-loud contrast and the original emotional pacing. Avoid constant maximum loudness, excessive reverb, exaggerated stereo widening, and added orchestration. This requests cinematic stereo depth, not a Dolby Atmos master.`,
+  },
+  {
+    id: "vocal-clarity-repair",
+    title: "Vocal clarity repair",
+    body: `Prioritize intelligible, natural vocal presence while keeping the original vocal identity and delivery as close as possible. Reduce masking in the vocal range, control harshness and sibilance, and keep ambience from obscuring words. Avoid changing the singer, melody, phrasing, pitch character, or adding distracting backing vocals. Generated remasters may still alter vocal details, so compare carefully.`,
+  },
+  {
+    id: "low-end-control-remaster",
+    title: "Low-end control",
+    body: `Tighten the low end with a clean sub-bass envelope, clear kick definition, reduced low-mid mud, and stable mono compatibility. Preserve the original groove and bass character rather than replacing them. Avoid oversized sub energy, audible pumping, hollow mids, and stereo widening below the bass range.`,
+  },
+  {
+    id: "artifact-minimizing-remaster",
+    title: "Artifact-minimizing remaster",
+    body: `Make only small production and balance refinements. Prioritize stable vocals, clean decays, natural transients, consistent ambience, and freedom from warbling, metallic ringing, phasey width, clipped attacks, or added sounds. Use Subtle variation strength. Reject any result that changes timing, lyrics, instrumentation, or vocal identity more than the original allows.`,
+  },
+  {
+    id: "reference-tonal-guidance",
+    title: "Reference-guided tonal direction",
+    body: `Use [REFERENCE TRACK] only as broad guidance for tonal balance, overall dynamics, density, and spatial character. Keep this song's own performance, composition, arrangement, vocals, and identity. Desired traits: [3–5 measurable or clearly audible qualities]. Do not attempt exact imitation, add signature elements from the reference, or force unrelated frequency and loudness characteristics onto this mix.`,
+  },
+  {
+    id: "needs-remix-diagnostic",
+    title: "Diagnostic — needs remix, not mastering",
+    body: `Use this diagnostic before remastering: if the requested change requires independently changing the vocal, kick, bass, percussion, melody, reverb, arrangement, sound selection, or instrument levels, return to the multitrack mix or stems. A stereo remaster should focus on broad tonal balance, dynamics, loudness, and overall spatial presentation; it cannot reliably repair isolated mix elements without affecting the rest of the song.`,
+  },
+  {
     id: "mix-master-banner",
     title: "Production banner",
     body: `==============================================================================
@@ -683,7 +817,7 @@ Viking-themed traditional acoustic, folk metal track featuring a blend of tradit
   },
   {
     id: "mega-genre-cloud",
-    title: "Genre / style cloud (dense list)",
+    title: "Legacy genre cloud (reference only — do not paste whole)",
     body: `electro, neo-trance hi-NRG, tribal, indian-classical, experimental, ambient, industrial, reggae-pop, downtempo, synth-pop, progressive, house, reggaeton, j-pop, breakbeat, techno, freestyle, tech-trance, EBM, electroclash, drum n bass, dubstep, dub, psychobilly, funk, soul, conscious, psychedelic-rock, soca, halftime, dance beats, epic beat, dj scratch, euphoric, Egypt, electronic, new rave, clear sound, bright synths, belly dance, up-beat, hard rock, party song, clean mix, funky bass, synthrock, trap bass, psy techno, hymns, rap, chicano rap, southern hip hop, sense of power, spiritual hip hop, vocal, rave, viking metal, 1980s, dance-rock, Latin house, Greek folk, trap, tribute, heavy bass, hard techno, deepstep, hard-rock, acid techno, dark melody, dj scratches, industrial techno, chamber orchestra, studio, neon, dance-rock, dynamic rhythm, riff, ambience, celtic folk, acoustic guitar, bagpipes, funk, bass and drum, nordic folk, party vibes, pipes, fluid, Goa Trance, Dancecore, Dancehall, Tokyo Acid Breaks, Sitar Glitch Hop, Psychedelic Psybient, Americana Jungle, Havana Glitch Hop, Hyper-egyptian, Future Egyptian, Acid Techno, Dancepop, Ska Liquid Drum And Bass, Bubblegum Bass Grime, Acid Techno Psybient, Illbient Egyptian, Dark Acid House, Alt-country Dubstep, Acid Trance, Trance, Saxophone Edm, Hyphy Bluegrass, Liquid Drum And Bass House, Saxophone G-funk, Crunk Goa Trance, Dark Blues, Hypnagogic Algorave, demon voice, echoing, eerie, culminating Dreamy Pacific Reggae, Soulful Acid Trance, 16-bit, Electro-new Wave, Electro-techno, Synthpop Coptic, Synthpop Trance, story, deephouse, post punk, buildup, trance house, driving rhythm, electro-acid house, pulsing rhythm, acoustique, action music, emotionally charged, polyphonic keyboards, dark saxophone, dark metal, catchy intro, alternative rock song, synthesizer, ethereal strings, orchestral pop or progressive rock, dense sonic environment, old sound`,
   },
   {
@@ -693,8 +827,8 @@ Viking-themed traditional acoustic, folk metal track featuring a blend of tradit
   },
   {
     id: "viking-worship-atmos",
-    title: "Viking / worship / Atmos collage",
-    body: `Viking-themed traditional rhythmic acoustic, refreshing, electronic dance music elements, war drums beat, going to war, empowering, tribute nordic folk, party vibes, uplifting, majestic, vocal delivery is powerful and anthemic, great honor, proud, die with honor, Valhalla, Epic, euphoric, highligt moment, worship music, Viking vocal samples, Hi-Fi, Dolby-Atmos spatial surround, story-driven lyrics, depth to the music's soundscape, production, crowd, impressive, echo with reverb and delay, intense, folk lore background choir, praise and worship, A tribute cover, heroic, atmosphere, culminating in an uplifting, triumphant finish. electric and traditional fusion, sense of power, Instrumental, Jews harp, Bodhran drum, Musical saw, Bells and rattles, Tagelharp, Lyre, Viking horn, Skalmejen, Panpipe, Viking flutes, and Blast horns, Viking Vocal samples, war cries choirs creates the tracks heroic texture.
+    title: "Viking / worship / immersive stereo collage",
+    body: `Viking-themed traditional rhythmic acoustic, refreshing, electronic dance music elements, war drums beat, going to war, empowering, tribute nordic folk, party vibes, uplifting, majestic, vocal delivery is powerful and anthemic, great honor, proud, die with honor, Valhalla, Epic, euphoric, highligt moment, worship music, Viking vocal samples, Hi-Fi, immersive three-dimensional stereo soundstage, story-driven lyrics, depth to the music's soundscape, production, crowd, impressive, echo with reverb and delay, intense, folk lore background choir, praise and worship, A tribute cover, heroic, atmosphere, culminating in an uplifting, triumphant finish. electric and traditional fusion, sense of power, Instrumental, Jews harp, Bodhran drum, Musical saw, Bells and rattles, Tagelharp, Lyre, Viking horn, Skalmejen, Panpipe, Viking flutes, and Blast horns, Viking Vocal samples, war cries choirs creates the tracks heroic texture.
 
 The instrumentation includes a kick drum, snare drum, hi-hats, and various synthesized sounds.
 

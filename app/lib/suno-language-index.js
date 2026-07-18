@@ -153,7 +153,7 @@ export function buildSunoLanguageIndex() {
     "compressed vocal",
     "dry close-mic vocal",
     "Hi-Fi mastering clarity",
-    "Dolby Atmos spatial impression",
+    "immersive three-dimensional stereo impression",
     "three-dimensional stereo image",
     "spacious reverb",
     "wide stereo image",

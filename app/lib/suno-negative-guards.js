@@ -9,6 +9,14 @@ export const NEGATIVE_GUARD_PACKS = {
   mixClean: ["no excessive reverb", "no lo-fi mush", "no generic EDM defaults"],
   guitarOnly: ["no drums", "no percussion", "no bass"],
   vocalChops: ["no vocal chops", "no mumbled speech", "no ad-lib clutter"],
+  preserveVocal: ["no singer change", "no altered vocal delivery", "no new backing vocals"],
+  preserveInstrumentation: ["no added instruments", "no replaced sounds", "no new musical layers"],
+  shortIntro: ["no long ambient intro", "no delayed first section", "no unnecessary opening effects"],
+  cymbalControl: ["no excessive cymbal wash", "no brittle hi-hats", "no constant crash layer"],
+  lowMidClean: ["no muddy low mids", "no boomy resonance", "no masked vocal range"],
+  stereoSafe: ["no exaggerated stereo widening", "no stereo sub-bass", "no phasey imaging"],
+  stableStyle: ["no abrupt genre switching", "no unexpected tempo change", "no unnecessary key change"],
+  dynamicMaster: ["no over-compressed master", "no flattened transients", "no audible limiter pumping"],
 };
 
 /** @type {Record<string, string[]>} */
@@ -20,6 +28,15 @@ export const NEGATIVE_GUARD_ALIASES = {
   "guitar and voice": "guitarOnly",
   "clean mix": "mixClean",
   "no intro hum": "introVocal",
+  "preserve vocal": "preserveVocal",
+  "same singer": "preserveVocal",
+  "no added instruments": "preserveInstrumentation",
+  "short intro": "shortIntro",
+  "no cymbal wash": "cymbalControl",
+  "clean low mids": "lowMidClean",
+  "mono compatible": "stereoSafe",
+  "no genre switching": "stableStyle",
+  "dynamic master": "dynamicMaster",
 };
 
 /**

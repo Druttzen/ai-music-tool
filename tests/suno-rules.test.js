@@ -7,6 +7,7 @@ import {
   SUNO_AUTO_FIX_DEFAULTS,
   validateSunoLikePrompt,
 } from "../app/lib/suno-rules.js";
+import { referencePromptBlocks, stylePromptCatalog } from "../app/lib/style-prompt-catalog.js";
 
 const base = {
   selectedGenres: ["Techno"],
@@ -33,6 +34,30 @@ const base = {
 };
 
 describe("suno-rules", () => {
+  it("indexes the subtle reference-guided remaster prompt", () => {
+    const preset = referencePromptBlocks.find((block) => block.id === "subtle-reference-remaster");
+
+    expect(preset?.body).toContain("broad guidance");
+    expect(preset?.body).toContain("Subtle variation strength");
+  });
+
+  it("indexes production-control sections and practical remaster presets", () => {
+    const productionSections = [
+      "vocalProduction",
+      "grooveTiming",
+      "dynamicsTransients",
+      "tonalBalance",
+      "spaceStereo",
+      "arrangementEnergy",
+    ];
+
+    for (const section of productionSections) {
+      expect(stylePromptCatalog[section].length).toBeGreaterThanOrEqual(10);
+    }
+    expect(referencePromptBlocks.find((block) => block.id === "needs-remix-diagnostic")).toBeTruthy();
+    expect(referencePromptBlocks.some((block) => /Dolby-Atmos spatial surround/i.test(block.body))).toBe(false);
+  });
+
   it("builds style box with DNA section", () => {
     const s = buildSunoStyleBoxPrompt(base);
     expect(s).toContain("DNA:");
