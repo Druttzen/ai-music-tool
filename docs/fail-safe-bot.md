@@ -94,8 +94,29 @@ Paste output of `npm run fail-safe:auto` into Agent chat, or use the fail-safe C
 
 Classified failure kinds live in `app/lib/fail-safe-bot.js` (`FAILURE_PLAYBOOKS`).
 
+## Review fallback (when paid reviewers fail)
+
+**Cause of `Failed to run review: insufficient funds`:** This message comes from **Cursor Bugbot / Cursor paid review** (billing/credits on the Cursor account). It is **not** Sourcery, Codex CLI, or a GitHub Action in this repo. There is no workflow to disable — Bugbot is a Cursor product feature.
+
+**What fail-safe covers vs a full code review:**
+
+| Path | Role |
+|------|------|
+| Fail-safe bot | Classifies **CI/build** failures, posts playbook comments on failed PR/master CI, safe auto-fixes (locks, eslint, catalog) |
+| Sourcery | Optional PR style/correctness nits when available (free for public OSS) |
+| Cursor Bugbot | Paid deep review — skip when billing fails |
+
+**Primary review path when Bugbot fails:**
+
+1. Rely on fail-safe PR comments + `npm run fail-safe:auto` / `fail-safe:run` for CI issues.
+2. Paste that output (or the billing error) into Cursor Agent — the fail-safe rule treats insufficient-funds review errors as a signal to diagnose CI and fix.
+3. If CI is green, Agent does an in-chat defect review of the branch diff instead of retrying Bugbot.
+4. Keep using Sourcery when it posts; do not block on Bugbot.
+
+Optional: top up credits at [cursor.com/dashboard](https://cursor.com/dashboard) if you still want Bugbot later.
+
 ## GitHub
 
-`.github/workflows/fail-safe-bot.yml` comments on PRs **and master push** CI failures with classified fix hints.
+`.github/workflows/fail-safe-bot.yml` comments on PRs **and master push** CI failures with classified fix hints. That workflow is the in-repo “review-like” feedback on CI failures; it does not depend on Cursor billing.
 
 See also: [ci-reliability.md](ci-reliability.md), [sourcery-auto-fix.md](sourcery-auto-fix.md).

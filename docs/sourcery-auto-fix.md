@@ -11,6 +11,8 @@ Automatically forward Sourcery AI PR reviews to the agent and apply fixes.
 | `npm run sourcery:fetch` | Pulls latest `@sourcery-ai[bot]` comments from the open PR for current branch |
 | `npm run sourcery:auto` | Prints a full agent prompt (fetch + auto-fix instructions) |
 
+When **Cursor Bugbot** fails with `Failed to run review: insufficient funds`, use **fail-safe** as the review/fix path instead (`npm run fail-safe:auto`). Sourcery auto-fix still applies when Sourcery comments are present. See [fail-safe-bot.md](fail-safe-bot.md#review-fallback-when-paid-reviewers-fail).
+
 After clone or pull, run once:
 
 ```bash
