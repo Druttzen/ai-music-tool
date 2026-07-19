@@ -206,9 +206,10 @@ pub fn export_canvas_handoff(
         };
     }
 
-    let mut launched = launch_canvas_tool(&handoff_path);
+    let launched = launch_canvas_tool(&handoff_path);
     if !launched {
-        launched = open::that(&exports).is_ok() || open::that(&handoff_path).is_ok();
+        // Open exports/handoff as a convenience only — do not claim Canvas launched.
+        let _ = open::that(&exports).is_ok() || open::that(&handoff_path).is_ok();
     }
 
     CanvasHandoffResult {

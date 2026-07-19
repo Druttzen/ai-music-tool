@@ -124,16 +124,19 @@ function setupSuiteCanvasBridge() {
       if (!buffer?.byteLength) {
         return { ok: false, error: "No image data" };
       }
-      const ext = String(payload?.ext || "png").replace(/^\./, "");
-      const artPath = await suiteBridge.writeArtworkExport(Buffer.from(buffer), ext);
-      const exe = await suiteBridge.openInCanvasFromMusic({
+      const artPath = await suiteBridge.writeArtworkExport(Buffer.from(buffer), payload?.ext);
+      const { exe, launched } = await suiteBridge.openInCanvasFromMusic({
         title: String(payload?.title || "Untitled Track"),
         artist: String(payload?.artist || "Unknown Artist"),
         albumArtPath: artPath,
         motionHint: String(payload?.motionHint || "cinematic drift, 8 seconds"),
         durationSec: Number(payload?.durationSec) || 8,
       });
-      return { ok: true, launched: true, exe };
+      if (!launched) {
+        // Folder/file open is a fallback only — do not claim Canvas launched.
+        await shell.openPath(suiteBridge.EXPORTS_DIR);
+      }
+      return { ok: true, launched, exe: exe || undefined };
     } catch (err) {
       return { ok: false, error: err?.message || "Failed to open Canvas Tool" };
     }

@@ -861,7 +861,7 @@ export function useAnalyzers({
         setStatusWithTime(
           result.launched
             ? "AI Canvas Tool opened — artwork imported"
-            : "Artwork exported — open AI Canvas Tool from AI Suite/exports",
+            : "Artwork exported — exports opened. Install AI Canvas Tool to launch automatically",
         );
       } else {
         setStatusWithTime(result?.error || "Could not open Canvas Tool", "error");
