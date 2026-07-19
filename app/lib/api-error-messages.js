@@ -42,6 +42,10 @@ export function humanizeApiErrorMessage(message, status) {
   const text = String(message || "").trim();
   const lower = text.toLowerCase();
 
+  // Cursor Bugbot / paid review billing — prefer fail-safe over retrying Bugbot
+  if (/failed to run review/i.test(lower) || (/insufficient funds/i.test(lower) && /review/i.test(lower))) {
+    return "Automated review could not run (Cursor Bugbot credits) — run npm run fail-safe:auto / in-chat review, or top up Cursor billing.";
+  }
   if (/insufficient funds|insufficient_quota|billing|payment required|out of credits|credit balance/i.test(lower)) {
     return "API credits or billing limit reached — check your provider dashboard, add credits, or switch to a local model (Ollama / LM Studio).";
   }
@@ -53,9 +57,6 @@ export function humanizeApiErrorMessage(message, status) {
   }
   if (status === 402) {
     return "Payment required on this API account — add billing or credits at your provider.";
-  }
-  if (/failed to run review/i.test(lower)) {
-    return "Automated review could not run (account credits) — use in-chat review or top up Cursor billing.";
   }
 
   return text;

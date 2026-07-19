@@ -4,8 +4,15 @@ import { formatApiError, humanizeApiErrorMessage } from "../app/lib/api-error-me
 describe("api-error-messages", () => {
   it("humanizes insufficient funds", () => {
     const msg = humanizeApiErrorMessage("Failed to run review: insufficient funds (request ID: abc)");
-    expect(msg).toMatch(/credits|billing/i);
+    expect(msg).toMatch(/credits|billing|fail-safe/i);
+    expect(msg).toMatch(/fail-safe:auto/i);
     expect(msg).not.toMatch(/request ID/i);
+  });
+
+  it("humanizes generic API quota without review wording", () => {
+    const msg = humanizeApiErrorMessage("insufficient_quota");
+    expect(msg).toMatch(/credits|billing/i);
+    expect(msg).not.toMatch(/fail-safe/i);
   });
 
   it("humanizes OpenAI-style JSON errors", () => {

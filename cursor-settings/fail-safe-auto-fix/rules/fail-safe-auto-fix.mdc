@@ -1,9 +1,11 @@
 ---
-description: Auto-fix CI/build failures when fail-safe bot output appears in chat
+description: Auto-fix CI/build failures when fail-safe bot output appears in chat; also primary review path when paid reviewers fail
 alwaysApply: true
 ---
 
 # Fail-safe bot auto-fix
+
+## When to run (CI / fail-safe output)
 
 When the user message includes **fail-safe bot** output (`FAIL-SAFE BOT`, `ci-gates — FAILED`, `npm run fail-safe:auto`, or classified CI failure log):
 
@@ -16,3 +18,20 @@ When the user message includes **fail-safe bot** output (`FAIL-SAFE BOT`, `ci-ga
 Safe auto-fixes already attempted by `npm run fail-safe:run`: rust lock refresh, eslint --fix, catalog import. Do not repeat unless still failing.
 
 Skip duplicate work already fixed on the branch.
+
+## When paid review fails (primary fallback)
+
+When the user message includes **Cursor Bugbot / paid review billing failures**, treat fail-safe as the review path — do not wait for Bugbot/Codex credits:
+
+- `Failed to run review: insufficient funds`
+- `insufficient funds` / `insufficient_quota` / `out of credits` with a review request ID
+- Explicit ask to use fail-safe for reviews when paid reviewers are unavailable
+
+Then:
+
+1. Run `npm run fail-safe:auto` (or `fail-safe:fetch-ci` + classify) and/or `npm run fail-safe:run`.
+2. If CI is green but the user still wants a review, run `npm run check:ci` and do an in-chat correctness pass on the branch diff (prefer defect-first findings over style nits).
+3. If Sourcery comments are present, still apply `sourcery-auto-fix` — Sourcery is free for open source and remains useful when it works.
+4. Do **not** retry Cursor Bugbot / paid cloud review until billing is fixed; point the user at fail-safe + in-chat review instead.
+
+See `docs/fail-safe-bot.md` (Review fallback).
