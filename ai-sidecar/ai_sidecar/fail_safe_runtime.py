@@ -10,20 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
-def maintainer_enabled() -> bool:
-    return os.environ.get("AIMC_MAINTAINER", "").strip().lower() in ("1", "true", "yes")
-
-
-def repo_root() -> str:
-    root = os.environ.get("AIMC_REPO_ROOT", "").strip()
-    if root and os.path.isdir(root):
-        return root
-    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    candidate = os.path.dirname(here)
-    if os.path.isfile(os.path.join(candidate, "package.json")):
-        return candidate
-    return ""
+from .fail_safe_fix import maintainer_enabled, repo_root
 
 
 class RuntimeDeliverRequest(BaseModel):
@@ -64,14 +51,19 @@ def deliver_runtime_report(body: RuntimeDeliverRequest) -> RuntimeDeliverRespons
     if not os.path.isfile(script):
         return RuntimeDeliverResponse(ok=False, stage="config", message=f"Missing script: {script}")
 
-    with tempfile.NamedTemporaryFile(
+    # delete=False + explicit close: Windows cannot reopen a NamedTemporaryFile while open.
+    tmp = tempfile.NamedTemporaryFile(
         mode="w",
         suffix=".json",
         delete=False,
         encoding="utf-8",
-    ) as tmp:
+    )
+    try:
         json.dump(body.payload, tmp)
+        tmp.flush()
         tmp_path = tmp.name
+    finally:
+        tmp.close()
 
     args = [node, script, tmp_path, "--json"]
     if body.mode == "branch":

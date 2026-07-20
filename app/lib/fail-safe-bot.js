@@ -81,13 +81,13 @@ export const FAILURE_PLAYBOOKS = {
     title: "Playwright e2e failure",
     patterns: [/playwright/i, /test:e2e/i, /e2e subset/i],
     fixCommands: ["npm run test:e2e:subset"],
-    safeFallback: "Run e2e subset locally with sidecar running (npm run sidecar:start).",
+    safeFallback: "Run e2e subset locally with sidecar running (npm run sidecar).",
     docsPath: "docs/ci-reliability.md",
   },
   sidecar_offline: {
     title: "AI sidecar offline",
     patterns: [/sidecar.*offline/i, /8723\/health/i, /did not become ready/i],
-    fixCommands: ["npm run sidecar:start", "curl -sf http://127.0.0.1:8723/health"],
+    fixCommands: ["npm run sidecar", "curl -sf http://127.0.0.1:8723/health"],
     safeFallback: "Analyzers fall back to heuristic BPM/key when sidecar is offline.",
   },
   catalog_drift: {
@@ -173,7 +173,7 @@ export function buildRuntimeHealthReport(input = {}) {
       severity: "warn",
       title: "AI sidecar offline",
       detail: sidecarError?.trim() || "Sidecar not responding — analyzers use heuristics.",
-      fixCommands: ["npm run sidecar:start"],
+      fixCommands: ["npm run sidecar"],
       safeFallback: "Heuristic BPM/key still works; librosa/MusicGen need sidecar.",
       docsPath: "docs/ci-reliability.md",
     });

@@ -325,6 +325,7 @@ def fail_safe_capabilities() -> dict[str, bool | str]:
     return {
         "maintainer_mode": maintainer_enabled(),
         "fix_push_available": maintainer_enabled(),
+        "runtime_deliver_available": maintainer_enabled(),
         "repo_root": os.environ.get("AIMC_REPO_ROOT", ""),
     }
 

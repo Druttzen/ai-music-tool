@@ -707,6 +707,7 @@ export interface FailSafeFixPushResult {
 export async function fetchFailSafeCapabilities(): Promise<{
   maintainer_mode: boolean;
   fix_push_available: boolean;
+  runtime_deliver_available?: boolean;
   repo_root?: string;
 } | null> {
   try {
