@@ -13,16 +13,19 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
-const isWin = process.platform === "win32";
 const mode = process.env.FAIL_SAFE_MODE === "diagnose" ? "diagnose" : "fix";
 const prNumber = process.env.PR_NUMBER || "";
 const outFile = process.env.FAIL_SAFE_COMMENT_FILE || "";
 
 function run(cmd, args, opts = {}) {
+  const allowed = new Set([process.execPath, "git", "gh", "npm"]);
+  if (!allowed.has(cmd)) {
+    throw new Error(`fail-safe-pr-autofix: disallowed command ${cmd}`);
+  }
   return spawnSync(cmd, args, {
     cwd: root,
     encoding: "utf8",
-    shell: isWin && (cmd === "npm" || cmd === "gh" || cmd.endsWith(".cmd")),
+    shell: false,
     ...opts,
   });
 }
@@ -69,7 +72,7 @@ async function main() {
       ok: true,
       changed: false,
       branch,
-      message: "Diagnosis-only mode (no autofix).",
+      message: "Diagnosis-only mode (no auto-fix).",
     });
     if (outFile) fs.writeFileSync(outFile, body);
     else process.stdout.write(body);
@@ -111,7 +114,7 @@ async function main() {
     process.exit(0);
   }
 
-  git(["add", "-u"]);
+  git(["add", "-A"]);
   git(["commit", "-m", `fix: fail-safe auto repair (${new Date().toISOString().slice(0, 10)})`]);
   const commit = git(["rev-parse", "--short", "HEAD"]);
   const push = run("git", ["push", "origin", "HEAD"], { stdio: "inherit" });

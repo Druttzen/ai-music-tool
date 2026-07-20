@@ -55,6 +55,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           HEAD_BRANCH: ${{ steps.meta.outputs.head_ref }}
+          PR_URL: https://github.com/${{ github.repository }}/pull/${{ steps.meta.outputs.pr_number }}
         run: |
           gh run view "${{ github.event.workflow_run.id }}" --log-failed > /tmp/ci-fail.log || true
           node scripts/fail-safe-bot-comment.cjs /tmp/ci-fail.log > /tmp/bot-comment.md
