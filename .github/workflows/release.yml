@@ -55,38 +55,76 @@ jobs:
           fs.writeFileSync("release-notes.md", out.join("\n") + "\n");
           NODE
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
-      - name: Remove partial GitHub release (avoid electron-builder 422)
+      # Build only. electron-builder's GitHub publisher races itself (parallel
+      # create-release for .exe + .blockmap -> 422 already_exists) and is brittle
+      # on GitHub upload 5xx. Upload assets with gh instead.
+      - name: Build Windows installer
+        run: node scripts/run-electron-builder.cjs --publish never
+      - name: Upload installer artifacts (recovery backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-windows-installer
+          path: |
+            electron-dist/*Setup*.exe
+            electron-dist/*Setup*.exe.blockmap
+            electron-dist/latest.yml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Ensure GitHub release and upload installer assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
-          set -e
-          REPO="${GITHUB_REPOSITORY}"
-          RELEASE_ID=$(gh release view "$TAG" --json id -q .id 2>/dev/null || true)
-          if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
-            echo "Deleting existing release ${TAG} (id ${RELEASE_ID})"
-            gh api -X DELETE "repos/${REPO}/releases/${RELEASE_ID}"
-          else
-            echo "No existing release for ${TAG}"
-          fi
-      - name: Build and publish Windows installer
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/run-electron-builder.cjs --publish always
-      - name: Ensure all installer assets on GitHub release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-        run: |
-          set -e
+          set -euo pipefail
           OUT=$(cat build/.electron-dist-output 2>/dev/null || echo electron-dist)
           shopt -s nullglob
           files=("${OUT}"/*Setup*.exe "${OUT}"/*Setup*.exe.blockmap "${OUT}"/latest.yml)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No installer artifacts in ${OUT}"
+            ls -la "${OUT}" || true
             exit 1
           fi
-          echo "Uploading ${#files[@]} asset(s) to ${TAG}"
-          gh release upload "$TAG" "${files[@]}" --clobber
+
+          for attempt in 1 2 3 4 5; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Release ${TAG} already exists; updating notes"
+              if gh release edit "$TAG" --notes-file release-notes.md --title "${TAG#v}"; then
+                break
+              fi
+            else
+              echo "Creating release ${TAG} (attempt ${attempt})"
+              if gh release create "$TAG" \
+                --title "${TAG#v}" \
+                --notes-file release-notes.md \
+                --verify-tag; then
+                break
+              fi
+            fi
+            echo "Release ensure failed; waiting before retry..."
+            sleep $((attempt * 20))
+          done
+          gh release view "$TAG" >/dev/null
+
+          # Upload one file at a time with long backoff (uploads.github.com 5xx).
+          failed=0
+          for f in "${files[@]}"; do
+            ok=0
+            for attempt in 1 2 3 4 5 6 7 8; do
+              echo "Uploading $(basename "$f") (attempt ${attempt})"
+              if gh release upload "$TAG" "$f" --clobber; then
+                ok=1
+                break
+              fi
+              sleep $((attempt * 20))
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "Failed to upload $(basename "$f") after retries"
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "One or more asset uploads failed (artifacts retained for recovery)"
+            exit 1
+          fi
+          echo "All assets uploaded to ${TAG}"
