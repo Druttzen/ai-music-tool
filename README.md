@@ -1,8 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.50.1**
+**Version 0.50.2**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build (primary) with native DSP export and Python sidecar integration. Legacy **Electron** Windows installer remains but is deprecated — see [docs/desktop.md](docs/desktop.md).
+
+## Highlights (v0.50.2)
+
+- **Fail-Safe Ops CLI** — `npm run fail-safe-ops` for diagnose / run / auto / fix-push / deliver-runtime.
+- **Fail-Safe Runtime (opt-in)** — background error queue, GitHub new-issue flush, maintainer PAT issue + draft `cursor/runtime-fail-*` PR via sidecar.
+- **Sidecar playbooks** — fix offline hint to `npm run sidecar` (plus `sidecar:start` alias).
 
 ## Highlights (v0.50.1)
 
