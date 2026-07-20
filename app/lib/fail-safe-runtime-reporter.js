@@ -1,0 +1,219 @@
+/**
+ * Fail-Safe Runtime reporter — format runtime errors for GitHub agents (Product B).
+ *
+ * Phase 0–1: format + local queue only. No network / no auto-push.
+ * Enable + telemetry consent both default OFF.
+ *
+ * See docs/fail-safe-split.md
+ */
+
+import { classifyFailureText, formatAgentFixPrompt } from "./fail-safe-bot.js";
+import { safeLocalStorage } from "./safe-local-storage.js";
+
+export const RUNTIME_REPORT_ENABLED_KEY = "aimc.failSafeRuntime.reportEnabled";
+export const RUNTIME_TELEMETRY_CONSENT_KEY = "aimc.failSafeRuntime.telemetryConsent";
+export const RUNTIME_REPORT_QUEUE_KEY = "aimc.failSafeRuntime.queue";
+
+const MAX_QUEUE = 20;
+const MAX_STACK = 8_000;
+
+/**
+ * Feature flag (localStorage) or build-time env. Default OFF.
+ * @returns {boolean}
+ */
+export function isRuntimeReportingEnabled() {
+  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_FAIL_SAFE_RUNTIME_REPORT === "1") {
+    return true;
+  }
+  return safeLocalStorage.get(RUNTIME_REPORT_ENABLED_KEY, "") === "1";
+}
+
+/**
+ * Explicit telemetry consent. Default OFF — required before enqueue.
+ * @returns {boolean}
+ */
+export function hasRuntimeTelemetryConsent() {
+  return safeLocalStorage.get(RUNTIME_TELEMETRY_CONSENT_KEY, "") === "1";
+}
+
+/**
+ * @param {boolean} enabled
+ */
+export function setRuntimeReportingEnabled(enabled) {
+  if (enabled) {
+    safeLocalStorage.set(RUNTIME_REPORT_ENABLED_KEY, "1");
+  } else {
+    safeLocalStorage.remove(RUNTIME_REPORT_ENABLED_KEY);
+  }
+}
+
+/**
+ * @param {boolean} consented
+ */
+export function setRuntimeTelemetryConsent(consented) {
+  if (consented) {
+    safeLocalStorage.set(RUNTIME_TELEMETRY_CONSENT_KEY, "1");
+  } else {
+    safeLocalStorage.remove(RUNTIME_TELEMETRY_CONSENT_KEY);
+  }
+}
+
+/** Both flags must be on before any queue write. */
+export function canQueueRuntimeReports() {
+  return isRuntimeReportingEnabled() && hasRuntimeTelemetryConsent();
+}
+
+/**
+ * Branch convention for maintainer/agent fix branches (never auto-pushed from user installs).
+ * @param {{ at?: number, fingerprint?: string }} [opts]
+ */
+export function runtimeFailBranchName(opts = {}) {
+  const at = opts.at || Date.now();
+  const d = new Date(at);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const fp = String(opts.fingerprint || "err")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 24)
+    .toLowerCase() || "err";
+  return `cursor/runtime-fail-${y}${m}${day}-${fp}`;
+}
+
+/**
+ * Light redaction — strip obvious secrets from error text before queue/issue body.
+ * @param {string} text
+ */
+export function redactRuntimeLog(text) {
+  return String(text || "")
+    .replace(/\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b/g, "[redacted-token]")
+    .replace(/\b(AIMC_GITHUB_TOKEN|GITHUB_TOKEN|Authorization)\s*[:=]\s*\S+/gi, "$1=[redacted]")
+    .slice(0, MAX_STACK);
+}
+
+/**
+ * @typedef {object} RuntimeReportInput
+ * @property {string} [source] — e.g. window.onerror, unhandledrejection, sidecar_offline
+ * @property {string} [message]
+ * @property {string} [stack]
+ * @property {string} [sidecarAiStatus]
+ * @property {string} [appVersion]
+ * @property {number} [at]
+ */
+
+/**
+ * Build GitHub issue / agent-ready payload (no network).
+ * @param {RuntimeReportInput} input
+ */
+export function formatRuntimeReportPayload(input = {}) {
+  const at = input.at || Date.now();
+  const message = redactRuntimeLog(input.message || "Unknown runtime error");
+  const stack = redactRuntimeLog(input.stack || "");
+  const source = String(input.source || "runtime").slice(0, 64);
+  const haystack = [message, stack, source].filter(Boolean).join("\n");
+  const issues = classifyFailureText(haystack);
+  const fingerprint = (issues[0]?.id || message).slice(0, 48);
+  const branch = runtimeFailBranchName({ at, fingerprint });
+
+  const issueTitle = `[fail-safe-runtime] ${message.slice(0, 80)}`;
+  const labels = ["fail-safe-runtime", "needs-agent"];
+  if (issues.some((i) => i.severity === "fail")) labels.push("severity:fail");
+  else if (issues.some((i) => i.severity === "warn")) labels.push("severity:warn");
+
+  const issueBody = [
+    "## Fail-Safe Runtime report",
+    "",
+    `Source: \`${source}\``,
+    `App version: ${input.appVersion || "(unknown)"}`,
+    `Sidecar: ${input.sidecarAiStatus || "(n/a)"}`,
+    `Suggested agent branch: \`${branch}\``,
+    `Captured: ${new Date(at).toISOString()}`,
+    "",
+    "### Message",
+    "```",
+    message,
+    "```",
+    "",
+    stack
+      ? ["### Stack", "```", stack, "```", ""].join("\n")
+      : "",
+    "### Classified playbooks",
+    issues.length
+      ? issues.map((i) => `- **${i.title}** (\`${i.id}\`)`).join("\n")
+      : "- (unclassified — diagnose from log)",
+    "",
+    "### Agent prompt",
+    "```",
+    formatAgentFixPrompt(haystack, { branch }),
+    "```",
+    "",
+    "---",
+    "Generated by Fail-Safe Runtime (Product B). Do not auto-merge. See docs/fail-safe-split.md.",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+
+  return {
+    at,
+    source,
+    fingerprint,
+    branch,
+    issueTitle,
+    issueBody,
+    labels,
+    issues,
+    delivery: "local-queue-only",
+  };
+}
+
+/**
+ * @returns {object[]}
+ */
+export function getRuntimeReportQueue() {
+  const list = safeLocalStorage.getJSON(RUNTIME_REPORT_QUEUE_KEY, []);
+  return Array.isArray(list) ? list : [];
+}
+
+/**
+ * Enqueue if enable + consent. Never posts to GitHub in phase 0–1.
+ * @param {RuntimeReportInput} input
+ * @returns {{ ok: boolean, reason?: string, payload?: object }}
+ */
+export function enqueueRuntimeReport(input = {}) {
+  if (!canQueueRuntimeReports()) {
+    return { ok: false, reason: "reporting-disabled-or-no-consent" };
+  }
+  const payload = formatRuntimeReportPayload(input);
+  const queue = getRuntimeReportQueue();
+  const dup = queue.some(
+    (item) => item.fingerprint === payload.fingerprint && Math.abs((item.at || 0) - payload.at) < 60_000,
+  );
+  if (dup) {
+    return { ok: false, reason: "duplicate", payload };
+  }
+  const next = [payload, ...queue].slice(0, MAX_QUEUE);
+  safeLocalStorage.setJSON(RUNTIME_REPORT_QUEUE_KEY, next);
+  return { ok: true, payload };
+}
+
+/**
+ * Convenience for sidecar_offline (and similar) health issues — no-op unless flags on.
+ * @param {{ id?: string, title?: string, detail?: string, severity?: string }} issue
+ * @param {{ sidecarAiStatus?: string, appVersion?: string }} [meta]
+ */
+export function maybeReportHealthIssue(issue, meta = {}) {
+  if (!issue || (issue.severity !== "warn" && issue.severity !== "fail")) {
+    return { ok: false, reason: "not-actionable" };
+  }
+  if (issue.id === "sidecar_standby" || issue.id === "runtime_ok" || issue.id === "musicgen_unavailable") {
+    return { ok: false, reason: "informational" };
+  }
+  return enqueueRuntimeReport({
+    source: `health:${issue.id || "unknown"}`,
+    message: issue.title || issue.id || "Health issue",
+    stack: issue.detail || "",
+    sidecarAiStatus: meta.sidecarAiStatus,
+    appVersion: meta.appVersion,
+  });
+}

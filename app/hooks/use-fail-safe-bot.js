@@ -7,6 +7,7 @@ import {
   formatReportSummary,
   getActionableIssues,
 } from "../lib/fail-safe-bot";
+import { maybeReportHealthIssue } from "../lib/fail-safe-runtime-reporter";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
 
@@ -50,6 +51,10 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
       });
       setReport(next);
       safeLocalStorage.setJSON(FAIL_SAFE_STORAGE_KEY, next);
+      // Fail-Safe Runtime (Product B): local queue only when enable + consent (default OFF).
+      for (const issue of getActionableIssues(next.issues)) {
+        maybeReportHealthIssue(issue, { sidecarAiStatus });
+      }
     } finally {
       setBusy(false);
     }

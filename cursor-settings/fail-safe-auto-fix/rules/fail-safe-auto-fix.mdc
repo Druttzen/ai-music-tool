@@ -35,3 +35,7 @@ Then:
 4. Do **not** retry Cursor Bugbot / paid cloud review until billing is fixed; point the user at fail-safe + in-chat review instead.
 
 See `docs/fail-safe-bot.md` (Review fallback).
+
+## Product split (Ops vs Runtime)
+
+Fail-safe is splitting into **Fail-Safe Ops** (GitHub CI auto-fix / review — `fail-safe-ops/`, scripts, workflows) and **Fail-Safe Runtime** (in-app detector — `app/lib/fail-safe-runtime-reporter.js`). Plan: `docs/fail-safe-split.md`. Classifier source of truth remains `app/lib/fail-safe-bot.js` until Ops owns the package. Never auto-push from end-user Runtime reports without maintainer auth.
