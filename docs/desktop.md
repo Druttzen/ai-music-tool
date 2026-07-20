@@ -62,4 +62,14 @@ npm run ship:tag              # studio-vX.Y.Z only
 npm run ship:tag -- --electron  # also push vX.Y.Z for legacy Electron
 ```
 
-See [architecture-convergence.md](architecture-convergence.md) for Electron call-site inventory and sidecar convergence.
+See [desktop.md](desktop.md).
+
+## Publish
+
+Full path until GitHub Release: **[publish.md](publish.md)**.
+
+```bash
+npm run ship:ready -- --print    # checklist
+npm run ship:ready               # gates (e2e subset)
+npm run ship:tag                 # studio-v* → CI publish
+```
