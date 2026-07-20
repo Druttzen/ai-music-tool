@@ -2,6 +2,8 @@
 
 Automatic build/CI failure detection, safe fallbacks, and optional auto-fix for AI Music Creator.
 
+> **Product split (in progress):** Fail-safe is dividing into **Fail-Safe Ops** (GitHub auto-fix / review) and **Fail-Safe Runtime** (in-app detector). Architecture + migration: [fail-safe-split.md](fail-safe-split.md). Existing CLI, CI workflows, and in-app Fix & push remain unchanged until phase 2+.
+
 ## Quick setup (one command)
 
 ```bash
@@ -119,4 +121,13 @@ Optional: top up credits at [cursor.com/dashboard](https://cursor.com/dashboard)
 
 `.github/workflows/fail-safe-bot.yml` comments on PRs **and master push** CI failures with classified fix hints. That workflow is the in-repo “review-like” feedback on CI failures; it does not depend on Cursor billing.
 
-See also: [ci-reliability.md](ci-reliability.md), [sourcery-auto-fix.md](sourcery-auto-fix.md).
+## Fail-Safe Runtime reporter (opt-in)
+
+In-app background reporting toward GitHub (issue / `cursor/runtime-fail-*` branch) is scaffolded in `app/lib/fail-safe-runtime-reporter.js`. **Default OFF.** Requires both:
+
+- Enable: localStorage `aimc.failSafeRuntime.reportEnabled=1` or `NEXT_PUBLIC_FAIL_SAFE_RUNTIME_REPORT=1`
+- Consent: localStorage `aimc.failSafeRuntime.telemetryConsent=1`
+
+Phase 0–1 only queues formatted payloads locally — no silent network and no auto-push from end-user installs. See [fail-safe-split.md](fail-safe-split.md).
+
+See also: [ci-reliability.md](ci-reliability.md), [sourcery-auto-fix.md](sourcery-auto-fix.md), [fail-safe-split.md](fail-safe-split.md).
