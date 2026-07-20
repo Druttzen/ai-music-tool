@@ -566,10 +566,22 @@ Full CI parity including Playwright e2e (restarts sidecar):
 npm run check:full:e2e
 ```
 
-One-shot pre-tag gate (sync versions + `check:full`; add `-E2e` or `-Dist` as needed):
+One-shot pre-publish ladder (checklist + gates):
+
+```bash
+npm run ship:ready -- --print      # print checklist
+npm run ship:ready                 # sync + check:ci:e2e-subset
+npm run ship:ready -- --full       # + smoke + local tauri:build
+npm run ship:tag                   # push studio-v* → CI Release
+```
+
+Full write-up: **[docs/publish.md](docs/publish.md)**.
+
+One-shot pre-tag gate (sync versions + `check:full`; add flags as needed):
 
 ```powershell
 npm run ship:preflight
+npm run ship:preflight -- -E2eSubset -Tauri
 npm run ship:preflight -- -E2e -Dist
 ```
 
