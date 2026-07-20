@@ -99,17 +99,10 @@ def vocal_model_status() -> dict[str, Any]:
 
 
 def _select_torch_device() -> str:
-    try:
-        import torch  # noqa: PLC0415
+    from .device import select_device
 
-        if torch.cuda.is_available():
-            return "cuda:0"
-        mps = getattr(torch.backends, "mps", None)
-        if mps is not None and mps.is_available():
-            return "mps"
-    except Exception:
-        pass
-    return "cpu"
+    device = select_device()
+    return "cuda:0" if device == "cuda" else device
 
 
 def _write_mono_wav(path: str, mono: np.ndarray, sample_rate: int) -> None:

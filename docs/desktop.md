@@ -14,7 +14,14 @@ Tauri is the supported desktop path going forward. It bundles:
 
 The **Electron** installer (`npm run dist`, `main.js`) remains for existing installs but is **deprecated**. Do not start new desktop features on Electron IPC.
 
-**Sunset timeline:** Electron releases continue through **v0.48.x** for backward compatibility. **v0.49+** will be Tauri-only on the release train; `npm run dist` remains available for maintenance builds but is not part of `npm run ship:tag` or the default developer workflow.
+**Sunset timeline (updated for v0.50.2+):**
+
+| Train | Tag | Status |
+|-------|-----|--------|
+| **Tauri Studio (canonical)** | `studio-v*` | Default `npm run ship:tag` |
+| **Electron (legacy)** | `v*` | Opt-in only: `npm run ship:tag -- --electron` or `workflow_dispatch` on `release.yml` |
+
+Last dual-tag default ship was **v0.50.2**. From the next release onward, `ship:tag` pushes **studio only** unless `--electron` is passed. Electron auto-update users should migrate to Studio installers; maintenance Electron builds remain via `npm run dist` / manual workflow.
 
 | Capability | Tauri (primary) | Electron (legacy) |
 |------------|-----------------|-------------------|
@@ -43,7 +50,12 @@ npm run dist       # Windows NSIS installer
 ## CI & releases
 
 - `tauri-smoke` — Tauri build smoke on every push
-- `release.yml` — publishes Windows **Electron** installer on `v*` tags
-- `tauri-studio-release.yml` — publishes **Tauri** studio builds on `studio-v*` tags
+- `tauri-studio-release.yml` — publishes **Tauri** studio builds on `studio-v*` tags (**default ship**)
+- `release.yml` — Electron installer via **manual** `workflow_dispatch` only (no automatic `v*` push from default `ship:tag`)
 
-`npm run ship:tag` pushes **both** `vX.Y.Z` and `studio-vX.Y.Z` so Electron and Tauri release workflows stay aligned.
+```bash
+npm run ship:tag              # studio-vX.Y.Z only
+npm run ship:tag -- --electron  # also push vX.Y.Z for legacy Electron
+```
+
+See [architecture-convergence.md](architecture-convergence.md) for Electron call-site inventory and sidecar convergence.

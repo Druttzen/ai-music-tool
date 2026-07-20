@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * Tag-only release: check:full then push git tag (CI release.yml builds installer).
- * Commit version bump first. Usage: node scripts/ship-tag-release.cjs [vX.Y.Z]
+ * Tag-only release: check:full then push git tag(s).
+ * Commit version bump first.
+ *
+ * Usage:
+ *   node scripts/ship-tag-release.cjs [vX.Y.Z]             # studio-v* only (default)
+ *   node scripts/ship-tag-release.cjs [vX.Y.Z] --electron  # also push Electron v* tag
  */
 const { spawnSync } = require("child_process");
 const fs = require("fs");
@@ -9,6 +13,9 @@ const path = require("path");
 
 const root = path.join(__dirname, "..");
 const isWin = process.platform === "win32";
+const argv = process.argv.slice(2);
+const withElectron = argv.includes("--electron");
+const tagArg = argv.find((a) => !a.startsWith("--"));
 
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, {
@@ -21,7 +28,9 @@ function run(cmd, args, opts = {}) {
 }
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-const tag = process.argv[2] || `v${pkg.version}`;
+const raw = tagArg || `v${pkg.version}`;
+const versionTag = raw.startsWith("v") ? raw : `v${raw}`;
+const studioTag = `studio-${versionTag}`;
 
 const status = spawnSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" });
 if (status.stdout?.trim()) {
@@ -29,16 +38,24 @@ if (status.stdout?.trim()) {
   process.exit(1);
 }
 
-console.log(`ship-tag-release: check:full + e2e subset for ${tag}`);
+console.log(`ship-tag-release: check:full + e2e subset for ${studioTag}`);
 run(process.execPath, [path.join(__dirname, "run-check-full.cjs"), "--e2e-subset"]);
 
-console.log(`ship-tag-release: pushing tags ${tag} + studio-${tag}`);
-const studioTag = `studio-${tag}`;
-run("git", ["tag", tag]);
 run("git", ["tag", studioTag]);
+const pushTags = [studioTag];
+if (withElectron) {
+  console.log(`ship-tag-release: also tagging Electron ${versionTag} (--electron)`);
+  run("git", ["tag", versionTag]);
+  pushTags.push(versionTag);
+} else {
+  console.log(`ship-tag-release: studio-only (pass --electron to also push ${versionTag})`);
+}
+
 run("git", ["push", "origin", "HEAD"]);
-run("git", ["push", "origin", tag, studioTag]);
+run("git", ["push", "origin", ...pushTags]);
 
 console.log(
-  "ship-tag-release: OK — release.yml (Electron) + tauri-studio-release.yml (Tauri)",
+  withElectron
+    ? "ship-tag-release: OK — tauri-studio-release.yml + release.yml (Electron)"
+    : "ship-tag-release: OK — tauri-studio-release.yml (Tauri Studio primary)",
 );

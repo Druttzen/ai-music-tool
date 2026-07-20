@@ -8,6 +8,26 @@
 import { isTauriApp } from "./dsp-bridge";
 import { formatApiError } from "./api-error-messages";
 
+export interface SidecarCapability {
+  id: string;
+  title: string;
+  tasks: string[];
+  install_hint: string;
+  license: string;
+  commercial_use: boolean;
+  available: boolean;
+}
+
+export interface SidecarDeviceInfo {
+  backend: string;
+  device: string;
+  name: string;
+  total_vram_gb: number;
+  torch_available: boolean;
+  torch_version?: string | null;
+  cuda_version?: string | null;
+}
+
 export interface SidecarHealth {
   status: string;
   device: string;
@@ -24,6 +44,9 @@ export interface SidecarHealth {
   generate_available?: boolean;
   fix_push_available?: boolean;
   maintainer_mode?: boolean;
+  device_info?: SidecarDeviceInfo | null;
+  capabilities?: SidecarCapability[] | null;
+  policy?: Record<string, unknown> | null;
 }
 
 export interface SidecarAnalysis {

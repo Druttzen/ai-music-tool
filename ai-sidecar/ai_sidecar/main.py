@@ -17,9 +17,7 @@ from __future__ import annotations
 
 import io
 import os
-import secrets
 import tempfile
-import time
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -32,13 +30,9 @@ from .vocal_embed import (
     VocalEmbedPlanEnvelope,
     VocalEmbedPlanResponse,
     accept_vocal_embed_plan,
-    vocal_ml_available,
     vocal_synthesis_available,
 )
 from .vocal_ml_models import (
-    diffsinger_configured,
-    full_ml_vocal_models_available,
-    rvc_ready,
     vocal_model_status,
 )
 from .diffsinger_openvpi import export_ds_bundle_from_plan
@@ -52,12 +46,19 @@ from .youtube_resolve import resolve_youtube_url
 from .youtube_sonic import resolve_youtube_audio_sonic
 from .sonic_signature import extract_sonic_signature
 from .acousticbrainz import fetch_acousticbrainz_features
-from .genre_classifier import active_genre_model_id, classify_music_genres, genre_classification_available
+from .genre_classifier import active_genre_model_id, classify_music_genres
 from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
 from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
-from .musicgen import active_musicgen_model_id, generate_music_wav, generation_available
+from .musicgen import active_musicgen_model_id, generation_available
 from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer_enabled, repo_root
 from .fail_safe_runtime import RuntimeDeliverRequest, RuntimeDeliverResponse, deliver_runtime_report
+from .device import detect_device, select_device
+from .registry import capability_flags, list_capabilities
+from .jobs import JOBS
+from . import generate_jobs as _generate_jobs  # noqa: F401 — register runners
+from . import stems_separate as _stems_separate  # noqa: F401 — register runners
+from .stems_separate import separate_audio, stems_available
+from .generate_jobs import generate_via_jobs
 from .idle import (
     configure_idle_exit,
     hold_dev_session,
@@ -70,33 +71,6 @@ _SIDECAR_TOKEN = os.environ.get("AIMC_SIDECAR_TOKEN", "").strip()
 _SIDECAR_AUTH_HEADER = "x-aimc-sidecar-token"
 
 _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-
-# Loaded Demucs models are cached per name to avoid reloading on every request.
-_MODEL_CACHE: dict[str, Any] = {}
-
-# Stem download jobs: token -> { paths: dict[str,str], created: float }
-_STEM_JOBS: dict[str, dict[str, Any]] = {}
-_STEM_JOB_TTL_SEC = 3600.0
-
-
-def _prune_stem_jobs() -> None:
-    now = time.time()
-    expired = [t for t, job in _STEM_JOBS.items() if now - job["created"] > _STEM_JOB_TTL_SEC]
-    for token in expired:
-        job = _STEM_JOBS.pop(token, None)
-        if not job:
-            continue
-        out_dir = job.get("out_dir")
-        if out_dir and os.path.isdir(out_dir):
-            for name in os.listdir(out_dir):
-                try:
-                    os.unlink(os.path.join(out_dir, name))
-                except OSError:
-                    pass
-            try:
-                os.rmdir(out_dir)
-            except OSError:
-                pass
 
 
 @asynccontextmanager
@@ -153,21 +127,6 @@ async def _track_sidecar_activity(request: Request, call_next):
     return await call_next(request)
 
 
-def _select_device() -> str:
-    """Auto-detect the best available device: CUDA -> Metal (MPS) -> CPU."""
-    try:
-        import torch  # noqa: PLC0415 (lazy by design)
-
-        if torch.cuda.is_available():
-            return "cuda"
-        mps = getattr(torch.backends, "mps", None)
-        if mps is not None and mps.is_available():
-            return "mps"
-    except Exception:
-        pass
-    return "cpu"
-
-
 class Health(BaseModel):
     status: str
     device: str
@@ -184,6 +143,9 @@ class Health(BaseModel):
     generate_available: bool
     fix_push_available: bool = False
     maintainer_mode: bool = False
+    device_info: dict[str, Any] | None = None
+    capabilities: list[dict[str, Any]] | None = None
+    policy: dict[str, Any] | None = None
 
 
 class GenrePrediction(BaseModel):
@@ -286,11 +248,7 @@ class AcousticBrainzResponse(BaseModel):
 
 
 def _stems_available() -> bool:
-    try:
-        import demucs  # noqa: F401, PLC0415
-    except Exception:
-        return False
-    return True
+    return stems_available()
 
 
 def _vision_available() -> bool:
@@ -300,23 +258,29 @@ def _vision_available() -> bool:
 @app.get("/health", response_model=Health)
 def health() -> Health:
     from . import __version__
+    from .device import build_policy
 
+    info = detect_device()
+    flags = capability_flags()
     return Health(
         status="ok",
-        device=_select_device(),
+        device=info.device,
         version=__version__,
-        stems_available=_stems_available(),
-        genre_available=genre_classification_available(),
-        vision_available=_vision_available(),
-        vocal_embed_plan_available=True,
-        vocal_synthesis_available=vocal_synthesis_available(),
-        vocal_ml_available=vocal_ml_available(),
-        vocal_models_available=full_ml_vocal_models_available(),
-        vocal_rvc_available=rvc_ready(),
-        vocal_diffsinger_available=diffsinger_configured(),
-        generate_available=generation_available(),
+        stems_available=flags["stems_available"],
+        genre_available=flags["genre_available"],
+        vision_available=flags["vision_available"],
+        vocal_embed_plan_available=flags["vocal_embed_plan_available"],
+        vocal_synthesis_available=flags["vocal_synthesis_available"],
+        vocal_ml_available=flags["vocal_ml_available"],
+        vocal_models_available=flags["vocal_models_available"],
+        vocal_rvc_available=flags["vocal_rvc_available"],
+        vocal_diffsinger_available=flags["vocal_diffsinger_available"],
+        generate_available=flags["generate_available"],
         fix_push_available=maintainer_enabled() and bool(repo_root()),
         maintainer_mode=maintainer_enabled(),
+        device_info=info.as_dict(),
+        capabilities=list_capabilities(),
+        policy=build_policy(info).as_dict(),
     )
 
 
@@ -494,7 +458,7 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
     percussive_energy = float(np.mean(np.abs(percussive))) + 1e-9
     total_hp = harmonic_energy + percussive_energy
 
-    device = _select_device()
+    device = select_device()
     genre_raw = classify_music_genres(y, sr, device=device)
     genre_predictions = (
         [GenrePrediction(label=item["label"], score=item["score"]) for item in genre_raw]
@@ -538,7 +502,7 @@ async def analyze_image(
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
 
-    device = _select_device()
+    device = select_device()
     text = caption_image_bytes(raw, device=device) if caption else None
     if caption and not text and not clip_tags:
         raise HTTPException(status_code=422, detail="could not caption image")
@@ -580,30 +544,23 @@ async def generate_music(body: GenerateRequest):
     if not prompt:
         raise HTTPException(status_code=400, detail="prompt is required")
 
-    device = _select_device()
     try:
-        wav_bytes, meta = generate_music_wav(
-            prompt,
-            duration_sec=body.duration_sec,
-            device=device,
-        )
+        result = generate_via_jobs(prompt, duration_sec=body.duration_sec)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    tmp.write(wav_bytes)
-    tmp.close()
-    filename = "musicgen-preview.wav"
+    meta = result.get("meta") or {}
     return FileResponse(
-        tmp.name,
+        result["path"],
         media_type="audio/wav",
-        filename=filename,
+        filename="musicgen-preview.wav",
         headers={
             "X-MusicGen-Model": str(meta.get("model") or active_musicgen_model_id()),
             "X-MusicGen-Duration-Sec": str(meta.get("duration_sec") or body.duration_sec),
             "X-MusicGen-Mode": str(meta.get("mode") or "text"),
+            "X-Job-Id": str(result.get("job_id") or ""),
         },
     )
 
@@ -629,24 +586,16 @@ async def generate_music_with_melody(
     if not melody_raw:
         raise HTTPException(status_code=400, detail="empty melody upload")
 
-    device = _select_device()
     try:
-        wav_bytes, meta = generate_music_wav(
-            text,
-            duration_sec=duration_sec,
-            melody_wav=melody_raw,
-            device=device,
-        )
+        result = generate_via_jobs(text, duration_sec=duration_sec, melody_wav=melody_raw)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    tmp.write(wav_bytes)
-    tmp.close()
+    meta = result.get("meta") or {}
     return FileResponse(
-        tmp.name,
+        result["path"],
         media_type="audio/wav",
         filename="musicgen-melody-preview.wav",
         headers={
@@ -719,19 +668,6 @@ async def vocal_embed_ds_export(
     return export_ds_bundle_from_plan(plan, guide_mono=guide_mono, sample_rate=sample_rate)
 
 
-def _load_demucs(model_name: str):
-    """Load (and cache) a pretrained Demucs model onto the best device."""
-    import torch  # noqa: PLC0415
-    from demucs.pretrained import get_model  # noqa: PLC0415
-
-    if model_name not in _MODEL_CACHE:
-        model = get_model(model_name)
-        model.to(_select_device())
-        model.eval()
-        _MODEL_CACHE[model_name] = model
-    return _MODEL_CACHE[model_name], torch
-
-
 class StemFile(BaseModel):
     name: str
     download_url: str
@@ -749,101 +685,49 @@ class SeparateResult(BaseModel):
 @app.get("/separate/download/{job_id}/{filename}")
 def separate_download(job_id: str, filename: str):
     """Download one separated stem WAV by job token."""
-    _prune_stem_jobs()
-    job = _STEM_JOBS.get(job_id)
-    if not job:
+    JOBS.prune()
+    job = JOBS.get(job_id)
+    if not job or not job.result:
         raise HTTPException(status_code=404, detail="stem job not found or expired")
     safe = os.path.basename(filename)
-    path = job["paths"].get(safe)
+    path = (job.result.get("paths") or {}).get(safe)
     if not path or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="stem file not found")
     return FileResponse(path, media_type="audio/wav", filename=safe)
 
 
-def _save_stem_wav(source, path: str, samplerate: int) -> None:
-    """Write a Demucs stem tensor to 16-bit WAV via soundfile (no torchcodec)."""
-    import numpy as np  # noqa: PLC0415
-    import soundfile as sf  # noqa: PLC0415
-
-    if hasattr(source, "detach"):
-        data = source.detach().cpu().numpy()
-    else:
-        data = np.asarray(source)
-    if data.ndim == 2:
-        data = data.T
-    sf.write(path, data, samplerate, subtype="PCM_16")
-
-
 @app.post("/separate", response_model=SeparateResult)
 async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
     """Stem separation via Demucs — returns HTTP download URLs for each stem."""
-    try:
-        from demucs.apply import apply_model  # noqa: PLC0415
-        from demucs.audio import AudioFile  # noqa: PLC0415
-    except Exception as exc:
+    if not stems_available():
         raise HTTPException(
             status_code=503,
-            detail=f"stem separation unavailable — install the 'stems' extra ({exc})",
-        ) from exc
+            detail="stem separation unavailable — install the 'stems' extra",
+        )
 
     raw = await file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
 
-    device = _select_device()
-    suffix = os.path.splitext(file.filename or "in.wav")[1] or ".wav"
-    tmp_in = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-    tmp_in.write(raw)
-    tmp_in.close()
-    out_dir = tempfile.mkdtemp(prefix="stems_")
-
     try:
-        model, torch = _load_demucs(model_name)
-
-        wav = AudioFile(tmp_in.name).read(
-            streams=0, samplerate=model.samplerate, channels=model.audio_channels
-        )
-        ref = wav.mean(0)
-        wav = (wav - ref.mean()) / (ref.std() + 1e-8)
-
-        with torch.no_grad():
-            estimates = apply_model(model, wav[None], device=device, progress=False)[0]
-        estimates = estimates * (ref.std() + 1e-8) + ref.mean()
-
-        stems: dict[str, str] = {}
-        for source, name in zip(estimates, model.sources):
-            path = os.path.join(out_dir, f"{name}.wav")
-            _save_stem_wav(source, path, model.samplerate)
-            stems[name] = path
-
-        _prune_stem_jobs()
-        job_id = secrets.token_urlsafe(12)
-        _STEM_JOBS[job_id] = {
-            "paths": {f"{name}.wav": p for name, p in stems.items()},
-            "out_dir": out_dir,
-            "created": time.time(),
-        }
-        stem_files = [
-            StemFile(
-                name=name,
-                filename=f"{name}.wav",
-                download_url=f"/separate/download/{job_id}/{name}.wav",
-            )
-            for name in model.sources
-        ]
-        return SeparateResult(
-            device=device,
-            model=model_name,
-            sources=list(model.sources),
-            job_id=job_id,
-            stems=stem_files,
-        )
-    except HTTPException:
-        raise
+        result = separate_audio(raw, filename=file.filename or "in.wav", model_name=model_name)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"separation failed: {exc}") from exc
-    finally:
-        try:
-            os.unlink(tmp_in.name)
-        except OSError:
-            pass
+
+    job_id = result["job_id"]
+    sources = list(result["sources"])
+    stem_files = [
+        StemFile(
+            name=name,
+            filename=f"{name}.wav",
+            download_url=f"/separate/download/{job_id}/{name}.wav",
+        )
+        for name in sources
+    ]
+    return SeparateResult(
+        device=result["device"],
+        model=result["model"],
+        sources=sources,
+        job_id=job_id,
+        stems=stem_files,
+    )

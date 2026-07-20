@@ -12,6 +12,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ai_sidecar.main import app, _stems_available
+from ai_sidecar.device import detect_device, select_device
+from ai_sidecar.registry import list_capabilities, missing_install_hints
+from ai_sidecar.jobs import JOBS, register, JobContext
 from ai_sidecar.vision_analyzer import vision_analysis_available
 
 client = TestClient(app)
@@ -52,6 +55,25 @@ def test_health_ok():
     assert isinstance(body["vocal_rvc_available"], bool)
     assert isinstance(body["vocal_diffsinger_available"], bool)
     assert isinstance(body["generate_available"], bool)
+    assert isinstance(body.get("capabilities"), list)
+    assert isinstance(body.get("device_info"), dict)
+    assert body["device_info"]["device"] == body["device"]
+    assert select_device() in ("cpu", "cuda", "mps")
+    assert detect_device().device == body["device"]
+    assert list_capabilities()
+    assert isinstance(missing_install_hints(), list)
+
+
+def test_job_manager_register_inline():
+    @register("test.echo")
+    def _echo(ctx: JobContext):
+        ctx.set_progress(0.5, "halfway")
+        return {"ok": True, "n": ctx.payload.get("n")}
+
+    job = JOBS.run_inline("test.echo", {"n": 3}, label="echo")
+    assert job.status == "done"
+    assert job.result == {"ok": True, "n": 3}
+    assert JOBS.get(job.job_id) is job
 
 
 def test_health_allows_local_dev_cors():

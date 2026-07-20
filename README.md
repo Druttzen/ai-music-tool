@@ -78,7 +78,7 @@ A Next.js app for building dense, reproducible prompts for AI music workflows (e
 
 - **Vocal Embed Studio hook split** — `useVocalEmbedStudio` + `vocal-embed-studio-utils` (testable capabilities/engine labels).
 - **CC0 catalog lazy-load** — `awesome-suno-catalog-loader` dynamic import; Maestro preloads on mount; picker loads on open.
-- **CI-only release path** — `npm run ship:tag` pushes tag; `release.yml` builds and publishes installer (no local `gh release create`).
+- **CI-only release path** — `npm run ship:tag` pushes **`studio-v*`** (Tauri primary); pass `--electron` for legacy `v*`. Electron `release.yml` is **workflow_dispatch** only.
 - **OpenVPI live e2e** — `openvpi-inference-live.spec.js` hits real `/vocal-embed/models` (skips when OpenVPI not configured).
 - **MusicGen e2e on every push** — completed in v0.34 (`e2e-musicgen` CI job + weekly live runner).
 

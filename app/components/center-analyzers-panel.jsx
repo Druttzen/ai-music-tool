@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { AudioTrackEditor } from "./audio-track-editor";
 import { DropBox, Panel } from "./ui-blocks";
 import { getImageAnalyzerDisclaimer } from "../lib/analyzer-disclaimer";
@@ -14,6 +14,8 @@ import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 import { FailSafeBotPanel } from "./fail-safe-bot-panel";
+import { musicGenInstallHint, missingSidecarInstallHints } from "../lib/sidecar-capabilities";
+import { fetchSidecarHealth } from "../lib/sidecar-bridge";
 import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
   SUNO_LYRICS_CHAR_WARN,
@@ -79,6 +81,24 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     [audioAnalysis, idea, mood, selectedGenres, selectedRhythms, selectedSounds, tempo],
   );
 
+  const [sidecarHealth, setSidecarHealth] = useState(null);
+  useEffect(() => {
+    if (sidecarAiStatus !== "ready") {
+      setSidecarHealth(null);
+      return undefined;
+    }
+    let cancelled = false;
+    void fetchSidecarHealth().then((h) => {
+      if (!cancelled) setSidecarHealth(h);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sidecarAiStatus, sidecarGenerateAvailable]);
+
+  const musicGenHint = musicGenInstallHint(sidecarHealth);
+  const missingCaps = missingSidecarInstallHints(sidecarHealth);
+
   return (
     <>
       <Panel
@@ -116,16 +136,27 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                   ? "border-amber-400/35 bg-amber-500/10 text-amber-50"
                   : "border-white/15 bg-black/30 text-white/45"
             }`}
-            title="MusicGen preview via sidecar POST /generate (npm run sidecar:generate)"
+            title={`MusicGen preview via sidecar POST /generate (${musicGenHint})`}
           >
             MusicGen:{" "}
             {sidecarGenerateAvailable
               ? "ready"
               : sidecarAiStatus === "ready"
-                ? "install extra (sidecar:generate)"
+                ? `install extra (${musicGenHint})`
                 : "needs sidecar"}
           </span>
         </div>
+        {sidecarAiStatus === "ready" && missingCaps.length ? (
+          <ul className="mb-2 space-y-0.5 rounded-xl border border-white/10 bg-black/25 px-3 py-2 font-mono text-[10px] text-white/50">
+            {missingCaps.map((cap) => (
+              <li key={cap.id}>
+                <span className="text-white/70">{cap.title}</span>
+                {" — "}
+                <code className="text-cyan-100/80">{cap.install_hint}</code>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <FailSafeBotPanel />
         <div
           className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
@@ -169,6 +200,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                   defaultPrompt={defaultMusicGenPrompt}
                   busy={generateMusicBusy}
                   available={sidecarGenerateAvailable}
+                  installHint={musicGenHint}
                   canUseMelodyReference={!!audioPreviewUrl}
                   onGenerate={generateMusicFromPrompt}
                   compact
@@ -198,6 +230,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 onGenerateMusic={generateMusicFromPrompt}
                 generateMusicBusy={generateMusicBusy}
                 sidecarGenerateAvailable={sidecarGenerateAvailable}
+                musicGenInstallHint={musicGenHint}
                 defaultMusicGenPrompt={defaultMusicGenPrompt}
                 exportBusy={audioExportBusy}
                 exportProgress={audioExportProgress}

@@ -81,6 +81,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   onGenerateMusic,
   generateMusicBusy = false,
   sidecarGenerateAvailable = false,
+  musicGenInstallHint: musicGenHintProp = "npm run sidecar:generate",
   defaultMusicGenPrompt = "",
   exportBusy = false,
   exportProgress = null,
@@ -520,6 +521,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           defaultPrompt={defaultMusicGenPrompt}
           busy={generateMusicBusy || exportBusy}
           available={sidecarGenerateAvailable}
+          installHint={musicGenHintProp}
           canUseMelodyReference={!!audioUrl}
           canUseHighlightMelody={hasMeaningfulHighlightRange(analysis)}
           onGenerate={onGenerateMusic}

@@ -32,13 +32,16 @@ def generation_available() -> bool:
 
 
 def _select_torch_device(device_name: str) -> str:
+    from .device import select_device
+
+    preferred = device_name or select_device()
     try:
         import torch  # noqa: PLC0415
 
-        if device_name == "cuda" and torch.cuda.is_available():
+        if preferred == "cuda" and torch.cuda.is_available():
             return "cuda"
         mps = getattr(torch.backends, "mps", None)
-        if device_name != "cpu" and mps is not None and mps.is_available():
+        if preferred != "cpu" and mps is not None and mps.is_available():
             return "mps"
     except Exception:
         pass

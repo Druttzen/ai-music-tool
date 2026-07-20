@@ -45,15 +45,15 @@ MusicGen weights are **CC-BY-NC** (non-commercial). The sidecar and UI warn befo
 
 ## Release trains
 
-Two tag families ship installers:
+Two tag families can ship installers:
 
-| Tag | Target |
-|-----|--------|
-| `v*` | Legacy Electron (Windows, deprecated) |
-| `studio-v*` | Tauri Studio (primary) |
+| Tag | Target | How to ship |
+|-----|--------|-------------|
+| `studio-v*` | Tauri Studio (**primary**, default) | `npm run ship:tag` |
+| `v*` | Legacy Electron (deprecated) | `npm run ship:tag -- --electron` or manual `release.yml` |
 
 Both run `npm run check:full` (unit + lint + build + sidecar pytest) before building.
 
 ## Electron sunset
 
-Electron builds remain for auto-update users through v0.48.x; new features target Tauri. See [docs/desktop.md](docs/desktop.md).
+Electron is deprecated. Default `ship:tag` no longer pushes `v*` (as of post-0.50.2 process). Use Studio installers (`studio-v*`). See [docs/desktop.md](docs/desktop.md) and [docs/architecture-convergence.md](docs/architecture-convergence.md).

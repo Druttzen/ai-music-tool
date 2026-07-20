@@ -2,6 +2,17 @@
 
 Local FastAPI service for track analysis (librosa) and optional ML capabilities (Demucs stem separation, vision analysis, MusicGen generation).
 
+## Architecture (video-studio patterns)
+
+| Module | Role |
+|--------|------|
+| `device.py` | DeviceInfo + VRAM-tier DevicePolicy (`cuda` / `mps` / `cpu`) |
+| `registry.py` | CapabilitySpec catalog + install hints (drives `/health.capabilities`) |
+| `jobs.py` | Single-worker JobManager |
+| `stems_separate.py` / `generate_jobs.py` | Registered runners for Demucs + MusicGen |
+
+`GET /health` still returns legacy boolean flags plus `device_info`, `capabilities`, and `policy`.
+
 ## Requirements
 
 - **Python 3.10–3.12** (PyTorch/Demucs have no 3.13+ wheels yet)
