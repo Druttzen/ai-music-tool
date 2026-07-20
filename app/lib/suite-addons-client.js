@@ -9,8 +9,12 @@ export const CANVAS_ADDON = {
   title: "AI Canvas Tool",
   description: "Spotify Canvas loops from album art — suite addon for Music Creator",
   repoUrl: "https://github.com/Druttzen/ai-canvas-tool",
-  installUrl: "https://github.com/Druttzen/ai-canvas-tool/releases/latest",
+  installUrl: "https://github.com/Druttzen/ai-canvas-tool#install-windows",
+  releasesUrl: "https://github.com/Druttzen/ai-canvas-tool/releases",
 };
+
+export const CANVAS_INSTALL_HINT =
+  "No GitHub release yet — build from ai-canvas-tool (npm run dist:setup) or run a local Setup.exe from release/.";
 
 function tauriInvoke(cmd, args) {
   const w = window;
@@ -73,7 +77,8 @@ export async function launchCanvasAddon() {
 }
 
 export function formatCanvasInstallStatus(result) {
-  if (!result?.ok) return result?.error || "Could not install Canvas addon";
+  if (!result?.ok) return result?.error || result?.message || "Could not install Canvas addon";
+  if (result.message) return result.message;
   if (result.alreadyInstalled || result.mode === "installed") {
     return "AI Canvas Tool is already installed";
   }
@@ -83,8 +88,14 @@ export function formatCanvasInstallStatus(result) {
   if (result.mode === "downloaded") {
     return "Downloaded Canvas installer — finish setup, then Open Canvas Tool";
   }
-  if (result.mode === "browser") {
-    return "Opened Canvas download page — install, then return here";
+  if (result.mode === "no-release") {
+    return `No GitHub release yet — opened build instructions. ${CANVAS_INSTALL_HINT}`;
+  }
+  if (result.mode === "no-release-assets") {
+    return "Release has no installer yet — opened Canvas build instructions";
+  }
+  if (result.mode === "docs" || result.mode === "browser") {
+    return "Opened Canvas install instructions — build or run a local Setup.exe";
   }
   return "Canvas addon install started";
 }

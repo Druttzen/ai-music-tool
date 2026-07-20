@@ -8,6 +8,7 @@ import { useProjectWorkspaceActions } from "../context/project-workspace-context
 import { GuidedFocusPanel } from "./guided-focus-panel";
 import {
   CANVAS_ADDON,
+  CANVAS_INSTALL_HINT,
   formatCanvasInstallStatus,
   getCanvasAddonStatus,
   installCanvasAddon,
@@ -127,8 +128,10 @@ export function SuiteAddonsPanel() {
           </div>
         </div>
         {focused ? null : (
-          <p className="mt-2 text-[10px] text-white/40">
-            After install, drop album art in Analyzers → Open in Canvas Tool for Spotify loop handoff.
+          <p className="mt-2 text-[10px] leading-relaxed text-white/40">
+            {status.installed
+              ? "Drop album art in Analyzers → Open in Canvas Tool for Spotify loop handoff."
+              : CANVAS_INSTALL_HINT}
           </p>
         )}
       </Panel>

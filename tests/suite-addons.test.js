@@ -41,7 +41,15 @@ describe("suite canvas addon", () => {
       /already installed/i,
     );
     expect(formatCanvasInstallStatus({ ok: true, mode: "downloaded" })).toMatch(/Downloaded/i);
-    expect(formatCanvasInstallStatus({ ok: true, mode: "browser" })).toMatch(/download page/i);
+    expect(formatCanvasInstallStatus({ ok: true, mode: "no-release" })).toMatch(/No GitHub release/i);
+    expect(formatCanvasInstallStatus({ ok: true, mode: "docs" })).toMatch(/instructions/i);
     expect(formatCanvasInstallStatus({ ok: false, error: "boom" })).toBe("boom");
+  });
+
+  it("canvas installUrl points at README not empty releases page", () => {
+    const meta = canvasAddonMeta();
+    expect(meta.installUrl).toContain("github.com/Druttzen/ai-canvas-tool");
+    expect(meta.installUrl).not.toContain("/releases/latest");
+    expect(meta.releasesUrl).toContain("/releases");
   });
 });

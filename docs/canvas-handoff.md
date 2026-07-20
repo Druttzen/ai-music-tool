@@ -6,8 +6,19 @@
 
 1. Open the left **Suite Addons** panel
 2. Click **Download / Install Canvas**
-3. Finish the installer (local Setup.exe, GitHub release asset, or browser download page)
-4. Click **Open Canvas Tool**, or drop album art in Analyzers → **Open in Canvas Tool → Spotify loop**
+3. Downloads [AI Canvas Tool v1.1.0+](https://github.com/Druttzen/ai-canvas-tool/releases) automatically when a release exists; otherwise opens **build instructions** on the repo README
+4. Finish setup, click **Open Canvas Tool**, or drop album art in Analyzers → **Open in Canvas Tool → Spotify loop**
+
+**Manual build (no release):**
+
+```bash
+git clone https://github.com/Druttzen/ai-canvas-tool.git
+cd ai-canvas-tool
+npm install
+npm run dist:setup
+```
+
+Then run `release/AI Canvas Tool Setup.exe` or place it in your Downloads folder and use **Download / Install Canvas** again.
 
 Status shows **Installed** when an executable from [`lib/suite-handoff-paths.json`](../lib/suite-handoff-paths.json) `canvasCandidates` is found.
 
@@ -35,4 +46,4 @@ npm run tauri:dev    # recommended
 npm run electron     # legacy — requires npm run build first
 ```
 
-Manual install: build **AI Canvas Tool** (`ai-canvas-tool` → `npm run dist:setup`) so the launcher finds `release/` or Program Files paths listed in the shared config.
+Manual install: download from [ai-canvas-tool releases](https://github.com/Druttzen/ai-canvas-tool/releases) or build locally (`npm run dist:setup`).

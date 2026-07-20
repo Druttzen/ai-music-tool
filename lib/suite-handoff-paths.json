@@ -8,6 +8,7 @@
       "$LOCALAPPDATA/Programs/AI Canvas Tool/AI Canvas Tool.exe",
       "$ProgramFiles/AI Canvas Tool/AI Canvas Tool.exe",
       "$USERPROFILE/ai-canvas-tool/release/win-unpacked/AI Canvas Tool.exe",
+      "$USERPROFILE/ai-canvas-tool/electron-dist/win-unpacked/AI Canvas Tool.exe",
       "$USERPROFILE/ai-suite/ai-canvas-tool/release/win-unpacked/AI Canvas Tool.exe"
     ],
     "macos": [
@@ -22,16 +23,19 @@
       "title": "AI Canvas Tool",
       "description": "Spotify Canvas loops from album art — suite addon for Music Creator",
       "repoUrl": "https://github.com/Druttzen/ai-canvas-tool",
-      "installUrl": "https://github.com/Druttzen/ai-canvas-tool/releases/latest",
+      "installUrl": "https://github.com/Druttzen/ai-canvas-tool#install-windows",
+      "releasesUrl": "https://github.com/Druttzen/ai-canvas-tool/releases",
       "githubOwner": "Druttzen",
       "githubRepo": "ai-canvas-tool",
       "installerCandidates": {
         "windows": [
           "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
           "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
+          "$USERPROFILE/ai-canvas-tool/electron-dist/AI Canvas Tool Setup.exe",
+          "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
+          "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
           "$USERPROFILE/Downloads/AI Canvas Tool Setup.exe",
-          "$USERPROFILE/Downloads/AI Canvas Tool-1.1.0-Setup.exe",
-          "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool Setup.exe"
+          "$USERPROFILE/Downloads/AI Canvas Tool-1.1.0-Setup.exe"
         ],
         "macos": [
           "$HOME/Downloads/AI Canvas Tool.dmg",

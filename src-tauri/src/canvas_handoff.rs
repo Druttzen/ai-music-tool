@@ -45,6 +45,8 @@ struct CanvasAddonConfig {
     #[serde(default)]
     install_url: String,
     #[serde(default)]
+    releases_url: String,
+    #[serde(default)]
     github_owner: String,
     #[serde(default)]
     github_repo: String,
@@ -83,6 +85,7 @@ pub struct CanvasAddonStatus {
     pub path: Option<String>,
     pub repo_url: Option<String>,
     pub install_url: Option<String>,
+    pub releases_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -237,7 +240,14 @@ pub fn suite_canvas_addon_status() -> CanvasAddonStatus {
         path: exe.map(|p| p.to_string_lossy().into_owned()),
         repo_url: addon.and_then(|a| non_empty(&a.repo_url)),
         install_url: addon.and_then(|a| non_empty(&a.install_url)),
+        releases_url: addon.and_then(|a| non_empty(&a.releases_url)),
     }
+}
+
+fn canvas_install_fallback_url(addon: &CanvasAddonConfig) -> String {
+    non_empty(&addon.install_url)
+        .or_else(|| non_empty(&addon.repo_url))
+        .unwrap_or_else(|| "https://github.com/Druttzen/ai-canvas-tool".to_string())
 }
 
 #[tauri::command]
@@ -350,6 +360,7 @@ pub fn install_canvas_addon() -> CanvasAddonActionResult {
     }
 
     if let Some(addon) = canvas_addon_config() {
+        let mut release_http_status: Option<u16> = None;
         if !addon.github_owner.is_empty() && !addon.github_repo.is_empty() {
             let api = format!(
                 "https://api.github.com/repos/{}/{}/releases/latest",
@@ -364,6 +375,7 @@ pub fn install_canvas_addon() -> CanvasAddonActionResult {
                     .header("Accept", "application/vnd.github+json")
                     .send()
                 {
+                    release_http_status = Some(resp.status().as_u16());
                     if resp.status().is_success() {
                         if let Ok(body) = resp.json::<serde_json::Value>() {
                             if let Some(assets) = body.get("assets").and_then(|a| a.as_array()) {
@@ -386,6 +398,7 @@ pub fn install_canvas_addon() -> CanvasAddonActionResult {
                                         };
                                     }
                                 }
+                                release_http_status = Some(200);
                             }
                         }
                     }
@@ -393,23 +406,28 @@ pub fn install_canvas_addon() -> CanvasAddonActionResult {
             }
         }
 
-        let install_url = non_empty(&addon.install_url).or_else(|| non_empty(&addon.repo_url));
-        if let Some(url) = install_url {
-            let opened = open::that(&url).is_ok();
-            return CanvasAddonActionResult {
-                ok: opened,
-                launched: false,
-                already_installed: false,
-                mode: Some("browser".to_string()),
-                path: None,
-                url: Some(url),
-                error: if opened {
-                    None
-                } else {
-                    Some("Could not open Canvas install page".to_string())
-                },
-            };
-        }
+        let url = canvas_install_fallback_url(addon);
+        let mode = if release_http_status == Some(404) {
+            "no-release"
+        } else if release_http_status == Some(200) {
+            "no-release-assets"
+        } else {
+            "docs"
+        };
+        let opened = open::that(&url).is_ok();
+        return CanvasAddonActionResult {
+            ok: opened,
+            launched: false,
+            already_installed: false,
+            mode: Some(mode.to_string()),
+            path: None,
+            url: Some(url),
+            error: if opened {
+                None
+            } else {
+                Some("Could not open Canvas install instructions".to_string())
+            },
+        };
     }
 
     CanvasAddonActionResult {
