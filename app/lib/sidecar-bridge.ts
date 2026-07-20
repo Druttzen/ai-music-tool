@@ -707,6 +707,7 @@ export interface FailSafeFixPushResult {
 export async function fetchFailSafeCapabilities(): Promise<{
   maintainer_mode: boolean;
   fix_push_available: boolean;
+  runtime_deliver_available?: boolean;
   repo_root?: string;
 } | null> {
   try {
@@ -717,6 +718,45 @@ export async function fetchFailSafeCapabilities(): Promise<{
   } catch {
     return null;
   }
+}
+
+export interface RuntimeDeliverResult {
+  ok: boolean;
+  stage: string;
+  message: string;
+  issue_url?: string | null;
+  issue_number?: number | null;
+  branch?: string | null;
+  commit?: string | null;
+  pr_url?: string | null;
+}
+
+/** Maintainer mode: deliver top Runtime report to GitHub (issue / branch / draft PR). */
+export async function deliverRuntimeReport(options: {
+  payload: Record<string, unknown>;
+  mode?: "issue" | "branch" | "pr";
+  githubToken?: string;
+}): Promise<RuntimeDeliverResult> {
+  const headers = await sidecarAuthHeaders({ "Content-Type": "application/json" });
+  const res = await fetch(`${sidecarBaseUrl()}/fail-safe/runtime-deliver`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      payload: options.payload,
+      mode: options.mode || "issue",
+      github_token: options.githubToken || undefined,
+    }),
+  });
+  let body: RuntimeDeliverResult;
+  try {
+    body = (await res.json()) as RuntimeDeliverResult;
+  } catch {
+    throw new Error(formatApiError(res.status, "", "Runtime deliver"));
+  }
+  if (!res.ok && body?.message) {
+    throw new Error(body.message);
+  }
+  return body;
 }
 
 /** Maintainer mode: run fail-safe fix, commit, push (local git) or cloud dispatch. */

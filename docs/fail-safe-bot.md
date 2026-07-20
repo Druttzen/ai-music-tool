@@ -123,11 +123,19 @@ Optional: top up credits at [cursor.com/dashboard](https://cursor.com/dashboard)
 
 ## Fail-Safe Runtime reporter (opt-in)
 
-In-app background reporting toward GitHub (issue / `cursor/runtime-fail-*` branch) is scaffolded in `app/lib/fail-safe-runtime-reporter.js`. **Default OFF.** Requires both:
+In-app background reporting toward GitHub (issue / `cursor/runtime-fail-*` branch / draft PR) is in `app/lib/fail-safe-runtime-reporter.js`. **Default OFF.** Requires both:
 
 - Enable: localStorage `aimc.failSafeRuntime.reportEnabled=1` or `NEXT_PUBLIC_FAIL_SAFE_RUNTIME_REPORT=1`
 - Consent: localStorage `aimc.failSafeRuntime.telemetryConsent=1`
 
-Phase 0–1 only queues formatted payloads locally — no silent network and no auto-push from end-user installs. See [fail-safe-split.md](fail-safe-split.md).
+Delivery paths:
+
+| Path | Who | Command / UI |
+|------|-----|--------------|
+| New-issue URL | Any consenting user | Panel “Send top report to GitHub…” |
+| Issue via PAT/gh | Maintainer | Panel “Create issue (maintainer)” or `npm run fail-safe-ops -- deliver-runtime report.json` |
+| Draft PR branch | Maintainer | Panel “Draft PR branch” or `npm run fail-safe:runtime-deliver report.json -- --pr` |
+
+Maintainer delivery uses sidecar `POST /fail-safe/runtime-deliver` (requires `npm run sidecar:maintainer`). No silent network and no auto-push from end-user installs. See [fail-safe-split.md](fail-safe-split.md).
 
 See also: [ci-reliability.md](ci-reliability.md), [sourcery-auto-fix.md](sourcery-auto-fix.md), [fail-safe-split.md](fail-safe-split.md).

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   formatScanAge,
   getActionableIssues,
@@ -14,6 +14,16 @@ import {
   getMaintainerGithubToken,
   setMaintainerGithubToken,
 } from "../lib/maintainer-settings";
+import {
+  buildGitHubNewIssueUrl,
+  getRuntimeReportQueue,
+  hasRuntimeTelemetryConsent,
+  isRuntimeReportingEnabled,
+  markRuntimeReportDelivered,
+  setRuntimeReportingEnabled,
+  setRuntimeTelemetryConsent,
+} from "../lib/fail-safe-runtime-reporter";
+import { deliverRuntimeReport } from "../lib/sidecar-bridge";
 import {
   useProjectWorkspaceActions,
   useProjectWorkspaceAnalyzerState,
@@ -29,7 +39,7 @@ const SEVERITY_STYLES = {
 export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
   const { sidecarAiStatus, sidecarGenerateAvailable } = useProjectWorkspaceAnalyzerState();
   const { setStatusWithTime } = useProjectWorkspaceActions();
-  const { report, busy, probe, copyFixCommands, mounted } = useFailSafeBot({
+  const { report, busy, probe, copyFixCommands, mounted, refreshRuntimeListeners } = useFailSafeBot({
     sidecarAiStatus,
     sidecarGenerateAvailable,
   });
@@ -42,6 +52,10 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
   } = useFailSafeFixPush();
   const [expanded, setExpanded] = useState(false);
   const [ghTokenDraft, setGhTokenDraft] = useState("");
+  const [runtimeReportOn, setRuntimeReportOn] = useState(false);
+  const [runtimeConsentOn, setRuntimeConsentOn] = useState(false);
+  const [queueLen, setQueueLen] = useState(0);
+  const [runtimeDeliverBusy, setRuntimeDeliverBusy] = useState(false);
 
   const checking = !mounted || busy || sidecarAiStatus === "checking";
   const actionable = getActionableIssues(report?.issues);
@@ -69,6 +83,13 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     autoStartFix: fixPushAvailable,
     autoNotify: process.env.NEXT_PUBLIC_E2E !== "1",
   });
+
+  useEffect(() => {
+    if (!mounted) return;
+    setRuntimeReportOn(isRuntimeReportingEnabled());
+    setRuntimeConsentOn(hasRuntimeTelemetryConsent());
+    setQueueLen(getRuntimeReportQueue().length);
+  }, [mounted, expanded]);
 
   const statusClass = checking
     ? SEVERITY_STYLES.checking
@@ -108,6 +129,74 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
       ghTokenDraft.trim() ? "GitHub token saved (local only)" : "GitHub token cleared",
       "info",
     );
+  };
+
+  const syncRuntimeFlags = () => {
+    setRuntimeReportOn(isRuntimeReportingEnabled());
+    setRuntimeConsentOn(hasRuntimeTelemetryConsent());
+    setQueueLen(getRuntimeReportQueue().length);
+  };
+
+  const handleToggleRuntimeReport = (on) => {
+    setRuntimeReportingEnabled(on);
+    setRuntimeReportOn(on);
+    refreshRuntimeListeners?.();
+    syncRuntimeFlags();
+  };
+
+  const handleToggleRuntimeConsent = (on) => {
+    setRuntimeTelemetryConsent(on);
+    setRuntimeConsentOn(on);
+    refreshRuntimeListeners?.();
+    syncRuntimeFlags();
+  };
+
+  const handleFlushRuntimeReport = () => {
+    const [top] = getRuntimeReportQueue();
+    if (!top) {
+      setStatusWithTime("No queued Runtime reports", "info");
+      return;
+    }
+    const url = buildGitHubNewIssueUrl(top);
+    window.open(url, "_blank", "noopener,noreferrer");
+    markRuntimeReportDelivered(top.fingerprint, { mode: "github-new-issue-url", url });
+    syncRuntimeFlags();
+    setStatusWithTime("Opened GitHub new-issue form for Runtime report", "success");
+  };
+
+  const handleMaintainerRuntimeDeliver = async (mode) => {
+    const [top] = getRuntimeReportQueue();
+    if (!top) {
+      setStatusWithTime("No queued Runtime reports", "info");
+      return;
+    }
+    if (!maintainerMode) {
+      setStatusWithTime("Maintainer sidecar required — run npm run sidecar:maintainer", "error");
+      return;
+    }
+    setRuntimeDeliverBusy(true);
+    try {
+      const token = getMaintainerGithubToken() || undefined;
+      const result = await deliverRuntimeReport({ payload: top, mode, githubToken: token });
+      if (!result.ok) {
+        setStatusWithTime(result.message || "Runtime deliver failed", "error");
+        return;
+      }
+      markRuntimeReportDelivered(top.fingerprint, {
+        mode: `maintainer-${mode}`,
+        url: result.pr_url || result.issue_url || null,
+      });
+      syncRuntimeFlags();
+      const detail =
+        result.pr_url || result.issue_url
+          ? ` — ${result.pr_url || result.issue_url}`
+          : "";
+      setStatusWithTime((result.message || "Runtime report delivered") + detail, "success");
+    } catch (err) {
+      setStatusWithTime(err?.message || "Runtime deliver failed", "error");
+    } finally {
+      setRuntimeDeliverBusy(false);
+    }
   };
 
   return (
@@ -226,8 +315,66 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
 
         {expanded ? (
           <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2 text-[10px] text-white/55">
-            <label className="block">
-              GitHub token (cloud fix, localStorage only)
+            <p className="font-bold text-white/70">Fail-Safe Runtime (opt-in)</p>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={runtimeReportOn}
+                onChange={(e) => handleToggleRuntimeReport(e.target.checked)}
+              />
+              Enable background error queue
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={runtimeConsentOn}
+                onChange={(e) => handleToggleRuntimeConsent(e.target.checked)}
+              />
+              Telemetry consent (required to queue)
+            </label>
+            <p className="text-white/45">
+              Queued reports: {queueLen}
+              {runtimeReportOn && runtimeConsentOn ? " · listeners on" : " · listeners off"}
+            </p>
+            <button
+              type="button"
+              className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 text-[10px] text-cyan-100 disabled:opacity-40"
+              disabled={queueLen < 1}
+              onClick={handleFlushRuntimeReport}
+              title="Opens GitHub new-issue form with the top queued report (no auto-push)"
+            >
+              Send top report to GitHub…
+            </button>
+            {maintainerMode ? (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-100 disabled:opacity-40"
+                  disabled={queueLen < 1 || runtimeDeliverBusy}
+                  onClick={() => void handleMaintainerRuntimeDeliver("issue")}
+                  title="Create GitHub issue via maintainer PAT/gh (no branch)"
+                >
+                  {runtimeDeliverBusy ? "Delivering…" : "Create issue (maintainer)"}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-100 disabled:opacity-40"
+                  disabled={queueLen < 1 || runtimeDeliverBusy}
+                  onClick={() => void handleMaintainerRuntimeDeliver("pr")}
+                  title="Branch cursor/runtime-fail-*, push, open draft PR"
+                >
+                  Draft PR branch
+                </button>
+              </div>
+            ) : null}
+            <p className="text-white/40">
+              Maintainer CLI:{" "}
+              <span className="text-white/65">
+                npm run fail-safe-ops -- deliver-runtime report.json -- --pr
+              </span>
+            </p>
+            <label className="block pt-1">
+              GitHub token (cloud fix + Runtime issue API, localStorage only)
               <input
                 type="password"
                 className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85"
@@ -247,7 +394,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
         ) : null}
 
         <p className="mt-1.5 text-[10px] text-white/45">
-          CI: <span className="text-white/65">npm run fail-safe:run</span>
+          Ops: <span className="text-white/65">npm run fail-safe-ops -- diagnose -</span>
           {" · "}
           setup: <span className="text-white/65">npm run bots:install</span>
           {maintainerMode ? (

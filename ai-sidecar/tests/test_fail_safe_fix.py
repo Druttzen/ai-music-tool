@@ -27,6 +27,7 @@ def test_fail_safe_capabilities_endpoint(monkeypatch):
     assert res.status_code == 200
     body = res.json()
     assert body["maintainer_mode"] is True
+    assert body["runtime_deliver_available"] is True
 
 
 def test_fix_push_rejects_without_maintainer(monkeypatch):

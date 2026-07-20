@@ -15,6 +15,18 @@ When the user message includes **fail-safe bot** output (`FAIL-SAFE BOT`, `ci-ga
 4. **Commit and push** per git rules when allowed.
 5. **Summarize** fixes vs items needing manual work.
 
+## When to run (Runtime / Product B)
+
+When the user message includes a **Fail-Safe Runtime** report or GitHub issue body (`## Fail-Safe Runtime report`, `[fail-safe-runtime]`, `cursor/runtime-fail-*` branch, or `.fail-safe-runtime-report.md`):
+
+1. **Treat as fix request** — same as CI fail-safe: implement fixes without re-asking unless blocked on product decisions.
+2. **Use classified playbooks** from the report's `### Classified playbooks` / `### Agent prompt` sections.
+3. **Branch** — prefer the suggested `cursor/runtime-fail-*` branch when delivering fixes; never auto-push to `master` from Runtime reports without maintainer auth.
+4. **Verify** with `npm run check:ci` (add `check:ci:e2e-subset` if e2e-sensitive files changed).
+5. **Summarize** fixes vs items needing manual work.
+
+Detection helper: `app/lib/fail-safe-runtime-prompt.js` (`isRuntimeFailSafePrompt`).
+
 Safe auto-fixes already attempted by `npm run fail-safe:run`: rust lock refresh, eslint --fix, catalog import. Do not repeat unless still failing.
 
 Skip duplicate work already fixed on the branch.
@@ -38,4 +50,4 @@ See `docs/fail-safe-bot.md` (Review fallback).
 
 ## Product split (Ops vs Runtime)
 
-Fail-safe is splitting into **Fail-Safe Ops** (GitHub CI auto-fix / review — `fail-safe-ops/`, scripts, workflows) and **Fail-Safe Runtime** (in-app detector — `app/lib/fail-safe-runtime-reporter.js`). Plan: `docs/fail-safe-split.md`. Classifier source of truth remains `app/lib/fail-safe-bot.js` until Ops owns the package. Never auto-push from end-user Runtime reports without maintainer auth.
+Fail-safe is splitting into **Fail-Safe Ops** (GitHub CI auto-fix / review — `fail-safe-ops/`, `npm run fail-safe-ops`) and **Fail-Safe Runtime** (in-app detector — `app/lib/fail-safe-runtime-*.js`, opt-in queue + maintainer PAT / draft PR delivery). Plan: `docs/fail-safe-split.md`. Classifier source of truth remains `app/lib/fail-safe-bot.js` until Ops owns the package. Never auto-push from end-user Runtime reports without maintainer auth.
