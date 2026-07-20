@@ -75,6 +75,8 @@
     "bots:install": "node scripts/install-cursor-bot-settings.cjs",
     "sidecar:maintainer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1 -Maintainer",
     "ship:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ship-preflight.ps1",
+    "ship:ready": "node scripts/ship-ready.cjs",
+    "ship:ready:full": "node scripts/ship-ready.cjs --full",
     "ship:tag": "node scripts/ship-tag-release.cjs",
     "build": "next build",
     "postbuild": "node scripts/verify-lazy-catalog-chunks.cjs",
