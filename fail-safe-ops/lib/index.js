@@ -1,6 +1,6 @@
 /**
- * Fail-Safe Ops public API (CLI phase 2–3).
- * Desktop Ops shell remains deferred — see docs/fail-safe-split.md.
+ * Fail-Safe Ops public API (CLI shipped; desktop Ops shell deferred).
+ * See docs/fail-safe-split.md.
  */
 
 export {

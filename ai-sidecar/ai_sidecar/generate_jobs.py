@@ -43,7 +43,7 @@ def generate_via_jobs(
     melody_wav: bytes | None = None,
 ) -> dict[str, Any]:
     if not generation_available():
-        raise RuntimeError("MusicGen deps missing — pip install -e ai-sidecar[generate]")
+        raise RuntimeError("MusicGen deps missing — npm run sidecar:generate")
     text = str(prompt or "").strip()
     if not text:
         raise ValueError("prompt is required")

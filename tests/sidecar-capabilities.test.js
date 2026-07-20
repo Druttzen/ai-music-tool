@@ -20,6 +20,13 @@ describe("sidecar-capabilities", () => {
           install_hint: "npm run sidecar:stems",
           available: true,
         },
+        {
+          id: "vocal_synth",
+          title: "Vocal embed synthesis",
+          install_hint: "npm run sidecar",
+          available: false,
+          prompt_install: false,
+        },
       ],
     });
     expect(hints).toEqual([
@@ -40,8 +47,10 @@ describe("sidecar-capabilities", () => {
       stems_available: false,
       vision_available: true,
       genre_available: false,
+      vocal_ml_available: false,
     });
-    expect(hints.map((h) => h.id).sort()).toEqual(["generate", "genre", "stems"]);
+    expect(hints.map((h) => h.id).sort()).toEqual(["generate", "genre", "stems", "vocal_ml"]);
     expect(hints.find((h) => h.id === "genre")?.install_hint).toBe("npm run sidecar:classify");
+    expect(hints.find((h) => h.id === "vocal_ml")?.install_hint).toBe("npm run sidecar:vocal");
   });
 });

@@ -15,6 +15,8 @@ class CapabilitySpec:
     license: str
     commercial_use: bool
     probe: Callable[[], bool]
+    # When True, missing stacks are surfaced in /health missing_install_hints + UI.
+    prompt_install: bool = True
 
     def snapshot(self) -> dict:
         available = False
@@ -30,6 +32,7 @@ class CapabilitySpec:
             "license": self.license,
             "commercial_use": self.commercial_use,
             "available": available,
+            "prompt_install": self.prompt_install,
         }
 
 
@@ -124,17 +127,18 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="vocal_synth",
         title="Vocal embed synthesis",
         tasks=("vocal-embed",),
-        install_hint="npm run sidecar:vocal",
+        install_hint="npm run sidecar",
         license="project",
         commercial_use=True,
         probe=_probe_vocal_synth,
+        prompt_install=False,  # base librosa stack; always on with sidecar
     ),
     CapabilitySpec(
         id="vocal_ml",
-        title="Vocal ML stack",
+        title="Vocal DSP (scipy)",
         tasks=("vocal-ml",),
-        install_hint="npm run sidecar:vocal-ml",
-        license="model-dependent",
+        install_hint="npm run sidecar:vocal",
+        license="project",
         commercial_use=True,
         probe=_probe_vocal_ml,
     ),
@@ -155,6 +159,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         license="model-dependent",
         commercial_use=True,
         probe=_probe_diffsinger,
+        prompt_install=False,  # env/config, not an npm extra
     ),
 )
 
@@ -181,9 +186,8 @@ def capability_flags() -> dict[str, bool]:
 
 
 def missing_install_hints() -> list[dict]:
-    interesting = ("stems", "generate", "genre", "vocal_synth", "vocal_ml", "vision", "rvc")
     return [
         {"id": c["id"], "title": c["title"], "install_hint": c["install_hint"]}
         for c in list_capabilities()
-        if not c["available"] and c["id"] in interesting
+        if not c["available"] and c.get("prompt_install", True) and c["install_hint"]
     ]

@@ -3,7 +3,7 @@
 Architecture plan to divide today’s monolithic fail-safe bot into two products.
 See also: [fail-safe-bot.md](fail-safe-bot.md) (current in-repo behavior).
 
-**Status:** Phase 3 in progress — maintainer PAT delivery + draft PR for `cursor/runtime-fail-*` + Runtime prompt Cursor rule. Phase 2 Ops CLI + Runtime opt-in delivery merged/on branch.
+**Status:** Phases 2–3 shipped (Ops CLI + Runtime GitHub delivery + maintainer PAT/draft PR + Runtime Cursor rule). Deferred: Ops desktop shell / extract to separate repo.
 
 ---
 
@@ -50,7 +50,7 @@ Everything lives inside **ai-music-tool**:
 
 **Future home:** `fail-safe-ops/` (this repo for now; later its own app / repo).
 
-**Scaffold (phase 2):** `fail-safe-ops/` package + `bin/fail-safe-ops.cjs` (`diagnose` / `run` / `auto` / `fix-push` / `deliver-runtime`). Root scripts: `npm run fail-safe-ops`.
+**Shipped (phase 2–3):** `fail-safe-ops/` package + `bin/fail-safe-ops.cjs` (`diagnose` / `run` / `auto` / `fix-push` / `deliver-runtime`). Root scripts: `npm run fail-safe-ops`.
 
 ---
 
@@ -65,7 +65,7 @@ Everything lives inside **ai-music-tool**:
 - **No** silent auto-push from end-user installs
 - Telemetry / reporting only with explicit consent + feature flag (default **OFF**)
 
-**Scaffold (phase 2):** `app/lib/fail-safe-runtime-reporter.js` + `fail-safe-runtime-listeners.js` + panel toggles + `scripts/fail-safe-runtime-deliver.cjs`.
+**Shipped (phase 2–3):** `app/lib/fail-safe-runtime-reporter.js` + `fail-safe-runtime-listeners.js` + panel toggles + `scripts/fail-safe-runtime-deliver.cjs` + GitHub issue/draft-PR delivery.
 
 ---
 

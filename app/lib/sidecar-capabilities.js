@@ -3,7 +3,7 @@
  */
 
 /**
- * @typedef {{ id: string, title: string, install_hint: string, available?: boolean }} CapabilityLike
+ * @typedef {{ id: string, title: string, install_hint: string, available?: boolean, prompt_install?: boolean }} CapabilityLike
  */
 
 /**
@@ -15,9 +15,8 @@ export function missingSidecarInstallHints(health) {
   if (!health) return [];
 
   if (Array.isArray(health.capabilities) && health.capabilities.length) {
-    const interesting = new Set(["stems", "generate", "genre", "vocal_synth", "vocal_ml", "vision", "rvc"]);
     return health.capabilities
-      .filter((c) => interesting.has(c.id) && !c.available)
+      .filter((c) => c.prompt_install !== false && !c.available)
       .map((c) => ({
         id: c.id,
         title: c.title || c.id,
@@ -33,12 +32,11 @@ export function missingSidecarInstallHints(health) {
     { id: "genre", title: "Genre classifier", flag: "genre_available", install_hint: "npm run sidecar:classify" },
     { id: "vision", title: "Image caption / CLIP", flag: "vision_available", install_hint: "npm run sidecar:vision" },
     {
-      id: "vocal_synth",
-      title: "Vocal embed synthesis",
-      flag: "vocal_synthesis_available",
+      id: "vocal_ml",
+      title: "Vocal DSP (scipy)",
+      flag: "vocal_ml_available",
       install_hint: "npm run sidecar:vocal",
     },
-    { id: "vocal_ml", title: "Vocal ML stack", flag: "vocal_ml_available", install_hint: "npm run sidecar:vocal-ml" },
     { id: "rvc", title: "RVC voice conversion", flag: "vocal_rvc_available", install_hint: "npm run sidecar:vocal-rvc" },
   ];
 

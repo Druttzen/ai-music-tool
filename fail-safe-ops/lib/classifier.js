@@ -1,9 +1,9 @@
 /**
- * Fail-Safe Ops classifier entry (phase 1).
+ * Fail-Safe Ops classifier entry.
  *
  * SOURCE OF TRUTH: ../../app/lib/fail-safe-bot.js
  * Do not copy FAILURE_PLAYBOOKS here — keep a single heuristic set.
- * Phase 2: move playbooks into this package and re-export from the app.
+ * Deferred: move playbooks into this package and re-export from the app.
  */
 
 export {

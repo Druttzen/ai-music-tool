@@ -4,7 +4,7 @@ Models:
 - Salesforce/blip-image-captioning-base (BSD-3-Clause weights, Apache-2.0 code)
 - openai/clip-vit-base-patch32 (MIT)
 
-Heavy — install via `pip install -e ai-sidecar[vision]`.
+Heavy — install via `npm run sidecar:vision`.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fail-Safe Ops CLI (phase 2) — diagnose CI logs + wrap monorepo auto-fix scripts.
+ * Fail-Safe Ops CLI — diagnose CI logs + wrap monorepo auto-fix scripts.
  *
  * Usage (from repo root):
  *   npm run fail-safe-ops -- diagnose [logfile|-]

@@ -3,32 +3,6 @@
   Install the optional Demucs stems extra into the sidecar venv.
 #>
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
-$sidecar = Join-Path $root "ai-sidecar"
-$venv = Join-Path $sidecar ".venv"
-$py = $null
-
-foreach ($v in @("3.12", "3.11", "3.10")) {
-  try {
-    $out = & py "-$v" --version 2>&1
-    if ($LASTEXITCODE -eq 0 -and "$out" -match "Python") { $py = $v; break }
-  } catch {}
-}
-
-if (-not $py) {
-  Write-Error "Need Python 3.10-3.12. Run: npm run bootstrap"
-  exit 1
-}
-
-if (-not (Test-Path $venv)) {
-  Write-Host "Creating sidecar venv (py -$py)..."
-  & py "-$py" -m venv $venv
-  & "$venv\Scripts\python" -m pip install --upgrade pip
-  & "$venv\Scripts\pip" install -e $sidecar
-}
-
-Write-Host "Installing stems extra (torch + demucs) - this may take several minutes..."
-Push-Location $root
-& "$venv\Scripts\pip" install -e ".\ai-sidecar[stems]"
-Pop-Location
-Write-Host "Stems extra installed. Restart the sidecar: npm run sidecar"
+. "$PSScriptRoot\lib\sidecar-venv.ps1"
+Install-SidecarExtra -RepoRoot (Split-Path -Parent $PSScriptRoot) -ExtraSpec "stems" -Label "stems extra (torch + demucs)"
+Write-Host "Check GET /health for stems_available: true"

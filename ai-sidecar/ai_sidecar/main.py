@@ -495,7 +495,7 @@ async def analyze_image(
     if not vision_analysis_available():
         raise HTTPException(
             status_code=503,
-            detail="vision deps missing — pip install -e ai-sidecar[vision]",
+            detail="vision deps missing — npm run sidecar:vision",
         )
 
     raw = await file.read()
@@ -537,7 +537,7 @@ async def generate_music(body: GenerateRequest):
     if not generation_available():
         raise HTTPException(
             status_code=503,
-            detail="generation deps missing — pip install -e ai-sidecar[generate]",
+            detail="generation deps missing — npm run sidecar:generate",
         )
 
     prompt = str(body.prompt or "").strip()
@@ -575,7 +575,7 @@ async def generate_music_with_melody(
     if not generation_available():
         raise HTTPException(
             status_code=503,
-            detail="generation deps missing — pip install -e ai-sidecar[generate]",
+            detail="generation deps missing — npm run sidecar:generate",
         )
 
     text = str(prompt or "").strip()

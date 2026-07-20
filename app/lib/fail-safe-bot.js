@@ -194,7 +194,7 @@ export function buildRuntimeHealthReport(input = {}) {
       severity: "warn",
       title: "Sidecar missing librosa",
       detail: "Health OK but librosa not available for audio analysis.",
-      fixCommands: ["pip install -e ai-sidecar"],
+      fixCommands: ["npm run sidecar"],
       safeFallback: "Reinstall sidecar deps or use heuristic analyzers.",
     });
   }

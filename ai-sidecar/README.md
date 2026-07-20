@@ -42,8 +42,7 @@ Linux/macOS use `scripts/start-sidecar.sh` / `scripts/stop-sidecar.sh` (also use
 Install the heavy optional stack once:
 
 ```bash
-npm run sidecar:stems    # Windows (pip install -e ai-sidecar[stems])
-# or: bash scripts/install-sidecar-stems.sh
+npm run sidecar:stems    # Windows PowerShell installer (or bash scripts/install-sidecar-stems.sh)
 ```
 
 Restart the sidecar, then verify:
@@ -61,8 +60,7 @@ The browser image analyzer stays lightweight by default (pixel palette + mood ma
 `vision` extra enables local BLIP captioning via `POST /analyze-image`:
 
 ```bash
-npm run sidecar:vision   # Windows: pip install -e ai-sidecar[vision]
-# or: bash scripts/install-sidecar-vision.sh
+npm run sidecar:vision   # or: bash scripts/install-sidecar-vision.sh
 curl http://127.0.0.1:8723/health
 # "vision_available": true
 ```
@@ -73,7 +71,7 @@ metrics are merged with a BLIP scene caption, CLIP zero-shot visual tags, and ma
 ## Optional genre classifier
 
 ```bash
-npm run sidecar:classify   # pip install -e ai-sidecar[classify]
+npm run sidecar:classify
 curl http://127.0.0.1:8723/health
 # "genre_available": true
 ```
@@ -83,7 +81,7 @@ curl http://127.0.0.1:8723/health
 Text-to-music via Meta MusicGen (audiocraft). **Model weights are CC-BY-NC** — opt-in only, not bundled.
 
 ```bash
-npm run sidecar:generate   # Windows: pip install -e ai-sidecar[generate]
+npm run sidecar:generate
 curl http://127.0.0.1:8723/health
 # "generate_available": true
 ```
@@ -131,7 +129,7 @@ a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix t
 **Placement-mix v1** (`POST /vocal-embed/synthesize`) is available with base sidecar deps
 (librosa + soundfile). It ducks the instrumental under lyric sections and overlays a guide vocal.
 
-**Vocal DSP v1** (`pip install -e ai-sidecar[vocal]`) adds scipy-powered guide conversion
+**Vocal DSP v1** (`npm run sidecar:vocal`) adds scipy-powered guide conversion
 (pitch shift + presence EQ) and lyrics-only synthesis from section timing.
 
 **Vocal ML models (RVC / DiffSinger)** are user-provided and configured via environment variables:
@@ -144,7 +142,7 @@ a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix t
 | `AIMC_DIFFSINGER_VAR_EXP` | Variance checkpoint folder name under `checkpoints/` (pitch/duration from notes) |
 | `AIMC_DIFFSINGER_ACOUSTIC_EXP` | Acoustic checkpoint folder name under `checkpoints/` |
 | `AIMC_DIFFSINGER_PYTHON` | Python executable in the DiffSinger venv (defaults to sidecar Python) |
-| `AIMC_DIFFSINGER_CMD` | Optional CLI bridge (`scripts/diffsinger_bridge_example.py`) |
+| `AIMC_DIFFSINGER_CMD` | Optional CLI bridge (`ai-sidecar/scripts/diffsinger_bridge_example.py`) |
 | `AIMC_DIFFSINGER_URL` | HTTP DiffSinger service exposing `POST /synthesize` |
 
 OpenVPI setup (one-time):
