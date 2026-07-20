@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
+  buildGitHubNewIssueUrl,
   canQueueRuntimeReports,
   enqueueRuntimeReport,
   formatRuntimeReportPayload,
@@ -66,8 +67,18 @@ describe("fail-safe-runtime-reporter", () => {
     expect(payload.issueTitle).toMatch(/fail-safe-runtime/);
     expect(payload.labels).toEqual(expect.arrayContaining(["fail-safe-runtime", "needs-agent"]));
     expect(payload.issueBody).toContain("FAIL-SAFE BOT");
-    expect(payload.delivery).toBe("local-queue-only");
+    expect(payload.delivery).toBe("local-queue");
     expect(payload.issues.some((i) => i.id === "sidecar_offline")).toBe(true);
+  });
+
+  it("buildGitHubNewIssueUrl encodes title and body", () => {
+    const url = buildGitHubNewIssueUrl({
+      issueTitle: "[fail-safe-runtime] boom",
+      issueBody: "hello world",
+    });
+    expect(url).toContain("github.com/Druttzen/ai-music-tool/issues/new");
+    expect(url).toContain("title=");
+    expect(url).toContain("body=");
   });
 
   it("does not enqueue without consent", () => {

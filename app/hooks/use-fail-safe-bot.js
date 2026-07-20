@@ -7,9 +7,14 @@ import {
   formatReportSummary,
   getActionableIssues,
 } from "../lib/fail-safe-bot";
-import { maybeReportHealthIssue } from "../lib/fail-safe-runtime-reporter";
+import { maybeReportHealthIssue, canQueueRuntimeReports } from "../lib/fail-safe-runtime-reporter";
+import {
+  installRuntimeErrorListeners,
+  uninstallRuntimeErrorListeners,
+} from "../lib/fail-safe-runtime-listeners";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
+import { APP_VERSION } from "../lib/music-config";
 
 function subscribeNoop() {
   return () => {};
@@ -77,6 +82,31 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
     return () => clearTimeout(timer);
   }, [mounted, probe, sidecarAiStatus]);
 
+  useEffect(() => {
+    if (!mounted) return undefined;
+    if (canQueueRuntimeReports()) {
+      installRuntimeErrorListeners({
+        appVersion: typeof APP_VERSION === "string" ? APP_VERSION : undefined,
+        sidecarAiStatus,
+      });
+    } else {
+      uninstallRuntimeErrorListeners();
+    }
+    return () => uninstallRuntimeErrorListeners();
+  }, [mounted, sidecarAiStatus]);
+
+  const refreshRuntimeListeners = useCallback(() => {
+    if (!mounted) return;
+    if (canQueueRuntimeReports()) {
+      installRuntimeErrorListeners({
+        appVersion: typeof APP_VERSION === "string" ? APP_VERSION : undefined,
+        sidecarAiStatus,
+      });
+    } else {
+      uninstallRuntimeErrorListeners();
+    }
+  }, [mounted, sidecarAiStatus]);
+
   const copyFixCommands = useCallback(async () => {
     if (!report?.issues?.length) return false;
     const actionable = getActionableIssues(report.issues);
@@ -94,5 +124,5 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
 
   const summary = useMemo(() => (report ? formatReportSummary(report) : ""), [report]);
 
-  return { report, busy, probe, copyFixCommands, summary, mounted };
+  return { report, busy, probe, copyFixCommands, summary, mounted, refreshRuntimeListeners };
 }

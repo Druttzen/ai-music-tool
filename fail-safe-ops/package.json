@@ -1,11 +1,13 @@
 {
   "name": "fail-safe-ops",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Fail-Safe Ops scaffold — GitHub auto-fix / review service (not a standalone app yet)",
-  "type": "module",
-  "exports": {
-    ".": "./lib/index.js",
-    "./classifier": "./lib/classifier.js"
+  "description": "Fail-Safe Ops — GitHub CI diagnose, auto-fix playbooks, review fallback (CLI-first)",
+  "bin": {
+    "fail-safe-ops": "./bin/fail-safe-ops.cjs"
+  },
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
   }
 }

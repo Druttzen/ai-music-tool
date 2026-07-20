@@ -1,8 +1,8 @@
 /**
  * Fail-Safe Runtime reporter — format runtime errors for GitHub agents (Product B).
  *
- * Phase 0–1: format + local queue only. No network / no auto-push.
- * Enable + telemetry consent both default OFF.
+ * Local queue by default. Delivery is opt-in (new-issue URL or maintainer `gh`).
+ * Enable + telemetry consent both default OFF. Never auto-push from end-user installs.
  *
  * See docs/fail-safe-split.md
  */
@@ -163,8 +163,54 @@ export function formatRuntimeReportPayload(input = {}) {
     issueBody,
     labels,
     issues,
-    delivery: "local-queue-only",
+    delivery: "local-queue",
   };
+}
+
+/**
+ * Open GitHub "new issue" URL (no token). Safe for consenting users.
+ * @param {{ issueTitle?: string, issueBody?: string }} payload
+ * @param {{ owner?: string, repo?: string }} [opts]
+ */
+export function buildGitHubNewIssueUrl(payload, opts = {}) {
+  const owner = opts.owner || "Druttzen";
+  const repo = opts.repo || "ai-music-tool";
+  const title = encodeURIComponent(payload.issueTitle || "[fail-safe-runtime]");
+  const body = encodeURIComponent(payload.issueBody || "");
+  return `https://github.com/${owner}/${repo}/issues/new?title=${title}&body=${body}`;
+}
+
+/**
+ * Mark queue item delivered (keeps history, sets delivery status).
+ * @param {string} fingerprint
+ * @param {{ mode?: string, url?: string }} [info]
+ */
+export function markRuntimeReportDelivered(fingerprint, info = {}) {
+  const queue = getRuntimeReportQueue();
+  const next = queue.map((item) =>
+    item.fingerprint === fingerprint
+      ? {
+          ...item,
+          delivery: info.mode || "github-issue",
+          deliveredAt: Date.now(),
+          deliveryUrl: info.url || null,
+        }
+      : item,
+  );
+  safeLocalStorage.setJSON(RUNTIME_REPORT_QUEUE_KEY, next);
+}
+
+export function clearRuntimeReportQueue() {
+  safeLocalStorage.remove(RUNTIME_REPORT_QUEUE_KEY);
+}
+
+/**
+ * Export top queued report as JSON string for CLI deliver.
+ * @returns {string|null}
+ */
+export function exportTopRuntimeReportJson() {
+  const [top] = getRuntimeReportQueue();
+  return top ? JSON.stringify(top, null, 2) : null;
 }
 
 /**
@@ -176,7 +222,7 @@ export function getRuntimeReportQueue() {
 }
 
 /**
- * Enqueue if enable + consent. Never posts to GitHub in phase 0–1.
+ * Enqueue if enable + consent. Does not network-post (user opens issue URL or maintainer CLI).
  * @param {RuntimeReportInput} input
  * @returns {{ ok: boolean, reason?: string, payload?: object }}
  */

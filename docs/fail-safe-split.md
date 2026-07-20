@@ -3,7 +3,7 @@
 Architecture plan to divide today’s monolithic fail-safe bot into two products.
 See also: [fail-safe-bot.md](fail-safe-bot.md) (current in-repo behavior).
 
-**Status:** Phase 0–1 scaffolded (docs + module boundaries). Full Ops app and live Runtime→GitHub reporting are deferred.
+**Status:** Phase 2 in progress — Ops CLI-first app + Runtime opt-in GitHub delivery (new-issue URL / maintainer `gh`). Full separate desktop Ops shell deferred.
 
 ---
 
@@ -50,7 +50,7 @@ Everything lives inside **ai-music-tool**:
 
 **Future home:** `fail-safe-ops/` (this repo for now; later its own app / repo).
 
-**Scaffold (phase 0–1):** `fail-safe-ops/README.md` + `fail-safe-ops/lib/classifier.js` re-exporting the live classifier from `app/lib/fail-safe-bot.js` (single source of truth — do not fork playbooks yet).
+**Scaffold (phase 2):** `fail-safe-ops/` package + `bin/fail-safe-ops.cjs` (`diagnose` / `run` / `auto` / `fix-push` / `deliver-runtime`). Root scripts: `npm run fail-safe-ops`.
 
 ---
 
@@ -61,11 +61,11 @@ Everything lives inside **ai-music-tool**:
 - Background health (sidecar offline, librosa missing, window/`unhandledrejection` errors)
 - Classify runtime errors (reuse playbooks where relevant)
 - Format a report for maintainers/agents
-- Open a **GitHub issue** and/or **agent branch** with the error log
+- Open a **GitHub issue** (new-issue URL or maintainer `gh`) and/or **agent branch** with the error log
 - **No** silent auto-push from end-user installs
 - Telemetry / reporting only with explicit consent + feature flag (default **OFF**)
 
-**Scaffold (phase 0–1):** `app/lib/fail-safe-runtime-reporter.js` — payload + branch naming + local queue. Wire is opt-in; GitHub write deferred to phase 3.
+**Scaffold (phase 2):** `app/lib/fail-safe-runtime-reporter.js` + `fail-safe-runtime-listeners.js` + panel toggles + `scripts/fail-safe-runtime-deliver.cjs`.
 
 ---
 
@@ -74,22 +74,22 @@ Everything lives inside **ai-music-tool**:
 ### Stays in ai-music-tool (Runtime + thin Ops clients)
 
 - In-app panel, Bug found dialog, runtime health probe
-- `fail-safe-runtime-reporter.js` (+ future background listener)
+- `fail-safe-runtime-reporter.js` / listeners
 - Sidecar health endpoints used by the panel
 - Electron/Tauri packaging of Runtime (not a separate desktop app for users)
 - Cursor rule for **agent fix** when a Runtime report appears in chat (alongside Ops CI prompts)
 
 ### Moves to Fail-Safe Ops (eventually)
 
-- `scripts/fail-safe-bot.cjs`, `fail-safe-bot-comment.cjs`, `fail-safe-bot-agent.cjs`, `fail-safe-fix-and-push.cjs`, `fail-safe-cloud-dispatch.cjs`, `fetch-ci-failure.cjs`
+- `scripts/fail-safe-bot.cjs`, `fail-safe-bot-comment.cjs`, `fail-safe-bot-agent.cjs`, `fail-safe-fix-and-push.cjs`, `fail-safe-cloud-dispatch.cjs`, `fetch-ci-failure.cjs` (Ops CLI wraps them today)
 - `.github/workflows/fail-safe-bot.yml`, `fail-safe-auto-fix.yml` (or call Ops from them)
 - Sidecar `fail_safe_fix.py` Fix & push (or Ops replaces it)
 - Pure classifier / playbooks once extracted to a shared package Ops owns
 
-### Shared (phase 1)
+### Shared (phase 1–2)
 
 - Classifier API: keep **`app/lib/fail-safe-bot.js` as source of truth**
-- `fail-safe-ops/lib/classifier.js` re-exports it (document reverse ownership in phase 2)
+- `fail-safe-ops/lib/classifier.js` re-exports it
 
 ---
 
@@ -100,13 +100,13 @@ Default path for end-user / consenting reporter installs:
 1. **Detect** (local only): window error, unhandled rejection, sidecar fail, classified runtime issue.
 2. **Format** payload via `formatRuntimeReportPayload` (issue-ready markdown + metadata).
 3. **Queue** locally (`aimc.failSafeRuntime.queue`) — never network-post without consent + enable.
-4. **Deliver** (phase 3+, maintainer-configured target repo only):
+4. **Deliver**:
 
 | Mechanism | When | Notes |
 |-----------|------|--------|
-| **GitHub Issue** | Default for user-reported runtime | Labels: `fail-safe-runtime`, `needs-agent`, optional severity |
-| **Branch** `cursor/runtime-fail-<slug>` | Maintainer / CI agent path | Push error log file + optional minimal repro; open draft PR or leave for Agent |
-| **Artifact** | Optional CI attachment | Upload `.fail-safe-runtime-report.md` on issue / workflow |
+| **GitHub new-issue URL** | Panel “Send top report to GitHub…” | No token; user submits the form |
+| **`gh issue create`** | Maintainer CLI `fail-safe-ops deliver-runtime` | Labels `fail-safe-runtime`, `needs-agent` |
+| **Branch** `cursor/runtime-fail-<slug>` | Maintainer CLI `--branch` | Commits `.fail-safe-runtime-report.md` locally; user pushes |
 
 **Branch naming:** `cursor/runtime-fail-<YYYYMMDD>-<shortHash>` (see reporter).
 
@@ -126,46 +126,47 @@ Ops (A) remains the only path that auto-fixes and pushes under maintainer/CI cre
 | Fix & push | Maintainer mode only (`AIMC_MAINTAINER` + repo root / PAT for cloud) |
 | Runtime report enable | Default **OFF** — `isRuntimeReportingEnabled()` |
 | Telemetry consent | Separate flag — `hasRuntimeTelemetryConsent()`; both required to enqueue |
-| No silent network | Phase 0–1 only queues locally; no GitHub API from Runtime yet |
+| No silent network | Queue is local; delivery is explicit (URL open or maintainer `gh`) |
 | Secrets | Never put tokens in Runtime payloads; redact env-like strings in logs |
-| User installs | May copy report / open issue manually; never push code |
+| User installs | May open issue form; never push code |
 
 ---
 
 ## Migration phases
 
-### Phase 0 — Docs + stubs (this PR)
+### Phase 0 — Docs + stubs
 
 - [x] `docs/fail-safe-split.md` (this doc)
 - [x] Point `docs/fail-safe-bot.md` + Cursor fail-safe rule at the split
 - [x] `fail-safe-ops/` README + classifier re-export stub
 - [x] `app/lib/fail-safe-runtime-reporter.js` + opt-in queue hook
-- [ ] Do **not** cut a release; do **not** break existing CI / panel
 
 ### Phase 1 — Shared classifier boundary
 
 - [x] Re-export entry: `fail-safe-ops/lib/classifier.js` → `app/lib/fail-safe-bot.js`
 - [ ] Optional: thin shared package name (`@aimc/fail-safe-classifier`) when Ops leaves the monorepo
-- [ ] Keep all existing imports (`scripts/fail-safe-bot-import.cjs`, tests) unchanged
+- [x] Keep all existing imports (`scripts/fail-safe-bot-import.cjs`, tests) unchanged
 
-### Phase 2 — Separate Ops app
+### Phase 2 — Separate Ops app (CLI-first) + Runtime delivery
 
-- Extract CLI + workflows into Fail-Safe Ops (Electron/Tauri or CLI-first)
-- Ops owns playbook source; ai-music-tool depends on published package or git submodule
-- In-app Fix & push becomes “open Ops” / “dispatch Ops” for maintainers
+- [x] Ops CLI: `fail-safe-ops/bin/fail-safe-ops.cjs` + root `npm run fail-safe-ops`
+- [x] Runtime listeners + panel enable/consent + GitHub new-issue flush
+- [x] Maintainer `deliver-runtime` (`gh issue create`, optional `--branch`)
+- [ ] Electron/Tauri Ops desktop shell (deferred)
+- [ ] Move workflows out of ai-music-tool into Ops repo (deferred)
+- [ ] In-app Fix & push → “open Ops” deep link (deferred)
 
-### Phase 3 — In-app background reporter
+### Phase 3 — Richer Runtime reporting
 
-- Window / promise / sidecar listeners behind enable + consent
-- Maintainer-configured GitHub issue create (PAT or device flow)
-- Agent branch `cursor/runtime-fail-*` for maintainer machines only
-- Cursor rule: treat Runtime issue bodies like CI fail-safe prompts
+- [ ] Maintainer-configured PAT / device flow from the app (beyond new-issue URL)
+- [ ] Draft PR auto-open for `cursor/runtime-fail-*`
+- [ ] Cursor rule: treat Runtime issue bodies like CI fail-safe prompts (extend)
 
 ---
 
 ## Non-goals (near term)
 
-- Full separate Electron/Tauri Ops UI in this PR
+- Full separate Electron/Tauri Ops UI
 - Moving workflows out of ai-music-tool yet
 - Auto-reporting from production user builds without consent
 - Duplicating `FAILURE_PLAYBOOKS` into two copies
