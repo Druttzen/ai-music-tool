@@ -12,7 +12,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from ai_sidecar.main import _MODEL_CACHE, _STEM_JOBS, app
+from ai_sidecar.jobs import JOBS
+from ai_sidecar.main import app
+from ai_sidecar.stems_separate import _MODEL_CACHE
 
 client = TestClient(app)
 
@@ -35,10 +37,18 @@ def _make_tone_wav(duration_sec=1.0, sample_rate=22050) -> bytes:
 @pytest.fixture(autouse=True)
 def _clear_stem_state():
     _MODEL_CACHE.clear()
-    _STEM_JOBS.clear()
+    with JOBS._lock:
+        JOBS._jobs.clear()
+    saved = {k: sys.modules.get(k) for k in ("torch", "demucs", "demucs.apply", "demucs.audio", "demucs.pretrained")}
     yield
     _MODEL_CACHE.clear()
-    _STEM_JOBS.clear()
+    with JOBS._lock:
+        JOBS._jobs.clear()
+    for key, mod in saved.items():
+        if mod is None:
+            sys.modules.pop(key, None)
+        else:
+            sys.modules[key] = mod
 
 
 def _install_fake_demucs_modules():
@@ -84,6 +94,9 @@ def _install_fake_demucs_modules():
     sys.modules["demucs.pretrained"] = fake_pretrained
 
     fake_torch = MagicMock()
+    fake_torch.__version__ = "0.0-test"
+    fake_torch.cuda.is_available.return_value = False
+    fake_torch.backends.mps.is_available.return_value = False
     fake_torch.no_grad.return_value.__enter__ = MagicMock(return_value=None)
     fake_torch.no_grad.return_value.__exit__ = MagicMock(return_value=False)
     sys.modules["torch"] = fake_torch
@@ -95,7 +108,7 @@ def test_separate_mocked_demucs_roundtrip():
     _install_fake_demucs_modules()
     wav = _make_tone_wav()
 
-    with patch("ai_sidecar.main._load_demucs") as mock_load:
+    with patch("ai_sidecar.stems_separate._load_demucs") as mock_load:
         fake_model = sys.modules["demucs.pretrained"].get_model.return_value
         mock_load.return_value = (fake_model, sys.modules["torch"])
 
@@ -104,7 +117,7 @@ def test_separate_mocked_demucs_roundtrip():
             files={"file": ("tone.wav", BytesIO(wav), "audio/wav")},
         )
 
-    assert res.status_code == 200
+    assert res.status_code == 200, res.text
     body = res.json()
     assert body["job_id"]
     assert body["sources"] == ["drums", "bass", "other", "vocals"]

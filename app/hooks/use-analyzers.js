@@ -38,6 +38,7 @@ import {
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
 import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, fetchSonicSignatureViaSidecar, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { musicGenInstallHint } from "../lib/sidecar-capabilities";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
@@ -720,7 +721,7 @@ export function useAnalyzers({
         const health = await fetchSidecarHealth();
         if (!health?.generate_available) {
           setStatusWithTime(
-            "MusicGen not installed — run npm run sidecar:generate (CC-BY-NC weights)",
+            `MusicGen not installed — run ${musicGenInstallHint(health)} (CC-BY-NC weights)`,
             "warning",
           );
           setSidecarGenerateAvailable(false);

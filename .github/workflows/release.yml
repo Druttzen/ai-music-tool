@@ -1,15 +1,15 @@
 name: Release
 
+# Electron legacy installer — manual only.
+# Default ship:tag pushes studio-v* (Tauri). Use workflow_dispatch here, or
+# `npm run ship:tag -- --electron` then run this workflow for the v* tag.
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Git tag to rebuild (e.g. v0.47.1)"
+        description: "Git tag to rebuild (e.g. v0.50.2) — Electron legacy only"
         required: true
         type: string
-  push:
-    tags:
-      - "v*"
 
 permissions:
   contents: write

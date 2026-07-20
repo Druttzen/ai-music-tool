@@ -4,12 +4,13 @@ import { memo, useState } from "react";
 
 /**
  * Shared MusicGen prompt + duration controls.
- * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, canUseMelodyReference?: boolean, canUseHighlightMelody?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: { attach?: boolean, download?: boolean, mergeAfterGenerate?: boolean, useMelodyReference?: boolean, useHighlightMelody?: boolean }) => void, compact?: boolean }} props
+ * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, installHint?: string, canUseMelodyReference?: boolean, canUseHighlightMelody?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: { attach?: boolean, download?: boolean, mergeAfterGenerate?: boolean, useMelodyReference?: boolean, useHighlightMelody?: boolean }) => void, compact?: boolean }} props
  */
 export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   defaultPrompt = "",
   busy = false,
   available = false,
+  installHint = "npm run sidecar:generate",
   canUseMelodyReference = false,
   canUseHighlightMelody = false,
   onGenerate,
@@ -43,7 +44,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       </div>
       <p className="text-[10px] leading-relaxed text-white/45">
         Short WAV sketch from your project style (
-        <code className="text-white/60">npm run sidecar:generate</code>
+        <code className="text-white/60">{installHint}</code>
         ). Loads in the waveform player — CC-BY-NC weights, preview only.
       </p>
       <label className="block text-[10px] text-white/50">
