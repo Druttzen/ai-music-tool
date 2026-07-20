@@ -50,6 +50,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 /.cursor/
+.recover/
+.release-recover-*/
+release-notes-*.md
 .fail-safe-last-run.json
 
 # env files (can opt-in for committing if needed)

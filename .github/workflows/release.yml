@@ -86,13 +86,13 @@ jobs:
             exit 1
           fi
 
-          for attempt in 1 2 3 4 5; do
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              echo "Release ${TAG} already exists; updating notes"
-              if gh release edit "$TAG" --notes-file release-notes.md --title "${TAG#v}"; then
-                break
-              fi
-            else
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists; updating notes (best effort)"
+            if ! gh release edit "$TAG" --notes-file release-notes.md --title "${TAG#v}"; then
+              echo "Release notes edit failed (often transient 5xx); continuing to asset upload"
+            fi
+          else
+            for attempt in 1 2 3 4 5; do
               echo "Creating release ${TAG} (attempt ${attempt})"
               if gh release create "$TAG" \
                 --title "${TAG#v}" \
@@ -100,10 +100,10 @@ jobs:
                 --verify-tag; then
                 break
               fi
-            fi
-            echo "Release ensure failed; waiting before retry..."
-            sleep $((attempt * 20))
-          done
+              echo "Release create failed; waiting before retry..."
+              sleep $((attempt * 20))
+            done
+          fi
           gh release view "$TAG" >/dev/null
 
           # Upload one file at a time with long backoff (uploads.github.com 5xx).
@@ -113,6 +113,11 @@ jobs:
             for attempt in 1 2 3 4 5 6 7 8; do
               echo "Uploading $(basename "$f") (attempt ${attempt})"
               if gh release upload "$TAG" "$f" --clobber; then
+                ok=1
+                break
+              fi
+              # --clobber 404s when the asset name is not present yet; retry without it.
+              if gh release upload "$TAG" "$f"; then
                 ok=1
                 break
               fi
