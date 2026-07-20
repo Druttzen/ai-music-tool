@@ -55,38 +55,46 @@ jobs:
           fs.writeFileSync("release-notes.md", out.join("\n") + "\n");
           NODE
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
-      - name: Remove partial GitHub release (avoid electron-builder 422)
+      # Build only — electron-builder's GitHub publisher races itself (parallel
+      # create-release for .exe + .blockmap → 422 already_exists) and is brittle
+      # on GitHub upload 5xx. Upload assets with gh instead.
+      - name: Build Windows installer
+        run: node scripts/run-electron-builder.cjs --publish never
+      - name: Ensure GitHub release and upload installer assets
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
-          set -e
-          REPO="${GITHUB_REPOSITORY}"
-          RELEASE_ID=$(gh release view "$TAG" --json id -q .id 2>/dev/null || true)
-          if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
-            echo "Deleting existing release ${TAG} (id ${RELEASE_ID})"
-            gh api -X DELETE "repos/${REPO}/releases/${RELEASE_ID}"
-          else
-            echo "No existing release for ${TAG}"
-          fi
-      - name: Build and publish Windows installer
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/run-electron-builder.cjs --publish always
-      - name: Ensure all installer assets on GitHub release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-        run: |
-          set -e
+          set -euo pipefail
           OUT=$(cat build/.electron-dist-output 2>/dev/null || echo electron-dist)
           shopt -s nullglob
           files=("${OUT}"/*Setup*.exe "${OUT}"/*Setup*.exe.blockmap "${OUT}"/latest.yml)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No installer artifacts in ${OUT}"
+            ls -la "${OUT}" || true
             exit 1
           fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists — updating notes and assets"
+            gh release edit "$TAG" --notes-file release-notes.md --title "${TAG#v}"
+          else
+            echo "Creating release ${TAG}"
+            gh release create "$TAG" \
+              --title "${TAG#v}" \
+              --notes-file release-notes.md \
+              --verify-tag
+          fi
+
           echo "Uploading ${#files[@]} asset(s) to ${TAG}"
-          gh release upload "$TAG" "${files[@]}" --clobber
+          for attempt in 1 2 3; do
+            if gh release upload "$TAG" "${files[@]}" --clobber; then
+              echo "Upload succeeded on attempt ${attempt}"
+              exit 0
+            fi
+            echo "Upload attempt ${attempt} failed; waiting before retry..."
+            sleep $((attempt * 15))
+          done
+          echo "All upload attempts failed"
+          exit 1
