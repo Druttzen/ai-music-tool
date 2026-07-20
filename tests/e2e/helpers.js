@@ -91,7 +91,7 @@ export function analyzerPanel(page) {
 export async function uploadAnalyzerAudioFixture(panel, fixturePath, fileName, timeout = 60_000) {
   await panel.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(fixturePath);
   await expect(panel.getByText(fileName, { exact: true })).toBeVisible({ timeout });
-  await expect(panel.getByRole("button", { name: "Merge into Suno fields →" })).toBeVisible({
+  await expect(panel.getByRole("button", { name: "Merge into Suno v5.5 Style →" })).toBeVisible({
     timeout: 10_000,
   });
 }

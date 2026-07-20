@@ -570,7 +570,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           }}
           className="flex-1 min-w-[140px] rounded-2xl border border-cyan-400/40 bg-cyan-500/20 py-2 text-xs font-bold text-cyan-50 hover:bg-cyan-500/30"
         >
-          Merge into Suno fields →
+          Merge into Suno v5.5 Style →
         </button>
         {onClear ? (
           <button

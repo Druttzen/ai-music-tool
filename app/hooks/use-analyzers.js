@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   buildAudioAnalyzerPatch,
-  buildImageAnalyzerPatch,
 } from "../lib/analyzer-guided-merge";
+import { buildAudioSunoV55Patch, buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
+import { buildImageSunoV55Patch, buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
+import { refineSunoStyleWithLlmOrHeuristic } from "../lib/analyzer-suno-style-llm";
 import {
   isSupportedAudioFile,
   isSupportedImageFile,
@@ -60,6 +62,7 @@ export function useAnalyzers({
   setStatusWithTime,
   idea = "",
   lyricTheme = "",
+  coProducerLlmSettings = null,
 }) {
   const refs = useAnalyzerRefs();
   const {
@@ -460,42 +463,60 @@ export function useAnalyzers({
     setGuidedStep(resolvePolishStepIndex());
   }, [setGuidedStep]);
 
-  const applyAudioToSunoStyle = useCallback(() => {
+  const applyAudioToSunoStyle = useCallback(async () => {
     if (!audioAnalysis) {
       setStatusWithTime("No audio analysis yet");
       return;
     }
-    applyAnalyzerPatch(buildAudioAnalyzerPatch(audioAnalysis, formatTime));
+    const heuristic = buildSunoV55StyleFromAudioAnalysis(audioAnalysis);
+    const built = await refineSunoStyleWithLlmOrHeuristic(
+      "audio",
+      heuristic,
+      audioAnalysis,
+      coProducerLlmSettings,
+    );
+    applyAnalyzerPatch(buildAudioSunoV55Patch(audioAnalysis, formatTime, built));
 
+    const via = built.source === "llm" ? " (LLM refined)" : "";
     if (promptEngine === "Suno-like") {
       navigateToPolishStep();
-      setStatusWithTime("Audio DNA merged — guided path: Polish (analyzers)");
+      setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — guided path: Polish`);
     } else {
-      setStatusWithTime("Audio DNA merged into fields — switch to Suno-like to use the guided path");
+      setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — Style buffer filled`);
     }
   }, [
     audioAnalysis,
     applyAnalyzerPatch,
+    coProducerLlmSettings,
     navigateToPolishStep,
     promptEngine,
     setStatusWithTime,
   ]);
 
-  const applyImageToSunoStyle = useCallback(() => {
+  const applyImageToSunoStyle = useCallback(async () => {
     if (!imageAnalysis) {
       setStatusWithTime("No image analysis yet");
       return;
     }
-    applyAnalyzerPatch(buildImageAnalyzerPatch(imageAnalysis));
+    const heuristic = buildSunoV55StyleFromImageAnalysis(imageAnalysis);
+    const built = await refineSunoStyleWithLlmOrHeuristic(
+      "image",
+      heuristic,
+      imageAnalysis,
+      coProducerLlmSettings,
+    );
+    applyAnalyzerPatch(buildImageSunoV55Patch(imageAnalysis, built));
 
+    const via = built.source === "llm" ? " (LLM refined)" : "";
     if (promptEngine === "Suno-like") {
       navigateToPolishStep();
-      setStatusWithTime("Image style merged — guided path: Polish (analyzers)");
+      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — guided path: Polish`);
     } else {
-      setStatusWithTime("Image style merged into fields — switch to Suno-like to use the guided path");
+      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — Style buffer filled`);
     }
   }, [
     applyAnalyzerPatch,
+    coProducerLlmSettings,
     imageAnalysis,
     navigateToPolishStep,
     promptEngine,

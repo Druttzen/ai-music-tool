@@ -42,6 +42,8 @@ export interface SidecarHealth {
   vocal_rvc_available?: boolean;
   vocal_diffsinger_available?: boolean;
   generate_available?: boolean;
+  cover_available?: boolean;
+  cover_ref_available?: boolean;
   fix_push_available?: boolean;
   maintainer_mode?: boolean;
   device_info?: SidecarDeviceInfo | null;
@@ -638,6 +640,104 @@ export async function generateMusicWithMelodyViaSidecar(
     model: res.headers.get("X-MusicGen-Model"),
     durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
     mode: res.headers.get("X-MusicGen-Mode") || "melody",
+  };
+}
+
+/**
+ * POST text prompt to /cover (optional FLUX when cover extra is installed).
+ */
+export async function generateCoverViaSidecar(options: {
+  prompt: string;
+  width?: number;
+  height?: number;
+  seed?: number | null;
+  numInferenceSteps?: number;
+}): Promise<{ blob: Blob; model: string | null; mode: string | null; width: number | null; height: number | null }> {
+  const res = await fetch(`${sidecarBaseUrl()}/cover`, {
+    method: "POST",
+    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      prompt: options.prompt,
+      width: options.width ?? 1024,
+      height: options.height ?? 1024,
+      seed: options.seed ?? null,
+      num_inference_steps: options.numInferenceSteps ?? 4,
+    }),
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar cover failed (${res.status})`);
+  }
+
+  return {
+    blob: await res.blob(),
+    model: res.headers.get("X-Cover-Model"),
+    mode: res.headers.get("X-Cover-Mode"),
+    width: Number(res.headers.get("X-Cover-Width") || options.width || 1024) || null,
+    height: Number(res.headers.get("X-Cover-Height") || options.height || 1024) || null,
+  };
+}
+
+/**
+ * POST reference image + prompt to /cover-ref (optional FLUX img2img).
+ */
+export async function generateCoverRefViaSidecar(options: {
+  prompt: string;
+  image: Blob;
+  imageName?: string;
+  strength?: number;
+  width?: number;
+  height?: number;
+  seed?: number | null;
+  numInferenceSteps?: number;
+}): Promise<{
+  blob: Blob;
+  model: string | null;
+  mode: string | null;
+  strength: number | null;
+  width: number | null;
+  height: number | null;
+}> {
+  const form = new FormData();
+  form.append("prompt", options.prompt);
+  form.append("strength", String(options.strength ?? 0.55));
+  form.append("width", String(options.width ?? 1024));
+  form.append("height", String(options.height ?? 1024));
+  form.append("num_inference_steps", String(options.numInferenceSteps ?? 4));
+  if (options.seed != null) form.append("seed", String(options.seed));
+  form.append("image", options.image, options.imageName || "reference.png");
+
+  const res = await fetch(`${sidecarBaseUrl()}/cover-ref`, {
+    method: "POST",
+    headers: await sidecarAuthHeaders(),
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar cover-ref failed (${res.status})`);
+  }
+
+  return {
+    blob: await res.blob(),
+    model: res.headers.get("X-Cover-Model"),
+    mode: res.headers.get("X-Cover-Mode"),
+    strength: Number(res.headers.get("X-Cover-Strength") || options.strength || 0.55) || null,
+    width: Number(res.headers.get("X-Cover-Width") || options.width || 1024) || null,
+    height: Number(res.headers.get("X-Cover-Height") || options.height || 1024) || null,
   };
 }
 

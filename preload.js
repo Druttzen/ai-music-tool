@@ -14,4 +14,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   canvasAddonStatus: () => ipcRenderer.invoke("suite:canvas-addon-status"),
   launchCanvasAddon: () => ipcRenderer.invoke("suite:launch-canvas-addon"),
   installCanvasAddon: () => ipcRenderer.invoke("suite:install-canvas-addon"),
+  suiteAddonStatus: (addonId) => ipcRenderer.invoke("suite:addon-status", addonId),
+  installSuiteAddon: (addonId) => ipcRenderer.invoke("suite:install-addon", addonId),
+  launchSuiteAddon: (addonId) => ipcRenderer.invoke("suite:launch-addon", addonId),
+  exportMusicVideoHandoff: (payload) => ipcRenderer.invoke("suite:export-music-video-handoff", payload),
 });

@@ -25,6 +25,8 @@ _ACTIVITY_PATHS = frozenset({
     "/vocal-embed/ds-export",
     "/generate",
     "/generate/melody",
+    "/cover",
+    "/cover-ref",
 })
 
 

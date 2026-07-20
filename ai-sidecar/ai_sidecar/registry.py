@@ -62,6 +62,18 @@ def _probe_vision() -> bool:
     return vision_analysis_available()
 
 
+def _probe_cover() -> bool:
+    from .cover_generator import cover_available
+
+    return cover_available()
+
+
+def _probe_cover_ref() -> bool:
+    from .cover_ref_generator import cover_ref_available
+
+    return cover_ref_available()
+
+
 def _probe_vocal_synth() -> bool:
     from .vocal_embed import vocal_synthesis_available
 
@@ -124,6 +136,24 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         probe=_probe_vision,
     ),
     CapabilitySpec(
+        id="cover",
+        title="Album cover (FLUX text)",
+        tasks=("cover",),
+        install_hint="npm run sidecar:cover",
+        license="Apache-2.0 (FLUX.1-schnell)",
+        commercial_use=True,
+        probe=_probe_cover,
+    ),
+    CapabilitySpec(
+        id="cover-ref",
+        title="Album cover from image (FLUX img2img)",
+        tasks=("cover-ref",),
+        install_hint="npm run sidecar:cover-ref",
+        license="Apache-2.0 (FLUX.1-schnell)",
+        commercial_use=True,
+        probe=_probe_cover_ref,
+    ),
+    CapabilitySpec(
         id="vocal_synth",
         title="Vocal embed synthesis",
         tasks=("vocal-embed",),
@@ -175,6 +205,8 @@ def capability_flags() -> dict[str, bool]:
         "stems_available": snaps.get("stems", False),
         "genre_available": snaps.get("genre", False),
         "vision_available": snaps.get("vision", False),
+        "cover_available": snaps.get("cover", False),
+        "cover_ref_available": snaps.get("cover-ref", False),
         "generate_available": snaps.get("generate", False),
         "vocal_synthesis_available": snaps.get("vocal_synth", False),
         "vocal_ml_available": snaps.get("vocal_ml", False),

@@ -19,11 +19,11 @@ test.describe("Audio analyzer e2e", () => {
 
     await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, "e2e-analyzer-tone.wav");
 
-    await panel.getByRole("button", { name: "Merge into Suno fields →" }).click();
+    await panel.getByRole("button", { name: "Merge into Suno v5.5 Style →" }).click();
 
     const toast = page.getByTestId("action-toast");
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText(/Audio DNA merged/i);
+    await expect(toast).toContainText(/Audio → Suno v5\.5 Style merged/i);
 
     const validator = page.locator("section").filter({ hasText: "Suno-like Validator" });
     await expect(validator).toContainText(/Style:\s*[1-9]\d*\s*\/\s*1000/);

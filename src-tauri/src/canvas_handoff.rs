@@ -29,6 +29,8 @@ struct SuiteHandoffConfig {
 struct SuiteAddons {
     #[serde(default)]
     canvas: Option<CanvasAddonConfig>,
+    #[serde(default)]
+    music_video: Option<CanvasAddonConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -109,6 +111,18 @@ fn config() -> &'static SuiteHandoffConfig {
 
 fn canvas_addon_config() -> Option<&'static CanvasAddonConfig> {
     config().addons.canvas.as_ref()
+}
+
+fn music_video_addon_config() -> Option<&'static CanvasAddonConfig> {
+    config().addons.music_video.as_ref()
+}
+
+fn addon_config_by_id(addon_id: &str) -> Option<&'static CanvasAddonConfig> {
+    match addon_id {
+        "canvas" => canvas_addon_config(),
+        "musicVideo" => music_video_addon_config(),
+        _ => None,
+    }
 }
 
 fn user_home() -> PathBuf {
@@ -551,6 +565,162 @@ pub fn export_canvas_handoff(
         launched,
         album_art_path: Some(art_path.to_string_lossy().into_owned()),
         handoff_path: Some(handoff_path.to_string_lossy().into_owned()),
+        error: None,
+    }
+}
+
+#[tauri::command]
+pub fn suite_addon_status(addon_id: String) -> CanvasAddonStatus {
+    let id = addon_id.trim();
+    if id.is_empty() || id == "canvas" {
+        return suite_canvas_addon_status();
+    }
+    let addon = addon_config_by_id(id);
+    CanvasAddonStatus {
+        id: addon
+            .map(|a| a.id.clone())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| id.to_string()),
+        title: addon
+            .map(|a| a.title.clone())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| id.to_string()),
+        description: addon.map(|a| a.description.clone()).unwrap_or_default(),
+        installed: false,
+        path: None,
+        repo_url: addon.and_then(|a| non_empty(&a.repo_url)),
+        install_url: addon.and_then(|a| non_empty(&a.install_url)),
+        releases_url: addon.and_then(|a| non_empty(&a.releases_url)),
+    }
+}
+
+#[tauri::command]
+pub fn install_suite_addon(addon_id: String) -> CanvasAddonActionResult {
+    let id = addon_id.trim();
+    if id.is_empty() || id == "canvas" {
+        return install_canvas_addon();
+    }
+    let Some(addon) = addon_config_by_id(id) else {
+        return CanvasAddonActionResult {
+            ok: false,
+            launched: false,
+            already_installed: false,
+            mode: None,
+            path: None,
+            url: None,
+            error: Some(format!("Unknown suite addon: {id}")),
+        };
+    };
+    let url = non_empty(&addon.install_url)
+        .or_else(|| non_empty(&addon.repo_url))
+        .unwrap_or_else(|| addon.releases_url.clone());
+    let opened = open::that(&url).is_ok();
+    CanvasAddonActionResult {
+        ok: opened,
+        launched: false,
+        already_installed: false,
+        mode: Some("docs".to_string()),
+        path: None,
+        url: Some(url),
+        error: if opened {
+            None
+        } else {
+            Some(format!("Could not open {} install instructions", addon.title))
+        },
+    }
+}
+
+#[tauri::command]
+pub fn launch_suite_addon(addon_id: String) -> CanvasAddonActionResult {
+    let id = addon_id.trim();
+    if id.is_empty() || id == "canvas" {
+        return launch_canvas_addon();
+    }
+    let dir = suite_dir().join(&config().exports_subdir).join("music-video");
+    let opened = open::that(&dir).is_ok();
+    CanvasAddonActionResult {
+        ok: opened,
+        launched: opened,
+        already_installed: false,
+        mode: Some(if opened {
+            "exports-folder".to_string()
+        } else {
+            "missing".to_string()
+        }),
+        path: Some(dir.to_string_lossy().into_owned()),
+        url: None,
+        error: if opened {
+            None
+        } else {
+            Some("Install Music Video (Glitchframe) and import the music-video export folder".to_string())
+        },
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicVideoHandoffResult {
+    pub ok: bool,
+    pub path: Option<String>,
+    pub exports_dir: Option<String>,
+    pub message: Option<String>,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub fn export_music_video_handoff(
+    prompt: String,
+    bpm: String,
+    idea: String,
+    audio_url: Option<String>,
+    cover_url: Option<String>,
+) -> MusicVideoHandoffResult {
+    let exports = suite_dir().join(&config().exports_subdir).join("music-video");
+    if fs::create_dir_all(&exports).is_err() {
+        return MusicVideoHandoffResult {
+            ok: false,
+            path: None,
+            exports_dir: None,
+            message: None,
+            error: Some("could not create music-video exports folder".to_string()),
+        };
+    }
+    let handoff_path = exports.join("music-video-handoff.json");
+    let handoff = json!({
+        "version": 1,
+        "timestamp": handoff_timestamp_iso(),
+        "source": "ai-music-tool",
+        "tool": "musicVideo",
+        "prompt": prompt,
+        "bpm": bpm,
+        "idea": idea,
+        "audioUrl": audio_url,
+        "coverUrl": cover_url,
+        "exportsDir": exports.to_string_lossy(),
+    });
+    if fs::write(
+        &handoff_path,
+        serde_json::to_string_pretty(&handoff).unwrap_or_else(|_| handoff.to_string()),
+    )
+    .is_err()
+    {
+        return MusicVideoHandoffResult {
+            ok: false,
+            path: None,
+            exports_dir: Some(exports.to_string_lossy().into_owned()),
+            message: None,
+            error: Some("could not write music-video-handoff.json".to_string()),
+        };
+    }
+    let _ = open::that(&exports);
+    MusicVideoHandoffResult {
+        ok: true,
+        path: Some(handoff_path.to_string_lossy().into_owned()),
+        exports_dir: Some(exports.to_string_lossy().into_owned()),
+        message: Some(format!(
+            "Music video handoff written to {} — import this folder in Glitchframe",
+            exports.display()
+        )),
         error: None,
     }
 }

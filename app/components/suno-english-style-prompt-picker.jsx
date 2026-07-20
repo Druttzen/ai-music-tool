@@ -9,6 +9,7 @@ import {
 } from "../lib/suno-english-style-index";
 import { loadAwesomeSunoCatalog } from "../lib/awesome-suno-catalog-loader";
 import { generateMetaphorStyle, metaphorToCatalogHints } from "../lib/metaphor-style";
+import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 import { Pill } from "./ui-blocks";
 
 const FEATURED_SECTIONS = [
@@ -94,6 +95,15 @@ export function StylePromptPicker({
   const [cc0TagFilter, setCc0TagFilter] = useState("all");
   const [cc0ActiveTags, setCc0ActiveTags] = useState(() => new Set());
   const [selected, setSelected] = useState(() => new Set());
+
+  useWorkspaceResetEffect(() => {
+    setOpen(defaultOpen);
+    setSectionKey("all");
+    setQuery("");
+    setCc0TagFilter("all");
+    setCc0ActiveTags(new Set());
+    setSelected(new Set());
+  }, [defaultOpen]);
 
   const cc0TagOptions = useMemo(() => {
     const tags = new Set(Object.values(awesomeTags || {}));

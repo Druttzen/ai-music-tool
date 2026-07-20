@@ -43,6 +43,7 @@ export function useProjectWorkspaceProvider() {
     setStatusWithTime,
     idea: projectState.idea,
     lyricTheme: projectState.lyricTheme,
+    coProducerLlmSettings: projectState.coProducerLlmSettings,
   });
 
   const snapshotFields = useSnapshotFields(projectState.state, {

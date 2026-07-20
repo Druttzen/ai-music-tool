@@ -4,6 +4,7 @@
 
 import { uniq } from "./music-helpers";
 import { genreOptions, rhythmOptions, soundOptions } from "./suno-music-styles";
+import { hintsFromClipLabel } from "./image-to-suno-style";
 
 export const VISION_CAPTION_MODEL_ID = "Salesforce/blip-image-captioning-base";
 export const VISION_CLIP_MODEL_ID = "openai/clip-vit-base-patch32";
@@ -52,8 +53,20 @@ export function mapClipTagsToSuno(clipTags) {
   if (!Array.isArray(clipTags) || !clipTags.length) {
     return { suggestedGenres: [], suggestedSounds: [], suggestedRhythms: [] };
   }
+  const fromHints = { genres: [], sounds: [], rhythms: [] };
+  for (const tag of clipTags) {
+    const h = hintsFromClipLabel(tag.label);
+    fromHints.genres.push(...h.genres);
+    fromHints.sounds.push(...h.sounds);
+    fromHints.rhythms.push(...h.rhythms);
+  }
   const text = clipTags.map((tag) => tag.label).join(", ");
-  return mapImageCaptionToSuno(text);
+  const fromCatalog = mapImageCaptionToSuno(text);
+  return {
+    suggestedGenres: uniq([...fromHints.genres, ...fromCatalog.suggestedGenres]),
+    suggestedSounds: uniq([...fromHints.sounds, ...fromCatalog.suggestedSounds]),
+    suggestedRhythms: uniq([...fromHints.rhythms, ...fromCatalog.suggestedRhythms]),
+  };
 }
 
 /**

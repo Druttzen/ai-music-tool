@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 
 /**
  * Shared MusicGen prompt + duration controls.
@@ -21,6 +22,15 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   const [mergeAfterGenerate, setMergeAfterGenerate] = useState(true);
   const [useMelodyReference, setUseMelodyReference] = useState(false);
   const [useHighlightMelody, setUseHighlightMelody] = useState(false);
+
+  useWorkspaceResetEffect(() => {
+    setPromptOverride(null);
+    setDurationSec(10);
+    setMergeAfterGenerate(true);
+    setUseMelodyReference(false);
+    setUseHighlightMelody(false);
+  });
+
   const prompt = promptOverride ?? defaultPrompt ?? "";
 
   if (!onGenerate) return null;

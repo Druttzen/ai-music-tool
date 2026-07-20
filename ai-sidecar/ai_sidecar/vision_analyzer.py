@@ -17,25 +17,30 @@ CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
 _PIPE: Any = None
 _CLIP_PIPE: Any = None
 
+# Music / production oriented zero-shot labels (map to Suno Style tags client-side).
 CLIP_CANDIDATE_LABELS = [
-    "neon cyberpunk cityscape",
-    "dark moody forest",
-    "sunset beach tropical",
-    "industrial warehouse",
-    "abstract geometric art",
-    "vintage film grain portrait",
-    "space galaxy cosmos",
-    "rainy night street",
-    "concert stage lights",
-    "minimalist monochrome",
-    "fantasy medieval castle",
-    "urban graffiti wall",
-    "warm cozy interior",
-    "desert landscape",
-    "anime illustration style",
-    "horror gothic atmosphere",
-    "retro 80s synth aesthetic",
-    "nature mountains landscape",
+    "dark ambient drone",
+    "bright energetic pop",
+    "industrial techno warehouse",
+    "cinematic orchestral score",
+    "lo-fi bedroom guitar",
+    "heavy metal aggression",
+    "soft acoustic folk",
+    "retro 80s synthwave",
+    "trap hip-hop beat",
+    "jazz lounge saxophone",
+    "epic trailer percussion",
+    "dreamy shoegaze wash",
+    "minimal house groove",
+    "gothic darkwave vocals",
+    "tropical dancehall sunshine",
+    "spacey progressive electronic",
+    "punk rock garage energy",
+    "chillwave vapor nostalgia",
+    "classical piano ballad",
+    "club EDM festival drop",
+    "neon cyberpunk synth night",
+    "warm intimate R&B soul",
 ]
 
 

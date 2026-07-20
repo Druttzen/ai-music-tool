@@ -6,6 +6,7 @@ import {
   useProjectWorkspaceActions,
   useProjectWorkspaceProjectState,
 } from "../context/project-workspace-context";
+import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 import { saveStyleDnaSettings, isSpotifyStyleDnaReady } from "../lib/style-dna-settings";
 import { searchTrackStyleDna } from "../lib/track-style-dna";
 import { recognizeViaAudD } from "../lib/audd-resolve";
@@ -24,6 +25,17 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
   const [replication, setReplication] = useState(/** @type {object|null} */ (null));
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [auddBusy, setAuddBusy] = useState(false);
+
+  useWorkspaceResetEffect(() => {
+    setQuery("");
+    setBusy(false);
+    setError("");
+    setResults([]);
+    setProvider("");
+    setReplication(null);
+    setSelectedIdx(0);
+    setAuddBusy(false);
+  });
 
   const spotifyReady = isSpotifyStyleDnaReady(styleDnaSettings);
 

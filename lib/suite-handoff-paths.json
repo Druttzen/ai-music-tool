@@ -44,6 +44,26 @@
         ],
         "linux": []
       }
+    },
+    "musicVideo": {
+      "id": "musicVideo",
+      "title": "Music Video (Glitchframe)",
+      "description": "Local GPU music video from track + optional stills — suite addon",
+      "repoUrl": "https://github.com/6Morpheus6/Glitchframe",
+      "installUrl": "https://github.com/6Morpheus6/Glitchframe#readme",
+      "releasesUrl": "https://github.com/6Morpheus6/Glitchframe/releases",
+      "githubOwner": "6Morpheus6",
+      "githubRepo": "Glitchframe",
+      "installerCandidates": {
+        "windows": [],
+        "macos": [],
+        "linux": []
+      },
+      "executableCandidates": {
+        "windows": [],
+        "macos": [],
+        "linux": []
+      }
     }
   }
 }
