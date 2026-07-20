@@ -1,5 +1,6 @@
 name: Fail-safe bot
 
+# Diagnoses CI failures, comments on PRs/master, and runs safe auto-fix on same-repo PRs.
 on:
   workflow_run:
     workflows: [CI]
@@ -7,7 +8,8 @@ on:
 
 permissions:
   pull-requests: write
-  contents: read
+  contents: write
+  actions: read
 
 jobs:
   diagnose-pr:
@@ -15,7 +17,13 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
+      actions: read
     runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.meta.outputs.pr_number }}
+      head_sha: ${{ steps.meta.outputs.head_sha }}
+      head_ref: ${{ steps.meta.outputs.head_ref }}
+      same_repo: ${{ steps.meta.outputs.same_repo }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,24 +34,76 @@ jobs:
 
       - run: npm ci
 
+      - name: Resolve PR metadata
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          PR=$(gh api "repos/${{ github.repository }}/commits/${SHA}/pulls" --jq '.[0].number' 2>/dev/null || echo "")
+          REF=$(gh api "repos/${{ github.repository }}/commits/${SHA}/pulls" --jq '.[0].head.ref' 2>/dev/null || echo "")
+          HEAD_REPO=$(gh api "repos/${{ github.repository }}/commits/${SHA}/pulls" --jq '.[0].head.repo.full_name' 2>/dev/null || echo "")
+          SAME="false"
+          if [ "$HEAD_REPO" = "${{ github.repository }}" ]; then SAME="true"; fi
+          echo "pr_number=${PR}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "head_ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "same_repo=${SAME}" >> "$GITHUB_OUTPUT"
+
       - name: Fetch failed log and classify
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_BRANCH: ${{ steps.meta.outputs.head_ref }}
         run: |
           gh run view "${{ github.event.workflow_run.id }}" --log-failed > /tmp/ci-fail.log || true
           node scripts/fail-safe-bot-comment.cjs /tmp/ci-fail.log > /tmp/bot-comment.md
 
       - name: Comment on PR
+        if: steps.meta.outputs.pr_number != '' && steps.meta.outputs.pr_number != 'null'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PR=$(gh api "repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}/pulls" --jq '.[0].number' 2>/dev/null || echo "")
-          if [ -z "$PR" ] || [ "$PR" = "null" ]; then
-            echo "No PR for this workflow run — skipping comment"
-            exit 0
-          fi
-          gh pr comment "$PR" --body-file /tmp/bot-comment.md
+          gh pr comment "${{ steps.meta.outputs.pr_number }}" --body-file /tmp/bot-comment.md
+
+  autofix-pr:
+    needs: diagnose-pr
+    if: >-
+      needs.diagnose-pr.outputs.pr_number != '' &&
+      needs.diagnose-pr.outputs.pr_number != 'null' &&
+      needs.diagnose-pr.outputs.same_repo == 'true' &&
+      needs.diagnose-pr.outputs.head_ref != ''
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.diagnose-pr.outputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: npm ci
+
+      - name: Safe auto-fix + push + comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.diagnose-pr.outputs.pr_number }}
+          FAIL_SAFE_MODE: fix
+        run: node scripts/fail-safe-pr-autofix.cjs
+        continue-on-error: true
 
   diagnose-master:
     if: >-
@@ -52,6 +112,7 @@ jobs:
       github.event.workflow_run.head_branch == 'master'
     permissions:
       contents: write
+      actions: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +128,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
+          HEAD_BRANCH: master
         run: |
           gh run view "${{ github.event.workflow_run.id }}" --log-failed > /tmp/ci-fail.log || true
           node scripts/fail-safe-bot-comment.cjs /tmp/ci-fail.log > /tmp/bot-comment.md

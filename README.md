@@ -556,7 +556,7 @@ Skip the pre-push hook once: `SKIP_CI_PREFLIGHT=1 git push`
 
 Skip the pre-push hook once: `SKIP_CI_PREFLIGHT=1 git push`
 
-**Fail-safe bot:** [docs/fail-safe-bot.md](docs/fail-safe-bot.md) — in-app panel + `npm run fail-safe:run` + `npm run bots:install` (one-shot hooks + Cursor rules).
+**Fail-safe bot:** [docs/fail-safe-bot.md](docs/fail-safe-bot.md) — GitHub Actions diagnose + `@fail-safe fix` autofix + in-app panel + `npm run bots:install`.
 
 **Sourcery auto-fix:** [docs/sourcery-auto-fix.md](docs/sourcery-auto-fix.md) — `npm run sourcery:install-cursor`, `npm run sourcery:auto`, optional Cursor Automation.
 
