@@ -118,6 +118,18 @@ function resolveVideoCreatorExecutable() {
 function setupSuiteCanvasBridge() {
   const suiteBridge = require("./lib/suite-bridge.cjs");
 
+  ipcMain.handle("suite:canvas-addon-status", async () => suiteBridge.canvasAddonStatus());
+
+  ipcMain.handle("suite:launch-canvas-addon", async () => suiteBridge.launchCanvasAddon());
+
+  ipcMain.handle("suite:install-canvas-addon", async () => {
+    try {
+      return await suiteBridge.installCanvasAddon();
+    } catch (err) {
+      return { ok: false, error: err?.message || "Failed to install Canvas addon" };
+    }
+  });
+
   ipcMain.handle("suite:open-canvas", async (_event, payload) => {
     try {
       const buffer = payload?.buffer;

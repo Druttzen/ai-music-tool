@@ -15,5 +15,30 @@
       "$HOME/Applications/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool"
     ],
     "linux": ["$HOME/.local/bin/ai-canvas-tool"]
+  },
+  "addons": {
+    "canvas": {
+      "id": "canvas",
+      "title": "AI Canvas Tool",
+      "description": "Spotify Canvas loops from album art — suite addon for Music Creator",
+      "repoUrl": "https://github.com/Druttzen/ai-canvas-tool",
+      "installUrl": "https://github.com/Druttzen/ai-canvas-tool/releases/latest",
+      "githubOwner": "Druttzen",
+      "githubRepo": "ai-canvas-tool",
+      "installerCandidates": {
+        "windows": [
+          "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
+          "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
+          "$USERPROFILE/Downloads/AI Canvas Tool Setup.exe",
+          "$USERPROFILE/Downloads/AI Canvas Tool-1.1.0-Setup.exe",
+          "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool Setup.exe"
+        ],
+        "macos": [
+          "$HOME/Downloads/AI Canvas Tool.dmg",
+          "$HOME/ai-canvas-tool/release/AI Canvas Tool.dmg"
+        ],
+        "linux": []
+      }
+    }
   }
 }

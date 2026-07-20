@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   exportVideoHandoff: (payload) => ipcRenderer.invoke("handoff:export-video", payload),
   openInCanvasTool: (payload) => ipcRenderer.invoke("suite:open-canvas", payload),
+  canvasAddonStatus: () => ipcRenderer.invoke("suite:canvas-addon-status"),
+  launchCanvasAddon: () => ipcRenderer.invoke("suite:launch-canvas-addon"),
+  installCanvasAddon: () => ipcRenderer.invoke("suite:install-canvas-addon"),
 });

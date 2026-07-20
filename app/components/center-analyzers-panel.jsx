@@ -263,7 +263,14 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
               >
                 Open in Canvas Tool → Spotify loop
               </button>
-            ) : null}
+            ) : (
+              <p className="mt-3 text-[10px] text-white/45">
+                Suite addon: install{" "}
+                <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
+                <span className="font-bold text-white/70">Suite Addons</span> menu, then drop art here
+                for Spotify loop handoff.
+              </p>
+            )}
             {imageAnalysis ? (
               <div className="mt-3 text-left">
                 <p className="mb-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[10px] leading-relaxed text-amber-100/90">

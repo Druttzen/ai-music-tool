@@ -10,7 +10,9 @@ use std::time::Duration;
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness};
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use tauri::{Manager, RunEvent};
-use canvas_handoff::export_canvas_handoff;
+use canvas_handoff::{
+    export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
+};
 use video_handoff::export_video_handoff;
 
 #[tauri::command]
@@ -75,6 +77,9 @@ pub fn run() {
             ensure_sidecar,
             export_video_handoff,
             export_canvas_handoff,
+            suite_canvas_addon_status,
+            launch_canvas_addon,
+            install_canvas_addon,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

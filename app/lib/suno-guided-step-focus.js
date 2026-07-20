@@ -20,6 +20,7 @@ export const GUIDED_PANEL_IDS = {
   proMode: "proMode",
   stylePresets: "stylePresets",
   saveLoad: "saveLoad",
+  suiteAddons: "suiteAddons",
   mode: "mode",
   proModeLeft: "proModeLeft",
   promptPreview: "promptPreview",
@@ -29,7 +30,12 @@ export const GUIDED_PANEL_IDS = {
   trackScoring: "trackScoring",
 };
 
-const ALWAYS_VISIBLE = new Set([GUIDED_PANEL_IDS.guidedPath, GUIDED_PANEL_IDS.maestro, GUIDED_PANEL_IDS.saveLoad]);
+const ALWAYS_VISIBLE = new Set([
+  GUIDED_PANEL_IDS.guidedPath,
+  GUIDED_PANEL_IDS.maestro,
+  GUIDED_PANEL_IDS.saveLoad,
+  GUIDED_PANEL_IDS.suiteAddons,
+]);
 
 /** Suno Voice Style line or compact block counts as voice-style ready for polish-step coach. */
 export function hasVoiceStyleForCoach(snapshot = {}) {
