@@ -448,7 +448,7 @@ export async function fetchVocalEmbedModels(): Promise<SidecarVocalModelStatus |
 }
 
 /**
- * POST Vocal Embed Studio plan JSON to the sidecar for validation / future synthesis queue.
+ * POST Vocal Embed Studio plan JSON to the sidecar for validation / synthesize / align.
  */
 export async function submitVocalEmbedPlanToSidecar(
   envelope: Record<string, unknown>,

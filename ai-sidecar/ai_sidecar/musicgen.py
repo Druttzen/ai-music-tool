@@ -1,6 +1,6 @@
 """Optional MusicGen text-to-music generation (audiocraft).
 
-Model weights are CC-BY-NC — opt-in only via `pip install -e ai-sidecar[generate]`.
+Model weights are CC-BY-NC — opt-in only via `npm run sidecar:generate`.
 Configure with AIMC_MUSICGEN_MODEL (default: facebook/musicgen-small).
 """
 
@@ -72,7 +72,7 @@ def generate_music_wav(
 ) -> tuple[bytes, dict[str, Any]]:
     """Return WAV bytes and metadata for a text prompt."""
     if not generation_available():
-        raise RuntimeError("MusicGen deps missing — pip install -e ai-sidecar[generate]")
+        raise RuntimeError("MusicGen deps missing — npm run sidecar:generate")
 
     text = str(prompt or "").strip()
     if not text:

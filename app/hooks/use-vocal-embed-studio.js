@@ -623,7 +623,7 @@ export function useVocalEmbedStudio() {
       setStatusWithTime(
         guideVocalAttached
           ? "Choose a guide vocal file below, or install sidecar vocal DSP for lyrics-only synthesis"
-          : "Attach a guide vocal file, preview alignment, or enable lyrics-only mode with pip install -e ai-sidecar[vocal]",
+          : "Attach a guide vocal file, preview alignment, or enable lyrics-only mode with npm run sidecar:vocal",
         "warning",
       );
       return;

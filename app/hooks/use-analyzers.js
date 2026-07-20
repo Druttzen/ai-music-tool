@@ -562,7 +562,7 @@ export function useAnalyzers({
           sidecarStatusMsg = "Palette-only — vision sidecar unavailable";
           sidecarStatusType = "warning";
         } else if (!health?.vision_available) {
-          sidecarStatusMsg = "Palette-only — install sidecar[vision] for BLIP captions";
+          sidecarStatusMsg = "Palette-only — npm run sidecar:vision for BLIP captions";
           sidecarStatusType = "warning";
         }
 

@@ -3,21 +3,20 @@
  */
 
 /**
- * @typedef {{ id: string, title: string, install_hint: string, available?: boolean }} CapabilityLike
+ * @typedef {{ id: string, title: string, install_hint: string, available?: boolean, prompt_install?: boolean }} CapabilityLike
  */
 
 /**
  * Prefer registry capabilities; fall back to legacy boolean health flags.
- * @param {{ capabilities?: CapabilityLike[]|null, generate_available?: boolean, stems_available?: boolean, vision_available?: boolean, vocal_synthesis_available?: boolean, vocal_ml_available?: boolean }|null|undefined} health
+ * @param {{ capabilities?: CapabilityLike[]|null, generate_available?: boolean, stems_available?: boolean, vision_available?: boolean, genre_available?: boolean, vocal_synthesis_available?: boolean, vocal_ml_available?: boolean, vocal_rvc_available?: boolean }|null|undefined} health
  * @returns {{ id: string, title: string, install_hint: string }[]}
  */
 export function missingSidecarInstallHints(health) {
   if (!health) return [];
 
   if (Array.isArray(health.capabilities) && health.capabilities.length) {
-    const interesting = new Set(["stems", "generate", "vocal_synth", "vocal_ml", "vision"]);
     return health.capabilities
-      .filter((c) => interesting.has(c.id) && !c.available)
+      .filter((c) => c.prompt_install !== false && !c.available)
       .map((c) => ({
         id: c.id,
         title: c.title || c.id,
@@ -30,14 +29,15 @@ export function missingSidecarInstallHints(health) {
   const legacy = [
     { id: "stems", title: "Demucs stem separation", flag: "stems_available", install_hint: "npm run sidecar:stems" },
     { id: "generate", title: "MusicGen preview", flag: "generate_available", install_hint: "npm run sidecar:generate" },
-    { id: "vision", title: "Image caption / CLIP", flag: "vision_available", install_hint: "pip install -e ai-sidecar[vision]" },
+    { id: "genre", title: "Genre classifier", flag: "genre_available", install_hint: "npm run sidecar:classify" },
+    { id: "vision", title: "Image caption / CLIP", flag: "vision_available", install_hint: "npm run sidecar:vision" },
     {
-      id: "vocal_synth",
-      title: "Vocal embed synthesis",
-      flag: "vocal_synthesis_available",
+      id: "vocal_ml",
+      title: "Vocal DSP (scipy)",
+      flag: "vocal_ml_available",
       install_hint: "npm run sidecar:vocal",
     },
-    { id: "vocal_ml", title: "Vocal ML stack", flag: "vocal_ml_available", install_hint: "npm run sidecar:vocal-ml" },
+    { id: "rvc", title: "RVC voice conversion", flag: "vocal_rvc_available", install_hint: "npm run sidecar:vocal-rvc" },
   ];
 
   return legacy

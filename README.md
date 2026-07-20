@@ -277,18 +277,18 @@ A Next.js app for building dense, reproducible prompts for AI music workflows (e
 
 ## Highlights (v0.12.2)
 
-- **Vocal DSP v1** — sidecar `vocal` extra enables guide vocal pitch conversion (`guide-conversion-v1`) and lyrics-only synthesis (`lyrics-synth-v1`) from section timing; health reports `vocal_ml_available`.
+- **Vocal DSP v1** — sidecar `vocal` extra (`npm run sidecar:vocal`) enables guide vocal pitch conversion (`guide-conversion-v1`) and lyrics-only synthesis (`lyrics-synth-v1`); health flag `vocal_ml_available` means scipy DSP is installed (not torch).
 - **Vocal Embed Studio** — stack status badges, lyrics-only preview when vocal DSP is on, guide file optional in lyrics mode.
 
 ## Highlights (v0.12.1)
 
-- **Vocal Embed placement-mix v1** — sidecar `POST /vocal-embed/synthesize` ducks the instrumental under lyric sections and overlays a guide vocal; UI adds guide vocal upload and **Synthesize placement-mix preview** (downloads WAV). Optional `vocal` extra adds scipy HPF; future `vocal-ml` reserved for RVC/DiffSinger.
+- **Vocal Embed placement-mix v1** — sidecar `POST /vocal-embed/synthesize` ducks the instrumental under lyric sections and overlays a guide vocal; UI adds guide vocal upload and **Synthesize placement-mix preview** (downloads WAV). Optional `vocal` extra adds scipy HPF; `vocal-ml` / `vocal-rvc` extras (`npm run sidecar:vocal-ml` / `sidecar:vocal-rvc`) plus env config for RVC/DiffSinger.
 
 ## Highlights (v0.12.0)
 
 - **Focused Suno step UI** — when Prompt Engine is Suno-like, only panels for the current guided step are shown (Style Presets on step 1, Music Controls on groove step, Analyzers on Polish, etc.). **Show all tools** restores the full studio; preference persists locally.
 - **Maestro step coach** — after you work on a step, a banner nudges you to **Proceed to next step** or **Apply** one-click fixes (genre anchors, lyric draft, Suno validator cleanup).
-- **Vocal Embed Studio** — plan local vocal placement on an analyzed instrumental (section timing, voice character, mix brief) without Suno's generation engine. Export JSON or **Send plan to sidecar** (`POST /vocal-embed/plan`) for validation and future DiffSinger/RVC synthesis.
+- **Vocal Embed Studio** — plan local vocal placement on an analyzed instrumental (section timing, voice character, mix brief) without Suno's generation engine. Export JSON or **Send plan to sidecar** (`POST /vocal-embed/plan`) for validation; synthesize via placement-mix / DSP / optional RVC/DiffSinger when configured.
 - **High-precision Voice Character** — richer trait map (pitch range, vibrato, jitter/shimmer, articulation) for mimic-style Suno voice prompts.
 - **Audio upgrades** — FLAC uploads with librosa sidecar fallback when the browser cannot decode; browser MP3 export raised to **256 kbps**; WAV 16/24-bit and native LAME MP3 via `dsp-core` unchanged.
 
@@ -599,17 +599,23 @@ npm run tauri:build
 
 Production installers under `src-tauri/target/release/bundle/`. CI publishes tagged releases as **`studio-v*`** (separate from Electron **`v*`** tags). Every push to `master` also runs a **`tauri-smoke`** compile check (Linux `cargo build` + sidecar bundle).
 
-### Sidecar + Demucs stems
+### Sidecar optional extras
 
-See [`ai-sidecar/README.md`](ai-sidecar/README.md). Quick path:
+See [`ai-sidecar/README.md`](ai-sidecar/README.md). Quick paths:
 
 ```bash
-npm run bootstrap        # Rust + Python 3.12 if missing (Windows)
-npm run sidecar:stems    # one-time torch + demucs install (~2 GB)
+npm run bootstrap           # Rust + Python 3.12 if missing (Windows)
+npm run sidecar:stems       # Demucs (~2 GB)
+npm run sidecar:generate    # MusicGen (CC-BY-NC)
+npm run sidecar:classify    # genre classifier
+npm run sidecar:vision      # BLIP / CLIP image analysis
+npm run sidecar:vocal       # lightweight vocal DSP (scipy)
+npm run sidecar:vocal-ml    # torch vocal stack
+npm run sidecar:vocal-rvc   # RVC (rvc-python)
+npm run sidecar:all         # every optional extra (multi-GB)
 npm run sidecar
-npm run test:smoke:stems # Demucs UI e2e (slow on CPU)
+npm run test:smoke:stems    # Demucs UI e2e (slow on CPU)
 ```
-
 ## Desktop (Electron)
 
 ```bash

@@ -1,4 +1,4 @@
-"""Vocal Embed Studio — sidecar plan validation and future synthesis hooks."""
+"""Vocal Embed Studio — sidecar plan validation and synthesize/align/ds-export hooks."""
 
 from __future__ import annotations
 

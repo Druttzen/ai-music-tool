@@ -196,7 +196,7 @@ def synthesize_lyrics_vocal(
             pass
 
     if not ml_vocal_stack_available():
-        raise RuntimeError("vocal DSP stack unavailable — install ai-sidecar[vocal]")
+        raise RuntimeError("vocal DSP stack unavailable — npm run sidecar:vocal")
 
     sections = plan.get("sections") or []
     if not isinstance(sections, list):

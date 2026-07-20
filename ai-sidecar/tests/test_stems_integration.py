@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("SIDECAR_TEST_STEMS") != "1",
-    reason="Set SIDECAR_TEST_STEMS=1 and pip install -e 'ai-sidecar[stems]'",
+    reason="Set SIDECAR_TEST_STEMS=1 and npm run sidecar:stems",
 )
 
 

@@ -1,8 +1,13 @@
 {
   "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ms-python.python",
     "ms-python.debugpy",
-    "continue.continue",
-    "ai-driven-dev.ai-driven-dev",
-    "angdrew.openspec-vscode"
+    "ms-python.vscode-pylance",
+    "rust-lang.rust-analyzer",
+    "tauri-apps.tauri-vscode",
+    "bradlc.vscode-tailwindcss",
+    "EditorConfig.EditorConfig"
   ]
 }

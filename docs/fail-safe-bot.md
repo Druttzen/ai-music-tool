@@ -2,7 +2,7 @@
 
 Automatic build/CI failure detection, safe fallbacks, and optional auto-fix for AI Music Creator.
 
-> **Product split (in progress):** Fail-safe is dividing into **Fail-Safe Ops** (GitHub auto-fix / review) and **Fail-Safe Runtime** (in-app detector). Architecture + migration: [fail-safe-split.md](fail-safe-split.md). Existing CLI, CI workflows, and in-app Fix & push remain unchanged until phase 2+.
+> **Product split:** **Fail-Safe Ops** (GitHub auto-fix / review CLI) and **Fail-Safe Runtime** (in-app detector) are shipped in-repo. Deferred: Ops desktop shell / separate repo. Architecture: [fail-safe-split.md](fail-safe-split.md).
 
 ## Quick setup (one command)
 

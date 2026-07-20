@@ -15,6 +15,8 @@ class CapabilitySpec:
     license: str
     commercial_use: bool
     probe: Callable[[], bool]
+    # When True, missing stacks are surfaced in /health missing_install_hints + UI.
+    prompt_install: bool = True
 
     def snapshot(self) -> dict:
         available = False
@@ -30,6 +32,7 @@ class CapabilitySpec:
             "license": self.license,
             "commercial_use": self.commercial_use,
             "available": available,
+            "prompt_install": self.prompt_install,
         }
 
 
@@ -106,7 +109,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="genre",
         title="Genre classifier",
         tasks=("analyze",),
-        install_hint="pip install -e ai-sidecar",
+        install_hint="npm run sidecar:classify",
         license="Apache-2.0 / model-dependent",
         commercial_use=True,
         probe=_probe_genre,
@@ -115,7 +118,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="vision",
         title="Image caption / CLIP tags",
         tasks=("analyze-image",),
-        install_hint="pip install -e ai-sidecar[vision]",
+        install_hint="npm run sidecar:vision",
         license="model-dependent",
         commercial_use=True,
         probe=_probe_vision,
@@ -124,17 +127,18 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="vocal_synth",
         title="Vocal embed synthesis",
         tasks=("vocal-embed",),
-        install_hint="npm run sidecar:vocal",
+        install_hint="npm run sidecar",
         license="project",
         commercial_use=True,
         probe=_probe_vocal_synth,
+        prompt_install=False,  # base librosa stack; always on with sidecar
     ),
     CapabilitySpec(
         id="vocal_ml",
-        title="Vocal ML stack",
+        title="Vocal DSP (scipy)",
         tasks=("vocal-ml",),
-        install_hint="npm run sidecar:vocal-ml",
-        license="model-dependent",
+        install_hint="npm run sidecar:vocal",
+        license="project",
         commercial_use=True,
         probe=_probe_vocal_ml,
     ),
@@ -142,7 +146,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="rvc",
         title="RVC voice conversion",
         tasks=("rvc",),
-        install_hint="npm run sidecar:vocal-ml + RVC models",
+        install_hint="npm run sidecar:vocal-rvc",
         license="model-dependent",
         commercial_use=True,
         probe=_probe_rvc,
@@ -155,6 +159,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         license="model-dependent",
         commercial_use=True,
         probe=_probe_diffsinger,
+        prompt_install=False,  # env/config, not an npm extra
     ),
 )
 
@@ -184,5 +189,5 @@ def missing_install_hints() -> list[dict]:
     return [
         {"id": c["id"], "title": c["title"], "install_hint": c["install_hint"]}
         for c in list_capabilities()
-        if not c["available"] and c["id"] in ("stems", "generate", "vocal_synth", "vocal_ml", "vision")
+        if not c["available"] and c.get("prompt_install", True) and c["install_hint"]
     ]

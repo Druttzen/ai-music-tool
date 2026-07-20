@@ -1,0 +1,16 @@
+---
+description: Prefer video-studio layer patterns; no full music rewrite; ship studio-v* by default
+alwaysApply: true
+---
+
+# Architecture convergence
+
+When changing desktop, sidecar, or ship/release paths in this repo:
+
+1. **Do not rewrite** the music app from scratch or migrate Next → Vite unless the user explicitly asks.
+2. **Converge layers** toward AI Video Studio patterns: Tauri shell → Rust bridge → Python sidecar (`device` / `registry` / `jobs`).
+3. **Ship tags** — default `npm run ship:tag` is **studio-only** (`studio-v*`). Use `--electron` only when legacy `v*` Electron is intentionally needed.
+4. **Sidecar extras** stay opt-in via `npm run sidecar:*` (stems, generate, classify, vision, vocal, vocal-ml, vocal-rvc, all). Prefer registry `install_hint` strings that match those npm scripts.
+5. **Electron handoffs** stay until Studio canvas/video paths are verified on a tagged `studio-v*` install — see `docs/architecture-convergence.md`.
+
+Source of truth: `docs/architecture-convergence.md`, `docs/desktop.md`.
