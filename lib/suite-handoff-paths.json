@@ -30,6 +30,7 @@
       "installerCandidates": {
         "windows": [
           "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
+          "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.1-Setup.exe",
           "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
           "$USERPROFILE/ai-canvas-tool/electron-dist/AI Canvas Tool Setup.exe",
           "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
