@@ -12,9 +12,12 @@ npm run bots:install
 
 Installs pre-push hook + Sourcery + Fail-safe Cursor rules into `.cursor/`.
 
-## In-app fix & push (auto-update path)
+## In-app fix & push (release path)
 
-Maintainers can **fix code from the app** and push to GitHub so all users receive updates via Electron/Tauri auto-update after merge + release.
+Maintainers can **fix code from the app** and push to GitHub. After merge:
+
+- **Tauri Studio users:** install the next `studio-v*` build from GitHub Releases (no in-app updater yet — see [desktop.md](desktop.md)).
+- **Legacy Electron users:** `electron-updater` picks up the next published `v*` release when that train is still shipped.
 
 ### Enable maintainer mode
 
@@ -32,7 +35,7 @@ Flow:
 
 ### Cloud fix (no local git)
 
-Save a GitHub PAT (repo scope) in the expanded panel, or:
+Save a GitHub PAT (repo scope) in the expanded panel for **this browser session only** (sessionStorage — cleared when the tab closes), or:
 
 ```bash
 AIMC_GITHUB_TOKEN=ghp_... npm run fail-safe:fix-push:cloud

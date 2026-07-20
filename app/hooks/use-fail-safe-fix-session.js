@@ -52,7 +52,7 @@ export function useFailSafeFixSession({
         setResult(res);
         if (res?.ok) {
           setPhase("done");
-          setStatusLine(res.message || "Fix pushed — merge & release for auto-update.");
+          setStatusLine(res.message || "Fix pushed — merge & publish studio-v* for users to install.");
         } else {
           setPhase("error");
           setStatusLine(res?.message || "Fix & push did not complete.");

@@ -23,15 +23,19 @@ The **Electron** installer (`npm run dist`, `main.js`) remains for existing inst
 
 Last dual-tag default ship was **v0.50.2**. From the next release onward, `ship:tag` pushes **studio only** unless `--electron` is passed. Electron auto-update users should migrate to Studio installers; maintenance Electron builds remain via `npm run dist` / manual workflow.
 
-| Capability | Tauri (primary) | Electron (legacy) |
-|------------|-----------------|-------------------|
-| Auto-updates | Tauri updater (when configured) | `electron-updater` |
+### Studio updates (current)
+
+Tauri Studio does **not** ship an in-app auto-updater yet (no `tauri-plugin-updater` / pubkey in `tauri.conf.json`). After each `studio-v*` release, users download and install the new build from [GitHub Releases](https://github.com/Druttzen/ai-music-tool/releases). Enabling silent Studio updates is a follow-up that needs signing keys + release endpoint wiring.
+
+| Capability | Tauri Studio (primary) | Electron (legacy / maintenance-only) |
+|------------|------------------------|--------------------------------------|
+| Updates | **Manual:** download new `studio-v*` installer from GitHub Releases (in-app updater **not configured** yet) | `electron-updater` on `v*` releases |
 | Native DSP | `dsp-bridge.ts` | Browser / lamejs only |
 | Sidecar | Managed spawn in Tauri shell | Manual `npm run sidecar` |
 | Video handoff | `exportVideoHandoffNative` | `window.electronAPI.exportVideoHandoff` |
 | Canvas handoff | `exportCanvasHandoffNative` | `window.electronAPI.openInCanvasTool` |
 
-Electron is tried **after** Tauri in `exportVideoHandoff` so Tauri builds get the native path first.
+Electron is **maintenance-only**: no new desktop features on Electron IPC. Prefer Studio for all contributor and release work.
 
 ## Development
 

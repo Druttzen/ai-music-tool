@@ -21,6 +21,7 @@ import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 
+/** WaveSurfer pro editor on by default; set NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0 to force classic. */
 const ENABLE_WAVESURFER_DEFAULT = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE !== "0";
 const WAVESURFER_CLASSIC_LS_KEY = "aimc-classic-waveform";
 
