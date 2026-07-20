@@ -5,7 +5,7 @@ from __future__ import annotations
 import tempfile
 from typing import Any
 
-from .device import select_device
+from .device import build_policy, select_device
 from .jobs import JOBS, JobContext, register
 from .musicgen import active_musicgen_model_id, generate_music_wav, generation_available
 
@@ -15,8 +15,9 @@ def run_musicgen(ctx: JobContext) -> dict[str, Any]:
     prompt = str(ctx.payload.get("prompt") or "").strip()
     duration_sec = float(ctx.payload.get("duration_sec") or 10.0)
     melody_wav = ctx.payload.get("melody_wav")
-    device = select_device()
-    ctx.set_progress(0.2, "loading MusicGen")
+    policy = build_policy()
+    device = policy.device or select_device()
+    ctx.set_progress(0.2, f"loading MusicGen ({device}, {policy.dtype})")
     wav_bytes, meta = generate_music_wav(
         prompt,
         duration_sec=duration_sec,
@@ -29,9 +30,9 @@ def run_musicgen(ctx: JobContext) -> dict[str, Any]:
     tmp.close()
     return {
         "path": tmp.name,
-        "meta": meta,
+        "meta": {**(meta or {}), "policy": policy.as_dict()},
         "device": device,
-        "model": str(meta.get("model") or active_musicgen_model_id()),
+        "model": str((meta or {}).get("model") or active_musicgen_model_id()),
     }
 
 

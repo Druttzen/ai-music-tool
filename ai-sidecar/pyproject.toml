@@ -19,12 +19,22 @@ dependencies = [
 [project.optional-dependencies]
 stems = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0"]
 classify = ["torch>=2.2", "transformers>=4.40"]
-vision = ["torch>=2.2", "transformers>=4.40", "pillow>=10.0", "scikit-learn>=1.3"]
+vision = ["torch>=2.2", "transformers>=4.40", "pillow>=10.0"]
 vocal = ["scipy>=1.11"]
 vocal-ml = ["torch>=2.2", "torchaudio>=2.2", "scipy>=1.11", "requests>=2.31"]
 vocal-rvc = ["rvc-python>=0.1.5"]
 generate = ["torch>=2.2", "audiocraft>=1.3"]   # MusicGen (weights are CC-BY-NC: non-commercial)
-all = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0", "transformers>=4.40", "pillow>=10.0", "scikit-learn>=1.3", "audiocraft>=1.3", "scipy>=1.11"]
+all = [
+    "torch>=2.2",
+    "torchaudio>=2.2",
+    "demucs>=4.0",
+    "transformers>=4.40",
+    "pillow>=10.0",
+    "audiocraft>=1.3",
+    "scipy>=1.11",
+    "requests>=2.31",
+    "rvc-python>=0.1.5",
+]
 
 [build-system]
 requires = ["hatchling"]

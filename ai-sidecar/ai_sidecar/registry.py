@@ -106,7 +106,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="genre",
         title="Genre classifier",
         tasks=("analyze",),
-        install_hint="pip install -e ai-sidecar",
+        install_hint="npm run sidecar:classify",
         license="Apache-2.0 / model-dependent",
         commercial_use=True,
         probe=_probe_genre,
@@ -115,7 +115,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="vision",
         title="Image caption / CLIP tags",
         tasks=("analyze-image",),
-        install_hint="pip install -e ai-sidecar[vision]",
+        install_hint="npm run sidecar:vision",
         license="model-dependent",
         commercial_use=True,
         probe=_probe_vision,
@@ -142,7 +142,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="rvc",
         title="RVC voice conversion",
         tasks=("rvc",),
-        install_hint="npm run sidecar:vocal-ml + RVC models",
+        install_hint="npm run sidecar:vocal-rvc",
         license="model-dependent",
         commercial_use=True,
         probe=_probe_rvc,
@@ -181,8 +181,9 @@ def capability_flags() -> dict[str, bool]:
 
 
 def missing_install_hints() -> list[dict]:
+    interesting = ("stems", "generate", "genre", "vocal_synth", "vocal_ml", "vision", "rvc")
     return [
         {"id": c["id"], "title": c["title"], "install_hint": c["install_hint"]}
         for c in list_capabilities()
-        if not c["available"] and c["id"] in ("stems", "generate", "vocal_synth", "vocal_ml", "vision")
+        if not c["available"] and c["id"] in interesting
     ]

@@ -18,7 +18,10 @@ Local FastAPI service for track analysis (librosa) and optional ML capabilities 
 - **Python 3.10–3.12** (PyTorch/Demucs have no 3.13+ wheels yet)
 - Base install: librosa, FastAPI, soundfile (~100 MB)
 - Optional **`stems`** extra: torch + demucs (~2 GB download)
-- Optional **`vision`** extra: torch + transformers + Pillow + scikit-learn for future image caption/object analysis
+- Optional **`classify`** extra: torch + transformers (genre classifier → `genre_available`)
+- Optional **`vision`** extra: torch + transformers + Pillow (BLIP caption + CLIP tags)
+- Optional **`generate`** extra: torch + audiocraft (MusicGen; CC-BY-NC weights)
+- Optional **`vocal` / `vocal-ml` / `vocal-rvc`** extras: scipy → torch vocal stack → RVC
 - **ffmpeg** on PATH for MP3/M4A uploads (WAV works without it). Windows: `winget install Gyan.FFmpeg`
 - **yt-dlp** on PATH for YouTube audio sonic analysis (`POST /youtube/sonic-signature`). Windows: `winget install yt-dlp.yt-dlp` or `pip install yt-dlp` in the sidecar venv
 
@@ -58,13 +61,22 @@ The browser image analyzer stays lightweight by default (pixel palette + mood ma
 `vision` extra enables local BLIP captioning via `POST /analyze-image`:
 
 ```bash
-pip install -e ai-sidecar[vision]
+npm run sidecar:vision   # Windows: pip install -e ai-sidecar[vision]
+# or: bash scripts/install-sidecar-vision.sh
 curl http://127.0.0.1:8723/health
 # "vision_available": true
 ```
 
 Drop an image in **Drag & Drop Analyzers** — when the sidecar vision stack is installed, palette
 metrics are merged with a BLIP scene caption, CLIP zero-shot visual tags, and mapped to Suno catalog tags.
+
+## Optional genre classifier
+
+```bash
+npm run sidecar:classify   # pip install -e ai-sidecar[classify]
+curl http://127.0.0.1:8723/health
+# "genre_available": true
+```
 
 ## Optional MusicGen generation
 
@@ -157,11 +169,12 @@ Copy `ai-sidecar/env.vocal.example` → `ai-sidecar/.env.vocal`, set `AIMC_DIFFS
 
 Without MFA, librosa onset/energy heuristics on the guide vocal segment provide fallback word starts.
 
-Install torch stack:
+Install torch stack + optional RVC:
 
 ```bash
 npm run sidecar:vocal-ml
-pip install rvc-python   # optional, for in-process RVC
+npm run sidecar:vocal-rvc   # installs vocal-ml + rvc-python
+# or everything: npm run sidecar:all
 ```
 
 Engines returned by `POST /vocal-embed/synthesize`:
@@ -171,7 +184,7 @@ Engines returned by `POST /vocal-embed/synthesize`:
 - `lyrics-synth-v1` — DSP lyric bed
 - `diffsinger-v1` — OpenVPI DiffSinger when `AIMC_DIFFSINGER_ROOT` + acoustic exp are set
 
-Future heavy sidecar options should stay opt-in:
+Heavy sidecar options stay opt-in:
 
 - Singing synthesis: OpenVPI DiffSinger (Apache-2.0) — integrated via `diffsinger_openvpi.py`.
 - Voice style conversion: RVC-style conversion for user-owned voices only.

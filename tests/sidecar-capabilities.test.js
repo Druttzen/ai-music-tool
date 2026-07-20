@@ -39,7 +39,9 @@ describe("sidecar-capabilities", () => {
       generate_available: false,
       stems_available: false,
       vision_available: true,
+      genre_available: false,
     });
-    expect(hints.map((h) => h.id).sort()).toEqual(["generate", "stems"]);
+    expect(hints.map((h) => h.id).sort()).toEqual(["generate", "genre", "stems"]);
+    expect(hints.find((h) => h.id === "genre")?.install_hint).toBe("npm run sidecar:classify");
   });
 });

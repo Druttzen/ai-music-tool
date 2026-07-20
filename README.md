@@ -599,17 +599,23 @@ npm run tauri:build
 
 Production installers under `src-tauri/target/release/bundle/`. CI publishes tagged releases as **`studio-v*`** (separate from Electron **`v*`** tags). Every push to `master` also runs a **`tauri-smoke`** compile check (Linux `cargo build` + sidecar bundle).
 
-### Sidecar + Demucs stems
+### Sidecar optional extras
 
-See [`ai-sidecar/README.md`](ai-sidecar/README.md). Quick path:
+See [`ai-sidecar/README.md`](ai-sidecar/README.md). Quick paths:
 
 ```bash
-npm run bootstrap        # Rust + Python 3.12 if missing (Windows)
-npm run sidecar:stems    # one-time torch + demucs install (~2 GB)
+npm run bootstrap           # Rust + Python 3.12 if missing (Windows)
+npm run sidecar:stems       # Demucs (~2 GB)
+npm run sidecar:generate    # MusicGen (CC-BY-NC)
+npm run sidecar:classify    # genre classifier
+npm run sidecar:vision      # BLIP / CLIP image analysis
+npm run sidecar:vocal       # lightweight vocal DSP (scipy)
+npm run sidecar:vocal-ml    # torch vocal stack
+npm run sidecar:vocal-rvc   # RVC (rvc-python)
+npm run sidecar:all         # every optional extra (multi-GB)
 npm run sidecar
-npm run test:smoke:stems # Demucs UI e2e (slow on CPU)
+npm run test:smoke:stems    # Demucs UI e2e (slow on CPU)
 ```
-
 ## Desktop (Electron)
 
 ```bash

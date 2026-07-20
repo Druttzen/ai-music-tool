@@ -1,6 +1,6 @@
 /**
- * Fail-Safe Ops public stub API (phase 0–1).
- * Full GitHub auto-fix / review UI lands in phase 2+.
+ * Fail-Safe Ops public API (CLI phase 2–3).
+ * Desktop Ops shell remains deferred — see docs/fail-safe-split.md.
  */
 
 export {
@@ -12,11 +12,11 @@ export {
   getActionableIssues,
 } from "./classifier.js";
 
-/** @typedef {"ops-scaffold"} FailSafeOpsProductId */
+/** @typedef {"fail-safe-ops"} FailSafeOpsProductId */
 
 export const FAIL_SAFE_OPS_PRODUCT = {
-  id: /** @type {FailSafeOpsProductId} */ ("ops-scaffold"),
+  id: /** @type {FailSafeOpsProductId} */ ("fail-safe-ops"),
   name: "Fail-Safe Ops",
-  phase: "0-1",
+  phase: "2-3",
   docsPath: "docs/fail-safe-split.md",
 };
