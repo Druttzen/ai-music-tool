@@ -22,9 +22,10 @@ npm run fail-safe-ops -- auto
 # Maintainer fix + push
 npm run fail-safe-ops -- fix-push
 
-# Deliver a Runtime report JSON as a GitHub issue (+ optional --branch)
+# Deliver a Runtime report JSON as a GitHub issue (+ optional --branch / --pr)
 npm run fail-safe-ops -- deliver-runtime report.json
 npm run fail-safe-ops -- deliver-runtime report.json -- --branch
+npm run fail-safe-ops -- deliver-runtime report.json -- --pr
 ```
 
 Wrappers call existing `scripts/fail-safe-*.cjs` so CI workflows stay unchanged.

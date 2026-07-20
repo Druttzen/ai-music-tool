@@ -3,7 +3,7 @@
 Architecture plan to divide today’s monolithic fail-safe bot into two products.
 See also: [fail-safe-bot.md](fail-safe-bot.md) (current in-repo behavior).
 
-**Status:** Phase 2 in progress — Ops CLI-first app + Runtime opt-in GitHub delivery (new-issue URL / maintainer `gh`). Full separate desktop Ops shell deferred.
+**Status:** Phase 3 in progress — maintainer PAT delivery + draft PR for `cursor/runtime-fail-*` + Runtime prompt Cursor rule. Phase 2 Ops CLI + Runtime opt-in delivery merged/on branch.
 
 ---
 
@@ -106,7 +106,9 @@ Default path for end-user / consenting reporter installs:
 |-----------|------|--------|
 | **GitHub new-issue URL** | Panel “Send top report to GitHub…” | No token; user submits the form |
 | **`gh issue create`** | Maintainer CLI `fail-safe-ops deliver-runtime` | Labels `fail-safe-runtime`, `needs-agent` |
+| **GitHub API (PAT)** | Maintainer panel "Create issue" or CLI with `AIMC_GITHUB_TOKEN` | Sidecar `/fail-safe/runtime-deliver` |
 | **Branch** `cursor/runtime-fail-<slug>` | Maintainer CLI `--branch` | Commits `.fail-safe-runtime-report.md` locally; user pushes |
+| **Draft PR** | Maintainer CLI `--pr` or panel "Draft PR branch" | Pushes branch + opens draft PR linked to issue |
 
 **Branch naming:** `cursor/runtime-fail-<YYYYMMDD>-<shortHash>` (see reporter).
 
@@ -158,9 +160,9 @@ Ops (A) remains the only path that auto-fixes and pushes under maintainer/CI cre
 
 ### Phase 3 — Richer Runtime reporting
 
-- [ ] Maintainer-configured PAT / device flow from the app (beyond new-issue URL)
-- [ ] Draft PR auto-open for `cursor/runtime-fail-*`
-- [ ] Cursor rule: treat Runtime issue bodies like CI fail-safe prompts (extend)
+- [x] Maintainer-configured PAT from the app (sidecar `/fail-safe/runtime-deliver`, panel buttons)
+- [x] Draft PR auto-open for `cursor/runtime-fail-*` (`--pr`, panel "Draft PR branch")
+- [x] Cursor rule: treat Runtime issue bodies like CI fail-safe prompts (`.cursor/rules/fail-safe-auto-fix.mdc`)
 
 ---
 

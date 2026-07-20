@@ -87,11 +87,12 @@ Commands:
   auto                Fetch CI failure + agent fix prompt (wraps fail-safe:auto)
   fix-push            Maintainer fix, commit, push (wraps fail-safe:fix-push)
   deliver-runtime <json>  Create GitHub issue from a Runtime report payload file
+                          Add --branch for local commit; --pr for push + draft PR
 
 Examples:
   gh run view <id> --log-failed | npm run fail-safe-ops -- diagnose -
   npm run fail-safe-ops -- run -- --dry
-  npm run fail-safe-ops -- deliver-runtime .fail-safe-runtime-report.json
+  npm run fail-safe-ops -- deliver-runtime .fail-safe-runtime-report.json -- --pr
 `);
 }
 

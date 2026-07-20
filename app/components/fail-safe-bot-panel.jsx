@@ -23,6 +23,7 @@ import {
   setRuntimeReportingEnabled,
   setRuntimeTelemetryConsent,
 } from "../lib/fail-safe-runtime-reporter";
+import { deliverRuntimeReport } from "../lib/sidecar-bridge";
 import {
   useProjectWorkspaceActions,
   useProjectWorkspaceAnalyzerState,
@@ -54,6 +55,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
   const [runtimeReportOn, setRuntimeReportOn] = useState(false);
   const [runtimeConsentOn, setRuntimeConsentOn] = useState(false);
   const [queueLen, setQueueLen] = useState(0);
+  const [runtimeDeliverBusy, setRuntimeDeliverBusy] = useState(false);
 
   const checking = !mounted || busy || sidecarAiStatus === "checking";
   const actionable = getActionableIssues(report?.issues);
@@ -160,6 +162,41 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     markRuntimeReportDelivered(top.fingerprint, { mode: "github-new-issue-url", url });
     syncRuntimeFlags();
     setStatusWithTime("Opened GitHub new-issue form for Runtime report", "success");
+  };
+
+  const handleMaintainerRuntimeDeliver = async (mode) => {
+    const [top] = getRuntimeReportQueue();
+    if (!top) {
+      setStatusWithTime("No queued Runtime reports", "info");
+      return;
+    }
+    if (!maintainerMode) {
+      setStatusWithTime("Maintainer sidecar required — run npm run sidecar:maintainer", "error");
+      return;
+    }
+    setRuntimeDeliverBusy(true);
+    try {
+      const token = getMaintainerGithubToken() || undefined;
+      const result = await deliverRuntimeReport({ payload: top, mode, githubToken: token });
+      if (!result.ok) {
+        setStatusWithTime(result.message || "Runtime deliver failed", "error");
+        return;
+      }
+      markRuntimeReportDelivered(top.fingerprint, {
+        mode: `maintainer-${mode}`,
+        url: result.pr_url || result.issue_url || null,
+      });
+      syncRuntimeFlags();
+      const detail =
+        result.pr_url || result.issue_url
+          ? ` — ${result.pr_url || result.issue_url}`
+          : "";
+      setStatusWithTime((result.message || "Runtime report delivered") + detail, "success");
+    } catch (err) {
+      setStatusWithTime(err?.message || "Runtime deliver failed", "error");
+    } finally {
+      setRuntimeDeliverBusy(false);
+    }
   };
 
   return (
@@ -308,12 +345,36 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
             >
               Send top report to GitHub…
             </button>
+            {maintainerMode ? (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                <button
+                  type="button"
+                  className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-100 disabled:opacity-40"
+                  disabled={queueLen < 1 || runtimeDeliverBusy}
+                  onClick={() => void handleMaintainerRuntimeDeliver("issue")}
+                  title="Create GitHub issue via maintainer PAT/gh (no branch)"
+                >
+                  {runtimeDeliverBusy ? "Delivering…" : "Create issue (maintainer)"}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-100 disabled:opacity-40"
+                  disabled={queueLen < 1 || runtimeDeliverBusy}
+                  onClick={() => void handleMaintainerRuntimeDeliver("pr")}
+                  title="Branch cursor/runtime-fail-*, push, open draft PR"
+                >
+                  Draft PR branch
+                </button>
+              </div>
+            ) : null}
             <p className="text-white/40">
               Maintainer CLI:{" "}
-              <span className="text-white/65">npm run fail-safe-ops -- deliver-runtime report.json</span>
+              <span className="text-white/65">
+                npm run fail-safe-ops -- deliver-runtime report.json -- --pr
+              </span>
             </p>
             <label className="block pt-1">
-              GitHub token (cloud fix, localStorage only)
+              GitHub token (cloud fix + Runtime issue API, localStorage only)
               <input
                 type="password"
                 className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85"
