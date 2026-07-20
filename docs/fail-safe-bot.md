@@ -4,13 +4,31 @@ Automatic build/CI failure detection, safe fallbacks, and optional auto-fix for 
 
 > **Product split:** **Fail-Safe Ops** (GitHub auto-fix / review CLI) and **Fail-Safe Runtime** (in-app detector) are shipped in-repo. Deferred: Ops desktop shell / separate repo. Architecture: [fail-safe-split.md](fail-safe-split.md).
 
-## Quick setup (one command)
+## GitHub Actions (always on for this repo)
+
+| Workflow | When | What it does |
+|----------|------|----------------|
+| `fail-safe-bot.yml` | CI workflow **fails** | Comments diagnosis + agent prompt on the PR (or master commit). On **same-repo** PRs, runs **safe auto-fix** and pushes a commit. |
+| `fail-safe-pr-comments.yml` | PR comment created | Replies to **`@fail-safe`**, **Sourcery**, or paid-review billing errors. Runs autofix on **`@fail-safe fix`**. |
+| `fail-safe-auto-fix.yml` | `repository_dispatch` / manual | Cloud fix-push (`npm run fail-safe:fix-push:cloud`). |
+
+### Comment commands
+
+| Comment | Effect |
+|---------|--------|
+| `@fail-safe` | Bot acknowledges and explains options |
+| `@fail-safe fix` | Safe auto-fix on the PR branch + result comment |
+| Sourcery review | Bot replies with how to apply Sourcery vs safe playbooks |
+
+Safe auto-fix playbooks only: Cargo.lock refresh, `eslint --fix`, CC0 catalog import. Logic / Sourcery suggestions still need Cursor Agent (`npm run sourcery:auto` / paste prompt).
+
+### Local Cursor activation
 
 ```bash
 npm run bots:install
 ```
 
-Installs pre-push hook + Sourcery + Fail-safe Cursor rules into `.cursor/`.
+Installs pre-push hook + Sourcery + Fail-safe Cursor rules so Agent chat auto-implements when fail-safe / Sourcery text is pasted.
 
 ## In-app fix & push (release path)
 

@@ -1,0 +1,129 @@
+name: Fail-safe PR comments
+
+# Answers @fail-safe / Sourcery / paid-review billing comments; runs safe autofix on "@fail-safe fix".
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  reply:
+    if: >-
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null) ||
+      (github.event_name == 'pull_request_review_comment')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve PR + trigger
+        id: trig
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            PR="${{ github.event.issue.number }}"
+          else
+            PR="${{ github.event.pull_request.number }}"
+          fi
+          echo "pr_number=$PR" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); fs.writeFileSync("/tmp/trig-in.json", JSON.stringify({body:process.env.COMMENT_BODY||"",user:process.env.COMMENT_USER||""}));'
+          set +e
+          node scripts/fail-safe-comment-trigger.cjs --json-in < /tmp/trig-in.json > /tmp/trig.json
+          set -e
+          cat /tmp/trig.json
+          MATCH=$(node -pe 'String(JSON.parse(require("fs").readFileSync("/tmp/trig.json","utf8")).match)')
+          MODE=$(node -pe 'JSON.parse(require("fs").readFileSync("/tmp/trig.json","utf8")).mode')
+          REASON=$(node -pe 'JSON.parse(require("fs").readFileSync("/tmp/trig.json","utf8")).reason')
+          echo "match=$MATCH" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
+      - name: Reply
+        if: steps.trig.outputs.match == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ steps.trig.outputs.mode }}
+          REASON: ${{ steps.trig.outputs.reason }}
+          PR: ${{ steps.trig.outputs.pr_number }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const mode = process.env.MODE;
+            const reason = process.env.REASON || "";
+            let body;
+            if (mode === "sourcery") {
+              body = [
+                "## Fail-safe bot",
+                "",
+                "Received a **Sourcery** review (" + reason + ").",
+                "",
+                "- Safe CI playbooks: comment **`@fail-safe fix`** (rust locks / eslint `--fix` / catalog import).",
+                "- Sourcery code suggestions: paste into Cursor Agent, or run `npm run sourcery:auto`.",
+              ].join("\n");
+            } else if (mode === "fix") {
+              body = [
+                "## Fail-safe bot",
+                "",
+                "Running **safe auto-fix** on this PR branch (" + reason + ")…",
+              ].join("\n");
+            } else {
+              body = [
+                "## Fail-safe bot",
+                "",
+                "Watching this PR. Comment **`@fail-safe fix`** to run safe auto-fix, or wait for CI failure diagnosis.",
+              ].join("\n");
+            }
+            fs.writeFileSync("/tmp/reply.md", body + "\n");
+          '
+          gh pr comment "$PR" --body-file /tmp/reply.md
+
+      - name: Checkout PR head
+        if: steps.trig.outputs.match == 'true' && steps.trig.outputs.mode == 'fix'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ steps.trig.outputs.pr_number }}
+        run: |
+          REPO=$(gh pr view "$PR" --json headRepository --jq '.headRepository.nameWithOwner')
+          if [ "$REPO" != "${{ github.repository }}" ]; then
+            echo "Fork PR — skipping push autofix"
+            gh pr comment "$PR" --body "## Fail-safe bot
+          Fork PRs cannot receive push autofix from GITHUB_TOKEN. Run \`npm run fail-safe:run\` locally on the branch."
+            echo "skip_fix=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          REF=$(gh pr view "$PR" --json headRefName --jq .headRefName)
+          git fetch origin "$REF"
+          git checkout -B "$REF" "origin/$REF"
+          echo "skip_fix=false" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        if: steps.trig.outputs.match == 'true' && steps.trig.outputs.mode == 'fix' && env.skip_fix != 'true'
+        with:
+          python-version: "3.11"
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.trig.outputs.match == 'true' && steps.trig.outputs.mode == 'fix' && env.skip_fix != 'true'
+
+      - name: Safe autofix
+        if: steps.trig.outputs.match == 'true' && steps.trig.outputs.mode == 'fix' && env.skip_fix != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.trig.outputs.pr_number }}
+          FAIL_SAFE_MODE: fix
+        run: node scripts/fail-safe-pr-autofix.cjs
+        continue-on-error: true
