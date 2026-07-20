@@ -55,11 +55,21 @@ jobs:
           fs.writeFileSync("release-notes.md", out.join("\n") + "\n");
           NODE
       - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
-      # Build only — electron-builder's GitHub publisher races itself (parallel
-      # create-release for .exe + .blockmap → 422 already_exists) and is brittle
+      # Build only. electron-builder's GitHub publisher races itself (parallel
+      # create-release for .exe + .blockmap -> 422 already_exists) and is brittle
       # on GitHub upload 5xx. Upload assets with gh instead.
       - name: Build Windows installer
         run: node scripts/run-electron-builder.cjs --publish never
+      - name: Upload installer artifacts (recovery backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-windows-installer
+          path: |
+            electron-dist/*Setup*.exe
+            electron-dist/*Setup*.exe.blockmap
+            electron-dist/latest.yml
+          if-no-files-found: warn
+          retention-days: 14
       - name: Ensure GitHub release and upload installer assets
         shell: bash
         env:
@@ -76,25 +86,45 @@ jobs:
             exit 1
           fi
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release ${TAG} already exists — updating notes and assets"
-            gh release edit "$TAG" --notes-file release-notes.md --title "${TAG#v}"
-          else
-            echo "Creating release ${TAG}"
-            gh release create "$TAG" \
-              --title "${TAG#v}" \
-              --notes-file release-notes.md \
-              --verify-tag
-          fi
-
-          echo "Uploading ${#files[@]} asset(s) to ${TAG}"
-          for attempt in 1 2 3; do
-            if gh release upload "$TAG" "${files[@]}" --clobber; then
-              echo "Upload succeeded on attempt ${attempt}"
-              exit 0
+          for attempt in 1 2 3 4 5; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Release ${TAG} already exists; updating notes"
+              if gh release edit "$TAG" --notes-file release-notes.md --title "${TAG#v}"; then
+                break
+              fi
+            else
+              echo "Creating release ${TAG} (attempt ${attempt})"
+              if gh release create "$TAG" \
+                --title "${TAG#v}" \
+                --notes-file release-notes.md \
+                --verify-tag; then
+                break
+              fi
             fi
-            echo "Upload attempt ${attempt} failed; waiting before retry..."
-            sleep $((attempt * 15))
+            echo "Release ensure failed; waiting before retry..."
+            sleep $((attempt * 20))
           done
-          echo "All upload attempts failed"
-          exit 1
+          gh release view "$TAG" >/dev/null
+
+          # Upload one file at a time with long backoff (uploads.github.com 5xx).
+          failed=0
+          for f in "${files[@]}"; do
+            ok=0
+            for attempt in 1 2 3 4 5 6 7 8; do
+              echo "Uploading $(basename "$f") (attempt ${attempt})"
+              if gh release upload "$TAG" "$f" --clobber; then
+                ok=1
+                break
+              fi
+              sleep $((attempt * 20))
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "Failed to upload $(basename "$f") after retries"
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "One or more asset uploads failed (artifacts retained for recovery)"
+            exit 1
+          fi
+          echo "All assets uploaded to ${TAG}"
