@@ -1,8 +1,12 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.50.4**
+**Version 0.50.5**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build (primary) with native DSP export and Python sidecar integration. Legacy **Electron** Windows installer remains but is deprecated — see [docs/desktop.md](docs/desktop.md).
+
+## Highlights (v0.50.5)
+
+- **Canvas handoff + audio** — Open in Canvas Tool exports analyzed track audio to `handoff.json` for music preview/sync in [AI Canvas Tool v1.1.1](https://github.com/Druttzen/ai-canvas-tool/releases/tag/v1.1.1).
 
 ## Highlights (v0.50.4)
 

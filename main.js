@@ -137,10 +137,18 @@ function setupSuiteCanvasBridge() {
         return { ok: false, error: "No image data" };
       }
       const artPath = await suiteBridge.writeArtworkExport(Buffer.from(buffer), payload?.ext);
+      let audioPath;
+      if (payload?.audioBuffer?.byteLength) {
+        audioPath = await suiteBridge.writeAudioExport(
+          Buffer.from(payload.audioBuffer),
+          payload?.audioExt,
+        );
+      }
       const { exe, launched } = await suiteBridge.openInCanvasFromMusic({
         title: String(payload?.title || "Untitled Track"),
         artist: String(payload?.artist || "Unknown Artist"),
         albumArtPath: artPath,
+        audioPath,
         motionHint: String(payload?.motionHint || "cinematic drift, 8 seconds"),
         durationSec: Number(payload?.durationSec) || 8,
       });

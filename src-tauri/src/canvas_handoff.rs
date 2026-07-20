@@ -209,6 +209,16 @@ fn sanitize_ext(ext: &str) -> String {
     }
 }
 
+fn sanitize_audio_ext(ext: &str) -> String {
+    match ext.trim().trim_start_matches('.').to_ascii_lowercase().as_str() {
+        "wav" => "wav".to_string(),
+        "m4a" | "aac" => "m4a".to_string(),
+        "flac" => "flac".to_string(),
+        "ogg" => "ogg".to_string(),
+        _ => "mp3".to_string(),
+    }
+}
+
 fn handoff_timestamp_iso() -> String {
     Utc::now().to_rfc3339()
 }
@@ -447,6 +457,8 @@ pub fn export_canvas_handoff(
     artist: String,
     image_bytes: Vec<u8>,
     ext: Option<String>,
+    audio_bytes: Option<Vec<u8>>,
+    audio_ext: Option<String>,
     motion_hint: Option<String>,
     duration_sec: Option<u32>,
 ) -> CanvasHandoffResult {
@@ -490,15 +502,24 @@ pub fn export_canvas_handoff(
     }
 
     let handoff_path = suite.join(&config().handoff_file);
+    let mut track = json!({
+        "title": title,
+        "artist": artist,
+        "albumArtPath": art_path.to_string_lossy(),
+    });
+    if let Some(bytes) = audio_bytes.filter(|b| !b.is_empty()) {
+        let audio_clean = sanitize_audio_ext(audio_ext.as_deref().unwrap_or("mp3"));
+        let audio_name = format!("track-audio-{stamp}.{audio_clean}");
+        let audio_path = exports.join(&audio_name);
+        if fs::write(&audio_path, &bytes).is_ok() {
+            track["audioPath"] = json!(audio_path.to_string_lossy());
+        }
+    }
     let handoff = json!({
         "version": 1,
         "timestamp": handoff_timestamp_iso(),
         "source": "ai-music-tool",
-        "track": {
-            "title": title,
-            "artist": artist,
-            "albumArtPath": art_path.to_string_lossy(),
-        },
+        "track": track,
         "canvas": {
             "motionHint": motion_hint.unwrap_or_else(|| "cinematic drift, soft glow, 8 seconds".to_string()),
             "durationSec": duration_sec.unwrap_or(8),

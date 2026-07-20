@@ -43,12 +43,29 @@ export function deriveCanvasMotionHint(imageAnalysis) {
 
 /**
  * Open AI Canvas Tool with current image preview (Tauri primary, Electron legacy).
- * @param {{ imagePreviewUrl: string, title: string, artist: string, motionHint?: string, ext?: string }} payload
+ * @param {{ imagePreviewUrl: string, audioPreviewUrl?: string | null, title: string, artist: string, motionHint?: string, ext?: string, audioExt?: string }} payload
  */
 export async function openImageInCanvasTool(payload) {
   const res = await fetch(payload.imagePreviewUrl);
   if (!res.ok) throw new Error("Could not read image preview");
   const buffer = await res.arrayBuffer();
+
+  let audioBytes = null;
+  if (payload.audioPreviewUrl) {
+    try {
+      const audioRes = await fetch(payload.audioPreviewUrl);
+      if (audioRes.ok) {
+        audioBytes = await audioRes.arrayBuffer();
+      }
+    } catch {
+      audioBytes = null;
+    }
+  }
+
+  const audioExt =
+    payload.audioExt ||
+    (payload.audioPreviewUrl ? String(payload.audioPreviewUrl).split(".").pop() : "") ||
+    "mp3";
 
   const { exportCanvasHandoffNative } = await import("./canvas-handoff-bridge");
   const { isTauriApp } = await import("./dsp-bridge");
@@ -59,6 +76,8 @@ export async function openImageInCanvasTool(payload) {
       artist: payload.artist,
       imageBytes: buffer,
       ext: payload.ext || "png",
+      audioBytes,
+      audioExt,
       motionHint: payload.motionHint,
       durationSec: 8,
     });
@@ -69,6 +88,8 @@ export async function openImageInCanvasTool(payload) {
       title: payload.title,
       artist: payload.artist,
       buffer,
+      audioBuffer: audioBytes,
+      audioExt,
       ext: payload.ext || "png",
       motionHint: payload.motionHint || "cinematic drift, 8 seconds",
       durationSec: 8,

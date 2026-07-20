@@ -851,17 +851,22 @@ export function useAnalyzers({
       });
       const motionHint = deriveCanvasMotionHint(imageAnalysis);
       const ext = (imageAnalysis?.fileName || "").split(".").pop() || "png";
+      const audioExt = (audioAnalysis?.fileName || "").split(".").pop() || "mp3";
       const result = await openImageInCanvasTool({
         imagePreviewUrl: imagePreview,
+        audioPreviewUrl: audioPreviewUrl || undefined,
         title,
         artist,
         motionHint,
         ext,
+        audioExt,
       });
       if (result?.ok) {
         setStatusWithTime(
           result.launched
-            ? "AI Canvas Tool opened — artwork imported"
+            ? audioPreviewUrl
+              ? "AI Canvas Tool opened — artwork + track imported"
+              : "AI Canvas Tool opened — artwork imported"
             : "Artwork exported — exports opened. Install AI Canvas Tool to launch automatically",
         );
       } else {
@@ -875,6 +880,7 @@ export function useAnalyzers({
     }
   }, [
     audioAnalysis,
+    audioPreviewUrl,
     idea,
     imageAnalysis,
     imagePreview,
