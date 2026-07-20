@@ -526,9 +526,11 @@ npm run cleanup:dist:admin
 
 Old installer output under `dist/` is gitignored; safe to delete locally anytime.
 
-### Electron auto-update
+### Electron auto-update (legacy)
 
-Packaged builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startup. Updates require a published release with `latest.yml` from `electron-builder --publish` (or manual upload). Dev/`npm run electron` skips update checks.
+Packaged **Electron** builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startup. Updates require a published `v*` release with `latest.yml`. Dev/`npm run electron` skips update checks.
+
+**Tauri Studio** (`studio-v*`): no in-app updater yet — install the new Studio build from GitHub Releases after each tag. See [docs/desktop.md](docs/desktop.md).
 
 ## Production build
 
@@ -585,7 +587,7 @@ Static export output is written to `out/` (see `next.config.js` — `assetPrefix
 
 See **[docs/desktop.md](docs/desktop.md)** for Tauri vs legacy Electron. Panel wiring: **[docs/panel-inventory.md](docs/panel-inventory.md)** (`npm run docs:panels`).
 
-Requires **Rust** (`cargo`), **Tauri CLI**, and a Python **3.11–3.12** venv for the sidecar (see `ai-sidecar/README.md`). On first run, `ensure-sidecar-binary.ps1` builds or copies the sidecar binary.
+Requires **Rust** (`cargo`), **Tauri CLI**, and a Python **3.10–3.12** venv for the sidecar (see `ai-sidecar/README.md`). On first run, `ensure-sidecar-binary.ps1` builds or copies the sidecar binary.
 
 ```bash
 npm run tauri:dev

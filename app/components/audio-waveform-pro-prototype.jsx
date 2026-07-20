@@ -99,8 +99,8 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
       </div>
       <div ref={containerRef} className="overflow-hidden rounded-xl bg-black/35" />
       <p className="mt-2 text-[10px] leading-relaxed text-white/45">
-        Flagged prototype for evaluating Regions/Timeline UX. Toggle via the Highlight section
-        button (saved in localStorage) or `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=1`.
+        Pro waveform (WaveSurfer) is on by default. Toggle classic via the Highlight section
+        button (localStorage) or set `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0`.
       </p>
       {status !== "ready" ? <p className="mt-1 text-[10px] text-white/35">{status}</p> : null}
     </section>

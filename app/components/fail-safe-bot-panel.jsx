@@ -249,7 +249,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
                 className="rounded-lg border border-violet-400/35 bg-violet-500/15 px-2 py-1 text-[10px] font-bold text-violet-100 hover:bg-violet-500/25"
                 disabled={fixPushBusy || checking || fixSession.phase === "running"}
                 onClick={() => handleFixPush("local")}
-                title="Run fail-safe fix, commit, push — users get auto-update after merge + release"
+                title="Run fail-safe fix, commit, push — merge + studio-v* release for users to install"
               >
                 {fixPushBusy || fixSession.phase === "running" ? "Fixing…" : "Fix & push"}
               </button>
@@ -374,21 +374,26 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
               </span>
             </p>
             <label className="block pt-1">
-              GitHub token (cloud fix + Runtime issue API, localStorage only)
+              GitHub token (cloud fix + Runtime issue API — session only, not localStorage)
               <input
                 type="password"
                 className="mt-1 w-full rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-white/85"
-                placeholder={getMaintainerGithubToken() ? "•••• saved" : "ghp_… repo scope"}
+                placeholder={getMaintainerGithubToken() ? "•••• saved this tab" : "ghp_… repo scope"}
                 value={ghTokenDraft}
                 onChange={(e) => setGhTokenDraft(e.target.value)}
+                autoComplete="off"
               />
             </label>
+            <p className="text-[10px] text-white/35">
+              Cleared when the tab closes. Prefer env <span className="text-white/55">AIMC_GITHUB_TOKEN</span>{" "}
+              for CI/cloud scripts.
+            </p>
             <button
               type="button"
               className="rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-[10px] text-white/80"
               onClick={saveGhToken}
             >
-              Save token
+              Save token for this session
             </button>
           </div>
         ) : null}

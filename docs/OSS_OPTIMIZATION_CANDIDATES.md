@@ -10,7 +10,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 | --- | --- | --- | --- |
 | librosa | ISC | Python sidecar audio analysis | Use existing dependency for richer tempo, chroma/key, onset, HPSS, and spectral descriptors. |
 | Zod | MIT | Maestro/LLM structured output | Already installed; use it to validate and repair LLM JSON before sanitizing patches. |
-| wavesurfer.js | BSD-3-Clause | Browser waveform UX | Added as a disabled-by-default prototype (`NEXT_PUBLIC_WAVESURFER_PROTOTYPE=1`) before any replacement decision. |
+| wavesurfer.js | BSD-3-Clause | Browser waveform UX | **Default ON** in Highlight editor; set `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or use classic toggle (`aimc-classic-waveform`) to opt out. |
 | rubato | MIT | Rust DSP sample-rate conversion | Evaluate only if native export needs higher-quality resampling. |
 | oximedia-normalize | Apache-2.0 | Rust loudness normalization | Evaluate against current `ebur128` + limiter behavior before adopting. |
 | awesome-suno-prompts | CC0 | Style prompt inspiration | Imported via `npm run import:awesome-suno` into Style Prompt Library (`awesomeSunoConcepts`). |
@@ -40,7 +40,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 1. Harden Maestro LLM JSON with Zod schemas and explicit command validation.
 2. Extend sidecar audio analysis using the existing `librosa` dependency.
 3. ~~Optional image captioning via `POST /analyze-image` (vision extra)~~ — **done** (`npm run sidecar:vision`).
-4. Prototype wavesurfer.js if existing waveform UX becomes a bottleneck.
+4. ~~Prototype wavesurfer.js~~ — **shipped default-on** (opt out with `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or classic toggle).
 5. Evaluate DSP crates only after adding benchmark-style tests around current output.
 6. Maestro LLM catalog grounding — local retrieval from style catalog + CC0 concepts (`maestro-catalog-grounding.js`).
 7. Roadmap leftovers — tempo descriptors, negative guard packs, era/trend catalogs, metaphor surprise rolls, DistilHuBERT genre override, MFA guide-vocal alignment (CLIP vision tags: **done**).
@@ -54,9 +54,10 @@ The app already has a custom highlight editor in `app/components/audio-track-edi
 with waveform persistence through the analyzer state and IndexedDB audio cache. `wavesurfer.js`
 is attractive for timeline/regions/minimap/spectrogram plugins, but replacing the current editor
 would touch playback, drag handles, e2e analyzer tests, and exported project shape. Decision:
-keep `app/components/audio-waveform-pro-prototype.jsx` disabled unless
-`NEXT_PUBLIC_WAVESURFER_PROTOTYPE=1` is set, then evaluate Regions/Timeline UX without risking
-the stable editor.
+`app/components/audio-waveform-pro-prototype.jsx` is **on by default** (v0.14+). Opt out with
+`NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or the Highlight section classic-waveform toggle
+(`aimc-classic-waveform` in localStorage). Continue evaluating Regions/Timeline UX against the
+classic editor path.
 
 ### DSP / Export
 

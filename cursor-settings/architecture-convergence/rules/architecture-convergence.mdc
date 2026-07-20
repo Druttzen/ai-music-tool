@@ -12,5 +12,6 @@ When changing desktop, sidecar, or ship/release paths in this repo:
 3. **Ship tags** — default `npm run ship:tag` is **studio-only** (`studio-v*`). Use `--electron` only when legacy `v*` Electron is intentionally needed.
 4. **Sidecar extras** stay opt-in via `npm run sidecar:*` (stems, generate, classify, vision, vocal, vocal-ml, vocal-rvc, all). Prefer registry `install_hint` strings that match those npm scripts.
 5. **Electron handoffs** stay until Studio canvas/video paths are verified on a tagged `studio-v*` install — see `docs/architecture-convergence.md`.
+6. **Studio updates** are manual (`studio-v*` installers) until Tauri updater is configured; do not claim in-app auto-update for Studio.
 
 Source of truth: `docs/architecture-convergence.md`, `docs/desktop.md`.

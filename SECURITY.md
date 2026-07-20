@@ -11,9 +11,10 @@ Open a [GitHub issue](https://github.com/Druttzen/ai-music-tool/issues) with **S
 | Storage | Keys | Included in project export? |
 |---------|------|----------------------------|
 | `localStorage` | Co-Producer LLM (`apiKey`), Style DNA (Spotify/AudD) | **No** — project autosave uses `SNAPSHOT_FIELD_KEYS` only |
+| `sessionStorage` | Maintainer GitHub PAT (fail-safe cloud / Runtime deliver) | **No** — session only; cleared when the tab closes |
 | Project JSON / bundle | Genres, lyrics, presets, voice profiles | Yes (creative data only) |
 
-**Reset to Default** clears Co-Producer LLM and Style DNA keys via `clearStoredCredentials()`. Export shows a reminder when credentials are still stored locally.
+**Reset to Default** clears Co-Producer LLM and Style DNA keys via `clearStoredCredentials()`. Export shows a reminder when credentials are still stored locally. Maintainer PATs are never written to `localStorage` (legacy values are migrated once into `sessionStorage` then removed).
 
 Never commit `.env` files or paste keys into issues.
 
@@ -53,6 +54,8 @@ Two tag families can ship installers:
 | `v*` | Legacy Electron (deprecated) | `npm run ship:tag -- --electron` or manual `release.yml` |
 
 Both run `npm run check:full` (unit + lint + build + sidecar pytest) before building.
+
+**Updates:** Electron `v*` builds use `electron-updater`. Studio `studio-v*` builds require installing the new package from Releases until a Tauri updater is configured.
 
 ## Electron sunset
 
