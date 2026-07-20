@@ -20,14 +20,14 @@ def stems_available() -> bool:
     return True
 
 
-def _load_demucs(model_name: str):
+def _load_demucs(model_name: str, device: str | None = None):
     import torch
     from demucs.pretrained import get_model
 
     if model_name not in _MODEL_CACHE:
         model = get_model(model_name)
-        policy = build_policy()
-        model.to(policy.device or select_device())
+        target = device or (build_policy().device or select_device())
+        model.to(target)
         model.eval()
         _MODEL_CACHE[model_name] = model
     return _MODEL_CACHE[model_name], torch
@@ -65,7 +65,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
 
     try:
         ctx.set_progress(0.1, f"loading model ({device})")
-        model, torch = _load_demucs(model_name)
+        model, torch = _load_demucs(model_name, device=device)
         ctx.set_progress(0.3, "reading audio")
         wav = AudioFile(tmp_in.name).read(
             streams=0, samplerate=model.samplerate, channels=model.audio_channels
