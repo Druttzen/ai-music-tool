@@ -10,6 +10,13 @@ import io
 import os
 from typing import Any
 
+from .cover_runtime import (
+    build_cover_policy,
+    generator_device_for_policy,
+    place_cover_pipeline,
+    torch_dtype_for_policy,
+)
+
 MODEL_ID = "black-forest-labs/FLUX.1-schnell"
 _PIPE: Any = None
 
@@ -17,7 +24,7 @@ _PIPE: Any = None
 def cover_available() -> bool:
     try:
         import torch  # noqa: F401, PLC0415
-        import diffusers  # noqa: F401, PLC0415
+        from diffusers import FluxPipeline  # noqa: F401, PLC0415
         from PIL import Image  # noqa: F401, PLC0415
 
         return True
@@ -29,23 +36,6 @@ def active_cover_model_id() -> str:
     return os.environ.get("AIMC_COVER_MODEL", "").strip() or MODEL_ID
 
 
-def _select_torch_device(device_name: str) -> str:
-    from .device import select_device
-
-    preferred = device_name or select_device()
-    try:
-        import torch  # noqa: PLC0415
-
-        if preferred == "cuda" and torch.cuda.is_available():
-            return "cuda"
-        mps = getattr(torch.backends, "mps", None)
-        if preferred != "cpu" and mps is not None and mps.is_available():
-            return "mps"
-    except Exception:
-        pass
-    return "cpu"
-
-
 def _get_pipeline(device_name: str):
     global _PIPE
     if _PIPE is not None:
@@ -54,13 +44,10 @@ def _get_pipeline(device_name: str):
     import torch  # noqa: PLC0415
     from diffusers import FluxPipeline  # noqa: PLC0415
 
-    torch_device = _select_torch_device(device_name)
-    dtype = torch.bfloat16 if torch_device == "cuda" else torch.float32
+    policy = build_cover_policy(device_name)
+    dtype = torch_dtype_for_policy(torch, policy)
     pipe = FluxPipeline.from_pretrained(active_cover_model_id(), torch_dtype=dtype)
-    if torch_device == "cpu":
-        pipe.enable_model_cpu_offload()
-    else:
-        pipe = pipe.to(torch_device)
+    pipe = place_cover_pipeline(pipe, policy)
     _PIPE = pipe
     return _PIPE
 
@@ -93,10 +80,8 @@ def generate_cover_png(
     pipe = _get_pipeline(device)
     generator = None
     if seed is not None:
-        torch_device = _select_torch_device(device)
-        generator = torch.Generator(device="cpu" if torch_device == "mps" else torch_device).manual_seed(
-            int(seed)
-        )
+        policy = build_cover_policy(device)
+        generator = torch.Generator(device=generator_device_for_policy(policy)).manual_seed(int(seed))
 
     result = pipe(
         text,

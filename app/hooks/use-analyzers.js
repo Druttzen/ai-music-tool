@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildAudioAnalyzerPatch,
 } from "../lib/analyzer-guided-merge";
@@ -65,6 +65,8 @@ export function useAnalyzers({
   coProducerLlmSettings = null,
 }) {
   const refs = useAnalyzerRefs();
+  const analyzerMergeGenerationRef = useRef(0);
+  const analyzerMergeAbortRef = useRef(null);
   const {
     audioAnalysisRef,
     audioCacheKeyRef,
@@ -94,6 +96,14 @@ export function useAnalyzers({
   const [analyzeAudioBusy, setAnalyzeAudioBusy] = useState(false);
   const [analyzeImageBusy, setAnalyzeImageBusy] = useState(false);
 
+  const cancelAnalyzerStyleMerge = useCallback(() => {
+    analyzerMergeGenerationRef.current += 1;
+    analyzerMergeAbortRef.current?.abort();
+    analyzerMergeAbortRef.current = null;
+  }, []);
+
+  useEffect(() => cancelAnalyzerStyleMerge, [cancelAnalyzerStyleMerge]);
+
   useE2eAudioFixtures(setAudioAnalysis);
 
   const setAudioPreviewFromBlob = useCallback(
@@ -109,6 +119,7 @@ export function useAnalyzers({
   }, [audioCacheKeyRef, audioCacheKeysRef]);
 
   const resetAnalyzers = useCallback(() => {
+    cancelAnalyzerStyleMerge();
     deleteAudioCacheEntries(audioCacheKeysRef.current);
     audioCacheKeysRef.current = [];
     audioCacheKeyRef.current = null;
@@ -126,7 +137,7 @@ export function useAnalyzers({
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
     }
-  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, imagePreviewUrlRef]);
+  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, cancelAnalyzerStyleMerge, imagePreviewUrlRef]);
 
   const updateAudioAnalysis = useCallback((patch) => {
     setAudioAnalysis((prev) => patchAudioAnalysis(prev, patch));
@@ -463,18 +474,44 @@ export function useAnalyzers({
     setGuidedStep(resolvePolishStepIndex());
   }, [setGuidedStep]);
 
+  const refineCurrentAnalyzerStyle = useCallback(
+    async (kind, heuristic, report) => {
+      analyzerMergeAbortRef.current?.abort();
+      const controller = new AbortController();
+      const generation = analyzerMergeGenerationRef.current + 1;
+      analyzerMergeGenerationRef.current = generation;
+      analyzerMergeAbortRef.current = controller;
+
+      const built = await refineSunoStyleWithLlmOrHeuristic(
+        kind,
+        heuristic,
+        report,
+        coProducerLlmSettings,
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted || generation !== analyzerMergeGenerationRef.current) {
+        return null;
+      }
+      if (analyzerMergeAbortRef.current === controller) {
+        analyzerMergeAbortRef.current = null;
+      }
+      return built;
+    },
+    [coProducerLlmSettings],
+  );
+
   const applyAudioToSunoStyle = useCallback(async () => {
     if (!audioAnalysis) {
       setStatusWithTime("No audio analysis yet");
       return;
     }
     const heuristic = buildSunoV55StyleFromAudioAnalysis(audioAnalysis);
-    const built = await refineSunoStyleWithLlmOrHeuristic(
+    const built = await refineCurrentAnalyzerStyle(
       "audio",
       heuristic,
       audioAnalysis,
-      coProducerLlmSettings,
     );
+    if (!built) return;
     applyAnalyzerPatch(buildAudioSunoV55Patch(audioAnalysis, formatTime, built));
 
     const via = built.source === "llm" ? " (LLM refined)" : "";
@@ -487,9 +524,9 @@ export function useAnalyzers({
   }, [
     audioAnalysis,
     applyAnalyzerPatch,
-    coProducerLlmSettings,
     navigateToPolishStep,
     promptEngine,
+    refineCurrentAnalyzerStyle,
     setStatusWithTime,
   ]);
 
@@ -499,12 +536,12 @@ export function useAnalyzers({
       return;
     }
     const heuristic = buildSunoV55StyleFromImageAnalysis(imageAnalysis);
-    const built = await refineSunoStyleWithLlmOrHeuristic(
+    const built = await refineCurrentAnalyzerStyle(
       "image",
       heuristic,
       imageAnalysis,
-      coProducerLlmSettings,
     );
+    if (!built) return;
     applyAnalyzerPatch(buildImageSunoV55Patch(imageAnalysis, built));
 
     const via = built.source === "llm" ? " (LLM refined)" : "";
@@ -516,10 +553,10 @@ export function useAnalyzers({
     }
   }, [
     applyAnalyzerPatch,
-    coProducerLlmSettings,
     imageAnalysis,
     navigateToPolishStep,
     promptEngine,
+    refineCurrentAnalyzerStyle,
     setStatusWithTime,
   ]);
 

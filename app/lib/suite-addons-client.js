@@ -11,6 +11,7 @@ export const CANVAS_ADDON = {
   repoUrl: "https://github.com/Druttzen/ai-canvas-tool",
   installUrl: "https://github.com/Druttzen/ai-canvas-tool#install-windows",
   releasesUrl: "https://github.com/Druttzen/ai-canvas-tool/releases",
+  managed: true,
 };
 
 export const MUSIC_VIDEO_ADDON = {
@@ -20,6 +21,7 @@ export const MUSIC_VIDEO_ADDON = {
   repoUrl: "https://github.com/6Morpheus6/Glitchframe",
   installUrl: "https://github.com/6Morpheus6/Glitchframe#readme",
   releasesUrl: "https://github.com/6Morpheus6/Glitchframe/releases",
+  managed: false,
 };
 
 export const SUITE_ADDON_CATALOG = [CANVAS_ADDON, MUSIC_VIDEO_ADDON];

@@ -52,6 +52,7 @@ from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vis
 from .musicgen import active_musicgen_model_id, generation_available
 from .cover_generator import active_cover_model_id, cover_available, generate_cover_png
 from .cover_ref_generator import (
+    MAX_COVER_REF_UPLOAD_BYTES,
     active_cover_ref_model_id,
     cover_ref_available,
     generate_cover_from_image_png,
@@ -686,9 +687,14 @@ async def generate_cover_ref(
     if not text:
         raise HTTPException(status_code=400, detail="prompt is required")
 
-    raw = await image.read()
+    raw = await image.read(MAX_COVER_REF_UPLOAD_BYTES + 1)
     if not raw:
         raise HTTPException(status_code=400, detail="empty image upload")
+    if len(raw) > MAX_COVER_REF_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"reference image exceeds {MAX_COVER_REF_UPLOAD_BYTES // (1024 * 1024)} MB limit",
+        )
 
     device = select_device()
     try:

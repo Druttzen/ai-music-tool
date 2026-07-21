@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel } from "./ui-blocks";
 import {
   useProjectWorkspaceActions,
@@ -14,6 +14,7 @@ import { buildCoverPromptFromStyle, resolveCoverPromptSource } from "../lib/cove
 import { buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
 import { buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
 import { openMusicVideoHandoff } from "../lib/suite-music-video-client";
+import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 
 /**
  * Opt-in cover generation (FLUX) + music video suite handoff.
@@ -30,6 +31,8 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
   const [strength, setStrength] = useState(0.55);
   const [coverUrl, setCoverUrl] = useState(/** @type {string|null} */ (null));
   const [promptOverride, setPromptOverride] = useState("");
+  const operationGenerationRef = useRef(0);
+  const operationAbortRef = useRef(null);
 
   useEffect(() => {
     if (sidecarAiStatus !== "ready") {
@@ -37,9 +40,13 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
       return undefined;
     }
     let cancelled = false;
-    void fetchSidecarHealth().then((h) => {
-      if (!cancelled) setHealth(h);
-    });
+    void fetchSidecarHealth()
+      .then((h) => {
+        if (!cancelled) setHealth(h);
+      })
+      .catch(() => {
+        if (!cancelled) setHealth(null);
+      });
     return () => {
       cancelled = true;
     };
@@ -90,23 +97,70 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
     [],
   );
 
+  const beginOperation = useCallback(() => {
+    operationAbortRef.current?.abort();
+    const controller = new AbortController();
+    const generation = operationGenerationRef.current + 1;
+    operationGenerationRef.current = generation;
+    operationAbortRef.current = controller;
+    setBusy(true);
+    return { controller, generation };
+  }, []);
+
+  const operationIsCurrent = useCallback(
+    (operation) =>
+      !operation.controller.signal.aborted &&
+      operation.generation === operationGenerationRef.current,
+    [],
+  );
+
+  const finishOperation = useCallback((operation) => {
+    if (operation.generation !== operationGenerationRef.current) return;
+    if (operationAbortRef.current === operation.controller) operationAbortRef.current = null;
+    setBusy(false);
+  }, []);
+
+  useWorkspaceResetEffect(() => {
+    operationGenerationRef.current += 1;
+    operationAbortRef.current?.abort();
+    operationAbortRef.current = null;
+    setBusy(false);
+    setStrength(0.55);
+    setPromptOverride("");
+    setCoverUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  });
+
+  useEffect(
+    () => () => {
+      operationGenerationRef.current += 1;
+      operationAbortRef.current?.abort();
+      operationAbortRef.current = null;
+    },
+    [],
+  );
+
   const onGenerateCover = useCallback(async () => {
     if (!coverReady) {
       setStatusWithTime(`Cover generation requires ${coverHint}`, "warning");
       return;
     }
-    setBusy(true);
+    const operation = beginOperation();
     try {
       captureSnapshot?.("before cover generate");
-      const out = await generateCoverViaSidecar({ prompt });
+      const out = await generateCoverViaSidecar({ prompt, signal: operation.controller.signal });
+      if (!operationIsCurrent(operation)) return;
       setCoverBlob(out.blob);
       setStatusWithTime(`Cover generated (${out.model || "FLUX"})`);
     } catch (err) {
+      if (!operationIsCurrent(operation)) return;
       setStatusWithTime(err instanceof Error ? err.message : "Cover generation failed", "error");
     } finally {
-      setBusy(false);
+      finishOperation(operation);
     }
-  }, [captureSnapshot, coverHint, coverReady, prompt, setCoverBlob, setStatusWithTime]);
+  }, [beginOperation, captureSnapshot, coverHint, coverReady, finishOperation, operationIsCurrent, prompt, setCoverBlob, setStatusWithTime]);
 
   const onGenerateCoverRef = useCallback(async () => {
     if (!imagePreview) {
@@ -117,28 +171,35 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
       setStatusWithTime(`Cover-from-image requires ${coverRefHint}`, "warning");
       return;
     }
-    setBusy(true);
+    const operation = beginOperation();
     try {
       captureSnapshot?.("before cover-ref generate");
-      const imgRes = await fetch(imagePreview);
+      const imgRes = await fetch(imagePreview, { signal: operation.controller.signal });
+      if (!imgRes.ok) throw new Error("Could not read analyzer image");
       const imgBlob = await imgRes.blob();
       const out = await generateCoverRefViaSidecar({
         prompt,
         image: imgBlob,
         strength,
+        signal: operation.controller.signal,
       });
+      if (!operationIsCurrent(operation)) return;
       setCoverBlob(out.blob);
       setStatusWithTime(`Cover from image generated (${out.model || "FLUX img2img"})`);
     } catch (err) {
+      if (!operationIsCurrent(operation)) return;
       setStatusWithTime(err instanceof Error ? err.message : "Cover-ref generation failed", "error");
     } finally {
-      setBusy(false);
+      finishOperation(operation);
     }
   }, [
+    beginOperation,
     captureSnapshot,
     coverRefHint,
     coverRefReady,
+    finishOperation,
     imagePreview,
+    operationIsCurrent,
     prompt,
     setCoverBlob,
     setStatusWithTime,
@@ -146,22 +207,40 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
   ]);
 
   const onOpenMusicVideo = useCallback(async () => {
-    setBusy(true);
+    const operation = beginOperation();
     try {
       const result = await openMusicVideoHandoff({
         audioUrl: audioPreviewUrl || null,
+        audioName: audioAnalysis?.fileName || "track.wav",
         coverUrl: coverUrl || imagePreview || null,
+        coverName: coverUrl ? "album-cover.png" : imageAnalysis?.fileName || "cover.png",
         prompt,
         bpm: audioAnalysis?.estimatedBpm || "",
         idea,
+        signal: operation.controller.signal,
       });
+      if (!operationIsCurrent(operation)) return;
       setStatusWithTime(result.message, result.ok ? "info" : "error");
     } catch (err) {
+      if (!operationIsCurrent(operation)) return;
       setStatusWithTime(err instanceof Error ? err.message : "Music video handoff failed", "error");
     } finally {
-      setBusy(false);
+      finishOperation(operation);
     }
-  }, [audioAnalysis?.estimatedBpm, audioPreviewUrl, coverUrl, idea, imagePreview, prompt, setStatusWithTime]);
+  }, [
+    audioAnalysis?.estimatedBpm,
+    audioAnalysis?.fileName,
+    audioPreviewUrl,
+    beginOperation,
+    coverUrl,
+    finishOperation,
+    idea,
+    imageAnalysis?.fileName,
+    imagePreview,
+    operationIsCurrent,
+    prompt,
+    setStatusWithTime,
+  ]);
 
   const onDownloadCover = useCallback(() => {
     if (!coverUrl) return;
@@ -174,7 +253,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
   return (
     <Panel
       title="Cover & Music Video"
-      hint="Opt-in FLUX covers (npm run sidecar:cover / cover-ref) and Suite Music Video handoff."
+      hint="Opt-in FLUX covers and a portable audio/art export for Music Video (Glitchframe)."
     >
       <label className="block text-[10px] text-white/50">
         Cover prompt
@@ -251,7 +330,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
         onClick={() => void onOpenMusicVideo()}
         className="mt-3 w-full rounded-2xl border border-emerald-400/40 bg-emerald-500/15 py-2 text-xs font-bold text-emerald-50 hover:bg-emerald-500/25 disabled:opacity-50"
       >
-        Open in Music Video tool →
+        Export for Music Video →
       </button>
     </Panel>
   );

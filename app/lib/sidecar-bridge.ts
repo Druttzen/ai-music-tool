@@ -652,6 +652,7 @@ export async function generateCoverViaSidecar(options: {
   height?: number;
   seed?: number | null;
   numInferenceSteps?: number;
+  signal?: AbortSignal;
 }): Promise<{ blob: Blob; model: string | null; mode: string | null; width: number | null; height: number | null }> {
   const res = await fetch(`${sidecarBaseUrl()}/cover`, {
     method: "POST",
@@ -663,6 +664,7 @@ export async function generateCoverViaSidecar(options: {
       seed: options.seed ?? null,
       num_inference_steps: options.numInferenceSteps ?? 4,
     }),
+    signal: options.signal,
   });
 
   if (!res.ok) {
@@ -697,6 +699,7 @@ export async function generateCoverRefViaSidecar(options: {
   height?: number;
   seed?: number | null;
   numInferenceSteps?: number;
+  signal?: AbortSignal;
 }): Promise<{
   blob: Blob;
   model: string | null;
@@ -718,6 +721,7 @@ export async function generateCoverRefViaSidecar(options: {
     method: "POST",
     headers: await sidecarAuthHeaders(),
     body: form,
+    signal: options.signal,
   });
 
   if (!res.ok) {

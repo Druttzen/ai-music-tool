@@ -151,13 +151,14 @@ export async function refineSunoStyleWithLlm(kind, heuristic, report, settings, 
  * @param {object} heuristic
  * @param {object} report
  * @param {object|null|undefined} settings
+ * @param {{ timeoutMs?: number, signal?: AbortSignal }} [options]
  */
-export async function refineSunoStyleWithLlmOrHeuristic(kind, heuristic, report, settings) {
+export async function refineSunoStyleWithLlmOrHeuristic(kind, heuristic, report, settings, options = {}) {
   if (!isCoProducerLlmReady(settings)) {
     return { ...heuristic, source: "heuristic" };
   }
   try {
-    return await refineSunoStyleWithLlm(kind, heuristic, report, settings);
+    return await refineSunoStyleWithLlm(kind, heuristic, report, settings, options);
   } catch {
     return { ...heuristic, source: "heuristic" };
   }

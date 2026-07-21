@@ -15,6 +15,14 @@ import {
 
 function AddonCard({ addon, status, busy, onInstall, onOpen }) {
   const installed = Boolean(status?.installed);
+  const managed = addon.managed !== false;
+  const badge = managed
+    ? installed
+      ? "Installed"
+      : "Not installed"
+    : installed
+      ? "Setup detected"
+      : "External";
   return (
     <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3">
       <div className="flex items-start justify-between gap-2">
@@ -32,7 +40,7 @@ function AddonCard({ addon, status, busy, onInstall, onOpen }) {
               : "border border-white/15 bg-black/30 text-white/55")
           }
         >
-          {installed ? "Installed" : "Not installed"}
+          {badge}
         </span>
       </div>
       <div className="mt-3 grid gap-2">
@@ -42,7 +50,11 @@ function AddonCard({ addon, status, busy, onInstall, onOpen }) {
           onClick={() => void onInstall(addon.id)}
           className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
         >
-          {installed ? `Re-check / Update ${addon.title}` : `Download / Install ${addon.title}`}
+          {managed
+            ? installed
+              ? `Re-check / Update ${addon.title}`
+              : `Download / Install ${addon.title}`
+            : `Open ${addon.title} setup guide`}
         </button>
         <button
           type="button"
@@ -50,7 +62,7 @@ function AddonCard({ addon, status, busy, onInstall, onOpen }) {
           onClick={() => void onOpen(addon.id)}
           className="rounded-2xl border border-emerald-300/40 bg-black/25 px-4 py-2 font-bold text-emerald-50 hover:bg-emerald-500/20 disabled:opacity-50"
         >
-          Open {addon.title}
+          {managed ? `Open ${addon.title}` : "Open handoff folder"}
         </button>
       </div>
     </div>
@@ -108,7 +120,9 @@ export function SuiteAddonsPanel() {
         const addon = SUITE_ADDON_CATALOG.find((a) => a.id === addonId);
         setStatusWithTime(`Opening ${addon?.title || addonId}…`);
         const result = await launchAddon(addonId);
-        if (result?.ok && result?.launched !== false) {
+        if (result?.ok && result?.mode === "exports-folder") {
+          setStatusWithTime("Music Video handoff folder opened");
+        } else if (result?.ok && result?.launched !== false) {
           setStatusWithTime(`${addon?.title || addonId} opened`);
         } else if (result?.error) {
           setStatusWithTime(result.error, "error");

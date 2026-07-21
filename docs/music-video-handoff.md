@@ -13,14 +13,17 @@ AI Music Creator can export a **music-video** folder for external GPU tools such
 From **Cover & Music Video** (Analyzers step):
 
 1. Optionally generate a FLUX cover (`npm run sidecar:cover` / `sidecar:cover-ref`).
-2. Click **Open in Music Video tool**.
+2. Click **Export for Music Video**.
 3. Desktop builds write:
 
 `Documents/AI Suite/exports/music-video/music-video-handoff.json`
 
-Fields include `prompt`, `bpm`, `idea`, optional audio/cover URL hints, and `exportsDir`.
+The folder contains copied audio and cover files plus stable `audioPath` / `coverPath`
+entries in the JSON, alongside `prompt`, `bpm`, `idea`, and `exportsDir`.
 
-4. Import that folder (or its assets) in Glitchframe. If no executable is registered yet, the exports folder opens so you can drag files manually.
+4. Upload the exported audio and optional cover in Glitchframe's Gradio UI. The handoff
+folder opens automatically; the JSON is metadata for future/native integrations and does
+not assume an undocumented Glitchframe command-line protocol.
 
 ## Sidecar covers (independent)
 

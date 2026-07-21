@@ -176,6 +176,26 @@ def test_cover_ref_without_extra_returns_503():
     assert "cover-ref" in res.json()["detail"].lower()
 
 
+def test_cover_ref_invalid_image_returns_422(monkeypatch):
+    from ai_sidecar import main as main_module
+
+    monkeypatch.setattr(main_module, "cover_ref_available", lambda: True)
+    monkeypatch.setattr(
+        main_module,
+        "generate_cover_from_image_png",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("invalid or unsupported reference image")
+        ),
+    )
+    res = client.post(
+        "/cover-ref",
+        files={"image": ("broken.png", BytesIO(b"not an image"), "image/png")},
+        data={"prompt": "cinematic album cover"},
+    )
+    assert res.status_code == 422
+    assert "invalid" in res.json()["detail"].lower()
+
+
 def test_youtube_resolve_rejects_empty_url():
     res = client.post("/youtube/resolve", json={"url": ""})
     assert res.status_code in (400, 422)
