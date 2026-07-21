@@ -48,7 +48,7 @@ Minimum click-through:
 - [ ] Waveform / highlight
 - [ ] Export or LUFS if you use DSP
 - [ ] Vocal Embed plan/synthesize if you ship vocal features
-- [ ] Canvas / video handoff only if suite apps are installed
+- [ ] Canvas handoff only if AI Canvas Tool is installed; verify Music Exchange download separately
 
 ### 4. Optional ML extras
 

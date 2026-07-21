@@ -34,7 +34,7 @@ export function buildProjectWorkspaceActions(s) {
     downloadStem: s.downloadStem,
     exportEnhancedAudio: s.exportEnhancedAudio,
     exportProject: s.exportProject,
-    exportVideoHandoff: s.exportVideoHandoff,
+    exportMusicExchange: s.exportMusicExchange,
     fixSunoWarnings: s.fixSunoWarnings,
     generateExampleLyrics: s.generateExampleLyrics,
     generateHooks: s.generateHooks,

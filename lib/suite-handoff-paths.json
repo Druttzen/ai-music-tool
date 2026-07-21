@@ -17,71 +17,31 @@
     ],
     "linux": ["$HOME/.local/bin/ai-canvas-tool"]
   },
-  "addons": {
-    "canvas": {
-      "id": "canvas",
-      "title": "AI Canvas Tool",
-      "description": "Spotify Canvas loops from album art — suite addon for Music Creator",
-      "repoUrl": "https://github.com/Druttzen/ai-canvas-tool",
-      "installUrl": "https://github.com/Druttzen/ai-canvas-tool#install-windows",
-      "releasesUrl": "https://github.com/Druttzen/ai-canvas-tool/releases",
-      "githubOwner": "Druttzen",
-      "githubRepo": "ai-canvas-tool",
-      "installerCandidates": {
-        "windows": [
-          "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
-          "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.1-Setup.exe",
-          "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
-          "$USERPROFILE/ai-canvas-tool/electron-dist/AI Canvas Tool Setup.exe",
-          "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
-          "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
-          "$USERPROFILE/Downloads/AI Canvas Tool Setup.exe",
-          "$USERPROFILE/Downloads/AI Canvas Tool-1.1.0-Setup.exe"
-        ],
-        "macos": [
-          "$HOME/Downloads/AI Canvas Tool.dmg",
-          "$HOME/ai-canvas-tool/release/AI Canvas Tool.dmg"
-        ],
-        "linux": []
-      }
-    },
-    "musicVideo": {
-      "id": "musicVideo",
-      "title": "Music Video (Glitchframe)",
-      "description": "Local GPU music video from track + optional stills — suite addon",
-      "repoUrl": "https://github.com/6Morpheus6/Glitchframe",
-      "installUrl": "https://github.com/6Morpheus6/Glitchframe#readme",
-      "releasesUrl": "https://github.com/6Morpheus6/Glitchframe/releases",
-      "githubOwner": "6Morpheus6",
-      "githubRepo": "Glitchframe",
-      "installCandidates": {
-        "windows": [
-          "C:/pinokio/api/Glitchframe.git",
-          "$USERPROFILE/pinokio/api/Glitchframe.git",
-          "$USERPROFILE/Glitchframe",
-          "$USERPROFILE/glitchframe"
-        ],
-        "macos": [
-          "$HOME/pinokio/api/Glitchframe.git",
-          "$HOME/Glitchframe",
-          "$HOME/glitchframe"
-        ],
-        "linux": [
-          "$HOME/pinokio/api/Glitchframe.git",
-          "$HOME/Glitchframe",
-          "$HOME/glitchframe"
-        ]
-      },
-      "installerCandidates": {
-        "windows": [],
-        "macos": [],
-        "linux": []
-      },
-      "executableCandidates": {
-        "windows": [],
-        "macos": [],
-        "linux": []
-      }
+  "canvas": {
+    "id": "canvas",
+    "title": "AI Canvas Tool",
+    "description": "Create short Spotify Canvas loops from the current track and album art.",
+    "repoUrl": "https://github.com/Druttzen/ai-canvas-tool",
+    "installUrl": "https://github.com/Druttzen/ai-canvas-tool#install-windows",
+    "releasesUrl": "https://github.com/Druttzen/ai-canvas-tool/releases",
+    "githubOwner": "Druttzen",
+    "githubRepo": "ai-canvas-tool",
+    "installerCandidates": {
+      "windows": [
+        "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
+        "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.1-Setup.exe",
+        "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
+        "$USERPROFILE/ai-canvas-tool/electron-dist/AI Canvas Tool Setup.exe",
+        "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
+        "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
+        "$USERPROFILE/Downloads/AI Canvas Tool Setup.exe",
+        "$USERPROFILE/Downloads/AI Canvas Tool-1.1.0-Setup.exe"
+      ],
+      "macos": [
+        "$HOME/Downloads/AI Canvas Tool.dmg",
+        "$HOME/ai-canvas-tool/release/AI Canvas Tool.dmg"
+      ],
+      "linux": []
     }
   }
 }

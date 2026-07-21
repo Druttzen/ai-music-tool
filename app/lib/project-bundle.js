@@ -35,7 +35,7 @@ export function normalizeCustomPresetsMap(presets) {
  * @param {Record<string, unknown>} project
  * @param {Record<string, object>} [customPresets]
  * @param {string} appVersion
- * @param {{ handoff?: object, directorSettings?: object, vocalEmbed?: object, bundleVersion?: number }} [opts]
+ * @param {{ handoff?: object, vocalEmbed?: object, bundleVersion?: number }} [opts]
  */
 export function buildProjectBundleExport(project, customPresets = {}, appVersion = "", opts = {}) {
   const withVoice = attachCharacterVoiceFieldsToProjectExport(project);
@@ -61,9 +61,6 @@ export function buildProjectBundleExport(project, customPresets = {}, appVersion
 
   if (opts.handoff && typeof opts.handoff === "object") {
     bundle.handoff = opts.handoff;
-  }
-  if (opts.directorSettings && typeof opts.directorSettings === "object") {
-    bundle.directorSettings = opts.directorSettings;
   }
   if (opts.vocalEmbed && typeof opts.vocalEmbed === "object") {
     bundle.vocalEmbed = opts.vocalEmbed;

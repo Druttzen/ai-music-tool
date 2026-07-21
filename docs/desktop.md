@@ -7,8 +7,8 @@ Tauri is the supported desktop path going forward. It bundles:
 - Static Next.js export (`out/`)
 - Native **dsp-core** (EBU R128 LUFS, encoded-audio loudness, studio export)
 - Managed Python **AI sidecar** spawn on demand
-- Native **video handoff** to AI Video Creator via `video-handoff-bridge.ts`
 - Native **canvas handoff** to AI Canvas Tool for Spotify loops via `canvas-handoff-bridge.ts` — see [canvas-handoff.md](canvas-handoff.md)
+- Portable **Music Exchange** downloads for collaboration with other AI Creator projects (no app-specific native bridge)
 
 ## Legacy: Electron
 
@@ -32,8 +32,9 @@ Tauri Studio does **not** ship an in-app auto-updater yet (no `tauri-plugin-upda
 | Updates | **Manual:** download new `studio-v*` installer from GitHub Releases (in-app updater **not configured** yet) | `electron-updater` on `v*` releases |
 | Native DSP | `dsp-bridge.ts` | Browser / lamejs only |
 | Sidecar | Managed spawn in Tauri shell | Manual `npm run sidecar` |
-| Video handoff | `exportVideoHandoffNative` | `window.electronAPI.exportVideoHandoff` |
 | Canvas handoff | `exportCanvasHandoffNative` | `window.electronAPI.openInCanvasTool` |
+
+The desktop shell only launches Canvas. Other projects consume the neutral Music Exchange JSON and optional audio sidecar selected by the user.
 
 Electron is **maintenance-only**: no new desktop features on Electron IPC. Prefer Studio for all contributor and release work.
 

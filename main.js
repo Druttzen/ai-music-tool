@@ -2,10 +2,9 @@
  * Legacy Electron main process — **deprecated**. Primary desktop is Tauri (see docs/desktop.md).
  * Kept for existing Windows NSIS installs via `npm run dist`.
  */
-const { app, BrowserWindow, shell, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, shell, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { spawn } = require("child_process");
 const pkg = require("./package.json");
 
 let mainWindow = null;
@@ -98,23 +97,6 @@ function setupAutoUpdater() {
   }
 }
 
-function resolveVideoCreatorExecutable() {
-  const fromEnv = String(process.env.AI_VIDEO_CREATOR_EXE || "").trim();
-  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
-
-  const candidates = [
-    path.join(__dirname, "..", "ai-video-tool", "electron-dist", "win-unpacked", "ai-video-tool.exe"),
-    path.join(
-      process.env.LOCALAPPDATA || "",
-      "Programs",
-      "ai-video-tool",
-      "AI Video Creator.exe",
-    ),
-    path.join(process.env.ProgramFiles || "", "AI Video Creator", "ai-video-tool.exe"),
-  ];
-  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
-}
-
 function setupSuiteCanvasBridge() {
   const suiteBridge = require("./lib/suite-bridge.cjs");
 
@@ -127,26 +109,6 @@ function setupSuiteCanvasBridge() {
       return await suiteBridge.installCanvasAddon();
     } catch (err) {
       return { ok: false, error: err?.message || "Failed to install Canvas addon" };
-    }
-  });
-
-  ipcMain.handle("suite:addon-status", async (_event, addonId) => suiteBridge.suiteAddonStatus(addonId));
-
-  ipcMain.handle("suite:launch-addon", async (_event, addonId) => suiteBridge.launchSuiteAddon(addonId));
-
-  ipcMain.handle("suite:install-addon", async (_event, addonId) => {
-    try {
-      return await suiteBridge.installSuiteAddon(addonId);
-    } catch (err) {
-      return { ok: false, error: err?.message || "Failed to install suite addon" };
-    }
-  });
-
-  ipcMain.handle("suite:export-music-video-handoff", async (_event, payload) => {
-    try {
-      return await suiteBridge.exportMusicVideoHandoff(payload || {});
-    } catch (err) {
-      return { ok: false, error: err?.message || "Failed to export music video handoff" };
     }
   });
 
@@ -183,45 +145,6 @@ function setupSuiteCanvasBridge() {
   });
 }
 
-function setupVideoHandoffIpc() {
-  ipcMain.handle("handoff:export-video", async (_event, payload) => {
-    try {
-      const bundleFileName = String(payload?.bundleFileName || "music-video.aivbundle.json");
-      const { filePath, canceled } = await dialog.showSaveDialog({
-        title: "Send to AI Video Creator",
-        defaultPath: path.join(app.getPath("downloads"), bundleFileName),
-        filters: [{ name: "Video handoff bundle", extensions: ["json"] }],
-      });
-      if (canceled || !filePath) return { ok: false, canceled: true };
-
-      fs.writeFileSync(filePath, String(payload?.bundleJson || ""), "utf8");
-
-      if (payload?.audioBuffer?.byteLength && payload?.audioFileName) {
-        const audioPath = path.join(path.dirname(filePath), path.basename(String(payload.audioFileName)));
-        fs.writeFileSync(audioPath, Buffer.from(payload.audioBuffer));
-      }
-
-      const videoExe = resolveVideoCreatorExecutable();
-      let launched = false;
-      if (videoExe) {
-        try {
-          spawn(videoExe, [filePath], { detached: true, stdio: "ignore", windowsHide: true }).unref();
-          launched = true;
-        } catch {
-          launched = false;
-        }
-      }
-      if (!launched) {
-        await shell.openPath(filePath);
-      }
-
-      return { ok: true, path: filePath, launched };
-    } catch (e) {
-      return { ok: false, error: e?.message || "handoff export failed" };
-    }
-  });
-}
-
 function openReadmeOnce() {
   const flagPath = path.join(app.getPath("userData"), "readme-opened.flag");
   if (fs.existsSync(flagPath)) return;
@@ -243,7 +166,6 @@ function openReadmeOnce() {
 }
 
 app.whenReady().then(() => {
-  setupVideoHandoffIpc();
   setupSuiteCanvasBridge();
   createWindow();
   setupAutoUpdater();

@@ -78,6 +78,26 @@ test.describe("project bundle e2e", () => {
     expect(raw.customPresets["E2E Saved Preset"]).toBeTruthy();
   });
 
+  test("Export Music Exchange downloads a consumer-neutral bundle", async ({ page }) => {
+    await dismissSplash(page);
+
+    const panel = saveLoadPanel(page);
+    await ideaInput(page).fill("Portable music idea");
+
+    const downloadPromise = page.waitForEvent("download");
+    await panel.getByRole("button", { name: "Export Music Exchange" }).click();
+    await expectToast(page, /Exported Music Exchange/i);
+
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("Portable-music-idea.aimusicbundle.json");
+    const raw = JSON.parse(fs.readFileSync(await download.path(), "utf8"));
+
+    expect(raw.bundleFormat).toBe("ai-music-creator-bundle");
+    expect(raw.handoff?.contract).toBe("ai-music-exchange-v1");
+    expect(raw.handoff?.intent).toBe("project-only");
+    expect(raw).not.toHaveProperty("directorSettings");
+  });
+
   test("Export Bundle includes vocalEmbed when align preview is stored", async ({ page }) => {
     await dismissSplash(page);
 
