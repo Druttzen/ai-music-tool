@@ -500,7 +500,7 @@ export function useAnalyzers({
     [coProducerLlmSettings],
   );
 
-  const applyAudioToSunoStyle = useCallback(async () => {
+  const applyAudioToSunoStyle = useCallback(async ({ announce = true, navigate = true } = {}) => {
     if (!audioAnalysis) {
       setStatusWithTime("No audio analysis yet");
       return;
@@ -516,9 +516,11 @@ export function useAnalyzers({
 
     const via = built.source === "llm" ? " (LLM refined)" : "";
     if (promptEngine === "Suno-like") {
-      navigateToPolishStep();
-      setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — guided path: Polish`);
-    } else {
+      if (navigate) navigateToPolishStep();
+      if (announce) {
+        setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — guided path: Polish`);
+      }
+    } else if (announce) {
       setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — Style buffer filled`);
     }
   }, [

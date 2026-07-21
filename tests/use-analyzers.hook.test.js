@@ -145,4 +145,35 @@ describe("useAnalyzers", () => {
     expect(applyAnalyzerPatch).not.toHaveBeenCalled();
     expect(result.current.audioAnalysis).toBeNull();
   });
+
+  it("can merge audio style without overriding an enclosing workflow's feedback", async () => {
+    const applyAnalyzerPatch = vi.fn();
+    const setGuidedStep = vi.fn();
+    const setStatusWithTime = vi.fn();
+    const { result } = renderHook(() =>
+      useAnalyzers({
+        promptEngine: "Suno-like",
+        setGuidedStep,
+        applyAnalyzerPatch,
+        setStatusWithTime,
+      }),
+    );
+
+    act(() => {
+      result.current.setAudioAnalysis({
+        fileName: "instrumental.wav",
+        duration: 10,
+        estimatedBpm: "120 BPM",
+        suggestedGenres: ["Techno"],
+      });
+    });
+
+    await act(async () => {
+      await result.current.applyAudioToSunoStyle({ announce: false, navigate: false });
+    });
+
+    expect(applyAnalyzerPatch).toHaveBeenCalledTimes(1);
+    expect(setGuidedStep).not.toHaveBeenCalled();
+    expect(setStatusWithTime).not.toHaveBeenCalled();
+  });
 });
