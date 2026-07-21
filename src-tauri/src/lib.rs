@@ -11,7 +11,8 @@ use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness};
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use tauri::{Manager, RunEvent};
 use canvas_handoff::{
-    export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
+    export_canvas_handoff, export_music_video_handoff, install_canvas_addon, install_suite_addon,
+    launch_canvas_addon, launch_suite_addon, suite_addon_status, suite_canvas_addon_status,
 };
 use video_handoff::export_video_handoff;
 
@@ -80,6 +81,10 @@ pub fn run() {
             suite_canvas_addon_status,
             launch_canvas_addon,
             install_canvas_addon,
+            suite_addon_status,
+            install_suite_addon,
+            launch_suite_addon,
+            export_music_video_handoff,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

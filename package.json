@@ -40,6 +40,8 @@
     "sidecar:vocal-rvc": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-vocal-rvc.ps1",
     "sidecar:generate": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-generate.ps1",
     "sidecar:vision": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-vision.ps1",
+    "sidecar:cover": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-cover.ps1",
+    "sidecar:cover-ref": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-cover-ref.ps1",
     "sidecar:classify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-classify.ps1",
     "sidecar:all": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-all.ps1",
     "sidecar:fg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1 -Foreground -IdleExitSec 0",

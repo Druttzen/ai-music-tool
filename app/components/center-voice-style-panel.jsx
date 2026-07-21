@@ -12,6 +12,7 @@ import {
   useProjectWorkspaceProjectState,
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
+import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 import { searchArtistVoiceCandidates } from "../lib/voice-style-lookup";
 import { buildSunoVoiceStyleFromProfile, summarizeArtistVoiceProfile } from "../lib/voice-style-mapper";
 import { isSpotifyStyleDnaReady } from "../lib/style-dna-settings";
@@ -36,6 +37,14 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
   const [searchError, setSearchError] = useState("");
   const [searchResults, setSearchResults] = useState(/** @type {Array<object>} */ ([]));
   const [lastSources, setLastSources] = useState(/** @type {string[]} */ ([]));
+
+  useWorkspaceResetEffect(() => {
+    setSearchQuery("");
+    setSearchBusy(false);
+    setSearchError("");
+    setSearchResults([]);
+    setLastSources([]);
+  });
 
   const spotifyReady = isSpotifyStyleDnaReady(styleDnaSettings);
 

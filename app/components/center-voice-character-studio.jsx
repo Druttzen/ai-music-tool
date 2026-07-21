@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 import { DropBox, Panel, Pill } from "./ui-blocks";
 import { SUPPORTED_AUDIO_ACCEPT, SUPPORTED_AUDIO_LABEL } from "../lib/analyzer-file-types";
 import { VOICE_CHARACTER_DISCLAIMER } from "../lib/voice-character-preset";
@@ -13,6 +14,7 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
   const { copyToClipboard } = useProjectWorkspaceActions();
   const studio = useCharacterVoiceStudio();
   const [youtubeDraft, setYoutubeDraft] = useState("");
+  useWorkspaceResetEffect(() => setYoutubeDraft(""));
   const youtubeInputValue = studio.youtubeReference?.watchUrl ?? youtubeDraft;
   const voicesPrep = studio.voiceAnalysis
     ? buildVoicesPrepKit(studio.voiceAnalysis, studio.voiceAnalysis.duration)

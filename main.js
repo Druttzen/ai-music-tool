@@ -130,6 +130,26 @@ function setupSuiteCanvasBridge() {
     }
   });
 
+  ipcMain.handle("suite:addon-status", async (_event, addonId) => suiteBridge.suiteAddonStatus(addonId));
+
+  ipcMain.handle("suite:launch-addon", async (_event, addonId) => suiteBridge.launchSuiteAddon(addonId));
+
+  ipcMain.handle("suite:install-addon", async (_event, addonId) => {
+    try {
+      return await suiteBridge.installSuiteAddon(addonId);
+    } catch (err) {
+      return { ok: false, error: err?.message || "Failed to install suite addon" };
+    }
+  });
+
+  ipcMain.handle("suite:export-music-video-handoff", async (_event, payload) => {
+    try {
+      return await suiteBridge.exportMusicVideoHandoff(payload || {});
+    } catch (err) {
+      return { ok: false, error: err?.message || "Failed to export music video handoff" };
+    }
+  });
+
   ipcMain.handle("suite:open-canvas", async (_event, payload) => {
     try {
       const buffer = payload?.buffer;

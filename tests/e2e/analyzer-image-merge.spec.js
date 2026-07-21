@@ -20,14 +20,14 @@ test.describe("Image analyzer e2e", () => {
 
     await expect(panel.getByRole("img", { name: "Image preview" })).toBeVisible({ timeout: 30000 });
     await expect(
-      panel.getByRole("button", { name: "Add image style to Suno (merge) → next step" }),
-    ).toBeVisible();
+      panel.getByRole("button", { name: /Build Suno v5\.5 Style from image/i }),
+    ).toBeVisible({ timeout: 30000 });
 
-    await panel.getByRole("button", { name: "Add image style to Suno (merge) → next step" }).click();
+    await panel.getByRole("button", { name: /Build Suno v5\.5 Style from image/i }).click();
 
     const toast = page.getByTestId("action-toast");
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText(/Image style merged/i);
+    await expect(toast).toContainText(/Image → Suno v5\.5 Style merged/i);
 
     const validator = page.locator("section").filter({ hasText: "Suno-like Validator" });
     await expect(validator).toContainText(/Style:\s*[1-9]\d*\s*\/\s*1000/);

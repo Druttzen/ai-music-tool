@@ -131,7 +131,7 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
             <button
               onClick={resetAll}
               className="rounded-2xl bg-red-400 px-4 py-2 font-bold text-black hover:bg-red-300"
-              title="Clears all preselected style, prompts, analyzers, and history"
+              title="Clears project prompts, analyzers, chat, and credentials. Keeps custom style presets and character voice presets."
             >
               Reset to Default
             </button>

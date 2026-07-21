@@ -65,30 +65,36 @@ export function projectReducer(state, action) {
     case "LOAD":
       return applyProjectPatch(state, normalizeLoadPayload(action.payload));
     case "RESET_BLANK":
-      return applyProjectPatch(createInitialProjectState(), {
-        ...BLANK_STATE,
-        lyricLanguage: normalizeLyricLanguage(BLANK_STATE.lyricLanguage),
-        guidedStep: 0,
-        variations: [],
-        history: [],
-        selectedHistoryId: null,
-        generatedLyrics: "",
-        generatedLyricsStyle: "",
-        generatedHooks: "",
-        generatedHooksStyle: "",
-        coProducerOutput: "",
-        lyricVariantSeed: 0,
-        presetName: "",
-        copied: false,
-        lyricsGenerateBusy: false,
-        notes: "",
-        voiceRefFirstName: "",
-        voiceRefLastName: "",
-        voiceStyleLine: "",
-        sunoPasteStyle: "",
-        sunoPasteLyrics: "",
-        sunoPasteActive: false,
-      });
+      return applyProjectPatch(
+        createInitialProjectState({
+          // Factory/custom style presets stay (same policy as character presets).
+          customPresets: state.customPresets || {},
+        }),
+        {
+          ...BLANK_STATE,
+          lyricLanguage: normalizeLyricLanguage(BLANK_STATE.lyricLanguage),
+          guidedStep: 0,
+          variations: [],
+          history: [],
+          selectedHistoryId: null,
+          generatedLyrics: "",
+          generatedLyricsStyle: "",
+          generatedHooks: "",
+          generatedHooksStyle: "",
+          coProducerOutput: "",
+          lyricVariantSeed: 0,
+          presetName: "",
+          copied: false,
+          lyricsGenerateBusy: false,
+          notes: "",
+          voiceRefFirstName: "",
+          voiceRefLastName: "",
+          voiceStyleLine: "",
+          sunoPasteStyle: "",
+          sunoPasteLyrics: "",
+          sunoPasteActive: false,
+        },
+      );
     default:
       return state;
   }

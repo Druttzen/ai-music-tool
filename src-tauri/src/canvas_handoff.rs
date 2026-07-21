@@ -29,6 +29,8 @@ struct SuiteHandoffConfig {
 struct SuiteAddons {
     #[serde(default)]
     canvas: Option<CanvasAddonConfig>,
+    #[serde(default)]
+    music_video: Option<CanvasAddonConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -52,6 +54,8 @@ struct CanvasAddonConfig {
     github_repo: String,
     #[serde(default)]
     installer_candidates: CanvasCandidates,
+    #[serde(default)]
+    install_candidates: CanvasCandidates,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -109,6 +113,18 @@ fn config() -> &'static SuiteHandoffConfig {
 
 fn canvas_addon_config() -> Option<&'static CanvasAddonConfig> {
     config().addons.canvas.as_ref()
+}
+
+fn music_video_addon_config() -> Option<&'static CanvasAddonConfig> {
+    config().addons.music_video.as_ref()
+}
+
+fn addon_config_by_id(addon_id: &str) -> Option<&'static CanvasAddonConfig> {
+    match addon_id {
+        "canvas" => canvas_addon_config(),
+        "musicVideo" => music_video_addon_config(),
+        _ => None,
+    }
 }
 
 fn user_home() -> PathBuf {
@@ -183,6 +199,14 @@ fn resolve_canvas_installer() -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
+fn resolve_addon_installation(addon_id: &str) -> Option<PathBuf> {
+    let addon = addon_config_by_id(addon_id)?;
+    platform_candidate_list(&addon.install_candidates)
+        .iter()
+        .map(|t| expand_path_template(t))
+        .find(|p| p.exists())
+}
+
 fn launch_canvas_tool(handoff_file: Option<&Path>) -> bool {
     if let Some(exe) = resolve_canvas_executable() {
         let mut cmd = Command::new(exe);
@@ -201,7 +225,12 @@ fn launch_canvas_tool(handoff_file: Option<&Path>) -> bool {
 }
 
 fn sanitize_ext(ext: &str) -> String {
-    match ext.trim().trim_start_matches('.').to_ascii_lowercase().as_str() {
+    match ext
+        .trim()
+        .trim_start_matches('.')
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "jpg" | "jpeg" => "jpg".to_string(),
         "webp" => "webp".to_string(),
         "gif" => "gif".to_string(),
@@ -210,7 +239,12 @@ fn sanitize_ext(ext: &str) -> String {
 }
 
 fn sanitize_audio_ext(ext: &str) -> String {
-    match ext.trim().trim_start_matches('.').to_ascii_lowercase().as_str() {
+    match ext
+        .trim()
+        .trim_start_matches('.')
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "wav" => "wav".to_string(),
         "m4a" | "aac" => "m4a".to_string(),
         "flac" => "flac".to_string(),
@@ -314,9 +348,7 @@ fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, Strin
         .iter()
         .find(|(n, _)| n.ends_with(".AppImage") || n.ends_with(".deb"));
 
-    prefer
-        .cloned()
-        .or_else(|| mapped.first().cloned())
+    prefer.cloned().or_else(|| mapped.first().cloned())
 }
 
 fn download_url_to_file(url: &str, dest: &Path) -> Result<(), String> {
@@ -403,7 +435,10 @@ pub fn install_canvas_addon() -> CanvasAddonActionResult {
                                             error: if opened {
                                                 None
                                             } else {
-                                                Some("Downloaded installer but could not open it".to_string())
+                                                Some(
+                                                    "Downloaded installer but could not open it"
+                                                        .to_string(),
+                                                )
                                             },
                                         };
                                     }
@@ -552,5 +587,236 @@ pub fn export_canvas_handoff(
         album_art_path: Some(art_path.to_string_lossy().into_owned()),
         handoff_path: Some(handoff_path.to_string_lossy().into_owned()),
         error: None,
+    }
+}
+
+#[tauri::command]
+pub fn suite_addon_status(addon_id: String) -> CanvasAddonStatus {
+    let id = addon_id.trim();
+    if id.is_empty() || id == "canvas" {
+        return suite_canvas_addon_status();
+    }
+    let addon = addon_config_by_id(id);
+    let installation = resolve_addon_installation(id);
+    CanvasAddonStatus {
+        id: addon
+            .map(|a| a.id.clone())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| id.to_string()),
+        title: addon
+            .map(|a| a.title.clone())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| id.to_string()),
+        description: addon.map(|a| a.description.clone()).unwrap_or_default(),
+        installed: installation.is_some(),
+        path: installation.map(|p| p.to_string_lossy().into_owned()),
+        repo_url: addon.and_then(|a| non_empty(&a.repo_url)),
+        install_url: addon.and_then(|a| non_empty(&a.install_url)),
+        releases_url: addon.and_then(|a| non_empty(&a.releases_url)),
+    }
+}
+
+#[tauri::command]
+pub fn install_suite_addon(addon_id: String) -> CanvasAddonActionResult {
+    let id = addon_id.trim();
+    if id.is_empty() || id == "canvas" {
+        return install_canvas_addon();
+    }
+    let Some(addon) = addon_config_by_id(id) else {
+        return CanvasAddonActionResult {
+            ok: false,
+            launched: false,
+            already_installed: false,
+            mode: None,
+            path: None,
+            url: None,
+            error: Some(format!("Unknown suite addon: {id}")),
+        };
+    };
+    let url = non_empty(&addon.install_url)
+        .or_else(|| non_empty(&addon.repo_url))
+        .unwrap_or_else(|| addon.releases_url.clone());
+    let opened = open::that(&url).is_ok();
+    CanvasAddonActionResult {
+        ok: opened,
+        launched: false,
+        already_installed: false,
+        mode: Some("docs".to_string()),
+        path: None,
+        url: Some(url),
+        error: if opened {
+            None
+        } else {
+            Some(format!(
+                "Could not open {} install instructions",
+                addon.title
+            ))
+        },
+    }
+}
+
+#[tauri::command]
+pub fn launch_suite_addon(addon_id: String) -> CanvasAddonActionResult {
+    let id = addon_id.trim();
+    if id.is_empty() || id == "canvas" {
+        return launch_canvas_addon();
+    }
+    let dir = suite_dir()
+        .join(&config().exports_subdir)
+        .join("music-video");
+    let opened = open::that(&dir).is_ok();
+    CanvasAddonActionResult {
+        ok: opened,
+        launched: false,
+        already_installed: false,
+        mode: Some(if opened {
+            "exports-folder".to_string()
+        } else {
+            "missing".to_string()
+        }),
+        path: Some(dir.to_string_lossy().into_owned()),
+        url: None,
+        error: if opened {
+            None
+        } else {
+            Some(
+                "Install Music Video (Glitchframe) and import the music-video export folder"
+                    .to_string(),
+            )
+        },
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicVideoHandoffResult {
+    pub ok: bool,
+    pub path: Option<String>,
+    pub exports_dir: Option<String>,
+    pub message: Option<String>,
+    pub error: Option<String>,
+}
+
+fn music_video_handoff_error(error: String, exports: Option<&Path>) -> MusicVideoHandoffResult {
+    MusicVideoHandoffResult {
+        ok: false,
+        path: None,
+        exports_dir: exports.map(|p| p.to_string_lossy().into_owned()),
+        message: None,
+        error: Some(error),
+    }
+}
+
+fn write_optional_music_video_asset(
+    exports: &Path,
+    bytes: Option<Vec<u8>>,
+    file_name: String,
+) -> Result<Option<PathBuf>, String> {
+    let Some(bytes) = bytes.filter(|b| !b.is_empty()) else {
+        return Ok(None);
+    };
+    let path = exports.join(file_name);
+    fs::write(&path, bytes)
+        .map(|_| Some(path))
+        .map_err(|e| format!("could not write music-video asset: {e}"))
+}
+
+#[tauri::command]
+pub fn export_music_video_handoff(
+    prompt: String,
+    bpm: String,
+    idea: String,
+    audio_bytes: Option<Vec<u8>>,
+    audio_ext: Option<String>,
+    cover_bytes: Option<Vec<u8>>,
+    cover_ext: Option<String>,
+) -> MusicVideoHandoffResult {
+    let exports = suite_dir()
+        .join(&config().exports_subdir)
+        .join("music-video");
+    if fs::create_dir_all(&exports).is_err() {
+        return MusicVideoHandoffResult {
+            ok: false,
+            path: None,
+            exports_dir: None,
+            message: None,
+            error: Some("could not create music-video exports folder".to_string()),
+        };
+    }
+    let audio_ext = sanitize_audio_ext(audio_ext.as_deref().unwrap_or("wav"));
+    let audio_path = match write_optional_music_video_asset(
+        &exports,
+        audio_bytes,
+        format!("track-audio.{audio_ext}"),
+    ) {
+        Ok(path) => path,
+        Err(error) => return music_video_handoff_error(error, Some(&exports)),
+    };
+    let cover_ext = sanitize_ext(cover_ext.as_deref().unwrap_or("png"));
+    let cover_path =
+        match write_optional_music_video_asset(&exports, cover_bytes, format!("cover.{cover_ext}"))
+        {
+            Ok(path) => path,
+            Err(error) => return music_video_handoff_error(error, Some(&exports)),
+        };
+    let handoff_path = exports.join("music-video-handoff.json");
+    let handoff = json!({
+        "version": 1,
+        "timestamp": handoff_timestamp_iso(),
+        "source": "ai-music-tool",
+        "tool": "musicVideo",
+        "prompt": prompt,
+        "bpm": bpm,
+        "idea": idea,
+        "audioPath": audio_path.as_ref().map(|p| p.to_string_lossy().into_owned()),
+        "coverPath": cover_path.as_ref().map(|p| p.to_string_lossy().into_owned()),
+        "exportsDir": exports.to_string_lossy(),
+    });
+    if fs::write(
+        &handoff_path,
+        serde_json::to_string_pretty(&handoff).unwrap_or_else(|_| handoff.to_string()),
+    )
+    .is_err()
+    {
+        return MusicVideoHandoffResult {
+            ok: false,
+            path: None,
+            exports_dir: Some(exports.to_string_lossy().into_owned()),
+            message: None,
+            error: Some("could not write music-video-handoff.json".to_string()),
+        };
+    }
+    let _ = open::that(&exports);
+    MusicVideoHandoffResult {
+        ok: true,
+        path: Some(handoff_path.to_string_lossy().into_owned()),
+        exports_dir: Some(exports.to_string_lossy().into_owned()),
+        message: Some(format!(
+            "Music video assets exported to {} — upload them in Glitchframe",
+            exports.display()
+        )),
+        error: None,
+    }
+}
+
+#[cfg(test)]
+mod music_video_tests {
+    use super::*;
+
+    #[test]
+    fn writes_optional_music_video_asset() {
+        let dir = std::env::temp_dir().join(format!("aimc-music-video-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).expect("create temp export dir");
+
+        let path = write_optional_music_video_asset(
+            &dir,
+            Some(vec![1, 2, 3]),
+            "track-audio.wav".to_string(),
+        )
+        .expect("write asset")
+        .expect("asset path");
+
+        assert_eq!(fs::read(path).expect("read asset"), vec![1, 2, 3]);
+        fs::remove_dir_all(dir).expect("remove temp export dir");
     }
 }

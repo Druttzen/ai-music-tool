@@ -30,11 +30,12 @@ describe("image-analyzer-sidecar", () => {
 
   it("maps CLIP tags to catalog genres", () => {
     const mapped = mapClipTagsToSuno([
-      { label: "neon cyberpunk cityscape", score: 0.9 },
-      { label: "dark moody forest", score: 0.7 },
+      { label: "neon cyberpunk synth night", score: 0.9 },
+      { label: "dark ambient drone", score: 0.7 },
     ]);
     expect(mapped.suggestedGenres.length).toBeGreaterThan(0);
     expect(mapped.suggestedSounds.length).toBeGreaterThan(0);
+    expect(mapped.suggestedGenres.some((g) => /Synthwave|Ambient|Techno/i.test(g))).toBe(true);
   });
 
   it("merges BLIP caption into pixel report", () => {
@@ -53,7 +54,7 @@ describe("image-analyzer-sidecar", () => {
     const merged = mergeSidecarImageAnalysis(pixelReport, {
       caption: "a city at night",
       caption_model: "Salesforce/blip-image-captioning-base",
-      clip_tags: [{ label: "neon cyberpunk cityscape", score: 0.88 }],
+      clip_tags: [{ label: "neon cyberpunk synth night", score: 0.88 }],
       clip_model: "openai/clip-vit-base-patch32",
       device: "cpu",
     });

@@ -60,6 +60,17 @@ describe("project-state", () => {
     expect(next.styleDnaSettings).toEqual(createInitialProjectState().styleDnaSettings);
   });
 
+  it("RESET_BLANK keeps custom style presets in memory", () => {
+    const customPresets = { "My Techno": { genres: ["Techno"], rules: "hard" } };
+    const seeded = createInitialProjectState({
+      idea: "filled",
+      customPresets,
+    });
+    const next = projectReducer(seeded, { type: "RESET_BLANK" });
+    expect(next.idea).toBe("");
+    expect(next.customPresets).toEqual(customPresets);
+  });
+
   it("normalizeLoadPayload clamps guided step", () => {
     expect(normalizeLoadPayload({ guidedStep: -3 }).guidedStep).toBe(0);
   });

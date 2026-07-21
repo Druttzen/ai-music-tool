@@ -20,6 +20,9 @@ dependencies = [
 stems = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0"]
 classify = ["torch>=2.2", "transformers>=4.40"]
 vision = ["torch>=2.2", "transformers>=4.40", "pillow>=10.0"]
+cover = ["torch>=2.2", "diffusers>=0.30", "transformers>=4.40", "accelerate", "safetensors", "pillow>=10.0", "sentencepiece", "protobuf"]
+# Independent of `cover` so text-only installs stay lighter if img2img APIs differ; deps overlap intentionally.
+cover-ref = ["torch>=2.2", "diffusers>=0.30", "transformers>=4.40", "accelerate", "safetensors", "pillow>=10.0", "sentencepiece", "protobuf"]
 vocal = ["scipy>=1.11"]
 vocal-ml = ["torch>=2.2", "torchaudio>=2.2", "scipy>=1.11", "requests>=2.31"]
 vocal-rvc = ["rvc-python>=0.1.5"]
@@ -30,6 +33,11 @@ all = [
     "demucs>=4.0",
     "transformers>=4.40",
     "pillow>=10.0",
+    "diffusers>=0.30",
+    "accelerate",
+    "safetensors",
+    "sentencepiece",
+    "protobuf",
     "audiocraft>=1.3",
     "scipy>=1.11",
     "requests>=2.31",

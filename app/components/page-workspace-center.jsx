@@ -2,6 +2,7 @@
 
 import { memo } from "react";
 import { CenterAnalyzersPanel } from "./center-analyzers-panel";
+import { CenterCoverToolsPanel } from "./center-cover-tools-panel";
 import {
   CenterCoProducerPanel,
   CenterCoProducerQuickPanel,
@@ -62,6 +63,7 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.analyzers} column="center">
         <CenterAnalyzersPanel />
+        <CenterCoverToolsPanel />
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.styleDna} column="center">
         <CenterStyleDnaSearchPanel />

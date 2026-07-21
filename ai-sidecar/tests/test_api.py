@@ -55,6 +55,8 @@ def test_health_ok():
     assert isinstance(body["vocal_rvc_available"], bool)
     assert isinstance(body["vocal_diffsinger_available"], bool)
     assert isinstance(body["generate_available"], bool)
+    assert isinstance(body.get("cover_available"), bool)
+    assert isinstance(body.get("cover_ref_available"), bool)
     assert isinstance(body.get("capabilities"), list)
     assert isinstance(body.get("device_info"), dict)
     assert body["device_info"]["device"] == body["device"]
@@ -148,6 +150,50 @@ def test_generate_without_extra_returns_503():
     res = client.post("/generate", json={"prompt": "dark techno groove", "duration_sec": 5})
     assert res.status_code == 503
     assert "generate" in res.json()["detail"].lower()
+
+
+def test_cover_without_extra_returns_503():
+    from ai_sidecar.cover_generator import cover_available
+
+    if cover_available():
+        pytest.skip("cover extra installed in this environment")
+    res = client.post("/cover", json={"prompt": "neon album cover, square"})
+    assert res.status_code == 503
+    assert "cover" in res.json()["detail"].lower()
+
+
+def test_cover_ref_without_extra_returns_503():
+    from ai_sidecar.cover_ref_generator import cover_ref_available
+
+    if cover_ref_available():
+        pytest.skip("cover-ref extra installed in this environment")
+    res = client.post(
+        "/cover-ref",
+        files={"image": ("dot.png", BytesIO(_MIN_PNG), "image/png")},
+        data={"prompt": "cinematic album cover", "strength": "0.55"},
+    )
+    assert res.status_code == 503
+    assert "cover-ref" in res.json()["detail"].lower()
+
+
+def test_cover_ref_invalid_image_returns_422(monkeypatch):
+    from ai_sidecar import main as main_module
+
+    monkeypatch.setattr(main_module, "cover_ref_available", lambda: True)
+    monkeypatch.setattr(
+        main_module,
+        "generate_cover_from_image_png",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("invalid or unsupported reference image")
+        ),
+    )
+    res = client.post(
+        "/cover-ref",
+        files={"image": ("broken.png", BytesIO(b"not an image"), "image/png")},
+        data={"prompt": "cinematic album cover"},
+    )
+    assert res.status_code == 422
+    assert "invalid" in res.json()["detail"].lower()
 
 
 def test_youtube_resolve_rejects_empty_url():

@@ -28,9 +28,12 @@ import {
   useProjectWorkspaceProjectState,
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
+import { buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
+import { buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
+import { isCoProducerLlmReady } from "../lib/co-producer-llm";
 
 export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
-  const { promptEngine, idea, mood, selectedGenres, selectedSounds, selectedRhythms, tempo } =
+  const { promptEngine, idea, mood, selectedGenres, selectedSounds, selectedRhythms, tempo, coProducerLlmSettings } =
     useProjectWorkspaceProjectState();
   const { sunoFieldSlices, sourcePrompt } = useProjectWorkspacePromptState();
   const {
@@ -98,13 +101,23 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
 
   const musicGenHint = musicGenInstallHint(sidecarHealth);
   const missingCaps = missingSidecarInstallHints(sidecarHealth);
+  const llmStyleReady = isCoProducerLlmReady(coProducerLlmSettings);
+
+  const imageStylePreview = useMemo(
+    () => (imageAnalysis ? buildSunoV55StyleFromImageAnalysis(imageAnalysis).styleLine : ""),
+    [imageAnalysis],
+  );
+  const audioStylePreview = useMemo(
+    () => (audioAnalysis ? buildSunoV55StyleFromAudioAnalysis(audioAnalysis).styleLine : ""),
+    [audioAnalysis],
+  );
 
   return (
     <>
       <Panel
         title="Drag & Drop Analyzers"
         data-testid="drag-drop-analyzers"
-        hint="Optional Polish-step tools — track report with waveform, LUFS/dBTP meter, studio WAV export (Streaming −14 LUFS), merge into Suno fields, Goal, and Notes. Image DNA uses compact AUDIO:/IMAGE: lines for the 1000-character Style cap."
+        hint="Optional Polish-step tools — track report with waveform, LUFS/dBTP meter, studio WAV export (Streaming −14 LUFS), merge into Suno v5.5 Style, Goal, and Notes. Image/audio DNA builds paste-ready Style tags (genre → mood → sounds → production)."
       >
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span
@@ -208,13 +221,21 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
               </div>
             ) : null}
             {audioAnalysis ? (
-              <AudioTrackEditor
+              <>
+                {audioStylePreview ? (
+                  <p className="mb-2 rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-[10px] leading-relaxed text-cyan-50/90">
+                    <span className="font-bold text-cyan-100">Suno v5.5 Style preview:</span>{" "}
+                    {audioStylePreview}
+                    {llmStyleReady ? " · Co-Producer LLM will refine on merge" : ""}
+                  </p>
+                ) : null}
+                <AudioTrackEditor
                 analysis={audioAnalysis}
                 audioUrl={audioPreviewUrl}
                 onChange={updateAudioAnalysis}
                 onApply={() => {
                   captureSnapshot("before audio merge");
-                  applyAudioToSunoStyle();
+                  void applyAudioToSunoStyle();
                 }}
                 onClear={clearAudioAnalysis}
                 onAttachAudio={attachAudioFile}
@@ -235,6 +256,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 exportBusy={audioExportBusy}
                 exportProgress={audioExportProgress}
               />
+              </>
             ) : null}
           </DropBox>
           <DropBox
@@ -279,17 +301,24 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 <div className="rounded-2xl bg-black/30 p-3 text-xs whitespace-pre-wrap text-white/70">
                   {imageAnalysis.summary}
                 </div>
+                {imageStylePreview ? (
+                  <p className="mt-2 rounded-xl border border-fuchsia-400/25 bg-fuchsia-500/10 px-3 py-2 text-[10px] leading-relaxed text-fuchsia-50/90">
+                    <span className="font-bold text-fuchsia-100">Suno v5.5 Style preview:</span>{" "}
+                    {imageStylePreview}
+                    {llmStyleReady ? " · Co-Producer LLM will refine on merge" : ""}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     captureSnapshot("before image merge");
-                    applyImageToSunoStyle();
+                    void applyImageToSunoStyle();
                   }}
                   className="mt-2 w-full rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/20 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/30"
                 >
-                  Add image style to Suno (merge) → next step
+                  Build Suno v5.5 Style from image → merge
                 </button>
               </div>
             ) : null}

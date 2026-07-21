@@ -15,6 +15,7 @@ import {
   useProjectWorkspaceProjectState,
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
+import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 
 const COACH_DEBOUNCE_MS = 1800;
 
@@ -56,6 +57,15 @@ export const GuidedStepCoachBanner = memo(function GuidedStepCoachBanner() {
   const dismissedRef = useRef(new Set());
   const timerRef = useRef(null);
   const lastStepRef = useRef(guidedStep);
+
+  useWorkspaceResetEffect(() => {
+    setCoach(null);
+    dismissedRef.current = new Set();
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  });
 
   const snapshot = useMemo(
     () => ({

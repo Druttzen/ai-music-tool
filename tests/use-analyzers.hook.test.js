@@ -5,6 +5,14 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useAnalyzers } from "../app/hooks/use-analyzers.js";
 
+const { refineStyleMock } = vi.hoisted(() => ({
+  refineStyleMock: vi.fn(),
+}));
+
+vi.mock("../app/lib/analyzer-suno-style-llm.js", () => ({
+  refineSunoStyleWithLlmOrHeuristic: refineStyleMock,
+}));
+
 vi.mock("../app/lib/sidecar-bridge.js", () => ({
   isSidecarAvailable: vi.fn(async () => true),
   fetchSidecarHealth: vi.fn(async () => ({
@@ -31,6 +39,10 @@ vi.mock("../app/lib/dsp-bridge.js", () => ({
 describe("useAnalyzers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    refineStyleMock.mockImplementation(async (_kind, heuristic) => ({
+      ...heuristic,
+      source: "heuristic",
+    }));
   });
 
   it("probes sidecar on mount and sets ready + generate_available", async () => {
@@ -85,5 +97,83 @@ describe("useAnalyzers", () => {
     expect(result.current.audioAnalysis).toBeNull();
     expect(result.current.imageAnalysis).toBeNull();
     expect(result.current.stemSeparationStems).toEqual([]);
+  });
+
+  it("does not apply a stale LLM merge after reset", async () => {
+    const applyAnalyzerPatch = vi.fn();
+    let resolveRefine;
+    refineStyleMock.mockImplementation(
+      (_kind, heuristic) =>
+        new Promise((resolve) => {
+          resolveRefine = () => resolve({ ...heuristic, source: "llm" });
+        }),
+    );
+
+    const { result } = renderHook(() =>
+      useAnalyzers({
+        promptEngine: "Suno-like",
+        setGuidedStep: vi.fn(),
+        applyAnalyzerPatch,
+        setStatusWithTime: vi.fn(),
+        coProducerLlmSettings: { apiKey: "test", apiUrl: "https://example.test", model: "test" },
+      }),
+    );
+
+    act(() => {
+      result.current.setAudioAnalysis({
+        fileName: "old.wav",
+        duration: 10,
+        estimatedBpm: "120 BPM",
+        suggestedGenres: ["Techno"],
+      });
+    });
+
+    let mergePromise;
+    act(() => {
+      mergePromise = result.current.applyAudioToSunoStyle();
+    });
+    await waitFor(() => expect(refineStyleMock).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.resetAnalyzers();
+      resolveRefine();
+    });
+    await act(async () => {
+      await mergePromise;
+    });
+
+    expect(applyAnalyzerPatch).not.toHaveBeenCalled();
+    expect(result.current.audioAnalysis).toBeNull();
+  });
+
+  it("can merge audio style without overriding an enclosing workflow's feedback", async () => {
+    const applyAnalyzerPatch = vi.fn();
+    const setGuidedStep = vi.fn();
+    const setStatusWithTime = vi.fn();
+    const { result } = renderHook(() =>
+      useAnalyzers({
+        promptEngine: "Suno-like",
+        setGuidedStep,
+        applyAnalyzerPatch,
+        setStatusWithTime,
+      }),
+    );
+
+    act(() => {
+      result.current.setAudioAnalysis({
+        fileName: "instrumental.wav",
+        duration: 10,
+        estimatedBpm: "120 BPM",
+        suggestedGenres: ["Techno"],
+      });
+    });
+
+    await act(async () => {
+      await result.current.applyAudioToSunoStyle({ announce: false, navigate: false });
+    });
+
+    expect(applyAnalyzerPatch).toHaveBeenCalledTimes(1);
+    expect(setGuidedStep).not.toHaveBeenCalled();
+    expect(setStatusWithTime).not.toHaveBeenCalled();
   });
 });

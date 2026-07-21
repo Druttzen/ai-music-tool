@@ -213,7 +213,7 @@ export function useLyricsActions(deps) {
       return;
     }
     captureSnapshot("before add lyrics to track");
-    applyAudioToSunoStyle();
+    void applyAudioToSunoStyle({ announce: false, navigate: false });
 
     const theme = buildLyricThemeFromAnalysis(audioAnalysis);
     const trackStructure = inferStructureFromTrack(audioAnalysis);

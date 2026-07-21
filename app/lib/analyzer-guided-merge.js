@@ -132,6 +132,9 @@ export function buildUsableAnalyzerStylePrompt(audioAnalysis, imageAnalysis) {
     if (caption) tokens.push(caption.slice(0, 120));
     add(imageAnalysis.suggestedSounds);
     add(imageAnalysis.suggestedRhythms);
+    if (Array.isArray(imageAnalysis.clipTags)) {
+      add(imageAnalysis.clipTags.slice(0, 3).map((t) => t.label));
+    }
   }
 
   return uniq(tokens).join(", ");

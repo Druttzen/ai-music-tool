@@ -23,7 +23,7 @@ from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from .vocal_embed import (
@@ -50,6 +50,13 @@ from .genre_classifier import active_genre_model_id, classify_music_genres
 from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
 from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
 from .musicgen import active_musicgen_model_id, generation_available
+from .cover_generator import active_cover_model_id, cover_available, generate_cover_png
+from .cover_ref_generator import (
+    MAX_COVER_REF_UPLOAD_BYTES,
+    active_cover_ref_model_id,
+    cover_ref_available,
+    generate_cover_from_image_png,
+)
 from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer_enabled, repo_root
 from .fail_safe_runtime import RuntimeDeliverRequest, RuntimeDeliverResponse, deliver_runtime_report
 from .device import detect_device, select_device
@@ -141,6 +148,8 @@ class Health(BaseModel):
     vocal_rvc_available: bool
     vocal_diffsinger_available: bool
     generate_available: bool
+    cover_available: bool = False
+    cover_ref_available: bool = False
     fix_push_available: bool = False
     maintainer_mode: bool = False
     device_info: dict[str, Any] | None = None
@@ -276,6 +285,8 @@ def health() -> Health:
         vocal_rvc_available=flags["vocal_rvc_available"],
         vocal_diffsinger_available=flags["vocal_diffsinger_available"],
         generate_available=flags["generate_available"],
+        cover_available=flags["cover_available"],
+        cover_ref_available=flags["cover_ref_available"],
         fix_push_available=maintainer_enabled() and bool(repo_root()),
         maintainer_mode=maintainer_enabled(),
         device_info=info.as_dict(),
@@ -602,6 +613,116 @@ async def generate_music_with_melody(
             "X-MusicGen-Model": str(meta.get("model") or active_musicgen_model_id()),
             "X-MusicGen-Duration-Sec": str(meta.get("duration_sec") or duration_sec),
             "X-MusicGen-Mode": "melody",
+        },
+    )
+
+
+class CoverRequest(BaseModel):
+    prompt: str
+    width: int = 1024
+    height: int = 1024
+    seed: int | None = None
+    num_inference_steps: int = 4
+
+
+@app.post("/cover")
+async def generate_cover(body: CoverRequest):
+    """Optional FLUX text→album cover (requires `cover` extra)."""
+    if not cover_available():
+        raise HTTPException(
+            status_code=503,
+            detail="cover deps missing — npm run sidecar:cover",
+        )
+
+    prompt = str(body.prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    device = select_device()
+    try:
+        png, meta = generate_cover_png(
+            prompt,
+            width=body.width,
+            height=body.height,
+            seed=body.seed,
+            num_inference_steps=body.num_inference_steps,
+            device=device,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": 'inline; filename="album-cover.png"',
+            "X-Cover-Model": str(meta.get("model") or active_cover_model_id()),
+            "X-Cover-Mode": str(meta.get("mode") or "text"),
+            "X-Cover-Width": str(meta.get("width") or body.width),
+            "X-Cover-Height": str(meta.get("height") or body.height),
+        },
+    )
+
+
+@app.post("/cover-ref")
+async def generate_cover_ref(
+    prompt: str = Form(...),
+    strength: float = Form(0.55),
+    width: int = Form(1024),
+    height: int = Form(1024),
+    seed: int | None = Form(None),
+    num_inference_steps: int = Form(4),
+    image: UploadFile = File(...),
+):
+    """Optional FLUX img2img cover from a reference image (requires `cover-ref` extra)."""
+    if not cover_ref_available():
+        raise HTTPException(
+            status_code=503,
+            detail="cover-ref deps missing — npm run sidecar:cover-ref",
+        )
+
+    text = str(prompt or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    raw = await image.read(MAX_COVER_REF_UPLOAD_BYTES + 1)
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty image upload")
+    if len(raw) > MAX_COVER_REF_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"reference image exceeds {MAX_COVER_REF_UPLOAD_BYTES // (1024 * 1024)} MB limit",
+        )
+
+    device = select_device()
+    try:
+        png, meta = generate_cover_from_image_png(
+            raw,
+            text,
+            strength=strength,
+            width=width,
+            height=height,
+            seed=seed,
+            num_inference_steps=num_inference_steps,
+            device=device,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": 'inline; filename="album-cover-ref.png"',
+            "X-Cover-Model": str(meta.get("model") or active_cover_ref_model_id()),
+            "X-Cover-Mode": str(meta.get("mode") or "img2img"),
+            "X-Cover-Strength": str(meta.get("strength") or strength),
+            "X-Cover-Width": str(meta.get("width") or width),
+            "X-Cover-Height": str(meta.get("height") or height),
         },
     )
 

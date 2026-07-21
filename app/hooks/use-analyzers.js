@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildAudioAnalyzerPatch,
-  buildImageAnalyzerPatch,
 } from "../lib/analyzer-guided-merge";
+import { buildAudioSunoV55Patch, buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
+import { buildImageSunoV55Patch, buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
+import { refineSunoStyleWithLlmOrHeuristic } from "../lib/analyzer-suno-style-llm";
 import {
   isSupportedAudioFile,
   isSupportedImageFile,
@@ -60,8 +62,11 @@ export function useAnalyzers({
   setStatusWithTime,
   idea = "",
   lyricTheme = "",
+  coProducerLlmSettings = null,
 }) {
   const refs = useAnalyzerRefs();
+  const analyzerMergeGenerationRef = useRef(0);
+  const analyzerMergeAbortRef = useRef(null);
   const {
     audioAnalysisRef,
     audioCacheKeyRef,
@@ -91,6 +96,14 @@ export function useAnalyzers({
   const [analyzeAudioBusy, setAnalyzeAudioBusy] = useState(false);
   const [analyzeImageBusy, setAnalyzeImageBusy] = useState(false);
 
+  const cancelAnalyzerStyleMerge = useCallback(() => {
+    analyzerMergeGenerationRef.current += 1;
+    analyzerMergeAbortRef.current?.abort();
+    analyzerMergeAbortRef.current = null;
+  }, []);
+
+  useEffect(() => cancelAnalyzerStyleMerge, [cancelAnalyzerStyleMerge]);
+
   useE2eAudioFixtures(setAudioAnalysis);
 
   const setAudioPreviewFromBlob = useCallback(
@@ -106,6 +119,7 @@ export function useAnalyzers({
   }, [audioCacheKeyRef, audioCacheKeysRef]);
 
   const resetAnalyzers = useCallback(() => {
+    cancelAnalyzerStyleMerge();
     deleteAudioCacheEntries(audioCacheKeysRef.current);
     audioCacheKeysRef.current = [];
     audioCacheKeyRef.current = null;
@@ -123,7 +137,7 @@ export function useAnalyzers({
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
     }
-  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, imagePreviewUrlRef]);
+  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, cancelAnalyzerStyleMerge, imagePreviewUrlRef]);
 
   const updateAudioAnalysis = useCallback((patch) => {
     setAudioAnalysis((prev) => patchAudioAnalysis(prev, patch));
@@ -460,45 +474,91 @@ export function useAnalyzers({
     setGuidedStep(resolvePolishStepIndex());
   }, [setGuidedStep]);
 
-  const applyAudioToSunoStyle = useCallback(() => {
+  const refineCurrentAnalyzerStyle = useCallback(
+    async (kind, heuristic, report) => {
+      analyzerMergeAbortRef.current?.abort();
+      const controller = new AbortController();
+      const generation = analyzerMergeGenerationRef.current + 1;
+      analyzerMergeGenerationRef.current = generation;
+      analyzerMergeAbortRef.current = controller;
+
+      const built = await refineSunoStyleWithLlmOrHeuristic(
+        kind,
+        heuristic,
+        report,
+        coProducerLlmSettings,
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted || generation !== analyzerMergeGenerationRef.current) {
+        return null;
+      }
+      if (analyzerMergeAbortRef.current === controller) {
+        analyzerMergeAbortRef.current = null;
+      }
+      return built;
+    },
+    [coProducerLlmSettings],
+  );
+
+  const applyAudioToSunoStyle = useCallback(async ({ announce = true, navigate = true } = {}) => {
     if (!audioAnalysis) {
       setStatusWithTime("No audio analysis yet");
       return;
     }
-    applyAnalyzerPatch(buildAudioAnalyzerPatch(audioAnalysis, formatTime));
+    const heuristic = buildSunoV55StyleFromAudioAnalysis(audioAnalysis);
+    const built = await refineCurrentAnalyzerStyle(
+      "audio",
+      heuristic,
+      audioAnalysis,
+    );
+    if (!built) return;
+    applyAnalyzerPatch(buildAudioSunoV55Patch(audioAnalysis, formatTime, built));
 
+    const via = built.source === "llm" ? " (LLM refined)" : "";
     if (promptEngine === "Suno-like") {
-      navigateToPolishStep();
-      setStatusWithTime("Audio DNA merged — guided path: Polish (analyzers)");
-    } else {
-      setStatusWithTime("Audio DNA merged into fields — switch to Suno-like to use the guided path");
+      if (navigate) navigateToPolishStep();
+      if (announce) {
+        setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — guided path: Polish`);
+      }
+    } else if (announce) {
+      setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — Style buffer filled`);
     }
   }, [
     audioAnalysis,
     applyAnalyzerPatch,
     navigateToPolishStep,
     promptEngine,
+    refineCurrentAnalyzerStyle,
     setStatusWithTime,
   ]);
 
-  const applyImageToSunoStyle = useCallback(() => {
+  const applyImageToSunoStyle = useCallback(async () => {
     if (!imageAnalysis) {
       setStatusWithTime("No image analysis yet");
       return;
     }
-    applyAnalyzerPatch(buildImageAnalyzerPatch(imageAnalysis));
+    const heuristic = buildSunoV55StyleFromImageAnalysis(imageAnalysis);
+    const built = await refineCurrentAnalyzerStyle(
+      "image",
+      heuristic,
+      imageAnalysis,
+    );
+    if (!built) return;
+    applyAnalyzerPatch(buildImageSunoV55Patch(imageAnalysis, built));
 
+    const via = built.source === "llm" ? " (LLM refined)" : "";
     if (promptEngine === "Suno-like") {
       navigateToPolishStep();
-      setStatusWithTime("Image style merged — guided path: Polish (analyzers)");
+      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — guided path: Polish`);
     } else {
-      setStatusWithTime("Image style merged into fields — switch to Suno-like to use the guided path");
+      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — Style buffer filled`);
     }
   }, [
     applyAnalyzerPatch,
     imageAnalysis,
     navigateToPolishStep,
     promptEngine,
+    refineCurrentAnalyzerStyle,
     setStatusWithTime,
   ]);
 
