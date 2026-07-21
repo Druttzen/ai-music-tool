@@ -9,6 +9,7 @@ Tauri is the supported desktop path going forward. It bundles:
 - Managed Python **AI sidecar** spawn on demand
 - Native **canvas handoff** to AI Canvas Tool for Spotify loops via `canvas-handoff-bridge.ts` — see [canvas-handoff.md](canvas-handoff.md)
 - Portable **Music Exchange** downloads for collaboration with other AI Creator projects (no app-specific native bridge)
+- Signed **Studio auto-updates** from the latest `studio-v*` GitHub Release
 
 ## Legacy: Electron
 
@@ -23,13 +24,15 @@ The **Electron** installer (`npm run dist`, `main.js`) remains for existing inst
 
 Last dual-tag default ship was **v0.50.2**. From the next release onward, `ship:tag` pushes **studio only** unless `--electron` is passed. Electron auto-update users should migrate to Studio installers; maintenance Electron builds remain via `npm run dist` / manual workflow.
 
-### Studio updates (current)
+### Studio updates
 
-Tauri Studio does **not** ship an in-app auto-updater yet (no `tauri-plugin-updater` / pubkey in `tauri.conf.json`). After each `studio-v*` release, users download and install the new build from [GitHub Releases](https://github.com/Druttzen/ai-music-tool/releases). Enabling silent Studio updates is a follow-up that needs signing keys + release endpoint wiring.
+Tauri Studio checks the latest GitHub Release automatically after startup. When a newer signed `studio-v*` build exists, the header offers **Download and restart**. Packages are verified with the updater public key before installation.
+
+The first updater-enabled release must still be installed manually because older Studio builds do not contain the updater plugin. Every later signed release can update in-app.
 
 | Capability | Tauri Studio (primary) | Electron (legacy / maintenance-only) |
 |------------|------------------------|--------------------------------------|
-| Updates | **Manual:** download new `studio-v*` installer from GitHub Releases (in-app updater **not configured** yet) | `electron-updater` on `v*` releases |
+| Updates | Signed `latest.json` + Tauri updater on `studio-v*` releases | `electron-updater` on `v*` releases |
 | Native DSP | `dsp-bridge.ts` | Browser / lamejs only |
 | Sidecar | Managed spawn in Tauri shell | Manual `npm run sidecar` |
 | Canvas handoff | `exportCanvasHandoffNative` | `window.electronAPI.openInCanvasTool` |

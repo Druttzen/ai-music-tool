@@ -79,7 +79,12 @@ function setupAutoUpdater() {
     ipcMain.handle("app-check-for-updates", async () => {
       try {
         const result = await autoUpdater.checkForUpdates();
-        return { ok: true, version: result?.updateInfo?.version ?? null };
+        return {
+          ok: true,
+          available: Boolean(result?.isUpdateAvailable),
+          version: result?.isUpdateAvailable ? result.updateInfo?.version ?? null : null,
+          currentVersion: app.getVersion(),
+        };
       } catch (e) {
         return { ok: false, error: e?.message || "check failed" };
       }

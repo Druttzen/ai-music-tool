@@ -88,7 +88,7 @@ https://github.com/Druttzen/ai-music-tool/releases
 
 ## What publish does *not* include
 
-- **In-app Studio auto-update** — not configured. Users install the new `studio-v*` build from Releases. (Updater needs signing keys + `tauri-plugin-updater` — see [desktop.md](desktop.md).)
+- **In-app Studio auto-update** — release builds are signed with `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; `tauri-action` publishes updater archives, `.sig` files, and `latest.json` before making the release public.
 - **Electron auto-update** — only applies to legacy `v*` Electron builds.
 
 ## Related

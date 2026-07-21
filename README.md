@@ -456,7 +456,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 
 - **WAV 24-bit export** — honest third studio format alongside 16-bit WAV and MP3.
 - **Undo keeps compact waveforms** — peak arrays ≤4096 samples restore on revert.
-- **Desktop update controls** — “Check for updates” and “Restart to install” in the packaged app header.
+- **Desktop update controls** — automatic startup check plus signed Studio **Download and restart** and Electron **Restart to install** actions.
 - **Pinned Electron toolchain** — `electron@41.3.0` and `electron-builder@26.8.1` for reproducible builds.
 
 ## Highlights (v0.7.5)
@@ -542,11 +542,11 @@ npm run cleanup:dist:admin
 
 Old installer output under `dist/` is gitignored; safe to delete locally anytime.
 
-### Electron auto-update (legacy)
+### Desktop auto-update
 
 Packaged **Electron** builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startup. Updates require a published `v*` release with `latest.yml`. Dev/`npm run electron` skips update checks.
 
-**Tauri Studio** (`studio-v*`): no in-app updater yet — install the new Studio build from GitHub Releases after each tag. See [docs/desktop.md](docs/desktop.md).
+**Tauri Studio** checks signed `studio-v*` releases through `latest.json`. Install the first updater-enabled Studio release manually; later versions update from the app header. See [docs/desktop.md](docs/desktop.md).
 
 ## Production build
 
