@@ -26,7 +26,27 @@ cover-ref = ["torch>=2.2", "diffusers>=0.30", "transformers>=4.40", "accelerate"
 vocal = ["scipy>=1.11"]
 vocal-ml = ["torch>=2.2", "torchaudio>=2.2", "scipy>=1.11", "requests>=2.31"]
 vocal-rvc = ["rvc-python>=0.1.5"]
-generate = ["torch>=2.2", "audiocraft>=1.3"]   # MusicGen (weights are CC-BY-NC: non-commercial)
+# MusicGen companion deps (CC-BY-NC weights). Do NOT list audiocraft here — it pins
+# torch==2.1.0 and breaks shared torch>=2.2. Installers add `audiocraft>=1.3 --no-deps`.
+generate = [
+    "torch>=2.2",
+    "torchaudio>=2.2",
+    "einops",
+    "flashy>=0.0.1",
+    "hydra-core>=1.1",
+    "hydra-colorlog",
+    "num2words",
+    "sentencepiece",
+    "spacy>=3.6.1",
+    "julius",
+    "av>=10.0",
+    "transformers>=4.40",
+    "huggingface_hub",
+    "encodec",
+    "protobuf",
+    "torchmetrics",
+    "xformers",
+]
 all = [
     "torch>=2.2",
     "torchaudio>=2.2",
@@ -38,7 +58,18 @@ all = [
     "safetensors",
     "sentencepiece",
     "protobuf",
-    "audiocraft>=1.3",
+    "einops",
+    "flashy>=0.0.1",
+    "hydra-core>=1.1",
+    "hydra-colorlog",
+    "num2words",
+    "spacy>=3.6.1",
+    "julius",
+    "av>=10.0",
+    "huggingface_hub",
+    "encodec",
+    "torchmetrics",
+    "xformers",
     "scipy>=1.11",
     "requests>=2.31",
     "rvc-python>=0.1.5",

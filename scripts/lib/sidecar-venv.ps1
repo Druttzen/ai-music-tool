@@ -48,5 +48,12 @@ function Install-SidecarExtra {
   Write-Host "Installing $Label..."
   & $ctx.Pip install -e "$($ctx.Sidecar)[$ExtraSpec]"
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  # audiocraft pins torch==2.1.0 which conflicts with shared torch>=2.2 (stems/cover/vision).
+  # Install companion deps via the [generate]/[all] extras, then audiocraft itself with --no-deps.
+  if ($ExtraSpec -eq "generate" -or $ExtraSpec -eq "all") {
+    Write-Host "Installing audiocraft (MusicGen) with --no-deps to keep torch>=2.2..."
+    & $ctx.Pip install "audiocraft>=1.3" --no-deps
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
   Write-Host "Done. Restart the sidecar: npm run sidecar"
 }
