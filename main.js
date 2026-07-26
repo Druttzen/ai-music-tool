@@ -117,6 +117,15 @@ function setupSuiteCanvasBridge() {
     }
   });
 
+  const { installSidecarExtra } = require("./lib/sidecar-extra-install.cjs");
+  ipcMain.handle("suite:install-sidecar-extra", async (_event, extraId) => {
+    try {
+      return installSidecarExtra(extraId);
+    } catch (err) {
+      return { ok: false, extraId, error: err?.message || "Failed to install sidecar extra" };
+    }
+  });
+
   ipcMain.handle("suite:open-canvas", async (_event, payload) => {
     try {
       const buffer = payload?.buffer;

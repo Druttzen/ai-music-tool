@@ -10,6 +10,10 @@ import {
 } from "../context/project-workspace-context";
 import { fetchSidecarHealth, generateCoverRefViaSidecar, generateCoverViaSidecar } from "../lib/sidecar-bridge";
 import { coverInstallHint, coverRefInstallHint } from "../lib/sidecar-capabilities";
+import {
+  formatSidecarExtraInstallStatus,
+  installSidecarExtra,
+} from "../lib/sidecar-extra-install-client";
 import { buildCoverPromptFromStyle, resolveCoverPromptSource } from "../lib/cover-prompt";
 import { buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
 import { buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
@@ -141,7 +145,16 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
 
   const onGenerateCover = useCallback(async () => {
     if (!coverReady) {
-      setStatusWithTime(`Cover generation requires ${coverHint}`, "warning");
+      setBusy(true);
+      try {
+        setStatusWithTime("Installing cover extra…");
+        const result = await installSidecarExtra("cover");
+        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        const h = await fetchSidecarHealth().catch(() => null);
+        if (h) setHealth(h);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     const operation = beginOperation();
@@ -157,7 +170,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
     } finally {
       finishOperation(operation);
     }
-  }, [beginOperation, captureSnapshot, coverHint, coverReady, finishOperation, operationIsCurrent, prompt, setCoverBlob, setStatusWithTime]);
+  }, [beginOperation, captureSnapshot, coverReady, finishOperation, operationIsCurrent, prompt, setCoverBlob, setStatusWithTime]);
 
   const onGenerateCoverRef = useCallback(async () => {
     if (!imagePreview) {
@@ -165,7 +178,16 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
       return;
     }
     if (!coverRefReady) {
-      setStatusWithTime(`Cover-from-image requires ${coverRefHint}`, "warning");
+      setBusy(true);
+      try {
+        setStatusWithTime("Installing cover-ref extra…");
+        const result = await installSidecarExtra("cover-ref");
+        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        const h = await fetchSidecarHealth().catch(() => null);
+        if (h) setHealth(h);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     const operation = beginOperation();
@@ -192,7 +214,6 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
   }, [
     beginOperation,
     captureSnapshot,
-    coverRefHint,
     coverRefReady,
     finishOperation,
     imagePreview,

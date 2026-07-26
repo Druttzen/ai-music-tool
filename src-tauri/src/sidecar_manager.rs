@@ -197,6 +197,12 @@ impl SidecarManager {
         guard.ready = false;
         guard.bundled = false;
     }
+
+    /// Kill managed process (if any) and start again — used after pip extras install.
+    pub fn restart(&self) {
+        self.stop();
+        self.ensure_started();
+    }
 }
 
 impl Drop for SidecarManager {
@@ -273,7 +279,7 @@ fn spawn_bundled_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, S
     Ok(SidecarChild::Bundled(child))
 }
 
-fn resolve_sidecar_dir() -> Option<PathBuf> {
+pub(crate) fn resolve_sidecar_dir() -> Option<PathBuf> {
     let candidates = [
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ai-sidecar"),
         std::env::current_dir()
