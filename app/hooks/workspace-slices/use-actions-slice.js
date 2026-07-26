@@ -32,7 +32,7 @@ const ACTION_KEYS = [
   "downloadStem",
   "exportEnhancedAudio",
   "exportProject",
-  "exportVideoHandoff",
+  "exportMusicExchange",
   "fixSunoWarnings",
   "generateExampleLyrics",
   "generateHooks",

@@ -1,6 +1,8 @@
 # Architecture convergence
 
-Copy layer discipline from [AI Video Studio](https://github.com/Druttzen/ai-video-studio) into AI Music Creator **without** a rewrite or Next→Vite migration.
+AI Music Creator owns music prompting, analysis, generation, vocal workflows, mastering, and portable music exports. Canvas is the only direct visual-app integration.
+
+Other AI Creator projects collaborate through the neutral [Music Exchange](music-exchange.md) bundle. They may import its project, prompt, analysis, artwork metadata, and optional audio sidecar, but Music Creator does not launch or configure those consumers.
 
 Plan phases: Electron sunset truth → sidecar `device` / `registry` / `jobs` → UI capabilities helper → retire default Electron train.
 
@@ -9,17 +11,17 @@ Plan phases: Electron sunset truth → sidecar `device` / `registry` / `jobs` �
 | Surface | Path | Role | Tauri parity |
 |---------|------|------|--------------|
 | Bridge | [`app/lib/electron-bridge.js`](../app/lib/electron-bridge.js) | `isElectronApp`, update APIs | N/A (web/Tauri skip) |
-| Updates hook | [`app/hooks/use-electron-updates.js`](../app/hooks/use-electron-updates.js) | Check / quit-and-install (Electron only) | Studio: manual `studio-v*` install until updater lands |
+| Updates hook | [`app/hooks/use-desktop-updates.js`](../app/hooks/use-desktop-updates.js) | Check / quit-and-install | Signed Tauri updater commands |
 | Preload API | [`preload.js`](../preload.js) | `window.electronAPI` | — |
 | Main process | [`main.js`](../main.js) | Window, updater, IPC | [`src-tauri`](../src-tauri) |
-| Video handoff | [`app/hooks/project-actions/use-export-actions.js`](../app/hooks/project-actions/use-export-actions.js) | `electronAPI.exportVideoHandoff` fallback | `exportVideoHandoffNative` first |
+| Music Exchange | [`app/hooks/project-actions/use-export-actions.js`](../app/hooks/project-actions/use-export-actions.js) | Browser download | Same portable download |
 | Canvas handoff | [`app/lib/suite-canvas-client.js`](../app/lib/suite-canvas-client.js) | `electronAPI.openInCanvasTool` | `exportCanvasHandoffNative` |
-| Canvas suite addon | [`app/lib/suite-addons-client.js`](../app/lib/suite-addons-client.js) | `installCanvasAddon` / `launchCanvasAddon` | `install_canvas_addon` / `launch_canvas_addon` |
-| Suite bridge | [`lib/suite-bridge.cjs`](../lib/suite-bridge.cjs) | Electron suite paths + addon install | Shared `lib/suite-handoff-paths.json` |
+| Canvas integration | [`app/lib/canvas-addon-client.js`](../app/lib/canvas-addon-client.js) | `installCanvasAddon` / `launchCanvasAddon` | `install_canvas_addon` / `launch_canvas_addon` |
+| Canvas bridge | [`lib/suite-bridge.cjs`](../lib/suite-bridge.cjs) | Electron Canvas paths + install | Shared `lib/suite-handoff-paths.json` |
 
-**Do not remove** Electron handoff fallbacks until Studio canvas + video paths are verified on a tagged `studio-v*` install.
+Do not add consumer-specific render settings, executable discovery, or launch IPC to Music Creator. Extend the portable exchange contract instead.
 
-## Sidecar convergence (video patterns)
+## Sidecar convergence
 
 | Module | Role |
 |--------|------|

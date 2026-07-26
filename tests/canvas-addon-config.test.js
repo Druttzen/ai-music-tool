@@ -7,10 +7,10 @@ import {
 import {
   CANVAS_ADDON,
   formatCanvasInstallStatus,
-} from "../app/lib/suite-addons-client.js";
+} from "../app/lib/canvas-addon-client.js";
 
-describe("suite canvas addon", () => {
-  it("exposes canvas addon metadata from shared paths config", () => {
+describe("Canvas integration", () => {
+  it("exposes Canvas metadata from the shared paths config", () => {
     const meta = canvasAddonMeta();
     expect(meta).toBeTruthy();
     expect(meta.id).toBe("canvas");
@@ -20,23 +20,22 @@ describe("suite canvas addon", () => {
   });
 
   it("lists installer candidate paths for the current platform", () => {
-    const list = canvasInstallerCandidates();
-    expect(Array.isArray(list)).toBe(true);
+    expect(canvasInstallerCandidates()).toBeInstanceOf(Array);
   });
 
   it("findCanvasExecutable returns null or an existing path", () => {
-    const exe = findCanvasExecutable();
-    if (exe) expect(typeof exe).toBe("string");
-    else expect(exe).toBeNull();
+    const executable = findCanvasExecutable();
+    if (executable) expect(typeof executable).toBe("string");
+    else expect(executable).toBeNull();
   });
 
-  it("CANVAS_ADDON catalog matches suite branding", () => {
+  it("keeps client and native metadata aligned", () => {
     expect(CANVAS_ADDON.id).toBe("canvas");
     expect(CANVAS_ADDON.title).toContain("Canvas");
     expect(CANVAS_ADDON.installUrl).toContain("github.com");
   });
 
-  it("formatCanvasInstallStatus covers install modes", () => {
+  it("formats install modes", () => {
     expect(formatCanvasInstallStatus({ ok: true, mode: "installed", alreadyInstalled: true })).toMatch(
       /already installed/i,
     );
@@ -46,7 +45,7 @@ describe("suite canvas addon", () => {
     expect(formatCanvasInstallStatus({ ok: false, error: "boom" })).toBe("boom");
   });
 
-  it("canvas installUrl points at README not empty releases page", () => {
+  it("uses the README install path and retains the releases link", () => {
     const meta = canvasAddonMeta();
     expect(meta.installUrl).toContain("github.com/Druttzen/ai-canvas-tool");
     expect(meta.installUrl).not.toContain("/releases/latest");

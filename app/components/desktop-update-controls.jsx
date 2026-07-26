@@ -1,10 +1,10 @@
 "use client";
 
-import { useElectronUpdates } from "../hooks/use-electron-updates";
+import { useDesktopUpdates } from "../hooks/use-desktop-updates";
 
-export function ElectronUpdateControls() {
-  const { available, status, busy, downloaded, checkUpdates, restartToUpdate } =
-    useElectronUpdates();
+export function DesktopUpdateControls() {
+  const { available, status, busy, installReady, installLabel, checkUpdates, restartToUpdate } =
+    useDesktopUpdates();
 
   if (!available) return null;
 
@@ -15,19 +15,19 @@ export function ElectronUpdateControls() {
         <button
           type="button"
           disabled={busy}
-          onClick={checkUpdates}
+          onClick={() => void checkUpdates()}
           className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-bold text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50"
         >
           Check for updates
         </button>
-        {downloaded ? (
+        {installReady ? (
           <button
             type="button"
             disabled={busy}
-            onClick={restartToUpdate}
+            onClick={() => void restartToUpdate()}
             className="rounded-xl bg-emerald-300 px-3 py-1.5 text-[11px] font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
           >
-            Restart to install
+            {installLabel}
           </button>
         ) : null}
       </div>

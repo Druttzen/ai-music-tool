@@ -5,6 +5,7 @@ import { formatTime } from "../lib/audio-analyzer";
 
 /**
  * WaveSurfer.js highlight editor (default). Classic canvas editor available via toggle.
+ * Boot only on audioUrl / duration — highlight drag must not destroy/recreate the instance.
  */
 export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype({
   audioUrl,
@@ -13,7 +14,13 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
 }) {
   const containerRef = useRef(null);
   const waveRef = useRef(null);
+  const regionsRef = useRef(null);
+  const onHighlightChangeRef = useRef(onHighlightChange);
   const [status, setStatus] = useState("loading");
+
+  useEffect(() => {
+    onHighlightChangeRef.current = onHighlightChange;
+  }, [onHighlightChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +52,7 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
         const timeline = wavesurfer.registerPlugin(TimelinePlugin.create());
         regionsPlugin = wavesurfer.registerPlugin(RegionsPlugin.create());
         waveRef.current = { wavesurfer, timeline };
+        regionsRef.current = regionsPlugin;
 
         wavesurfer.on("ready", () => {
           if (cancelled) return;
@@ -63,9 +71,13 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
           setStatus("ready");
         });
 
+        wavesurfer.on("error", (err) => {
+          if (!cancelled) setStatus(`unavailable: ${String(err?.message || err).slice(0, 80)}`);
+        });
+
         regionsPlugin.on("region-updated", (region) => {
           if (region.id !== "highlight") return;
-          onHighlightChange?.({
+          onHighlightChangeRef.current?.({
             highlightStart: region.start,
             highlightEnd: region.end,
             highlightLabel: "WaveSurfer region highlight",
@@ -81,9 +93,29 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
       cancelled = true;
       const current = waveRef.current;
       waveRef.current = null;
+      regionsRef.current = null;
       current?.wavesurfer?.destroy();
     };
-  }, [analysis?.duration, analysis?.highlightEnd, analysis?.highlightStart, audioUrl, onHighlightChange]);
+    // Intentionally omit highlightStart/End and onHighlightChange — remounting on drag was the bug.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- analysis duration used only for initial region seed
+  }, [audioUrl, analysis?.duration]);
+
+  // Sync region when highlight changes from outside (classic presets / merge), without remount.
+  useEffect(() => {
+    const regionsPlugin = regionsRef.current;
+    const wavesurfer = waveRef.current?.wavesurfer;
+    if (!regionsPlugin || !wavesurfer || status !== "ready") return;
+    const duration = wavesurfer.getDuration() || analysis?.duration || 0;
+    if (!(duration > 0)) return;
+    const start = Math.max(0, Math.min(analysis?.highlightStart || 0, duration));
+    const end = Math.max(start + 0.1, Math.min(analysis?.highlightEnd || duration, duration));
+    const existing = regionsPlugin.getRegions?.()?.find((r) => r.id === "highlight");
+    if (existing) {
+      const eps = 0.02;
+      if (Math.abs(existing.start - start) < eps && Math.abs(existing.end - end) < eps) return;
+      existing.setOptions({ start, end });
+    }
+  }, [analysis?.highlightStart, analysis?.highlightEnd, analysis?.duration, status]);
 
   if (!audioUrl) return null;
 
@@ -106,4 +138,3 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
     </section>
   );
 });
-

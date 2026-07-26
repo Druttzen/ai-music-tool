@@ -1,10 +1,10 @@
 # Canvas handoff — AI Music Tool → AI Canvas Tool
 
-**AI Canvas Tool** is a **suite addon** fused into Music Creator.
+**AI Canvas Tool** is the visual integration explicitly supported by Music Creator.
 
 ## Install from the app
 
-1. Open the left **Suite Addons** panel
+1. Open the left **Canvas Integration** panel
 2. Click **Download / Install Canvas**
 3. Downloads [AI Canvas Tool v1.1.1+](https://github.com/Druttzen/ai-canvas-tool/releases) automatically when a release exists; otherwise opens **build instructions** on the repo README
 4. Finish setup, click **Open Canvas Tool**, or drop album art in Analyzers → **Open in Canvas Tool → Spotify loop**
@@ -30,7 +30,7 @@ Status shows **Installed** when an executable from [`lib/suite-handoff-paths.jso
 2. `handoff.json` is written with track title, artist, and art path
 3. **AI Canvas Tool** launches and imports the handoff automatically (when installed)
 
-Shared paths, executable candidates, and addon install metadata live in `lib/suite-handoff-paths.json` (used by Tauri and Electron).
+Shared paths, executable candidates, and Canvas install metadata live in `lib/suite-handoff-paths.json` (used by Tauri and Electron).
 
 ## Desktop builds
 

@@ -262,22 +262,22 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           </button>
         </div>
         <p className="text-xs text-white/75">{analysis.highlightLabel}</p>
-        <AudioHighlightWaveform
-          analysis={analysis}
-          audioUrl={audioUrl}
-          playhead={playhead}
-          onSeek={audioUrl ? seekAudio : undefined}
-          onHighlightChange={(range) => onChange(range)}
-        />
+        {waveSurferPrototype ? (
+          <AudioWaveformProPrototype
+            audioUrl={audioUrl}
+            analysis={analysis}
+            onHighlightChange={(range) => onChange(range)}
+          />
+        ) : (
+          <AudioHighlightWaveform
+            analysis={analysis}
+            audioUrl={audioUrl}
+            playhead={playhead}
+            onSeek={audioUrl ? seekAudio : undefined}
+            onHighlightChange={(range) => onChange(range)}
+          />
+        )}
       </section>
-
-      {waveSurferPrototype ? (
-        <AudioWaveformProPrototype
-          audioUrl={audioUrl}
-          analysis={analysis}
-          onHighlightChange={(range) => onChange(range)}
-        />
-      ) : null}
 
       <section className="rounded-2xl border border-cyan-400/20 bg-black/30 p-3 space-y-2">
         <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-200/90">Music analysis</div>

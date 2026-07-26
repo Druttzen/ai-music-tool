@@ -11,7 +11,7 @@ import {
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
 import { GuidedFocusPanel } from "./guided-focus-panel";
-import { SuiteAddonsPanel } from "./suite-addons-panel";
+import { CanvasIntegrationPanel } from "./canvas-integration-panel";
 
 export const PageSidebarLeft = memo(function PageSidebarLeft() {
   const {
@@ -28,7 +28,7 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
     applyPreset,
     deleteCustomPreset,
     exportProject,
-    exportVideoHandoff,
+    exportMusicExchange,
     importProject,
     loadPresetObject,
     resetAll,
@@ -112,11 +112,11 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
               Export Bundle
             </button>
             <button
-              onClick={() => exportVideoHandoff()}
+              onClick={() => exportMusicExchange()}
               className="rounded-2xl bg-violet-300 px-4 py-2 font-bold text-black hover:bg-violet-200"
-              title="Bundle v2 handoff for AI Video Creator — Path E when audio + image are analyzed"
+              title="Portable project, prompt, analysis, and optional audio for other AI Creator projects"
             >
-              Send to Video Creator
+              Export Music Exchange
             </button>
             <label className="cursor-pointer rounded-2xl bg-white px-4 py-2 text-center font-bold text-black hover:bg-cyan-100">
               Import Bundle
@@ -139,7 +139,7 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
         </Panel>
       </GuidedFocusPanel>
 
-      <SuiteAddonsPanel />
+      <CanvasIntegrationPanel />
 
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.mode} column="left">
         <Panel title="Mode" hint="Controls stability vs creativity.">

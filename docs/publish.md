@@ -48,7 +48,7 @@ Minimum click-through:
 - [ ] Waveform / highlight
 - [ ] Export or LUFS if you use DSP
 - [ ] Vocal Embed plan/synthesize if you ship vocal features
-- [ ] Canvas / video handoff only if suite apps are installed
+- [ ] Canvas handoff only if AI Canvas Tool is installed; verify Music Exchange download separately
 
 ### 4. Optional ML extras
 
@@ -88,7 +88,7 @@ https://github.com/Druttzen/ai-music-tool/releases
 
 ## What publish does *not* include
 
-- **In-app Studio auto-update** — not configured. Users install the new `studio-v*` build from Releases. (Updater needs signing keys + `tauri-plugin-updater` — see [desktop.md](desktop.md).)
+- **In-app Studio auto-update** — release builds are signed with `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; `tauri-action` publishes updater archives, `.sig` files, and `latest.json` before making the release public.
 - **Electron auto-update** — only applies to legacy `v*` Electron builds.
 
 ## Related

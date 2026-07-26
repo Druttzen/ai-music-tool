@@ -43,5 +43,10 @@ install_sidecar_extra() {
   ensure_sidecar_venv
   echo "Installing ${label}..."
   "$SIDECAR_PIP" install -e "${SIDECAR_DIR}[${spec}]"
+  # audiocraft pins torch==2.1.0 which conflicts with shared torch>=2.2 (stems/cover/vision).
+  if [[ "$spec" == "generate" || "$spec" == "all" ]]; then
+    echo "Installing audiocraft (MusicGen) with --no-deps to keep torch>=2.2..."
+    "$SIDECAR_PIP" install "audiocraft>=1.3" --no-deps
+  fi
   echo "Done. Restart the sidecar: npm run sidecar"
 }

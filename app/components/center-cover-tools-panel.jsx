@@ -13,16 +13,13 @@ import { coverInstallHint, coverRefInstallHint } from "../lib/sidecar-capabiliti
 import { buildCoverPromptFromStyle, resolveCoverPromptSource } from "../lib/cover-prompt";
 import { buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
 import { buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
-import { openMusicVideoHandoff } from "../lib/suite-music-video-client";
 import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 
-/**
- * Opt-in cover generation (FLUX) + music video suite handoff.
- */
+/** Opt-in album-cover generation for music releases. */
 export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
   const { idea, sunoPasteStyle } = useProjectWorkspaceProjectState();
   const { sunoFieldSlices } = useProjectWorkspacePromptState();
-  const { sidecarAiStatus, audioAnalysis, imageAnalysis, imagePreview, audioPreviewUrl } =
+  const { sidecarAiStatus, audioAnalysis, imageAnalysis, imagePreview } =
     useProjectWorkspaceAnalyzerState();
   const { setStatusWithTime, captureSnapshot } = useProjectWorkspaceActions();
 
@@ -206,42 +203,6 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
     strength,
   ]);
 
-  const onOpenMusicVideo = useCallback(async () => {
-    const operation = beginOperation();
-    try {
-      const result = await openMusicVideoHandoff({
-        audioUrl: audioPreviewUrl || null,
-        audioName: audioAnalysis?.fileName || "track.wav",
-        coverUrl: coverUrl || imagePreview || null,
-        coverName: coverUrl ? "album-cover.png" : imageAnalysis?.fileName || "cover.png",
-        prompt,
-        bpm: audioAnalysis?.estimatedBpm || "",
-        idea,
-        signal: operation.controller.signal,
-      });
-      if (!operationIsCurrent(operation)) return;
-      setStatusWithTime(result.message, result.ok ? "info" : "error");
-    } catch (err) {
-      if (!operationIsCurrent(operation)) return;
-      setStatusWithTime(err instanceof Error ? err.message : "Music video handoff failed", "error");
-    } finally {
-      finishOperation(operation);
-    }
-  }, [
-    audioAnalysis?.estimatedBpm,
-    audioAnalysis?.fileName,
-    audioPreviewUrl,
-    beginOperation,
-    coverUrl,
-    finishOperation,
-    idea,
-    imageAnalysis?.fileName,
-    imagePreview,
-    operationIsCurrent,
-    prompt,
-    setStatusWithTime,
-  ]);
-
   const onDownloadCover = useCallback(() => {
     if (!coverUrl) return;
     const a = document.createElement("a");
@@ -252,8 +213,8 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
 
   return (
     <Panel
-      title="Cover & Music Video"
-      hint="Opt-in FLUX covers and a portable audio/art export for Music Video (Glitchframe)."
+      title="Album Cover"
+      hint="Optional FLUX artwork for the current music release."
     >
       <label className="block text-[10px] text-white/50">
         Cover prompt
@@ -323,15 +284,6 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
           </button>
         </div>
       ) : null}
-
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void onOpenMusicVideo()}
-        className="mt-3 w-full rounded-2xl border border-emerald-400/40 bg-emerald-500/15 py-2 text-xs font-bold text-emerald-50 hover:bg-emerald-500/25 disabled:opacity-50"
-      >
-        Export for Music Video →
-      </button>
     </Panel>
   );
 });

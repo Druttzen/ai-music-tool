@@ -70,7 +70,7 @@ function printChecklist(pkgVersion) {
    Download Windows installer · install on a clean profile · smoke again
 
 Notes
-  • In-app Studio auto-update is NOT configured — users reinstall from Releases.
+  • Studio auto-update requires the TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD repository secrets.
   • Electron train is maintenance-only; default ship is Studio.
   • Docs: docs/publish.md · docs/desktop.md
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

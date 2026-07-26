@@ -2,19 +2,18 @@
 
 mod canvas_handoff;
 mod sidecar_manager;
-mod video_handoff;
+mod studio_updater;
 
 use std::sync::Arc;
 use std::time::Duration;
 
+use canvas_handoff::{
+    export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
+};
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness};
 use sidecar_manager::{SidecarManager, SidecarStatus};
+use studio_updater::{check_studio_update, install_studio_update};
 use tauri::{Manager, RunEvent};
-use canvas_handoff::{
-    export_canvas_handoff, export_music_video_handoff, install_canvas_addon, install_suite_addon,
-    launch_canvas_addon, launch_suite_addon, suite_addon_status, suite_canvas_addon_status,
-};
-use video_handoff::export_video_handoff;
 
 #[tauri::command]
 fn measure_loudness(path: String) -> Result<Loudness, String> {
@@ -62,6 +61,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::clone(&sidecar))
         .setup({
             let sidecar_setup = Arc::clone(&sidecar);
@@ -76,15 +76,12 @@ pub fn run() {
             export_mastered,
             sidecar_status,
             ensure_sidecar,
-            export_video_handoff,
             export_canvas_handoff,
             suite_canvas_addon_status,
             launch_canvas_addon,
             install_canvas_addon,
-            suite_addon_status,
-            install_suite_addon,
-            launch_suite_addon,
-            export_music_video_handoff,
+            check_studio_update,
+            install_studio_update,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

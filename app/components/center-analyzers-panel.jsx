@@ -287,9 +287,9 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
               </button>
             ) : (
               <p className="mt-3 text-[10px] text-white/45">
-                Suite addon: install{" "}
+                Canvas integration: install{" "}
                 <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
-                <span className="font-bold text-white/70">Suite Addons</span> menu, then drop art here
+                <span className="font-bold text-white/70">Canvas Integration</span> panel, then drop art here
                 for Spotify loop handoff.
               </p>
             )}
