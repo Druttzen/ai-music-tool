@@ -28,14 +28,14 @@ function syncCargoLock(crateDir, packageNames) {
   const lockRaw = fs.readFileSync(lockPath, "utf8");
   const names = Array.isArray(packageNames) ? packageNames : [packageNames];
   const stale = names.some((name) => {
-    const m = lockRaw.match(new RegExp(`\\nname = "${name}"\\nversion = "([^"]+)"`));
+    const m = lockRaw.match(new RegExp(`\\r?\\nname = "${name}"\\r?\\nversion = "([^"]+)"`));
     return m && m[1] !== tomlVersion;
   });
   if (!stale) return;
   try {
     execFileSync("cargo", ["update", ...names.flatMap((n) => ["-p", n])], {
       cwd: dir,
-      stdio: "pipe",
+      stdio: "inherit",
     });
   } catch (e) {
     const pkgs = names.map((n) => `-p ${n}`).join(" ");
