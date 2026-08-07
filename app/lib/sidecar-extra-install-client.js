@@ -37,6 +37,35 @@ export function isSidecarExtraAllowlisted(id) {
   return Object.prototype.hasOwnProperty.call(SIDECAR_EXTRA_NPM, key);
 }
 
+/**
+ * /health boolean field for a given install extra id.
+ * @param {string} id
+ * @returns {keyof import("./sidecar-bridge").SidecarHealth | null}
+ */
+export function sidecarExtraHealthFlag(id) {
+  switch (normalizeSidecarExtraId(id)) {
+    case "stems":
+      return "stems_available";
+    case "generate":
+      return "generate_available";
+    case "classify":
+      return "genre_available";
+    case "vision":
+      return "vision_available";
+    case "cover":
+      return "cover_available";
+    case "cover-ref":
+      return "cover_ref_available";
+    case "vocal":
+    case "vocal-ml":
+      return "vocal_ml_available";
+    case "vocal-rvc":
+      return "vocal_rvc_available";
+    default:
+      return null;
+  }
+}
+
 function tauriInvoke(command, args) {
   const invoke = window.__TAURI__?.core?.invoke;
   if (!invoke) throw new Error("Tauri runtime not available");
@@ -49,7 +78,7 @@ function isElectronApp() {
 
 /**
  * @param {string} extraId
- * @returns {Promise<{ ok: boolean, extraId?: string, mode?: string, message?: string, error?: string, installHint?: string }>}
+ * @returns {Promise<{ ok: boolean, extraId?: string, mode?: string, message?: string, error?: string, installHint?: string, restarted?: boolean }>}
  */
 export async function installSidecarExtra(extraId) {
   const id = normalizeSidecarExtraId(extraId);
@@ -71,7 +100,7 @@ export async function installSidecarExtra(extraId) {
     try {
       await navigator.clipboard.writeText(hint);
       return {
-        ok: true,
+        ok: false,
         extraId: id,
         mode: "copied-command",
         message: `Copied “${hint}” — run in the repo, then restart the sidecar`,
@@ -94,9 +123,11 @@ export async function installSidecarExtra(extraId) {
 
 export function formatSidecarExtraInstallStatus(result) {
   if (!result) return "Could not install sidecar extra";
+  if (result.mode === "copied-command") {
+    return result.message || "Install command copied — run it in the repo, then restart the sidecar";
+  }
   if (result.ok) {
     if (result.message) return result.message;
-    if (result.mode === "copied-command") return result.message || "Install command copied";
     return `Installed ${result.extraId || "extra"} — restart sidecar if needed`;
   }
   if (result.mode === "bundled-readonly") {
@@ -106,6 +137,15 @@ export function formatSidecarExtraInstallStatus(result) {
     );
   }
   return result.error || result.message || "Could not install sidecar extra";
+}
+
+/** Status toast tone for an install result. */
+export function sidecarExtraInstallStatusTone(result) {
+  if (!result) return "error";
+  if (sidecarExtraInstallCompleted(result)) return "info";
+  if (result.mode === "copied-command") return "warning";
+  if (result.ok) return "info";
+  return "error";
 }
 
 /** True when pip install actually ran (not clipboard / docs). */
@@ -124,4 +164,31 @@ export async function fetchSidecarHealthAfterExtraInstall() {
   } catch {
     return null;
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Poll /health until the extra's availability flag is true (or timeout).
+ * @param {string} extraId
+ * @param {{ timeoutMs?: number, intervalMs?: number }} [options]
+ * @returns {Promise<import("./sidecar-bridge").SidecarHealth | null>}
+ */
+export async function waitForSidecarExtraReady(extraId, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 45_000;
+  const intervalMs = options.intervalMs ?? 1_000;
+  const flag = sidecarExtraHealthFlag(extraId);
+  const deadline = Date.now() + timeoutMs;
+  let health = await fetchSidecarHealthAfterExtraInstall();
+  if (!flag) return health;
+  if (health?.[flag]) return health;
+
+  while (Date.now() < deadline) {
+    await sleep(intervalMs);
+    health = await fetchSidecarHealthAfterExtraInstall();
+    if (health?.[flag]) return health;
+  }
+  return health;
 }

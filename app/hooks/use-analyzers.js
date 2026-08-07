@@ -39,8 +39,9 @@ import {
 } from "../lib/audio-highlight-slice";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
-import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, fetchSonicSignatureViaSidecar, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, resetSidecarHealthCache, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, fetchSonicSignatureViaSidecar, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
 import { resolveSidecarGenerateAvailable } from "../lib/analyzers-sidecar-probe";
+import { waitForSidecarExtraReady, fetchSidecarHealthAfterExtraInstall } from "../lib/sidecar-extra-install-client";
 import { musicGenInstallHint } from "../lib/sidecar-capabilities";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
@@ -83,14 +84,10 @@ export function useAnalyzers({
   const { sidecarAiStatus, sidecarGenerateAvailable, setSidecarGenerateAvailable } =
     useSidecarStatus();
 
-  const refreshSidecarCapabilities = useCallback(async () => {
-    resetSidecarHealthCache();
-    let health = null;
-    try {
-      health = await fetchSidecarHealth();
-    } catch {
-      health = null;
-    }
+  const refreshSidecarCapabilities = useCallback(async (options) => {
+    const health = options?.waitForExtraId
+      ? await waitForSidecarExtraReady(options.waitForExtraId, options)
+      : await fetchSidecarHealthAfterExtraInstall();
     setSidecarGenerateAvailable(resolveSidecarGenerateAvailable({ health }));
     return health;
   }, [setSidecarGenerateAvailable]);

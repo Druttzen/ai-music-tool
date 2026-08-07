@@ -23,6 +23,7 @@ import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
   normalizeSidecarExtraId,
+  sidecarExtraInstallStatusTone,
   sidecarExtraNpmHint,
 } from "../lib/sidecar-extra-install-client";
 
@@ -111,8 +112,11 @@ export function AddonsPanel() {
       try {
         setStatusWithTime(`Installing sidecar extra (${id})…`);
         const result = await installSidecarExtra(id);
-        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
-        await refreshSidecarCapabilities();
+        setStatusWithTime(
+          formatSidecarExtraInstallStatus(result),
+          sidecarExtraInstallStatusTone(result),
+        );
+        await refreshSidecarCapabilities({ waitForExtraId: id });
         await refreshExtras();
       } catch (error) {
         setStatusWithTime(error instanceof Error ? error.message : "Could not install extra", "error");

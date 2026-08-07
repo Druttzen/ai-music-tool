@@ -20,6 +20,7 @@ import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
   normalizeSidecarExtraId,
+  sidecarExtraInstallStatusTone,
 } from "../lib/sidecar-extra-install-client";
 import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
@@ -118,8 +119,11 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
       try {
         setStatusWithTime(`Installing sidecar extra (${id})…`);
         const result = await installSidecarExtra(id);
-        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
-        const health = await refreshSidecarCapabilities();
+        setStatusWithTime(
+          formatSidecarExtraInstallStatus(result),
+          sidecarExtraInstallStatusTone(result),
+        );
+        const health = await refreshSidecarCapabilities({ waitForExtraId: id });
         if (health) setSidecarHealth(health);
       } catch (err) {
         setStatusWithTime(err instanceof Error ? err.message : "Could not install extra", "error");
