@@ -14,6 +14,7 @@ import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
   sidecarExtraInstallCompleted,
+  sidecarExtraInstallStatusTone,
 } from "../lib/sidecar-extra-install-client";
 import { buildCoverPromptFromStyle, resolveCoverPromptSource } from "../lib/cover-prompt";
 import { buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
@@ -152,9 +153,12 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
         setStatusWithTime("Installing cover extra…");
         const result = await installSidecarExtra("cover");
         if (!operationIsCurrent(operation)) return;
-        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        setStatusWithTime(
+          formatSidecarExtraInstallStatus(result),
+          sidecarExtraInstallStatusTone(result),
+        );
         if (!sidecarExtraInstallCompleted(result)) return;
-        const h = await refreshSidecarCapabilities();
+        const h = await refreshSidecarCapabilities({ waitForExtraId: "cover" });
         if (!operationIsCurrent(operation)) return;
         if (h) setHealth(h);
         ready = Boolean(h?.cover_available);
@@ -198,9 +202,12 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
         setStatusWithTime("Installing cover-ref extra…");
         const result = await installSidecarExtra("cover-ref");
         if (!operationIsCurrent(operation)) return;
-        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        setStatusWithTime(
+          formatSidecarExtraInstallStatus(result),
+          sidecarExtraInstallStatusTone(result),
+        );
         if (!sidecarExtraInstallCompleted(result)) return;
-        const h = await refreshSidecarCapabilities();
+        const h = await refreshSidecarCapabilities({ waitForExtraId: "cover-ref" });
         if (!operationIsCurrent(operation)) return;
         if (h) setHealth(h);
         ready = Boolean(h?.cover_ref_available);
