@@ -46,6 +46,7 @@ export function buildProjectWorkspaceActions(s) {
     handoffTrackToVoiceCharacterStudio: s.handoffTrackToVoiceCharacterStudio,
     importProject: s.importProject,
     openInCanvasTool: s.openInCanvasTool,
+    refreshSidecarCapabilities: s.refreshSidecarCapabilities,
     loadPresetObject: s.loadPresetObject,
     resetAll: s.resetAll,
     restoreHistory: s.restoreHistory,

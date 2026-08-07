@@ -140,73 +140,57 @@ fn run_install_script(script: &Path, repo_root: &Path) -> Result<String, String>
     }
 }
 
-#[tauri::command]
-pub fn install_sidecar_extra(
-    manager: tauri::State<'_, Arc<SidecarManager>>,
+fn fail(id: String, mode: &str, error: String, hint: String) -> SidecarExtraInstallResult {
+    SidecarExtraInstallResult {
+        ok: false,
+        extra_id: id,
+        mode: Some(mode.to_string()),
+        message: None,
+        error: Some(error),
+        install_hint: Some(hint),
+    }
+}
+
+fn install_sidecar_extra_blocking(
+    manager: Arc<SidecarManager>,
     extra_id: String,
 ) -> SidecarExtraInstallResult {
     let id = extra_id.trim().to_string();
     let hint = npm_hint(&id);
 
     let Some(stem) = script_stem(&id) else {
-        return SidecarExtraInstallResult {
-            ok: false,
-            extra_id: id,
-            mode: Some("unknown".to_string()),
-            message: None,
-            error: Some("Unknown sidecar extra id".to_string()),
-            install_hint: Some(hint),
-        };
+        return fail(id, "unknown", "Unknown sidecar extra id".to_string(), hint);
     };
 
     let Some(sidecar_dir) = resolve_sidecar_dir() else {
-        return SidecarExtraInstallResult {
-            ok: false,
-            extra_id: id,
-            mode: Some("bundled-readonly".to_string()),
-            message: None,
-            error: Some(
-                "ai-sidecar source not found — pip extras need a local checkout with .venv"
-                    .to_string(),
-            ),
-            install_hint: Some(hint),
-        };
+        return fail(
+            id,
+            "bundled-readonly",
+            "ai-sidecar source not found — pip extras need a local checkout with .venv".to_string(),
+            hint,
+        );
     };
 
     if venv_python(&sidecar_dir).is_none() {
-        return SidecarExtraInstallResult {
-            ok: false,
-            extra_id: id,
-            mode: Some("bundled-readonly".to_string()),
-            message: None,
-            error: Some(
-                "No writable ai-sidecar/.venv — packaged Studio cannot pip-install extras. Run the npm hint in a clone, or create the venv first."
-                    .to_string(),
-            ),
-            install_hint: Some(hint),
-        };
+        return fail(
+            id,
+            "bundled-readonly",
+            "No writable ai-sidecar/.venv — packaged Studio cannot pip-install extras. Run the npm hint in a clone, or create the venv first.".to_string(),
+            hint,
+        );
     }
 
     let Some(repo_root) = resolve_repo_root(&sidecar_dir) else {
-        return SidecarExtraInstallResult {
-            ok: false,
-            extra_id: id,
-            mode: Some("error".to_string()),
-            message: None,
-            error: Some("Could not resolve repository root".to_string()),
-            install_hint: Some(hint),
-        };
+        return fail(id, "error", "Could not resolve repository root".to_string(), hint);
     };
 
     let Some(script) = resolve_install_script(&repo_root, stem) else {
-        return SidecarExtraInstallResult {
-            ok: false,
-            extra_id: id.clone(),
-            mode: Some("missing-script".to_string()),
-            message: None,
-            error: Some(format!("Install script missing for {id}")),
-            install_hint: Some(hint),
-        };
+        return fail(
+            id.clone(),
+            "missing-script",
+            format!("Install script missing for {id}"),
+            hint,
+        );
     };
 
     match run_install_script(&script, &repo_root) {
@@ -222,13 +206,27 @@ pub fn install_sidecar_extra(
                 install_hint: Some(hint),
             }
         }
+        Err(err) => fail(id, "install-failed", err, hint),
+    }
+}
+
+#[tauri::command]
+pub async fn install_sidecar_extra(
+    manager: tauri::State<'_, Arc<SidecarManager>>,
+    extra_id: String,
+) -> SidecarExtraInstallResult {
+    let mgr = Arc::clone(manager.inner());
+    match tauri::async_runtime::spawn_blocking(move || install_sidecar_extra_blocking(mgr, extra_id))
+        .await
+    {
+        Ok(result) => result,
         Err(err) => SidecarExtraInstallResult {
             ok: false,
-            extra_id: id,
-            mode: Some("install-failed".to_string()),
+            extra_id: String::new(),
+            mode: Some("error".to_string()),
             message: None,
-            error: Some(err),
-            install_hint: Some(hint),
+            error: Some(format!("Install task failed: {err}")),
+            install_hint: None,
         },
     }
 }

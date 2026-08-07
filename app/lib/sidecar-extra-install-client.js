@@ -3,6 +3,7 @@
  */
 import { isTauriApp } from "./dsp-bridge";
 import { isDesktopAddonHost } from "./canvas-addon-client";
+import { fetchSidecarHealth, resetSidecarHealthCache } from "./sidecar-bridge";
 
 /** @type {Record<string, string>} */
 export const SIDECAR_EXTRA_NPM = {
@@ -15,8 +16,6 @@ export const SIDECAR_EXTRA_NPM = {
   vocal: "npm run sidecar:vocal",
   "vocal-ml": "npm run sidecar:vocal-ml",
   "vocal-rvc": "npm run sidecar:vocal-rvc",
-  vocal_ml: "npm run sidecar:vocal",
-  rvc: "npm run sidecar:vocal-rvc",
 };
 
 /** Normalize health capability ids to install script / npm keys. */
@@ -107,4 +106,22 @@ export function formatSidecarExtraInstallStatus(result) {
     );
   }
   return result.error || result.message || "Could not install sidecar extra";
+}
+
+/** True when pip install actually ran (not clipboard / docs). */
+export function sidecarExtraInstallCompleted(result) {
+  return Boolean(result?.ok && result.mode === "installed");
+}
+
+/**
+ * Bust health cache and re-fetch after an extra install / sidecar restart.
+ * @returns {Promise<import("./sidecar-bridge").SidecarHealth | null>}
+ */
+export async function fetchSidecarHealthAfterExtraInstall() {
+  resetSidecarHealthCache();
+  try {
+    return await fetchSidecarHealth();
+  } catch {
+    return null;
+  }
 }

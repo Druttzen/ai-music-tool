@@ -3,6 +3,7 @@ import {
   formatSidecarExtraInstallStatus,
   isSidecarExtraAllowlisted,
   normalizeSidecarExtraId,
+  sidecarExtraInstallCompleted,
   sidecarExtraNpmHint,
 } from "../app/lib/sidecar-extra-install-client.js";
 import { SCRIPT_STEM } from "../lib/sidecar-extra-install.cjs";
@@ -19,6 +20,7 @@ describe("sidecar extra install client", () => {
     expect(sidecarExtraNpmHint("generate")).toBe("npm run sidecar:generate");
     expect(sidecarExtraNpmHint("genre")).toBe("npm run sidecar:classify");
     expect(isSidecarExtraAllowlisted("cover")).toBe(true);
+    expect(isSidecarExtraAllowlisted("vocal_ml")).toBe(true);
     expect(isSidecarExtraAllowlisted("nope")).toBe(false);
   });
 
@@ -34,6 +36,12 @@ describe("sidecar extra install client", () => {
       }),
     ).toBe("frozen");
     expect(formatSidecarExtraInstallStatus({ ok: false, error: "boom" })).toBe("boom");
+  });
+
+  it("detects completed pip installs vs clipboard copy", () => {
+    expect(sidecarExtraInstallCompleted({ ok: true, mode: "installed" })).toBe(true);
+    expect(sidecarExtraInstallCompleted({ ok: true, mode: "copied-command" })).toBe(false);
+    expect(sidecarExtraInstallCompleted({ ok: false, mode: "installed" })).toBe(false);
   });
 
   it("keeps Electron script stem map aligned with allowlist", () => {

@@ -74,6 +74,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     copyToClipboard,
     openInCanvasTool,
     setStatusWithTime,
+    refreshSidecarCapabilities,
   } = useProjectWorkspaceActions();
 
   const defaultMusicGenPrompt = useMemo(
@@ -118,7 +119,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
         setStatusWithTime(`Installing sidecar extra (${id})…`);
         const result = await installSidecarExtra(id);
         setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
-        const health = await fetchSidecarHealth().catch(() => null);
+        const health = await refreshSidecarCapabilities();
         if (health) setSidecarHealth(health);
       } catch (err) {
         setStatusWithTime(err instanceof Error ? err.message : "Could not install extra", "error");
@@ -126,7 +127,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
         setExtraInstallBusy(null);
       }
     },
-    [setStatusWithTime],
+    [refreshSidecarCapabilities, setStatusWithTime],
   );
 
   const imageStylePreview = useMemo(
@@ -328,9 +329,9 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             ) : (
               <p className="mt-3 text-[10px] text-white/45">
                 Canvas integration: install{" "}
-                <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
-                <span className="font-bold text-white/70">Canvas Integration</span> panel, then drop art here
-                for Spotify loop handoff.
+                  <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
+                  <span className="font-bold text-white/70">Addons</span> panel, then drop art here
+                  for Spotify loop handoff.
               </p>
             )}
             {imageAnalysis ? (

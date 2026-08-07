@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Panel } from "./ui-blocks";
 import { GUIDED_PANEL_IDS } from "../lib/suno-guided-step-focus";
-import { useProjectWorkspaceActions } from "../context/project-workspace-context";
+import {
+  useProjectWorkspaceActions,
+  useProjectWorkspaceAnalyzerState,
+} from "../context/project-workspace-context";
 import { GuidedFocusPanel } from "./guided-focus-panel";
 import {
   CANVAS_ADDON,
@@ -29,11 +32,13 @@ export function CanvasIntegrationPanel() {
 }
 
 export function AddonsPanel() {
-  const { setStatusWithTime } = useProjectWorkspaceActions();
+  const { setStatusWithTime, refreshSidecarCapabilities } = useProjectWorkspaceActions();
+  const { sidecarAiStatus } = useProjectWorkspaceAnalyzerState();
   const desktop = isDesktopAddonHost();
   const [canvasStatus, setCanvasStatus] = useState({ ...CANVAS_ADDON, installed: false });
   const [missingExtras, setMissingExtras] = useState([]);
   const [busyKey, setBusyKey] = useState(/** @type {string|null} */ (null));
+  const [extrasLoaded, setExtrasLoaded] = useState(false);
 
   const refreshCanvas = useCallback(async () => {
     try {
@@ -49,6 +54,8 @@ export function AddonsPanel() {
       setMissingExtras(missingSidecarInstallHints(health));
     } catch {
       setMissingExtras([]);
+    } finally {
+      setExtrasLoaded(true);
     }
   }, []);
 
@@ -105,6 +112,7 @@ export function AddonsPanel() {
         setStatusWithTime(`Installing sidecar extra (${id})…`);
         const result = await installSidecarExtra(id);
         setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        await refreshSidecarCapabilities();
         await refreshExtras();
       } catch (error) {
         setStatusWithTime(error instanceof Error ? error.message : "Could not install extra", "error");
@@ -112,10 +120,16 @@ export function AddonsPanel() {
         setBusyKey(null);
       }
     },
-    [refreshExtras, setStatusWithTime],
+    [refreshExtras, refreshSidecarCapabilities, setStatusWithTime],
   );
 
   const busy = busyKey !== null;
+  const extrasEmptyHint =
+    sidecarAiStatus !== "ready"
+      ? "Start the sidecar to see missing extras."
+      : extrasLoaded
+        ? "All detected sidecar extras are installed."
+        : "Checking sidecar extras…";
 
   return (
     <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.canvasIntegration} column="left">
@@ -164,9 +178,7 @@ export function AddonsPanel() {
         <div className="mt-4 space-y-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Sidecar extras</div>
           {missingExtras.length === 0 ? (
-            <p className="text-[11px] text-white/40">
-              Start the sidecar to see missing extras, or all detected extras are already installed.
-            </p>
+            <p className="text-[11px] text-white/40">{extrasEmptyHint}</p>
           ) : (
             <ul className="space-y-2">
               {missingExtras.map((cap) => {

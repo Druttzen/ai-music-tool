@@ -13,6 +13,7 @@ import { coverInstallHint, coverRefInstallHint } from "../lib/sidecar-capabiliti
 import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
+  sidecarExtraInstallCompleted,
 } from "../lib/sidecar-extra-install-client";
 import { buildCoverPromptFromStyle, resolveCoverPromptSource } from "../lib/cover-prompt";
 import { buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
@@ -25,7 +26,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
   const { sunoFieldSlices } = useProjectWorkspacePromptState();
   const { sidecarAiStatus, audioAnalysis, imageAnalysis, imagePreview } =
     useProjectWorkspaceAnalyzerState();
-  const { setStatusWithTime, captureSnapshot } = useProjectWorkspaceActions();
+  const { setStatusWithTime, captureSnapshot, refreshSidecarCapabilities } = useProjectWorkspaceActions();
 
   const [health, setHealth] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -144,21 +145,24 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
   );
 
   const onGenerateCover = useCallback(async () => {
-    if (!coverReady) {
-      setBusy(true);
-      try {
-        setStatusWithTime("Installing cover extra…");
-        const result = await installSidecarExtra("cover");
-        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
-        const h = await fetchSidecarHealth().catch(() => null);
-        if (h) setHealth(h);
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
     const operation = beginOperation();
     try {
+      let ready = coverReady;
+      if (!ready) {
+        setStatusWithTime("Installing cover extra…");
+        const result = await installSidecarExtra("cover");
+        if (!operationIsCurrent(operation)) return;
+        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        if (!sidecarExtraInstallCompleted(result)) return;
+        const h = await refreshSidecarCapabilities();
+        if (!operationIsCurrent(operation)) return;
+        if (h) setHealth(h);
+        ready = Boolean(h?.cover_available);
+        if (!ready) {
+          setStatusWithTime("Cover extra installed — wait for sidecar, then Generate again", "warning");
+          return;
+        }
+      }
       captureSnapshot?.("before cover generate");
       const out = await generateCoverViaSidecar({ prompt, signal: operation.controller.signal });
       if (!operationIsCurrent(operation)) return;
@@ -170,28 +174,41 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
     } finally {
       finishOperation(operation);
     }
-  }, [beginOperation, captureSnapshot, coverReady, finishOperation, operationIsCurrent, prompt, setCoverBlob, setStatusWithTime]);
+  }, [
+    beginOperation,
+    captureSnapshot,
+    coverReady,
+    finishOperation,
+    operationIsCurrent,
+    prompt,
+    refreshSidecarCapabilities,
+    setCoverBlob,
+    setStatusWithTime,
+  ]);
 
   const onGenerateCoverRef = useCallback(async () => {
     if (!imagePreview) {
       setStatusWithTime("Drop an image in Analyzers first", "warning");
       return;
     }
-    if (!coverRefReady) {
-      setBusy(true);
-      try {
-        setStatusWithTime("Installing cover-ref extra…");
-        const result = await installSidecarExtra("cover-ref");
-        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
-        const h = await fetchSidecarHealth().catch(() => null);
-        if (h) setHealth(h);
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
     const operation = beginOperation();
     try {
+      let ready = coverRefReady;
+      if (!ready) {
+        setStatusWithTime("Installing cover-ref extra…");
+        const result = await installSidecarExtra("cover-ref");
+        if (!operationIsCurrent(operation)) return;
+        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        if (!sidecarExtraInstallCompleted(result)) return;
+        const h = await refreshSidecarCapabilities();
+        if (!operationIsCurrent(operation)) return;
+        if (h) setHealth(h);
+        ready = Boolean(h?.cover_ref_available);
+        if (!ready) {
+          setStatusWithTime("Cover-ref extra installed — wait for sidecar, then Generate again", "warning");
+          return;
+        }
+      }
       captureSnapshot?.("before cover-ref generate");
       const imgRes = await fetch(imagePreview, { signal: operation.controller.signal });
       if (!imgRes.ok) throw new Error("Could not read analyzer image");
@@ -219,6 +236,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
     imagePreview,
     operationIsCurrent,
     prompt,
+    refreshSidecarCapabilities,
     setCoverBlob,
     setStatusWithTime,
     strength,
