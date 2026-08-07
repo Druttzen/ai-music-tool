@@ -214,19 +214,9 @@ fn install_sidecar_extra_blocking(
 pub async fn install_sidecar_extra(
     manager: tauri::State<'_, Arc<SidecarManager>>,
     extra_id: String,
-) -> SidecarExtraInstallResult {
+) -> Result<SidecarExtraInstallResult, String> {
     let mgr = Arc::clone(manager.inner());
-    match tauri::async_runtime::spawn_blocking(move || install_sidecar_extra_blocking(mgr, extra_id))
+    tauri::async_runtime::spawn_blocking(move || install_sidecar_extra_blocking(mgr, extra_id))
         .await
-    {
-        Ok(result) => result,
-        Err(err) => SidecarExtraInstallResult {
-            ok: false,
-            extra_id: String::new(),
-            mode: Some("error".to_string()),
-            message: None,
-            error: Some(format!("Install task failed: {err}")),
-            install_hint: None,
-        },
-    }
+        .map_err(|err| format!("Install task failed: {err}"))
 }
