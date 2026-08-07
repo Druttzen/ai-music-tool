@@ -11,7 +11,7 @@ import {
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
 import { GuidedFocusPanel } from "./guided-focus-panel";
-import { CanvasIntegrationPanel } from "./canvas-integration-panel";
+import { AddonsPanel } from "./addons-panel";
 
 export const PageSidebarLeft = memo(function PageSidebarLeft() {
   const {
@@ -139,7 +139,7 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
         </Panel>
       </GuidedFocusPanel>
 
-      <CanvasIntegrationPanel />
+      <AddonsPanel />
 
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.mode} column="left">
         <Panel title="Mode" hint="Controls stability vs creativity.">

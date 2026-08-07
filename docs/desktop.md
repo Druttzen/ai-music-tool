@@ -39,6 +39,13 @@ The first updater-enabled release must still be installed manually because older
 
 The desktop shell only launches Canvas. Other projects consume the neutral Music Exchange JSON and optional audio sidecar selected by the user.
 
+### Addons install (in-app)
+
+Left sidebar **Addons**:
+
+- **Canvas** — Download / Install and Open work in Tauri Studio (and legacy Electron). The web UI alone cannot install Canvas.
+- **Sidecar extras** (MusicGen, cover, stems, vision, …) — **Install** runs `scripts/install-sidecar-*.ps1|.sh` when a writable `ai-sidecar/.venv` exists (dev / contributor checkout). Packaged Studio uses a frozen sidecar binary and cannot pip-install extras; the UI reports that and shows the `npm run sidecar:*` hint instead.
+
 Electron is **maintenance-only**: no new desktop features on Electron IPC. Prefer Studio for all contributor and release work.
 
 ## Development

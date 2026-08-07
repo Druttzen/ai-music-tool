@@ -147,6 +147,7 @@ export function pickWorkspaceContextExtras(
     generateMusicBusy: analyzers.generateMusicBusy,
     generateMusicFromPrompt: analyzers.generateMusicFromPrompt,
     openInCanvasTool: analyzers.openInCanvasTool,
+    refreshSidecarCapabilities: analyzers.refreshSidecarCapabilities,
     separateStems: analyzers.separateStems,
     downloadStem: analyzers.downloadStem,
     stemSeparationBusy: analyzers.stemSeparationBusy,

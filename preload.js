@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   canvasAddonStatus: () => ipcRenderer.invoke("suite:canvas-addon-status"),
   launchCanvasAddon: () => ipcRenderer.invoke("suite:launch-canvas-addon"),
   installCanvasAddon: () => ipcRenderer.invoke("suite:install-canvas-addon"),
+  installSidecarExtra: (extraId) => ipcRenderer.invoke("suite:install-sidecar-extra", extraId),
 });

@@ -44,6 +44,7 @@ const ACTION_KEYS = [
   "handoffTrackToVoiceCharacterStudio",
   "importProject",
   "openInCanvasTool",
+  "refreshSidecarCapabilities",
   "loadPresetObject",
   "resetAll",
   "restoreHistory",

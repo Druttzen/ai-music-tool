@@ -13,14 +13,22 @@ export const CANVAS_ADDON = {
 export const CANVAS_INSTALL_HINT =
   "No GitHub release yet — build from ai-canvas-tool (npm run dist:setup) or run a local Setup.exe from release/.";
 
-function tauriInvoke(command) {
+export const CANVAS_DESKTOP_REQUIRED =
+  "Open Studio desktop app to download and install Canvas";
+
+function tauriInvoke(command, args) {
   const invoke = window.__TAURI__?.core?.invoke;
   if (!invoke) throw new Error("Tauri runtime not available");
-  return invoke(command);
+  return args === undefined ? invoke(command) : invoke(command, args);
 }
 
 function isElectronApp() {
   return typeof window !== "undefined" && Boolean(window.electronAPI);
+}
+
+/** True when Tauri Studio or Electron can run native Canvas install/launch. */
+export function isDesktopAddonHost() {
+  return isTauriApp() || isElectronApp();
 }
 
 export async function getCanvasAddonStatus() {
@@ -28,7 +36,7 @@ export async function getCanvasAddonStatus() {
   if (isElectronApp() && window.electronAPI?.canvasAddonStatus) {
     return window.electronAPI.canvasAddonStatus();
   }
-  return { ...CANVAS_ADDON, installed: false, path: null };
+  return { ...CANVAS_ADDON, installed: false, path: null, desktop: false };
 }
 
 export async function installCanvasAddon() {
@@ -36,11 +44,11 @@ export async function installCanvasAddon() {
   if (isElectronApp() && window.electronAPI?.installCanvasAddon) {
     return window.electronAPI.installCanvasAddon();
   }
-  if (typeof window !== "undefined") {
-    window.open(CANVAS_ADDON.installUrl, "_blank", "noopener,noreferrer");
-    return { ok: true, mode: "browser", url: CANVAS_ADDON.installUrl };
-  }
-  return { ok: false, error: "Install requires the desktop app or a browser" };
+  return {
+    ok: false,
+    mode: "desktop-required",
+    error: CANVAS_DESKTOP_REQUIRED,
+  };
 }
 
 export async function launchCanvasAddon() {
@@ -48,11 +56,14 @@ export async function launchCanvasAddon() {
   if (isElectronApp() && window.electronAPI?.launchCanvasAddon) {
     return window.electronAPI.launchCanvasAddon();
   }
-  return { ok: false, error: "Opening Canvas requires the desktop app" };
+  return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
 }
 
 export function formatCanvasInstallStatus(result) {
-  if (!result?.ok) return result?.error || result?.message || "Could not install AI Canvas Tool";
+  if (!result?.ok) {
+    if (result?.mode === "desktop-required") return CANVAS_DESKTOP_REQUIRED;
+    return result?.error || result?.message || "Could not install AI Canvas Tool";
+  }
   if (result.message) return result.message;
   if (result.alreadyInstalled || result.mode === "installed") return "AI Canvas Tool is already installed";
   if (result.mode === "local-installer") return "Opened local Canvas installer — finish setup, then Open";

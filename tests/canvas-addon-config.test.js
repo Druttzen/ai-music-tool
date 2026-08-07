@@ -6,7 +6,9 @@ import {
 } from "../lib/suite-handoff-config.cjs";
 import {
   CANVAS_ADDON,
+  CANVAS_DESKTOP_REQUIRED,
   formatCanvasInstallStatus,
+  isDesktopAddonHost,
 } from "../app/lib/canvas-addon-client.js";
 
 describe("Canvas integration", () => {
@@ -43,6 +45,11 @@ describe("Canvas integration", () => {
     expect(formatCanvasInstallStatus({ ok: true, mode: "no-release" })).toMatch(/No GitHub release/i);
     expect(formatCanvasInstallStatus({ ok: true, mode: "docs" })).toMatch(/instructions/i);
     expect(formatCanvasInstallStatus({ ok: false, error: "boom" })).toBe("boom");
+    expect(formatCanvasInstallStatus({ ok: false, mode: "desktop-required" })).toBe(CANVAS_DESKTOP_REQUIRED);
+  });
+
+  it("reports non-desktop host in vitest (no Tauri/Electron)", () => {
+    expect(isDesktopAddonHost()).toBe(false);
   });
 
   it("uses the README install path and retains the releases link", () => {

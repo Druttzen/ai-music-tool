@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { AudioTrackEditor } from "./audio-track-editor";
 import { DropBox, Panel } from "./ui-blocks";
 import { getImageAnalyzerDisclaimer } from "../lib/analyzer-disclaimer";
@@ -16,6 +16,11 @@ import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 import { FailSafeBotPanel } from "./fail-safe-bot-panel";
 import { musicGenInstallHint, missingSidecarInstallHints } from "../lib/sidecar-capabilities";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
+import {
+  formatSidecarExtraInstallStatus,
+  installSidecarExtra,
+  normalizeSidecarExtraId,
+} from "../lib/sidecar-extra-install-client";
 import {
   SUNO_LYRICS_CHAR_TYPICAL_MAX,
   SUNO_LYRICS_CHAR_WARN,
@@ -68,6 +73,8 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     applyImageToSunoStyle,
     copyToClipboard,
     openInCanvasTool,
+    setStatusWithTime,
+    refreshSidecarCapabilities,
   } = useProjectWorkspaceActions();
 
   const defaultMusicGenPrompt = useMemo(
@@ -102,6 +109,26 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
   const musicGenHint = musicGenInstallHint(sidecarHealth);
   const missingCaps = missingSidecarInstallHints(sidecarHealth);
   const llmStyleReady = isCoProducerLlmReady(coProducerLlmSettings);
+  const [extraInstallBusy, setExtraInstallBusy] = useState(/** @type {string|null} */ (null));
+
+  const onInstallMissingExtra = useCallback(
+    async (extraId) => {
+      const id = normalizeSidecarExtraId(extraId);
+      setExtraInstallBusy(id);
+      try {
+        setStatusWithTime(`Installing sidecar extra (${id})…`);
+        const result = await installSidecarExtra(id);
+        setStatusWithTime(formatSidecarExtraInstallStatus(result), result.ok ? "info" : "error");
+        const health = await refreshSidecarCapabilities();
+        if (health) setSidecarHealth(health);
+      } catch (err) {
+        setStatusWithTime(err instanceof Error ? err.message : "Could not install extra", "error");
+      } finally {
+        setExtraInstallBusy(null);
+      }
+    },
+    [refreshSidecarCapabilities, setStatusWithTime],
+  );
 
   const imageStylePreview = useMemo(
     () => (imageAnalysis ? buildSunoV55StyleFromImageAnalysis(imageAnalysis).styleLine : ""),
@@ -160,14 +187,28 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
           </span>
         </div>
         {sidecarAiStatus === "ready" && missingCaps.length ? (
-          <ul className="mb-2 space-y-0.5 rounded-xl border border-white/10 bg-black/25 px-3 py-2 font-mono text-[10px] text-white/50">
-            {missingCaps.map((cap) => (
-              <li key={cap.id}>
-                <span className="text-white/70">{cap.title}</span>
-                {" — "}
-                <code className="text-cyan-100/80">{cap.install_hint}</code>
-              </li>
-            ))}
+          <ul className="mb-2 space-y-1.5 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[10px] text-white/50">
+            {missingCaps.map((cap) => {
+              const id = normalizeSidecarExtraId(cap.id);
+              return (
+                <li key={cap.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-mono">
+                    <span className="text-white/70">{cap.title}</span>
+                    {" — "}
+                    <code className="text-cyan-100/80">{cap.install_hint}</code>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={extraInstallBusy !== null}
+                    onClick={() => void onInstallMissingExtra(id)}
+                    className="rounded-md border border-cyan-400/35 bg-cyan-500/15 px-2 py-0.5 font-sans text-[10px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"
+                  >
+                    {extraInstallBusy === id ? "…" : "Install"}
+                  </button>
+                </li>
+              );
+            })}
+            <li className="font-sans text-white/35">Also under Addons (left sidebar).</li>
           </ul>
         ) : null}
         <FailSafeBotPanel />
@@ -288,9 +329,9 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             ) : (
               <p className="mt-3 text-[10px] text-white/45">
                 Canvas integration: install{" "}
-                <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
-                <span className="font-bold text-white/70">Canvas Integration</span> panel, then drop art here
-                for Spotify loop handoff.
+                  <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
+                  <span className="font-bold text-white/70">Addons</span> panel, then drop art here
+                  for Spotify loop handoff.
               </p>
             )}
             {imageAnalysis ? (
