@@ -860,8 +860,10 @@ export function useAnalyzers({
               hasMeaningfulHighlightRange(audioAnalysis)
                 ? " · highlight"
                 : "";
+            const melodyNote =
+              mode === "melody" || options.useMelodyReference ? " · melody" : "";
             setStatusWithTime(
-              `MusicGen preview merged into Suno fields (${model || "musicgen"} · ${resolvedDuration}s${mode === "melody" ? " · melody" : ""}${highlightNote})`,
+              `MusicGen preview merged into Suno fields (${model || "musicgen"} · ${resolvedDuration}s${melodyNote}${highlightNote})`,
               "success",
             );
           } else {

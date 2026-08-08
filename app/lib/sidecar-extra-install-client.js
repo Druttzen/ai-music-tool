@@ -75,6 +75,25 @@ function isElectronApp() {
 }
 
 /**
+ * Probe whether pip extras can install (writable ai-sidecar/.venv).
+ * @returns {Promise<{ mode: string, writable: boolean, message: string }>}
+ */
+export async function probeSidecarExtraInstallEnv() {
+  if (isTauriApp()) {
+    return tauriInvoke("probe_sidecar_extra_install_env");
+  }
+  if (isElectronApp() && window.electronAPI?.probeSidecarExtraInstallEnv) {
+    return window.electronAPI.probeSidecarExtraInstallEnv();
+  }
+  // Browser / web: Install copies the npm hint; environment is not desktop-writable here.
+  return {
+    mode: "cli-only",
+    writable: false,
+    message: "Browser mode copies the npm install command — use a desktop shell or local checkout for pip extras.",
+  };
+}
+
+/**
  * @param {string} extraId
  * @returns {Promise<{ ok: boolean, extraId?: string, mode?: string, message?: string, error?: string, installHint?: string, restarted?: boolean }>}
  */

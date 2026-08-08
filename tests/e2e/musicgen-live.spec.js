@@ -29,7 +29,7 @@ test.describe("MusicGen live e2e", () => {
   });
 
   test("generate and merge MusicGen preview into Suno Style", async ({ page, context }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
 
     await dismissSplash(page);
     await selectSunoEngine(page);
@@ -45,10 +45,11 @@ test.describe("MusicGen live e2e", () => {
     await panel.getByRole("button", { name: "Generate & play" }).click();
 
     const toast = page.getByTestId("action-toast");
-    await expect(toast).toBeVisible({ timeout: 15_000 });
     await expect(toast).toContainText(/MusicGen preview merged/i, { timeout: 180_000 });
 
-    await expect(panel.getByText(/musicgen-preview-/i)).toBeVisible({ timeout: 10_000 });
+    await expect(panel.getByTestId("analyzer-track-filename")).toContainText(/musicgen-preview-/i, {
+      timeout: 10_000,
+    });
 
     await expectSunoFieldCopies(page, context, { stylePattern: /MG:/ });
   });

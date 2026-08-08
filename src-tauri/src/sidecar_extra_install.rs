@@ -266,6 +266,42 @@ fn install_sidecar_extra_blocking(
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SidecarExtraInstallEnv {
+    pub mode: String,
+    pub writable: bool,
+    pub message: String,
+}
+
+fn probe_install_env() -> SidecarExtraInstallEnv {
+    let Some(sidecar_dir) = resolve_sidecar_dir() else {
+        return SidecarExtraInstallEnv {
+            mode: "bundled-readonly".to_string(),
+            writable: false,
+            message: "ai-sidecar source not found — pip extras need a local checkout with .venv"
+                .to_string(),
+        };
+    };
+    if venv_python(&sidecar_dir).is_none() {
+        return SidecarExtraInstallEnv {
+            mode: "bundled-readonly".to_string(),
+            writable: false,
+            message: "No writable ai-sidecar/.venv — packaged Studio cannot pip-install extras. Run the npm hint in a clone, or create the venv first.".to_string(),
+        };
+    }
+    SidecarExtraInstallEnv {
+        mode: "writable".to_string(),
+        writable: true,
+        message: "Local ai-sidecar/.venv found — Install can run pip extras.".to_string(),
+    }
+}
+
+#[tauri::command]
+pub fn probe_sidecar_extra_install_env() -> SidecarExtraInstallEnv {
+    probe_install_env()
+}
+
 #[tauri::command]
 pub async fn install_sidecar_extra(
     manager: tauri::State<'_, Arc<SidecarManager>>,

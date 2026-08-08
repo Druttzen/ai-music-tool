@@ -12,7 +12,7 @@ use canvas_handoff::{
     export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
 };
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness};
-use sidecar_extra_install::install_sidecar_extra;
+use sidecar_extra_install::{install_sidecar_extra, probe_sidecar_extra_install_env};
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use studio_updater::{check_studio_update, install_studio_update};
 use tauri::{Manager, RunEvent};
@@ -83,6 +83,7 @@ pub fn run() {
             launch_canvas_addon,
             install_canvas_addon,
             install_sidecar_extra,
+            probe_sidecar_extra_install_env,
             check_studio_update,
             install_studio_update,
         ])

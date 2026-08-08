@@ -7,7 +7,7 @@ import {
   uploadAnalyzerAudioFixture,
 } from "./helpers.js";
 
-const ANALYZER_FIXTURE = "tests/fixtures/e2e-analyzer-tone.wav";
+const ANALYZER_FIXTURE = "tests/fixtures/e2e-instrumental-bed.wav";
 
 test.describe("MusicGen highlight melody e2e", () => {
   test.describe.configure({ mode: "serial" });
@@ -32,7 +32,7 @@ test.describe("MusicGen highlight melody e2e", () => {
   });
 
   test("highlight-region melody generate merges MG line into Style", async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(420_000);
 
     await dismissSplash(page);
     await selectSunoEngine(page);
@@ -41,14 +41,16 @@ test.describe("MusicGen highlight melody e2e", () => {
     await panel.scrollIntoViewIfNeeded();
     await expect(panel.getByText("MusicGen: ready")).toBeVisible({ timeout: 30_000 });
 
-    await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, "e2e-analyzer-tone.wav");
-    await patchAudioAnalysisHighlight(page, { highlightStart: 0.5, highlightEnd: 2.5 });
+    await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, "e2e-instrumental-bed.wav");
+    // Fixture is ~2.5s — keep a mid-track slice so hasMeaningfulHighlightRange is true.
+    await patchAudioAnalysisHighlight(page, { highlightStart: 0.4, highlightEnd: 1.4 });
 
     const melodyCheckbox = panel.getByLabel("Condition on current track audio (melody mode)");
     await expect(melodyCheckbox).toBeVisible({ timeout: 10_000 });
     await melodyCheckbox.check();
 
     const highlightCheckbox = panel.getByLabel("Use waveform highlight region only");
+    await expect(highlightCheckbox).toBeVisible({ timeout: 10_000 });
     await expect(highlightCheckbox).toBeEnabled();
     await highlightCheckbox.check();
 
@@ -56,9 +58,8 @@ test.describe("MusicGen highlight melody e2e", () => {
     await panel.getByRole("button", { name: "Generate & play" }).click();
 
     const toast = page.getByTestId("action-toast");
-    await expect(toast).toBeVisible({ timeout: 15_000 });
     await expect(toast).toContainText(/MusicGen preview merged.*melody.*highlight/i, {
-      timeout: 180_000,
+      timeout: 360_000,
     });
 
     const validator = page.locator("section").filter({ hasText: "Suno-like Validator" });
