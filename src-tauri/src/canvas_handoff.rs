@@ -310,18 +310,27 @@ fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, Strin
     #[cfg(target_os = "windows")]
     let prefer = mapped
         .iter()
-        .find(|(n, _)| n.to_ascii_lowercase().contains("setup") && n.ends_with(".exe"))
-        .or_else(|| mapped.iter().find(|(n, _)| n.ends_with(".exe")));
+        .find(|(n, _)| {
+            let lower = n.to_ascii_lowercase();
+            lower.contains("setup") && lower.ends_with(".exe")
+        })
+        .or_else(|| {
+            mapped
+                .iter()
+                .find(|(n, _)| n.to_ascii_lowercase().ends_with(".exe"))
+        });
 
     #[cfg(target_os = "macos")]
-    let prefer = mapped
-        .iter()
-        .find(|(n, _)| n.ends_with(".dmg") || n.ends_with(".pkg"));
+    let prefer = mapped.iter().find(|(n, _)| {
+        let lower = n.to_ascii_lowercase();
+        lower.ends_with(".dmg") || lower.ends_with(".pkg")
+    });
 
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let prefer = mapped
-        .iter()
-        .find(|(n, _)| n.ends_with(".AppImage") || n.ends_with(".deb"));
+    let prefer = mapped.iter().find(|(n, _)| {
+        let lower = n.to_ascii_lowercase();
+        lower.ends_with(".appimage") || lower.ends_with(".deb")
+    });
 
     prefer.cloned().or_else(|| mapped.first().cloned())
 }
