@@ -262,6 +262,13 @@ fn canvas_install_fallback_url(addon: &CanvasAddonConfig) -> String {
         .unwrap_or_else(|| "https://github.com/Druttzen/ai-canvas-tool".to_string())
 }
 
+fn canvas_releases_fallback_url(addon: &CanvasAddonConfig) -> String {
+    non_empty(&addon.releases_url)
+        .or_else(|| non_empty(&addon.install_url))
+        .or_else(|| non_empty(&addon.repo_url))
+        .unwrap_or_else(|| "https://github.com/Druttzen/ai-canvas-tool/releases".to_string())
+}
+
 #[tauri::command]
 pub fn launch_canvas_addon() -> CanvasAddonActionResult {
     let handoff_path = suite_dir().join(&config().handoff_file);
@@ -323,6 +330,7 @@ fn download_url_to_file(url: &str, dest: &Path) -> Result<(), String> {
     let client = reqwest::blocking::Client::builder()
         .user_agent("ai-music-tool-suite-addon")
         .redirect(reqwest::redirect::Policy::limited(10))
+        .timeout(std::time::Duration::from_secs(180))
         .build()
         .map_err(|e| e.to_string())?;
     let mut response = client.get(url).send().map_err(|e| e.to_string())?;
@@ -338,8 +346,24 @@ fn download_url_to_file(url: &str, dest: &Path) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn install_canvas_addon() -> CanvasAddonActionResult {
+fn open_fallback_page(url: String, mode: &str) -> CanvasAddonActionResult {
+    let opened = open::that(&url).is_ok();
+    CanvasAddonActionResult {
+        ok: opened,
+        launched: false,
+        already_installed: false,
+        mode: Some(mode.to_string()),
+        path: None,
+        url: Some(url),
+        error: if opened {
+            None
+        } else {
+            Some("Could not open Canvas install page".to_string())
+        },
+    }
+}
+
+fn install_canvas_addon_blocking() -> CanvasAddonActionResult {
     if let Some(exe) = resolve_canvas_executable() {
         return CanvasAddonActionResult {
             ok: true,
@@ -369,88 +393,144 @@ pub fn install_canvas_addon() -> CanvasAddonActionResult {
         };
     }
 
-    if let Some(addon) = canvas_addon_config() {
-        let mut release_http_status: Option<u16> = None;
-        if !addon.github_owner.is_empty() && !addon.github_repo.is_empty() {
-            let api = format!(
-                "https://api.github.com/repos/{}/{}/releases/latest",
-                addon.github_owner, addon.github_repo
-            );
-            if let Ok(client) = reqwest::blocking::Client::builder()
-                .user_agent("ai-music-tool-suite-addon")
-                .build()
-            {
-                if let Ok(resp) = client
-                    .get(&api)
-                    .header("Accept", "application/vnd.github+json")
-                    .send()
-                {
-                    release_http_status = Some(resp.status().as_u16());
-                    if resp.status().is_success() {
-                        if let Ok(body) = resp.json::<serde_json::Value>() {
-                            if let Some(assets) = body.get("assets").and_then(|a| a.as_array()) {
-                                if let Some((name, url)) = pick_release_asset_url(assets) {
-                                    let dest = downloads_dir().join(name);
-                                    if download_url_to_file(&url, &dest).is_ok() {
-                                        let opened = open::that(&dest).is_ok();
-                                        return CanvasAddonActionResult {
-                                            ok: opened,
-                                            launched: false,
-                                            already_installed: false,
-                                            mode: Some("downloaded".to_string()),
-                                            path: Some(dest.to_string_lossy().into_owned()),
-                                            url: None,
-                                            error: if opened {
-                                                None
-                                            } else {
-                                                Some(
-                                                    "Downloaded installer but could not open it"
-                                                        .to_string(),
-                                                )
-                                            },
-                                        };
-                                    }
-                                }
-                                release_http_status = Some(200);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        let url = canvas_install_fallback_url(addon);
-        let mode = if release_http_status == Some(404) {
-            "no-release"
-        } else if release_http_status == Some(200) {
-            "no-release-assets"
-        } else {
-            "docs"
-        };
-        let opened = open::that(&url).is_ok();
+    let Some(addon) = canvas_addon_config() else {
         return CanvasAddonActionResult {
-            ok: opened,
+            ok: false,
             launched: false,
             already_installed: false,
-            mode: Some(mode.to_string()),
+            mode: None,
             path: None,
-            url: Some(url),
-            error: if opened {
-                None
-            } else {
-                Some("Could not open Canvas install instructions".to_string())
-            },
+            url: None,
+            error: Some("No Canvas install source configured".to_string()),
+        };
+    };
+
+    if addon.github_owner.is_empty() || addon.github_repo.is_empty() {
+        return open_fallback_page(canvas_install_fallback_url(addon), "docs");
+    }
+
+    let api = format!(
+        "https://api.github.com/repos/{}/{}/releases/latest",
+        addon.github_owner, addon.github_repo
+    );
+    let client = match reqwest::blocking::Client::builder()
+        .user_agent("ai-music-tool-suite-addon")
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+    {
+        Ok(c) => c,
+        Err(err) => {
+            return CanvasAddonActionResult {
+                ok: false,
+                launched: false,
+                already_installed: false,
+                mode: Some("download-failed".to_string()),
+                path: None,
+                url: Some(canvas_releases_fallback_url(addon)),
+                error: Some(format!("Could not create HTTP client: {err}")),
+            };
+        }
+    };
+
+    let resp = match client
+        .get(&api)
+        .header("Accept", "application/vnd.github+json")
+        .send()
+    {
+        Ok(r) => r,
+        Err(err) => {
+            return CanvasAddonActionResult {
+                ok: false,
+                launched: false,
+                already_installed: false,
+                mode: Some("download-failed".to_string()),
+                path: None,
+                url: Some(canvas_releases_fallback_url(addon)),
+                error: Some(format!("Could not reach GitHub releases: {err}")),
+            };
+        }
+    };
+
+    let status = resp.status().as_u16();
+    if status == 404 {
+        return open_fallback_page(canvas_releases_fallback_url(addon), "no-release");
+    }
+    if !resp.status().is_success() {
+        return CanvasAddonActionResult {
+            ok: false,
+            launched: false,
+            already_installed: false,
+            mode: Some("download-failed".to_string()),
+            path: None,
+            url: Some(canvas_releases_fallback_url(addon)),
+            error: Some(format!("GitHub releases API failed ({status})")),
         };
     }
 
+    let body = match resp.json::<serde_json::Value>() {
+        Ok(v) => v,
+        Err(err) => {
+            return CanvasAddonActionResult {
+                ok: false,
+                launched: false,
+                already_installed: false,
+                mode: Some("download-failed".to_string()),
+                path: None,
+                url: Some(canvas_releases_fallback_url(addon)),
+                error: Some(format!("Invalid GitHub release JSON: {err}")),
+            };
+        }
+    };
+
+    let Some(assets) = body.get("assets").and_then(|a| a.as_array()) else {
+        return open_fallback_page(canvas_releases_fallback_url(addon), "no-release-assets");
+    };
+    let Some((name, url)) = pick_release_asset_url(assets) else {
+        return open_fallback_page(canvas_releases_fallback_url(addon), "no-release-assets");
+    };
+
+    let dest = downloads_dir().join(&name);
+    if let Err(err) = download_url_to_file(&url, &dest) {
+        return CanvasAddonActionResult {
+            ok: false,
+            launched: false,
+            already_installed: false,
+            mode: Some("download-failed".to_string()),
+            path: None,
+            url: Some(url),
+            error: Some(err),
+        };
+    }
+
+    let opened = open::that(&dest).is_ok();
     CanvasAddonActionResult {
-        ok: false,
+        ok: opened,
         launched: false,
         already_installed: false,
-        mode: None,
-        path: None,
+        mode: Some("downloaded".to_string()),
+        path: Some(dest.to_string_lossy().into_owned()),
         url: None,
-        error: Some("No Canvas install source configured".to_string()),
+        error: if opened {
+            None
+        } else {
+            Some("Downloaded installer but could not open it".to_string())
+        },
+    }
+}
+
+#[tauri::command]
+pub async fn install_canvas_addon() -> CanvasAddonActionResult {
+    match tauri::async_runtime::spawn_blocking(install_canvas_addon_blocking).await {
+        Ok(result) => result,
+        Err(err) => CanvasAddonActionResult {
+            ok: false,
+            launched: false,
+            already_installed: false,
+            mode: Some("download-failed".to_string()),
+            path: None,
+            url: None,
+            error: Some(format!("Canvas install task failed: {err}")),
+        },
     }
 }
 

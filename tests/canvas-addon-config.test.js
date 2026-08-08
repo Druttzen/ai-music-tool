@@ -7,6 +7,7 @@ import {
 import {
   CANVAS_ADDON,
   CANVAS_DESKTOP_REQUIRED,
+  CANVAS_INSTALL_HINT,
   formatCanvasInstallStatus,
   isDesktopAddonHost,
 } from "../app/lib/canvas-addon-client.js";
@@ -42,10 +43,25 @@ describe("Canvas integration", () => {
       /already installed/i,
     );
     expect(formatCanvasInstallStatus({ ok: true, mode: "downloaded" })).toMatch(/Downloaded/i);
-    expect(formatCanvasInstallStatus({ ok: true, mode: "no-release" })).toMatch(/No GitHub release/i);
+    expect(formatCanvasInstallStatus({ ok: true, mode: "no-release" })).toMatch(/releases page/i);
     expect(formatCanvasInstallStatus({ ok: true, mode: "docs" })).toMatch(/instructions/i);
+    expect(formatCanvasInstallStatus({ ok: false, mode: "download-failed", error: "network down" })).toBe(
+      "network down",
+    );
     expect(formatCanvasInstallStatus({ ok: false, error: "boom" })).toBe("boom");
     expect(formatCanvasInstallStatus({ ok: false, mode: "desktop-required" })).toBe(CANVAS_DESKTOP_REQUIRED);
+  });
+
+  it("lists dotted GitHub Setup names among Windows installer candidates", () => {
+    const meta = canvasAddonMeta();
+    expect(meta.releasesUrl).toContain("/releases");
+    const windows = require("../lib/suite-handoff-paths.json").canvas.installerCandidates.windows;
+    expect(windows.some((p) => p.includes("AI.Canvas.Tool-1.1.1-Setup.exe"))).toBe(true);
+  });
+
+  it("describes GitHub release download in the install hint", () => {
+    expect(CANVAS_INSTALL_HINT).toMatch(/GitHub Releases/i);
+    expect(CANVAS_INSTALL_HINT).not.toMatch(/No GitHub release yet/i);
   });
 
   it("reports non-desktop host in vitest (no Tauri/Electron)", () => {

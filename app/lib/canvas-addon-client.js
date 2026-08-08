@@ -11,7 +11,7 @@ export const CANVAS_ADDON = {
 };
 
 export const CANVAS_INSTALL_HINT =
-  "No GitHub release yet — build from ai-canvas-tool (npm run dist:setup) or run a local Setup.exe from release/.";
+  "Downloads the latest Setup.exe from GitHub Releases (or opens a local installer if present).";
 
 export const CANVAS_DESKTOP_REQUIRED =
   "Open Studio desktop app to download and install Canvas";
@@ -62,14 +62,17 @@ export async function launchCanvasAddon() {
 export function formatCanvasInstallStatus(result) {
   if (!result?.ok) {
     if (result?.mode === "desktop-required") return CANVAS_DESKTOP_REQUIRED;
+    if (result?.mode === "download-failed") {
+      return result.error || result.message || "Could not download Canvas installer from GitHub";
+    }
     return result?.error || result?.message || "Could not install AI Canvas Tool";
   }
   if (result.message) return result.message;
   if (result.alreadyInstalled || result.mode === "installed") return "AI Canvas Tool is already installed";
   if (result.mode === "local-installer") return "Opened local Canvas installer — finish setup, then Open";
   if (result.mode === "downloaded") return "Downloaded Canvas installer — finish setup, then Open";
-  if (result.mode === "no-release") return "No GitHub release yet — opened Canvas build instructions";
-  if (result.mode === "no-release-assets") return "Release has no installer yet — opened Canvas instructions";
+  if (result.mode === "no-release") return "No GitHub release yet — opened Canvas releases page";
+  if (result.mode === "no-release-assets") return "Release has no installer assets — opened Canvas releases page";
   if (result.mode === "docs" || result.mode === "browser") return "Opened Canvas install instructions";
   return "Canvas install started";
 }
