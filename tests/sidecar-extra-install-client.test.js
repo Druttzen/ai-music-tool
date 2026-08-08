@@ -1,5 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { fetchSidecarHealth, resetSidecarHealthCache } = vi.hoisted(() => ({
+  fetchSidecarHealth: vi.fn(),
+  resetSidecarHealthCache: vi.fn(),
+}));
+
+vi.mock("../app/lib/sidecar-bridge.js", () => ({
+  fetchSidecarHealth,
+  resetSidecarHealthCache,
+}));
+
 import {
+  SIDECAR_EXTRA_NPM,
+  fetchSidecarHealthAfterExtraInstall,
   formatSidecarExtraInstallStatus,
   isSidecarExtraAllowlisted,
   normalizeSidecarExtraId,
@@ -7,10 +20,16 @@ import {
   sidecarExtraInstallCompleted,
   sidecarExtraInstallStatusTone,
   sidecarExtraNpmHint,
+  waitForSidecarExtraReady,
 } from "../app/lib/sidecar-extra-install-client.js";
 import { SCRIPT_STEM } from "../lib/sidecar-extra-install.cjs";
 
 describe("sidecar extra install client", () => {
+  beforeEach(() => {
+    fetchSidecarHealth.mockReset();
+    resetSidecarHealthCache.mockReset();
+  });
+
   it("normalizes legacy capability ids", () => {
     expect(normalizeSidecarExtraId("vocal_ml")).toBe("vocal");
     expect(normalizeSidecarExtraId("rvc")).toBe("vocal-rvc");
@@ -18,11 +37,13 @@ describe("sidecar extra install client", () => {
     expect(normalizeSidecarExtraId("cover-ref")).toBe("cover-ref");
   });
 
-  it("maps npm hints and allowlist", () => {
+  it("maps npm hints and allowlist used by the UI", () => {
     expect(sidecarExtraNpmHint("generate")).toBe("npm run sidecar:generate");
     expect(sidecarExtraNpmHint("genre")).toBe("npm run sidecar:classify");
+    expect(sidecarExtraNpmHint("vocal_ml")).toBe("npm run sidecar:vocal");
     expect(isSidecarExtraAllowlisted("cover")).toBe(true);
     expect(isSidecarExtraAllowlisted("vocal_ml")).toBe(true);
+    expect(isSidecarExtraAllowlisted("vocal-ml")).toBe(false);
     expect(isSidecarExtraAllowlisted("nope")).toBe(false);
   });
 
@@ -31,6 +52,7 @@ describe("sidecar extra install client", () => {
     expect(sidecarExtraHealthFlag("genre")).toBe("genre_available");
     expect(sidecarExtraHealthFlag("cover-ref")).toBe("cover_ref_available");
     expect(sidecarExtraHealthFlag("vocal_ml")).toBe("vocal_ml_available");
+    expect(sidecarExtraHealthFlag("vocal-ml")).toBe(null);
   });
 
   it("formats install results", () => {
@@ -67,8 +89,43 @@ describe("sidecar extra install client", () => {
   });
 
   it("keeps Electron script stem map aligned with allowlist", () => {
+    expect(Object.keys(SCRIPT_STEM).sort()).toEqual(Object.keys(SIDECAR_EXTRA_NPM).sort());
     expect(SCRIPT_STEM.generate).toBe("install-sidecar-generate");
     expect(SCRIPT_STEM.cover).toBe("install-sidecar-cover");
     expect(SCRIPT_STEM["cover-ref"]).toBe("install-sidecar-cover-ref");
+    expect(SCRIPT_STEM).not.toHaveProperty("vocal-ml");
+  });
+
+  it("busts health cache before re-fetch after install", async () => {
+    fetchSidecarHealth.mockResolvedValueOnce({ generate_available: true });
+    const health = await fetchSidecarHealthAfterExtraInstall();
+    expect(resetSidecarHealthCache).toHaveBeenCalledTimes(1);
+    expect(fetchSidecarHealth).toHaveBeenCalledTimes(1);
+    expect(health).toEqual({ generate_available: true });
+  });
+
+  it("returns null when post-install health fetch throws", async () => {
+    fetchSidecarHealth.mockRejectedValueOnce(new Error("offline"));
+    await expect(fetchSidecarHealthAfterExtraInstall()).resolves.toBeNull();
+    expect(resetSidecarHealthCache).toHaveBeenCalledTimes(1);
+  });
+
+  it("polls until the extra health flag becomes ready", async () => {
+    fetchSidecarHealth
+      .mockResolvedValueOnce({ generate_available: false })
+      .mockResolvedValueOnce({ generate_available: false })
+      .mockResolvedValueOnce({ generate_available: true });
+
+    const health = await waitForSidecarExtraReady("generate", { timeoutMs: 5_000, intervalMs: 1 });
+    expect(health).toEqual({ generate_available: true });
+    expect(fetchSidecarHealth.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(resetSidecarHealthCache.mock.calls.length).toBe(fetchSidecarHealth.mock.calls.length);
+  });
+
+  it("stops polling when flag never becomes ready", async () => {
+    fetchSidecarHealth.mockResolvedValue({ generate_available: false });
+    const health = await waitForSidecarExtraReady("generate", { timeoutMs: 30, intervalMs: 5 });
+    expect(health).toEqual({ generate_available: false });
+    expect(fetchSidecarHealth.mock.calls.length).toBeGreaterThan(1);
   });
 });

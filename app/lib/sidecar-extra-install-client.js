@@ -14,7 +14,6 @@ export const SIDECAR_EXTRA_NPM = {
   cover: "npm run sidecar:cover",
   "cover-ref": "npm run sidecar:cover-ref",
   vocal: "npm run sidecar:vocal",
-  "vocal-ml": "npm run sidecar:vocal-ml",
   "vocal-rvc": "npm run sidecar:vocal-rvc",
 };
 
@@ -57,7 +56,6 @@ export function sidecarExtraHealthFlag(id) {
     case "cover-ref":
       return "cover_ref_available";
     case "vocal":
-    case "vocal-ml":
       return "vocal_ml_available";
     case "vocal-rvc":
       return "vocal_rvc_available";
