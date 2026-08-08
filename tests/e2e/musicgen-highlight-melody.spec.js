@@ -13,6 +13,10 @@ test.describe("MusicGen highlight melody e2e", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeAll(async () => {
+    test.skip(
+      !!process.env.CI && process.env.AIMC_MUSICGEN_MELODY_E2E !== "1",
+      "Melody MusicGen OOMs on default CI runners — set AIMC_MUSICGEN_MELODY_E2E=1 to force",
+    );
     const ctx = await request.newContext();
     let generateAvailable = false;
     try {

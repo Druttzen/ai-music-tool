@@ -96,6 +96,7 @@ curl -X POST http://127.0.0.1:8723/generate \
 
 Override model: `AIMC_MUSICGEN_MODEL=facebook/musicgen-medium` (default: `facebook/musicgen-small`).
 Melody conditioning needs a melody checkpoint — set `AIMC_MUSICGEN_MODEL=facebook/musicgen-melody-small`, or leave the default and let `/generate/melody` auto-switch to `AIMC_MUSICGEN_MELODY_MODEL` (default `facebook/musicgen-melody-small`).
+Live melody Playwright specs skip on CI by default (CPU OOM); set `AIMC_MUSICGEN_MELODY_E2E=1` to force.
 
 Melody conditioning (continue from a reference clip):
 
