@@ -36,7 +36,6 @@ fn script_stem(extra_id: &str) -> Option<&'static str> {
         "cover" => Some("install-sidecar-cover"),
         "cover-ref" => Some("install-sidecar-cover-ref"),
         "vocal" => Some("install-sidecar-vocal"),
-        "vocal-ml" => Some("install-sidecar-vocal-ml"),
         "vocal-rvc" => Some("install-sidecar-vocal-rvc"),
         _ => None,
     }
