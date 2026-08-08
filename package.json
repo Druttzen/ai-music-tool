@@ -49,6 +49,7 @@
     "sidecar:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-sidecar.ps1",
     "sidecar:mcp": "py -3.10 ai-sidecar/ai_sidecar/mcp_stdio.py",
     "build:sidecar": "node scripts/build-sidecar-bundle.cjs",
+    "build:sidecar-resources": "node scripts/build-sidecar-resources.cjs",
     "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-sidecar-binary.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -Tauri",
     "tauri:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-sidecar-binary.ps1 && cd src-tauri && cargo tauri build",
     "check": "npm run test && npm run lint && npm run build",

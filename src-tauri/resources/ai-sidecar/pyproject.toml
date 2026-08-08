@@ -1,0 +1,83 @@
+[project]
+name = "ai-music-sidecar"
+version = "0.50.12"
+description = "Local AI inference sidecar for AI Music Creator (analysis, stem separation, generation)."
+requires-python = ">=3.10,<3.13"  # PyTorch / audiocraft / demucs have no 3.13+ wheels yet
+
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    "librosa>=0.10",
+    "httpx>=0.27",
+]
+
+# Heavy model stacks are optional extras so the service (and /health, /analyze)
+# can run before the multi-GB model deps are installed.
+[project.optional-dependencies]
+stems = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0"]
+classify = ["torch>=2.2", "transformers>=4.40"]
+vision = ["torch>=2.2", "transformers>=4.40", "pillow>=10.0"]
+cover = ["torch>=2.2", "diffusers>=0.30", "transformers>=4.40", "accelerate", "safetensors", "pillow>=10.0", "sentencepiece", "protobuf"]
+# Independent of `cover` so text-only installs stay lighter if img2img APIs differ; deps overlap intentionally.
+cover-ref = ["torch>=2.2", "diffusers>=0.30", "transformers>=4.40", "accelerate", "safetensors", "pillow>=10.0", "sentencepiece", "protobuf"]
+vocal = ["scipy>=1.11"]
+vocal-ml = ["torch>=2.2", "torchaudio>=2.2", "scipy>=1.11", "requests>=2.31"]
+vocal-rvc = ["rvc-python>=0.1.5"]
+# MusicGen companion deps (CC-BY-NC weights). Do NOT list audiocraft here — it pins
+# torch==2.1.0 and breaks shared torch>=2.2. Installers add `audiocraft>=1.3 --no-deps`.
+generate = [
+    "torch>=2.2",
+    "torchaudio>=2.2",
+    "einops",
+    "flashy>=0.0.1",
+    "hydra-core>=1.1",
+    "hydra-colorlog",
+    "num2words",
+    "sentencepiece",
+    "spacy>=3.6.1",
+    "julius",
+    "av>=10.0",
+    "transformers>=4.40",
+    "huggingface_hub",
+    "encodec",
+    "protobuf",
+    "torchmetrics",
+    "xformers",
+]
+all = [
+    "torch>=2.2",
+    "torchaudio>=2.2",
+    "demucs>=4.0",
+    "transformers>=4.40",
+    "pillow>=10.0",
+    "diffusers>=0.30",
+    "accelerate",
+    "safetensors",
+    "sentencepiece",
+    "protobuf",
+    "einops",
+    "flashy>=0.0.1",
+    "hydra-core>=1.1",
+    "hydra-colorlog",
+    "num2words",
+    "spacy>=3.6.1",
+    "julius",
+    "av>=10.0",
+    "huggingface_hub",
+    "encodec",
+    "torchmetrics",
+    "xformers",
+    "scipy>=1.11",
+    "requests>=2.31",
+    "rvc-python>=0.1.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ai_sidecar"]

@@ -93,6 +93,13 @@ describe("sidecar extra install client", () => {
     });
   });
 
+  it("detects pip-capable install env modes", async () => {
+    const { sidecarExtraInstallEnvAllowsPip } = await import("../app/lib/sidecar-extra-install-client.js");
+    expect(sidecarExtraInstallEnvAllowsPip({ mode: "writable", writable: true })).toBe(true);
+    expect(sidecarExtraInstallEnvAllowsPip({ mode: "user-data-bootstrap", writable: true })).toBe(true);
+    expect(sidecarExtraInstallEnvAllowsPip({ mode: "bundled-readonly", writable: false })).toBe(false);
+  });
+
   it("detects completed pip installs vs clipboard copy", () => {
     expect(sidecarExtraInstallCompleted({ ok: true, mode: "installed" })).toBe(true);
     expect(sidecarExtraInstallCompleted({ ok: false, mode: "copied-command" })).toBe(false);

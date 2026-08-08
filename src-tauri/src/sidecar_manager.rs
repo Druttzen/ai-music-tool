@@ -382,8 +382,54 @@ fn spawn_dev_sidecar(token: &str) -> Result<SidecarChild, String> {
     Ok(SidecarChild::Process(child))
 }
 
-/// Prefer dev venv in debug builds; packaged binary in release.
+fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, String> {
+    use crate::sidecar_userdata::{
+        user_cache_dir, user_pkg_dir, user_sidecar_root, user_sidecar_root_fallback, user_venv_python,
+    };
+
+    let root = user_sidecar_root(app).or_else(|e| {
+        user_sidecar_root_fallback().ok_or_else(|| format!("user sidecar root: {e}"))
+    })?;
+    let python = user_venv_python(&root).ok_or_else(|| "user-data venv python missing".to_string())?;
+    let pkg = user_pkg_dir(&root);
+    if !pkg.join("ai_sidecar/main.py").is_file() {
+        return Err("user-data sidecar pkg incomplete".to_string());
+    }
+    let cache = user_cache_dir(&root);
+
+    let mut cmd = Command::new(&python);
+    cmd.args([
+        "-m",
+        "uvicorn",
+        "ai_sidecar.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        &SIDECAR_PORT.to_string(),
+    ])
+    .env("SIDECAR_IDLE_EXIT_SEC", SIDECAR_IDLE_EXIT_SEC)
+    .env("AIMC_SIDECAR_TOKEN", token)
+    .env("HF_HOME", cache.join("huggingface"))
+    .env("TORCH_HOME", cache.join("torch"))
+    .current_dir(&pkg)
+    .stdin(Stdio::null())
+    .stdout(Stdio::null())
+    .stderr(Stdio::null());
+
+    let child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to spawn user-data sidecar ({python:?}): {e}"))?;
+    Ok(SidecarChild::Process(child))
+}
+
+/// Prefer user-data venv when present; then debug checkout; then packaged binary.
 fn spawn_sidecar_process(app: Option<&AppHandle>, token: &str) -> Result<(SidecarChild, bool), String> {
+    if let Some(handle) = app {
+        if let Ok(child) = spawn_user_data_sidecar(handle, token) {
+            return Ok((child, false));
+        }
+    }
+
     #[cfg(debug_assertions)]
     {
         if let Ok(child) = spawn_dev_sidecar(token) {

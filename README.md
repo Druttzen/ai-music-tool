@@ -12,7 +12,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 
 ## Highlights (v0.50.9)
 
-- **Addons + Canvas install** — left **Addons** panel installs Canvas from GitHub Releases and optional sidecar extras in-app (writable `.venv`).
+- **Addons + Canvas install** — left **Addons** panel installs Canvas from GitHub Releases and optional sidecar extras in-app (checkout `.venv` or packaged Studio user-data venv).
 
 ## Highlights (v0.50.5)
 

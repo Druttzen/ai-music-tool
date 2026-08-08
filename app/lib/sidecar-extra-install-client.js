@@ -150,7 +150,13 @@ export function formatSidecarExtraInstallStatus(result) {
   if (result.mode === "bundled-readonly") {
     return (
       result.error ||
-      "Packaged Studio sidecar cannot install pip extras — use a local ai-sidecar/.venv (dev) or run the npm hint"
+      "Cannot install pip extras here — need Python 3.10–3.12 (packaged) or a local ai-sidecar/.venv, or run the npm hint"
+    );
+  }
+  if (result.mode === "user-data-bootstrap") {
+    return (
+      result.message ||
+      "Ready to create a user-data sidecar venv — Install will bootstrap Python packages first"
     );
   }
   if (result.mode === "install-timeout") {
@@ -171,6 +177,13 @@ export function sidecarExtraInstallStatusTone(result) {
 /** True when pip install actually ran (not clipboard / docs). */
 export function sidecarExtraInstallCompleted(result) {
   return Boolean(result?.ok && result.mode === "installed");
+}
+
+/** True when Install should run pip (checkout or user-data), not clipboard. */
+export function sidecarExtraInstallEnvAllowsPip(env) {
+  if (!env) return false;
+  if (env.writable === true) return true;
+  return env.mode === "writable" || env.mode === "user-data-bootstrap";
 }
 
 /**
