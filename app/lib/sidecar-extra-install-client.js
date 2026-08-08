@@ -134,6 +134,9 @@ export function formatSidecarExtraInstallStatus(result) {
       "Packaged Studio sidecar cannot install pip extras — use a local ai-sidecar/.venv (dev) or run the npm hint"
     );
   }
+  if (result.mode === "install-timeout") {
+    return result.error || "Sidecar extra install timed out — run the npm hint in a terminal";
+  }
   return result.error || result.message || "Could not install sidecar extra";
 }
 

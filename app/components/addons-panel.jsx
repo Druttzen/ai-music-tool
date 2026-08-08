@@ -166,7 +166,7 @@ export function AddonsPanel() {
               onClick={() => void onInstallCanvas()}
               className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
             >
-              {canvasStatus?.installed ? "Re-check / Update Canvas" : "Download / Install Canvas"}
+              {canvasStatus?.installed ? "Re-check Canvas" : "Download / Install Canvas"}
             </button>
             <button
               type="button"

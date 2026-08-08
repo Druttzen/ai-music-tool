@@ -1,7 +1,7 @@
 //! Install opt-in sidecar pip extras via existing npm/scripts installers when a writable venv exists.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -86,29 +86,72 @@ fn resolve_install_script(repo_root: &Path, stem: &str) -> Option<PathBuf> {
     }
 }
 
+const INSTALL_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+
+fn kill_process(pid: u32) {
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+}
+
+fn run_command_with_timeout(mut cmd: Command, timeout: Duration) -> Result<std::process::Output, String> {
+    let child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to run install script: {e}"))?;
+    let pid = child.id();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(child.wait_with_output());
+    });
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(output)) => Ok(output),
+        Ok(Err(e)) => Err(format!("Failed to run install script: {e}")),
+        Err(_) => {
+            kill_process(pid);
+            Err(format!(
+                "Install timed out after {} minutes",
+                timeout.as_secs() / 60
+            ))
+        }
+    }
+}
+
 fn run_install_script(script: &Path, repo_root: &Path) -> Result<String, String> {
+    let script_str = script.to_str().ok_or("Invalid script path")?;
     let output = if script
         .extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case("ps1"))
     {
-        Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                script.to_str().ok_or("Invalid script path")?,
-            ])
-            .current_dir(repo_root)
-            .output()
-            .map_err(|e| format!("Failed to run install script: {e}"))?
+        let mut cmd = Command::new("powershell");
+        cmd.args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            script_str,
+        ])
+        .current_dir(repo_root);
+        run_command_with_timeout(cmd, INSTALL_TIMEOUT)?
     } else {
-        Command::new("bash")
-            .arg(script.to_str().ok_or("Invalid script path")?)
-            .current_dir(repo_root)
-            .output()
-            .map_err(|e| format!("Failed to run install script: {e}"))?
+        let mut cmd = Command::new("bash");
+        cmd.arg(script_str).current_dir(repo_root);
+        run_command_with_timeout(cmd, INSTALL_TIMEOUT)?
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -205,7 +248,14 @@ fn install_sidecar_extra_blocking(
                 install_hint: Some(hint),
             }
         }
-        Err(err) => fail(id, "install-failed", err, hint),
+        Err(err) => {
+            let mode = if err.to_ascii_lowercase().contains("timed out") {
+                "install-timeout"
+            } else {
+                "install-failed"
+            };
+            fail(id, mode, err, hint)
+        }
     }
 }
 
