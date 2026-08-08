@@ -83,6 +83,16 @@ describe("sidecar extra install client", () => {
     expect(formatSidecarExtraInstallStatus({ ok: false, error: "boom" })).toBe("boom");
   });
 
+  it("exports probe helper for desktop preflight", async () => {
+    const { probeSidecarExtraInstallEnv } = await import("../app/lib/sidecar-extra-install-client.js");
+    const env = await probeSidecarExtraInstallEnv();
+    expect(env).toMatchObject({
+      mode: expect.any(String),
+      writable: expect.any(Boolean),
+      message: expect.any(String),
+    });
+  });
+
   it("detects completed pip installs vs clipboard copy", () => {
     expect(sidecarExtraInstallCompleted({ ok: true, mode: "installed" })).toBe(true);
     expect(sidecarExtraInstallCompleted({ ok: false, mode: "copied-command" })).toBe(false);

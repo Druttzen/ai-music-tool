@@ -53,6 +53,53 @@ export function missingSidecarInstallHints(health) {
 }
 
 /**
+ * Short device line for Addons / status UI.
+ * @param {{ device?: string, device_info?: { device?: string, backend?: string, name?: string, total_vram_gb?: number }|null }|null|undefined} health
+ */
+export function formatSidecarDeviceSummary(health) {
+  if (!health) return "";
+  const info = health.device_info;
+  if (info && typeof info === "object") {
+    const device = info.device || health.device || "cpu";
+    const backend = info.backend || device;
+    const name = info.name ? String(info.name).trim() : "";
+    const vram =
+      typeof info.total_vram_gb === "number" && info.total_vram_gb > 0
+        ? ` · ${info.total_vram_gb.toFixed(1)} GB VRAM`
+        : "";
+    if (name) return `${device} (${backend}) · ${name}${vram}`;
+    return `${device} (${backend})${vram}`;
+  }
+  return health.device ? String(health.device) : "";
+}
+
+/**
+ * Count available registry capabilities (or legacy flags when registry absent).
+ * @param {{ capabilities?: CapabilityLike[]|null, generate_available?: boolean, stems_available?: boolean, vision_available?: boolean, cover_available?: boolean, cover_ref_available?: boolean, genre_available?: boolean, vocal_ml_available?: boolean, vocal_rvc_available?: boolean }|null|undefined} health
+ */
+export function countAvailableSidecarCapabilities(health) {
+  if (!health) return { available: 0, total: 0 };
+  if (Array.isArray(health.capabilities) && health.capabilities.length) {
+    const total = health.capabilities.length;
+    const available = health.capabilities.filter((c) => c.available).length;
+    return { available, total };
+  }
+  const flags = [
+    "stems_available",
+    "generate_available",
+    "genre_available",
+    "vision_available",
+    "cover_available",
+    "cover_ref_available",
+    "vocal_ml_available",
+    "vocal_rvc_available",
+  ];
+  const known = flags.filter((f) => typeof health[f] === "boolean");
+  const available = known.filter((f) => health[f] === true).length;
+  return { available, total: known.length };
+}
+
+/**
  * @param {{ capabilities?: CapabilityLike[]|null, generate_available?: boolean }|null|undefined} health
  */
 export function musicGenInstallHint(health) {

@@ -32,8 +32,8 @@ export async function sliceAudioBlobToHighlightRange(blob, startSec, endSec, fil
 export function hasMeaningfulHighlightRange(analysis) {
   const duration = Number(analysis?.duration) || 0;
   if (duration < 1) return false;
-  const start = Number(analysis?.highlightStart) || 0;
-  const end = Number(analysis?.highlightEnd) || duration;
+  const start = Math.max(0, Math.min(Number(analysis?.highlightStart) || 0, duration));
+  const end = Math.max(start, Math.min(Number(analysis?.highlightEnd) || duration, duration));
   const span = Math.max(0, end - start);
   return span > 0.5 && span < duration * 0.92;
 }

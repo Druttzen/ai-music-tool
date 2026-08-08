@@ -117,12 +117,23 @@ function setupSuiteCanvasBridge() {
     }
   });
 
-  const { installSidecarExtra } = require("./lib/sidecar-extra-install.cjs");
+  const { installSidecarExtra, probeSidecarExtraInstallEnv } = require("./lib/sidecar-extra-install.cjs");
   ipcMain.handle("suite:install-sidecar-extra", async (_event, extraId) => {
     try {
       return installSidecarExtra(extraId);
     } catch (err) {
       return { ok: false, extraId, error: err?.message || "Failed to install sidecar extra" };
+    }
+  });
+  ipcMain.handle("suite:probe-sidecar-extra-install-env", async () => {
+    try {
+      return probeSidecarExtraInstallEnv();
+    } catch (err) {
+      return {
+        mode: "bundled-readonly",
+        writable: false,
+        message: err?.message || "Could not probe sidecar install environment",
+      };
     }
   });
 

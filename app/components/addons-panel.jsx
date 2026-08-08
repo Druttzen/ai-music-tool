@@ -18,11 +18,16 @@ import {
   launchCanvasAddon,
 } from "../lib/canvas-addon-client";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
-import { missingSidecarInstallHints } from "../lib/sidecar-capabilities";
+import {
+  countAvailableSidecarCapabilities,
+  formatSidecarDeviceSummary,
+  missingSidecarInstallHints,
+} from "../lib/sidecar-capabilities";
 import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
   normalizeSidecarExtraId,
+  probeSidecarExtraInstallEnv,
   sidecarExtraInstallStatusTone,
   sidecarExtraNpmHint,
 } from "../lib/sidecar-extra-install-client";
@@ -38,6 +43,11 @@ export function AddonsPanel() {
   const desktop = isDesktopAddonHost();
   const [canvasStatus, setCanvasStatus] = useState({ ...CANVAS_ADDON, installed: false });
   const [missingExtras, setMissingExtras] = useState([]);
+  const [deviceSummary, setDeviceSummary] = useState("");
+  const [capabilityCounts, setCapabilityCounts] = useState({ available: 0, total: 0 });
+  const [installEnv, setInstallEnv] = useState(
+    /** @type {{ mode: string, writable: boolean, message: string }|null} */ (null),
+  );
   const [busyKey, setBusyKey] = useState(/** @type {string|null} */ (null));
   const [extrasLoaded, setExtrasLoaded] = useState(false);
 
@@ -53,10 +63,26 @@ export function AddonsPanel() {
     try {
       const health = await fetchSidecarHealth();
       setMissingExtras(missingSidecarInstallHints(health));
+      setDeviceSummary(formatSidecarDeviceSummary(health));
+      setCapabilityCounts(countAvailableSidecarCapabilities(health));
     } catch {
       setMissingExtras([]);
+      setDeviceSummary("");
+      setCapabilityCounts({ available: 0, total: 0 });
     } finally {
       setExtrasLoaded(true);
+    }
+  }, []);
+
+  const refreshInstallEnv = useCallback(async () => {
+    try {
+      setInstallEnv(await probeSidecarExtraInstallEnv());
+    } catch {
+      setInstallEnv({
+        mode: "bundled-readonly",
+        writable: false,
+        message: "Could not probe sidecar install environment",
+      });
     }
   }, []);
 
@@ -64,9 +90,10 @@ export function AddonsPanel() {
     const timer = setTimeout(() => {
       void refreshCanvas();
       void refreshExtras();
+      void refreshInstallEnv();
     }, 0);
     return () => clearTimeout(timer);
-  }, [refreshCanvas, refreshExtras]);
+  }, [refreshCanvas, refreshExtras, refreshInstallEnv]);
 
   const onInstallCanvas = useCallback(async () => {
     if (!desktop) {
@@ -108,6 +135,33 @@ export function AddonsPanel() {
   const onInstallExtra = useCallback(
     async (extraId) => {
       const id = normalizeSidecarExtraId(extraId);
+      const hint = sidecarExtraNpmHint(id);
+      if (installEnv?.mode === "bundled-readonly") {
+        setBusyKey(`extra:${id}`);
+        try {
+          if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(hint);
+            setStatusWithTime(
+              `${installEnv.message || "Packaged Studio cannot pip-install extras"} — copied “${hint}”`,
+              "warning",
+            );
+          } else {
+            setStatusWithTime(
+              installEnv.message ||
+                `Packaged Studio cannot pip-install extras — run ${hint} in a local checkout`,
+              "warning",
+            );
+          }
+        } catch {
+          setStatusWithTime(
+            installEnv.message || `Run in a local checkout: ${hint}`,
+            "warning",
+          );
+        } finally {
+          setBusyKey(null);
+        }
+        return;
+      }
       setBusyKey(`extra:${id}`);
       try {
         setStatusWithTime(`Installing sidecar extra (${id})…`);
@@ -118,13 +172,14 @@ export function AddonsPanel() {
         );
         await refreshSidecarCapabilities({ waitForExtraId: id });
         await refreshExtras();
+        await refreshInstallEnv();
       } catch (error) {
         setStatusWithTime(error instanceof Error ? error.message : "Could not install extra", "error");
       } finally {
         setBusyKey(null);
       }
     },
-    [refreshExtras, refreshSidecarCapabilities, setStatusWithTime],
+    [installEnv, refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
   );
 
   const busy = busyKey !== null;
@@ -134,6 +189,13 @@ export function AddonsPanel() {
       : extrasLoaded
         ? "All detected sidecar extras are installed."
         : "Checking sidecar extras…";
+  const bundledReadonly = installEnv?.mode === "bundled-readonly";
+  const installButtonLabel = (rowBusy) => {
+    if (rowBusy) return "Installing…";
+    if (bundledReadonly) return "Copy hint";
+    if (!desktop) return "Copy hint";
+    return "Install";
+  };
 
   return (
     <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.canvasIntegration} column="left">
@@ -144,6 +206,30 @@ export function AddonsPanel() {
         {!desktop ? (
           <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
             {CANVAS_DESKTOP_REQUIRED}. Sidecar Install buttons copy the npm command in the browser.
+          </p>
+        ) : null}
+
+        {deviceSummary || capabilityCounts.total > 0 ? (
+          <p
+            data-testid="addons-sidecar-capabilities"
+            className="mb-3 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[11px] text-white/65"
+          >
+            {deviceSummary ? <span className="block text-white/80">Device: {deviceSummary}</span> : null}
+            {capabilityCounts.total > 0 ? (
+              <span className="mt-0.5 block">
+                Capabilities: {capabilityCounts.available}/{capabilityCounts.total} available
+              </span>
+            ) : null}
+          </p>
+        ) : null}
+
+        {bundledReadonly ? (
+          <p
+            data-testid="addons-bundled-readonly"
+            className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90"
+          >
+            {installEnv?.message ||
+              "Packaged Studio cannot pip-install extras — use a local ai-sidecar/.venv or the npm hint."}
           </p>
         ) : null}
 
@@ -205,7 +291,7 @@ export function AddonsPanel() {
                         onClick={() => void onInstallExtra(id)}
                         className="shrink-0 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"
                       >
-                        {rowBusy ? "Installing…" : "Install"}
+                        {installButtonLabel(rowBusy)}
                       </button>
                     </div>
                   </li>

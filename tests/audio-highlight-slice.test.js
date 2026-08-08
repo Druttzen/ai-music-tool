@@ -13,4 +13,10 @@ describe("hasMeaningfulHighlightRange", () => {
       hasMeaningfulHighlightRange({ duration: 60, highlightStart: 0, highlightEnd: 59 }),
     ).toBe(false);
   });
+
+  it("clamps end beyond duration before scoring", () => {
+    expect(
+      hasMeaningfulHighlightRange({ duration: 2.5, highlightStart: 0.4, highlightEnd: 9 }),
+    ).toBe(true);
+  });
 });

@@ -194,7 +194,12 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
 
       <div className="rounded-2xl border border-orange-400/25 bg-orange-500/10 px-3 py-2">
         <div className="text-[10px] font-bold uppercase tracking-wider text-orange-200/90">Track</div>
-        <div className="mt-1 truncate text-sm font-semibold text-white">{analysis.fileName}</div>
+        <div
+          data-testid="analyzer-track-filename"
+          className="mt-1 truncate text-sm font-semibold text-white"
+        >
+          {analysis.fileName}
+        </div>
         <div className="mt-0.5 text-[11px] text-white/50">
           {formatTime(0)} – {formatTime(analysis.duration)} · {sourceLabel}
         </div>
