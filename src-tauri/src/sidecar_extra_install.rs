@@ -99,8 +99,9 @@ fn kill_process(pid: u32) {
     }
     #[cfg(not(windows))]
     {
+        // Negative PID kills the process group started via process_group(0).
         let _ = Command::new("kill")
-            .args(["-9", &pid.to_string()])
+            .args(["-9", &format!("-{pid}")])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
@@ -108,6 +109,12 @@ fn kill_process(pid: u32) {
 }
 
 fn run_command_with_timeout(mut cmd: Command, timeout: Duration) -> Result<std::process::Output, String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // Own process group so timeout can kill bash + pip descendants together.
+        cmd.process_group(0);
+    }
     let child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
