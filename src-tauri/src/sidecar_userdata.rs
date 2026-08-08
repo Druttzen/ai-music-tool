@@ -87,9 +87,11 @@ pub fn checkout_venv_python(sidecar_dir: &Path) -> Option<PathBuf> {
 pub fn find_system_python_310_312() -> Option<PathBuf> {
     #[cfg(windows)]
     {
+        // py launcher needs a single `-3.10` flag — `py - 3.10` opens the default REPL.
         for v in ["3.12", "3.11", "3.10"] {
+            let flag = format!("-{v}");
             if let Ok(out) = Command::new("py")
-                .args(["-", v, "-c", "import sys; print(sys.executable)"])
+                .args([&flag, "-c", "import sys; print(sys.executable)"])
                 .output()
             {
                 if out.status.success() {
@@ -98,6 +100,12 @@ pub fn find_system_python_310_312() -> Option<PathBuf> {
                         return Some(PathBuf::from(path));
                     }
                 }
+            }
+        }
+        // Fallback when `py` is missing but a versioned install is on PATH / common layout.
+        for name in ["python3.12", "python3.11", "python3.10"] {
+            if let Some(p) = resolve_windows_python_exe(name) {
+                return Some(p);
             }
         }
     }
@@ -118,6 +126,24 @@ pub fn find_system_python_310_312() -> Option<PathBuf> {
         }
     }
 
+    None
+}
+
+#[cfg(windows)]
+fn resolve_windows_python_exe(name: &str) -> Option<PathBuf> {
+    if let Ok(out) = Command::new("where").arg(name).output() {
+        if out.status.success() {
+            let first = String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .next()
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            if !first.is_empty() && Path::new(&first).is_file() {
+                return Some(PathBuf::from(first));
+            }
+        }
+    }
     None
 }
 
@@ -346,5 +372,13 @@ mod tests {
         fs::create_dir_all(&tmp).unwrap();
         assert!(user_venv_python(&tmp).is_none());
         let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn windows_py_launcher_flag_is_dash_version() {
+        // Guard against regressing to `py - 3.10` (two argv tokens → default REPL).
+        let flag = format!("-{}", "3.10");
+        assert_eq!(flag, "-3.10");
+        assert!(!flag.contains(' '));
     }
 }

@@ -23,6 +23,7 @@ Local FastAPI service for track analysis (librosa) and optional ML capabilities 
 - Optional **`generate`** extra: torch + audiocraft (MusicGen; CC-BY-NC weights)
   - Installer keeps shared `torch>=2.2` and installs `audiocraft` with `--no-deps` (upstream pins `torch==2.1.0`).
 - Optional **`vocal` / `vocal-ml` / `vocal-rvc`** extras: scipy → torch vocal stack → RVC
+- **Packaged Studio:** Addons **Install** can bootstrap a user-data venv (app local data) from bundled package sources when system Python 3.10–3.12 is available; the Studio then spawns that venv instead of the frozen binary.
 - **ffmpeg** on PATH for MP3/M4A uploads (WAV works without it). Windows: `winget install Gyan.FFmpeg`
 - **yt-dlp** on PATH for YouTube audio sonic analysis (`POST /youtube/sonic-signature`). Windows: `winget install yt-dlp.yt-dlp` or `pip install yt-dlp` in the sidecar venv
 
