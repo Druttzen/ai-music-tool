@@ -183,16 +183,18 @@ export function compactAudioStyleRule(a) {
   ].filter(Boolean);
 
   const core = parts.join(" │ ");
-  let rule = truncateAnalyzerRuleLine(`AUDIO: ${core}`);
   const mgPrompt = normalizeSpace(a.musicGenPrompt || "");
-  if (a.sourceEngine === "musicgen" && mgPrompt) {
-    const modeTag =
-      a.musicGenMode === "melody"
-        ? a.musicGenHighlightMelody
-          ? "·HL"
-          : "·mel"
-        : "";
-    rule = truncateAnalyzerRuleLine(`${rule} │ MG:${mgPrompt.slice(0, 110)}${modeTag}`);
+  const mgSuffix =
+    a.sourceEngine === "musicgen" && mgPrompt
+      ? ` │ MG:${mgPrompt.slice(0, 80)}${
+          a.musicGenMode === "melody" ? (a.musicGenHighlightMelody ? "·HL" : "·mel") : ""
+        }`
+      : "";
+  // Reserve room so MG: is not truncated away by a long AUDIO core (rule max is tight).
+  const audioBudget = Math.max(48, GUIDED_ANALYZER_RULE_MAX - mgSuffix.length);
+  let rule = truncateAnalyzerRuleLine(`AUDIO: ${core}`, audioBudget);
+  if (mgSuffix) {
+    rule = truncateAnalyzerRuleLine(`${rule}${mgSuffix}`);
   }
   return rule;
 }
