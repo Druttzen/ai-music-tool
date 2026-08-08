@@ -3,6 +3,7 @@
 mod canvas_handoff;
 mod sidecar_extra_install;
 mod sidecar_manager;
+mod sidecar_userdata;
 mod studio_updater;
 
 use std::sync::Arc;

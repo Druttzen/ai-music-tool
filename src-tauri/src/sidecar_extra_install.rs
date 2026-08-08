@@ -1,4 +1,4 @@
-//! Install opt-in sidecar pip extras via existing npm/scripts installers when a writable venv exists.
+//! Install opt-in sidecar pip extras via checkout scripts or packaged user-data venv.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -6,7 +6,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Serialize;
+use tauri::AppHandle;
+
 use crate::sidecar_manager::{resolve_sidecar_dir, SidecarManager};
+use crate::sidecar_userdata::{
+    checkout_venv_python, find_system_python_310_312, install_extra_into_user_venv,
+    resolve_package_source, user_sidecar_root, user_venv_python,
+};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,18 +51,6 @@ fn resolve_repo_root(sidecar_dir: &Path) -> Option<PathBuf> {
     sidecar_dir.parent().map(|p| p.to_path_buf())
 }
 
-fn venv_python(sidecar_dir: &Path) -> Option<PathBuf> {
-    #[cfg(windows)]
-    let py = sidecar_dir.join(".venv/Scripts/python.exe");
-    #[cfg(not(windows))]
-    let py = sidecar_dir.join(".venv/bin/python");
-    if py.is_file() {
-        Some(py)
-    } else {
-        None
-    }
-}
-
 fn resolve_install_script(repo_root: &Path, stem: &str) -> Option<PathBuf> {
     #[cfg(windows)]
     {
@@ -72,7 +66,6 @@ fn resolve_install_script(repo_root: &Path, stem: &str) -> Option<PathBuf> {
             return Some(sh);
         }
     }
-    // Cross-fallback for contributor machines
     let ps1 = repo_root.join("scripts").join(format!("{stem}.ps1"));
     let sh = repo_root.join("scripts").join(format!("{stem}.sh"));
     if cfg!(windows) && ps1.is_file() {
@@ -99,7 +92,6 @@ fn kill_process(pid: u32) {
     }
     #[cfg(not(windows))]
     {
-        // Negative PID kills the process group started via process_group(0).
         let _ = Command::new("kill")
             .args(["-9", &format!("-{pid}")])
             .stdout(Stdio::null())
@@ -112,7 +104,6 @@ fn run_command_with_timeout(mut cmd: Command, timeout: Duration) -> Result<std::
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
-        // Own process group so timeout can kill bash + pip descendants together.
         cmd.process_group(0);
     }
     let child = cmd
@@ -200,7 +191,43 @@ fn fail(id: String, mode: &str, error: String, hint: String) -> SidecarExtraInst
     }
 }
 
+fn install_via_checkout_scripts(
+    manager: &Arc<SidecarManager>,
+    id: &str,
+    stem: &str,
+    hint: &str,
+) -> Option<SidecarExtraInstallResult> {
+    let sidecar_dir = resolve_sidecar_dir()?;
+    let _venv = checkout_venv_python(&sidecar_dir)?;
+    let repo_root = resolve_repo_root(&sidecar_dir)?;
+    let script = resolve_install_script(&repo_root, stem)?;
+
+    Some(match run_install_script(&script, &repo_root) {
+        Ok(tail) => {
+            manager.restart();
+            let _ = manager.wait_until_ready(Duration::from_secs(45));
+            SidecarExtraInstallResult {
+                ok: true,
+                extra_id: id.to_string(),
+                mode: Some("installed".to_string()),
+                message: Some(format!("Installed — sidecar restarting. {tail}")),
+                error: None,
+                install_hint: Some(hint.to_string()),
+            }
+        }
+        Err(err) => {
+            let mode = if err.to_ascii_lowercase().contains("timed out") {
+                "install-timeout"
+            } else {
+                "install-failed"
+            };
+            fail(id.to_string(), mode, err, hint.to_string())
+        }
+    })
+}
+
 fn install_sidecar_extra_blocking(
+    app: AppHandle,
     manager: Arc<SidecarManager>,
     extra_id: String,
 ) -> SidecarExtraInstallResult {
@@ -211,46 +238,32 @@ fn install_sidecar_extra_blocking(
         return fail(id, "unknown", "Unknown sidecar extra id".to_string(), hint);
     };
 
-    let Some(sidecar_dir) = resolve_sidecar_dir() else {
-        return fail(
-            id,
-            "bundled-readonly",
-            "ai-sidecar source not found — pip extras need a local checkout with .venv".to_string(),
-            hint,
-        );
-    };
-
-    if venv_python(&sidecar_dir).is_none() {
-        return fail(
-            id,
-            "bundled-readonly",
-            "No writable ai-sidecar/.venv — packaged Studio cannot pip-install extras. Run the npm hint in a clone, or create the venv first.".to_string(),
-            hint,
-        );
+    // Prefer contributor checkout when a writable .venv already exists.
+    if let Some(result) = install_via_checkout_scripts(&manager, &id, stem, &hint) {
+        return result;
     }
 
-    let Some(repo_root) = resolve_repo_root(&sidecar_dir) else {
-        return fail(id, "error", "Could not resolve repository root".to_string(), hint);
-    };
-
-    let Some(script) = resolve_install_script(&repo_root, stem) else {
-        return fail(
-            id.clone(),
-            "missing-script",
-            format!("Install script missing for {id}"),
-            hint,
-        );
-    };
-
-    match run_install_script(&script, &repo_root) {
+    // Packaged / no checkout venv: bootstrap user-data venv + pip.
+    match install_extra_into_user_venv(&app, &id) {
         Ok(tail) => {
             manager.restart();
             let _ = manager.wait_until_ready(Duration::from_secs(45));
+            let tail_trim = tail
+                .lines()
+                .rev()
+                .take(8)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n");
             SidecarExtraInstallResult {
                 ok: true,
                 extra_id: id,
                 mode: Some("installed".to_string()),
-                message: Some(format!("Installed — sidecar restarting. {tail}")),
+                message: Some(format!(
+                    "Installed into user-data sidecar venv — restarting. {tail_trim}"
+                )),
                 error: None,
                 install_hint: Some(hint),
             }
@@ -258,6 +271,10 @@ fn install_sidecar_extra_blocking(
         Err(err) => {
             let mode = if err.to_ascii_lowercase().contains("timed out") {
                 "install-timeout"
+            } else if err.to_ascii_lowercase().contains("need python")
+                || err.to_ascii_lowercase().contains("package source not found")
+            {
+                "bundled-readonly"
             } else {
                 "install-failed"
             };
@@ -274,41 +291,80 @@ pub struct SidecarExtraInstallEnv {
     pub message: String,
 }
 
-fn probe_install_env() -> SidecarExtraInstallEnv {
-    let Some(sidecar_dir) = resolve_sidecar_dir() else {
+fn probe_install_env(app: &AppHandle) -> SidecarExtraInstallEnv {
+    if let Some(sidecar_dir) = resolve_sidecar_dir() {
+        if checkout_venv_python(&sidecar_dir).is_some() {
+            return SidecarExtraInstallEnv {
+                mode: "writable".to_string(),
+                writable: true,
+                message: "Local ai-sidecar/.venv found — Install can run pip extras.".to_string(),
+            };
+        }
+    }
+
+    if let Ok(root) = user_sidecar_root(app) {
+        if user_venv_python(&root).is_some() {
+            return SidecarExtraInstallEnv {
+                mode: "writable".to_string(),
+                writable: true,
+                message: "User-data sidecar venv found — Install can run pip extras.".to_string(),
+            };
+        }
+    }
+
+    let has_pkg = resolve_package_source(Some(app)).is_some();
+    let has_py = find_system_python_310_312().is_some();
+    if has_pkg && has_py {
         return SidecarExtraInstallEnv {
-            mode: "bundled-readonly".to_string(),
-            writable: false,
-            message: "ai-sidecar source not found — pip extras need a local checkout with .venv"
+            mode: "user-data-bootstrap".to_string(),
+            writable: true,
+            message: "First Install will create a writable sidecar venv under app data (needs Python 3.10–3.12; may take several minutes)."
                 .to_string(),
         };
-    };
-    if venv_python(&sidecar_dir).is_none() {
+    }
+
+    if !has_py {
         return SidecarExtraInstallEnv {
             mode: "bundled-readonly".to_string(),
             writable: false,
-            message: "No writable ai-sidecar/.venv — packaged Studio cannot pip-install extras. Run the npm hint in a clone, or create the venv first.".to_string(),
+            message: "Need Python 3.10–3.12 on PATH to install sidecar extras in packaged Studio (or use a local checkout with ai-sidecar/.venv)."
+                .to_string(),
         };
     }
+
     SidecarExtraInstallEnv {
-        mode: "writable".to_string(),
-        writable: true,
-        message: "Local ai-sidecar/.venv found — Install can run pip extras.".to_string(),
+        mode: "bundled-readonly".to_string(),
+        writable: false,
+        message: "ai-sidecar package source not found — pip extras need bundle resources or a local checkout."
+            .to_string(),
     }
 }
 
 #[tauri::command]
-pub fn probe_sidecar_extra_install_env() -> SidecarExtraInstallEnv {
-    probe_install_env()
+pub fn probe_sidecar_extra_install_env(app: AppHandle) -> SidecarExtraInstallEnv {
+    probe_install_env(&app)
 }
 
 #[tauri::command]
 pub async fn install_sidecar_extra(
+    app: AppHandle,
     manager: tauri::State<'_, Arc<SidecarManager>>,
     extra_id: String,
 ) -> Result<SidecarExtraInstallResult, String> {
     let mgr = Arc::clone(manager.inner());
-    tauri::async_runtime::spawn_blocking(move || install_sidecar_extra_blocking(mgr, extra_id))
+    tauri::async_runtime::spawn_blocking(move || install_sidecar_extra_blocking(app, mgr, extra_id))
         .await
         .map_err(|err| format!("Install task failed: {err}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn script_stem_covers_allowlist() {
+        assert_eq!(script_stem("generate"), Some("install-sidecar-generate"));
+        assert_eq!(script_stem("cover-ref"), Some("install-sidecar-cover-ref"));
+        assert!(script_stem("nope").is_none());
+    }
 }

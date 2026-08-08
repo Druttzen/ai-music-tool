@@ -190,18 +190,24 @@ export function AddonsPanel() {
         ? "All detected sidecar extras are installed."
         : "Checking sidecar extras…";
   const bundledReadonly = installEnv?.mode === "bundled-readonly";
+  const userDataBootstrap = installEnv?.mode === "user-data-bootstrap";
+  const canPipInstall =
+    installEnv?.writable === true ||
+    installEnv?.mode === "writable" ||
+    installEnv?.mode === "user-data-bootstrap";
   const installButtonLabel = (rowBusy) => {
     if (rowBusy) return "Installing…";
-    if (bundledReadonly) return "Copy hint";
+    if (bundledReadonly || !canPipInstall) return "Copy hint";
+    if (!desktop && !canPipInstall) return "Copy hint";
     if (!desktop) return "Copy hint";
-    return "Install";
+    return userDataBootstrap ? "Install (first-time setup)" : "Install";
   };
 
   return (
     <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.canvasIntegration} column="left">
       <Panel
         title="Addons"
-        hint="Canvas suite tool and optional sidecar ML extras (install needs a local ai-sidecar/.venv)."
+        hint="Canvas suite tool and optional sidecar ML extras (checkout .venv or packaged user-data venv)."
       >
         {!desktop ? (
           <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
@@ -229,7 +235,17 @@ export function AddonsPanel() {
             className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90"
           >
             {installEnv?.message ||
-              "Packaged Studio cannot pip-install extras — use a local ai-sidecar/.venv or the npm hint."}
+              "Packaged Studio cannot pip-install extras — install Python 3.10–3.12 or use a local ai-sidecar/.venv / npm hint."}
+          </p>
+        ) : null}
+
+        {userDataBootstrap ? (
+          <p
+            data-testid="addons-user-data-bootstrap"
+            className="mb-3 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-[11px] text-cyan-50/90"
+          >
+            {installEnv?.message ||
+              "First Install creates a writable sidecar venv under app data (Python 3.10–3.12 required)."}
           </p>
         ) : null}
 
