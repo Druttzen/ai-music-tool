@@ -2,6 +2,9 @@
 
 Model weights are CC-BY-NC — opt-in only via `npm run sidecar:generate`.
 Configure with AIMC_MUSICGEN_MODEL (default: facebook/musicgen-small).
+Melody conditioning requires a melody-capable checkpoint; when a non-melody
+model is configured, /generate/melody auto-switches to
+AIMC_MUSICGEN_MELODY_MODEL (default: facebook/musicgen-melody-small).
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ import os
 from typing import Any
 
 DEFAULT_MODEL_ID = "facebook/musicgen-small"
+DEFAULT_MELODY_MODEL_ID = "facebook/musicgen-melody-small"
 _TARGET_SR = 32_000
 
 _MODEL: Any = None
@@ -19,6 +23,24 @@ _ACTIVE_MODEL_ID: str | None = None
 
 def active_musicgen_model_id() -> str:
     return os.environ.get("AIMC_MUSICGEN_MODEL", "").strip() or DEFAULT_MODEL_ID
+
+
+def active_musicgen_melody_model_id() -> str:
+    return (
+        os.environ.get("AIMC_MUSICGEN_MELODY_MODEL", "").strip()
+        or DEFAULT_MELODY_MODEL_ID
+    )
+
+
+def model_supports_melody(model_id: str) -> bool:
+    return "melody" in str(model_id or "").lower()
+
+
+def resolve_musicgen_model_id(*, wants_melody: bool) -> str:
+    configured = active_musicgen_model_id()
+    if wants_melody and not model_supports_melody(configured):
+        return active_musicgen_melody_model_id()
+    return configured
 
 
 def generation_available() -> bool:
@@ -48,19 +70,19 @@ def _select_torch_device(device_name: str) -> str:
     return "cpu"
 
 
-def _get_model(device_name: str):
+def _get_model(device_name: str, model_id: str | None = None):
     global _MODEL, _ACTIVE_MODEL_ID
-    model_id = active_musicgen_model_id()
-    if _MODEL is not None and _ACTIVE_MODEL_ID == model_id:
-        return _MODEL, model_id
+    resolved = model_id or active_musicgen_model_id()
+    if _MODEL is not None and _ACTIVE_MODEL_ID == resolved:
+        return _MODEL, resolved
 
     from audiocraft.models import MusicGen  # noqa: PLC0415
 
     torch_device = _select_torch_device(device_name)
-    model = MusicGen.get_pretrained(model_id, device=torch_device)
+    model = MusicGen.get_pretrained(resolved, device=torch_device)
     _MODEL = model
-    _ACTIVE_MODEL_ID = model_id
-    return model, model_id
+    _ACTIVE_MODEL_ID = resolved
+    return model, resolved
 
 
 def generate_music_wav(
@@ -79,7 +101,9 @@ def generate_music_wav(
         raise ValueError("prompt is required")
 
     duration = max(1.0, min(float(duration_sec or 10.0), 30.0))
-    model, model_id = _get_model(device)
+    wants_melody = bool(melody_wav)
+    model_id = resolve_musicgen_model_id(wants_melody=wants_melody)
+    model, model_id = _get_model(device, model_id)
     model.set_generation_params(duration=duration)
 
     import torch  # noqa: PLC0415

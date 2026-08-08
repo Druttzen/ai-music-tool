@@ -31,6 +31,36 @@ describe("compactAudioStyleRule musicgen", () => {
     expect(rule).toMatch(/MG:.*·HL/);
   });
 
+  it("keeps MG: when AUDIO core would otherwise fill the rule budget", () => {
+    const rule = compactAudioStyleRule({
+      estimatedBpm: "129 BPM",
+      energy: 100,
+      aggression: 95,
+      brightness: 99,
+      darkness: 21,
+      complexity: 100,
+      estimatedKey: "F# major",
+      chordProgression: ["C", "G", "Am", "F"],
+      suggestedGenres: ["Pop", "Indie Pop"],
+      suggestedRhythms: ["4/4", "Rolling", "Syncopated", "Halftime"],
+      suggestedSounds: [
+        "Harmonic bed",
+        "Airy high-end sheen",
+        "Heavy sub bass",
+        "Analog synths",
+        "Side-chain pump",
+        "Big drums",
+        "Metallic percussion",
+        "Wide stereo pads",
+      ],
+      sourceEngine: "musicgen",
+      musicGenPrompt: "dark underground bass track with mechanical energy",
+      musicGenMode: "text",
+    });
+    expect(rule).toMatch(/MG:dark underground bass/);
+    expect(rule.length).toBeLessThanOrEqual(260);
+  });
+
   it("includes sonic chord progression in AUDIO rule line", () => {
     const rule = compactAudioStyleRule({
       estimatedBpm: "128 BPM",
