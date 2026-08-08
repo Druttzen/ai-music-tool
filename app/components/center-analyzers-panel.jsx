@@ -332,7 +332,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
               </button>
             ) : (
               <p className="mt-3 text-[10px] text-white/45">
-                Canvas integration: install{" "}
+                Canvas / suite: install{" "}
                   <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
                   <span className="font-bold text-white/70">Addons</span> panel, then drop art here
                   for Spotify loop handoff.

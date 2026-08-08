@@ -4,12 +4,12 @@
 
 ## Install from the app
 
-1. Open the left **Canvas Integration** panel
+1. Open the left **Addons** panel
 2. Click **Download / Install Canvas**
-3. Downloads [AI Canvas Tool v1.1.1+](https://github.com/Druttzen/ai-canvas-tool/releases) automatically when a release exists; otherwise opens **build instructions** on the repo README
-4. Finish setup, click **Open Canvas Tool**, or drop album art in Analyzers → **Open in Canvas Tool → Spotify loop**
+3. Downloads [AI Canvas Tool v1.1.1+](https://github.com/Druttzen/ai-canvas-tool/releases) automatically when a release exists; on API/network failure shows an error (does not pretend install succeeded)
+4. Finish setup, click **Open AI Canvas Tool**, or drop album art in Analyzers → **Open in Canvas Tool → Spotify loop**
 
-**Manual build (no release):**
+**Manual build (optional):**
 
 ```bash
 git clone https://github.com/Druttzen/ai-canvas-tool.git
@@ -18,7 +18,7 @@ npm install
 npm run dist:setup
 ```
 
-Then run `release/AI Canvas Tool Setup.exe` or place it in your Downloads folder and use **Download / Install Canvas** again.
+Then run `release/AI Canvas Tool Setup.exe` / `AI.Canvas.Tool-*-Setup.exe`, or place it in your Downloads folder and use **Download / Install Canvas** again.
 
 When a track is analyzed in Music Creator, **Open in Canvas Tool** also exports `track-audio-*` to the suite folder and sets `audioPath` in `handoff.json` for preview sync in Canvas Tool.
 

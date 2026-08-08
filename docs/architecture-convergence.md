@@ -16,7 +16,7 @@ Plan phases: Electron sunset truth â†’ sidecar `device` / `registry` / `jobs` â†
 | Main process | [`main.js`](../main.js) | Window, updater, IPC | [`src-tauri`](../src-tauri) |
 | Music Exchange | [`app/hooks/project-actions/use-export-actions.js`](../app/hooks/project-actions/use-export-actions.js) | Browser download | Same portable download |
 | Canvas handoff | [`app/lib/suite-canvas-client.js`](../app/lib/suite-canvas-client.js) | `electronAPI.openInCanvasTool` | `exportCanvasHandoffNative` |
-| Canvas integration | [`app/lib/canvas-addon-client.js`](../app/lib/canvas-addon-client.js) | `installCanvasAddon` / `launchCanvasAddon` | `install_canvas_addon` / `launch_canvas_addon` |
+| Addons (Canvas) | [`app/lib/canvas-addon-client.js`](../app/lib/canvas-addon-client.js) | `installCanvasAddon` / `launchCanvasAddon` | `install_canvas_addon` / `launch_canvas_addon` |
 | Canvas bridge | [`lib/suite-bridge.cjs`](../lib/suite-bridge.cjs) | Electron Canvas paths + install | Shared `lib/suite-handoff-paths.json` |
 
 Do not add consumer-specific render settings, executable discovery, or launch IPC to Music Creator. Extend the portable exchange contract instead.
