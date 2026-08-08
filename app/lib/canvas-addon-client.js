@@ -63,7 +63,8 @@ export function formatCanvasInstallStatus(result) {
   if (!result?.ok) {
     if (result?.mode === "desktop-required") return CANVAS_DESKTOP_REQUIRED;
     if (result?.mode === "download-failed") {
-      return result.error || result.message || "Could not download Canvas installer from GitHub";
+      const base = result.error || result.message || "Could not download Canvas installer from GitHub";
+      return result.url ? `${base} — ${result.url}` : base;
     }
     return result?.error || result?.message || "Could not install AI Canvas Tool";
   }

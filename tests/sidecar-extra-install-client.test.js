@@ -73,6 +73,13 @@ describe("sidecar extra install client", () => {
         error: "frozen",
       }),
     ).toBe("frozen");
+    expect(
+      formatSidecarExtraInstallStatus({
+        ok: false,
+        mode: "install-timeout",
+        error: "Install timed out after 20 minutes",
+      }),
+    ).toMatch(/timed out/i);
     expect(formatSidecarExtraInstallStatus({ ok: false, error: "boom" })).toBe("boom");
   });
 

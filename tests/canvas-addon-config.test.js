@@ -49,6 +49,14 @@ describe("Canvas integration", () => {
     expect(formatCanvasInstallStatus({ ok: false, mode: "download-failed", error: "network down" })).toBe(
       "network down",
     );
+    expect(
+      formatCanvasInstallStatus({
+        ok: false,
+        mode: "download-failed",
+        error: "network down",
+        url: "https://example.com/releases",
+      }),
+    ).toBe("network down — https://example.com/releases");
     expect(formatCanvasInstallStatus({ ok: false, error: "boom" })).toBe("boom");
     expect(formatCanvasInstallStatus({ ok: false, mode: "desktop-required" })).toBe(CANVAS_DESKTOP_REQUIRED);
   });

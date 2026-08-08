@@ -39,7 +39,7 @@ Shared paths, executable candidates, and Canvas install metadata live in `lib/su
 | **Tauri Studio** (primary) | `export_canvas_handoff`, `suite_canvas_addon_status`, `install_canvas_addon`, `launch_canvas_addon` |
 | **Electron** (legacy) | `window.electronAPI.openInCanvasTool` / `installCanvasAddon` / `launchCanvasAddon` via `lib/suite-bridge.cjs` |
 
-Browser-only dev (`npm run dev:web`) opens the GitHub install page; handoff/launch requires a desktop shell.
+Browser-only dev (`npm run dev:web`) cannot install or launch Canvas (desktop shell required); handoff/launch needs Tauri or Electron.
 
 ## Dev
 
