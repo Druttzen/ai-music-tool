@@ -41,9 +41,10 @@ describe("sidecar extra install client", () => {
     expect(sidecarExtraNpmHint("generate")).toBe("npm run sidecar:generate");
     expect(sidecarExtraNpmHint("genre")).toBe("npm run sidecar:classify");
     expect(sidecarExtraNpmHint("vocal_ml")).toBe("npm run sidecar:vocal");
+    expect(sidecarExtraNpmHint("vocal-ml")).toBe("npm run sidecar:vocal-ml");
     expect(isSidecarExtraAllowlisted("cover")).toBe(true);
     expect(isSidecarExtraAllowlisted("vocal_ml")).toBe(true);
-    expect(isSidecarExtraAllowlisted("vocal-ml")).toBe(false);
+    expect(isSidecarExtraAllowlisted("vocal-ml")).toBe(true);
     expect(isSidecarExtraAllowlisted("nope")).toBe(false);
   });
 
@@ -117,7 +118,7 @@ describe("sidecar extra install client", () => {
     expect(SCRIPT_STEM.generate).toBe("install-sidecar-generate");
     expect(SCRIPT_STEM.cover).toBe("install-sidecar-cover");
     expect(SCRIPT_STEM["cover-ref"]).toBe("install-sidecar-cover-ref");
-    expect(SCRIPT_STEM).not.toHaveProperty("vocal-ml");
+    expect(SCRIPT_STEM["vocal-ml"]).toBe("install-sidecar-vocal-ml");
   });
 
   it("busts health cache before re-fetch after install", async () => {

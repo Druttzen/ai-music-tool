@@ -458,11 +458,16 @@ export function useAnalyzers({
 
         if (!stats) {
           const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
-          const buffer = await decodeCtx.decodeAudioData((await blob.arrayBuffer()).slice(0));
           try {
-            await decodeCtx.close();
-          } catch {}
-          stats = await measureIntegratedLoudness(buffer);
+            const buffer = await decodeCtx.decodeAudioData((await blob.arrayBuffer()).slice(0));
+            stats = await measureIntegratedLoudness(buffer);
+          } finally {
+            try {
+              await decodeCtx.close();
+            } catch {
+              /* ignore */
+            }
+          }
         }
 
         if (!cancelled && gen === loudnessGenRef.current) {

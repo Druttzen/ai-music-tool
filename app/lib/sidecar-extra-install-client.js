@@ -14,6 +14,7 @@ export const SIDECAR_EXTRA_NPM = {
   cover: "npm run sidecar:cover",
   "cover-ref": "npm run sidecar:cover-ref",
   vocal: "npm run sidecar:vocal",
+  "vocal-ml": "npm run sidecar:vocal-ml",
   "vocal-rvc": "npm run sidecar:vocal-rvc",
 };
 

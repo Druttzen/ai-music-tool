@@ -42,6 +42,7 @@ fn script_stem(extra_id: &str) -> Option<&'static str> {
         "cover" => Some("install-sidecar-cover"),
         "cover-ref" => Some("install-sidecar-cover-ref"),
         "vocal" => Some("install-sidecar-vocal"),
+        "vocal-ml" => Some("install-sidecar-vocal-ml"),
         "vocal-rvc" => Some("install-sidecar-vocal-rvc"),
         _ => None,
     }
@@ -365,6 +366,7 @@ mod tests {
     fn script_stem_covers_allowlist() {
         assert_eq!(script_stem("generate"), Some("install-sidecar-generate"));
         assert_eq!(script_stem("cover-ref"), Some("install-sidecar-cover-ref"));
+        assert_eq!(script_stem("vocal-ml"), Some("install-sidecar-vocal-ml"));
         assert!(script_stem("nope").is_none());
     }
 }

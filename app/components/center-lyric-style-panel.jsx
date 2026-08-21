@@ -35,6 +35,7 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
     generateExampleLyrics,
     shuffleExampleLyrics,
     copyToClipboard,
+    fixPronunciation,
   } = useProjectWorkspaceActions();
 
   return (
@@ -127,13 +128,23 @@ export const CenterLyricStylePanel = memo(function CenterLyricStylePanel() {
       />
 
       {generatedLyrics && (
-        <button
-          type="button"
-          onClick={() => copyToClipboard(generatedLyrics, "Generated lyrics copied")}
-          className="mt-2 w-full rounded-2xl border border-orange-300/30 bg-black/30 px-4 py-2 text-sm font-bold text-orange-100 hover:bg-black/50"
-        >
-          Copy Generated Lyrics
-        </button>
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => copyToClipboard(generatedLyrics, "Generated lyrics copied")}
+            className="w-full rounded-2xl border border-orange-300/30 bg-black/30 px-4 py-2 text-sm font-bold text-orange-100 hover:bg-black/50"
+          >
+            Copy Generated Lyrics
+          </button>
+          <button
+            type="button"
+            data-testid="fix-pronunciation"
+            onClick={fixPronunciation}
+            className="w-full rounded-2xl border border-cyan-300/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-100 hover:bg-cyan-500/20"
+          >
+            Fix pronunciation
+          </button>
+        </div>
       )}
 
       <div className="mt-3">

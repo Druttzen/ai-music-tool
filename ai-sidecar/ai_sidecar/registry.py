@@ -86,6 +86,15 @@ def _probe_vocal_ml() -> bool:
     return vocal_ml_available()
 
 
+def _probe_vocal_torch() -> bool:
+    try:
+        import torch  # noqa: F401
+        import torchaudio  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
 def _probe_rvc() -> bool:
     from .vocal_ml_models import rvc_ready
 
@@ -166,11 +175,20 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         id="vocal_ml",
         title="Vocal DSP (scipy)",
-        tasks=("vocal-ml",),
+        tasks=("vocal-dsp",),
         install_hint="npm run sidecar:vocal",
         license="project",
         commercial_use=True,
         probe=_probe_vocal_ml,
+    ),
+    CapabilitySpec(
+        id="vocal-ml",
+        title="Vocal ML (torch stack)",
+        tasks=("vocal-torch",),
+        install_hint="npm run sidecar:vocal-ml",
+        license="project",
+        commercial_use=True,
+        probe=_probe_vocal_torch,
     ),
     CapabilitySpec(
         id="rvc",

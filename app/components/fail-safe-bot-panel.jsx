@@ -16,6 +16,8 @@ import {
 } from "../lib/maintainer-settings";
 import {
   buildGitHubNewIssueUrl,
+  clearRuntimeReportQueue,
+  exportTopRuntimeReportJson,
   getRuntimeReportQueue,
   hasRuntimeTelemetryConsent,
   isRuntimeReportingEnabled,
@@ -162,6 +164,37 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     markRuntimeReportDelivered(top.fingerprint, { mode: "github-new-issue-url", url });
     syncRuntimeFlags();
     setStatusWithTime("Opened GitHub new-issue form for Runtime report", "success");
+  };
+
+  const handleExportRuntimeReportJson = async () => {
+    const json = exportTopRuntimeReportJson();
+    if (!json) {
+      setStatusWithTime("No queued Runtime reports", "info");
+      return;
+    }
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(json);
+        setStatusWithTime("Copied top Runtime report JSON", "success");
+        return;
+      }
+    } catch {
+      /* fall through to download */
+    }
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "fail-safe-runtime-report.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatusWithTime("Downloaded top Runtime report JSON", "success");
+  };
+
+  const handleClearRuntimeQueue = () => {
+    clearRuntimeReportQueue();
+    syncRuntimeFlags();
+    setStatusWithTime("Runtime report queue cleared", "info");
   };
 
   const handleMaintainerRuntimeDeliver = async (mode) => {
@@ -344,6 +377,23 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
               title="Opens GitHub new-issue form with the top queued report (no auto-push)"
             >
               Send top report to GitHub…
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-[10px] text-white/80 disabled:opacity-40"
+              disabled={queueLen < 1}
+              onClick={() => void handleExportRuntimeReportJson()}
+              title="Copy or download the top queued report as JSON for fail-safe-ops deliver-runtime"
+            >
+              Copy report JSON
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-[10px] text-white/80 disabled:opacity-40"
+              disabled={queueLen < 1}
+              onClick={handleClearRuntimeQueue}
+            >
+              Clear queue
             </button>
             {maintainerMode ? (
               <div className="flex flex-wrap gap-1.5 pt-0.5">

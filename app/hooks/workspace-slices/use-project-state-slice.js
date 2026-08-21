@@ -22,6 +22,7 @@ const PROJECT_KEYS = [
   "lyricStructure",
   "lyricStyle",
   "lyricTheme",
+  "lyricVariantSeed",
   "lyricsGenerateBusy",
   "mode",
   "mood",

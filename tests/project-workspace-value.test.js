@@ -26,7 +26,9 @@ describe("project-workspace-value slices", () => {
     expect(actions).toHaveProperty("setIdea");
     expect(actions).not.toHaveProperty("idea");
     expect(project).toHaveProperty("idea");
+    expect(project).toHaveProperty("lyricVariantSeed");
     expect(project).not.toHaveProperty("setIdea");
+    expect(actions).toHaveProperty("fixPronunciation");
     expect(analyzer).toHaveProperty("audioAnalysis");
     expect(analyzer).not.toHaveProperty("prompt");
     expect(prompt).toHaveProperty("prompt");

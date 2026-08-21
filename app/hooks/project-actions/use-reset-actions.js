@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { HISTORY_KEY, STORAGE_KEY } from "../../lib/music-config";
+import { clearStoredCredentials } from "../../lib/credential-storage";
 import { clearCharacterVoiceStudioSessionOnReset } from "../../lib/voice-character-studio-session";
 import { clearWorkspaceSessionOnReset } from "../../lib/project-workspace-reset";
 import { safeLocalStorage } from "../../lib/safe-local-storage";
@@ -22,6 +23,7 @@ export function useResetActions(deps) {
     resetAnalyzers();
     clearCharacterVoiceStudioSessionOnReset();
     clearWorkspaceSessionOnReset();
+    clearStoredCredentials();
     lastAutosavePayloadRef.current = "";
     safeLocalStorage.remove(STORAGE_KEY);
     safeLocalStorage.remove(HISTORY_KEY);

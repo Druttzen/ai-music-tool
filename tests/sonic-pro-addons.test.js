@@ -5,7 +5,7 @@ import { buildCustomModelPack } from "../app/lib/custom-model-pack.js";
 import { buildUdioProsePrompt } from "../app/lib/udio-prose-export.js";
 import { generateSunoMetatagScaffold } from "../app/lib/suno-metatag-generator.js";
 import { buildVoicesPrepKit } from "../app/lib/voices-prep-kit.js";
-import { fixSunoPronunciation } from "../app/lib/pronunciation-engine.js";
+import { fixSunoPronunciation, suggestPronunciationSpelling } from "../app/lib/pronunciation-engine.js";
 import { buildAlbumSequence, DEFAULT_ALBUM_ROLES, normalizeAlbumRoles, soundBibleFromProject } from "../app/lib/album-mode.js";
 
 describe("suno-prompt-critic", () => {
@@ -77,6 +77,13 @@ describe("suno 5.5 pro addons", () => {
     const { lyrics, changed } = fixSunoPronunciation("waiting in the queue");
     expect(changed).toBe(true);
     expect(lyrics).toContain("cue");
+  });
+
+  it("pronunciation engine stays stable across repeated sticky-regex calls", () => {
+    expect(suggestPronunciationSpelling("queue")).toBe("cue");
+    expect(suggestPronunciationSpelling("queue")).toBe("cue");
+    expect(fixSunoPronunciation("the choir and the queue").lyrics).toMatch(/quire/);
+    expect(fixSunoPronunciation("the choir and the queue").lyrics).toMatch(/cue/);
   });
 
   it("album mode builds cohesive sequence", () => {

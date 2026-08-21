@@ -154,21 +154,6 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
             />
           </label>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            saveStyleDnaSettings(styleDnaSettings);
-            setStatusWithTime("Style DNA Spotify settings saved");
-          }}
-          className="mt-2 rounded-xl border border-indigo-300/30 bg-indigo-900/40 px-3 py-1.5 text-xs font-bold text-indigo-100 hover:bg-indigo-900/60"
-        >
-          Save Spotify settings
-        </button>
-        {!spotifyReady && (
-          <p className="mt-2 text-[10px] text-white/40">
-            Without Spotify, searches use MusicBrainz tags only (no audio feature DNA).
-          </p>
-        )}
         <label className="mt-3 block">
           <span className="mb-1 block text-[10px] uppercase text-white/40">Optional AudD token (identify from audio)</span>
           <input
@@ -181,6 +166,24 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
             autoComplete="off"
           />
         </label>
+        <button
+          type="button"
+          onClick={() => {
+            saveStyleDnaSettings(styleDnaSettings);
+            setStatusWithTime("Style DNA settings saved");
+          }}
+          className="mt-2 rounded-xl border border-indigo-300/30 bg-indigo-900/40 px-3 py-1.5 text-xs font-bold text-indigo-100 hover:bg-indigo-900/60"
+        >
+          Save Style DNA keys
+        </button>
+        {!spotifyReady && (
+          <p className="mt-2 text-[10px] text-white/40">
+            Without Spotify, searches use MusicBrainz tags only (no audio feature DNA).
+          </p>
+        )}
+        <p className="mt-1 text-[10px] text-white/35">
+          Click Save Style DNA keys after editing Spotify or AudD — they are not in project exports.
+        </p>
       </div>
 
       <label className="block">

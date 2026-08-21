@@ -323,6 +323,7 @@ pub fn pip_extra_spec(extra_id: &str) -> Option<&'static str> {
         "cover" => Some("cover"),
         "cover-ref" => Some("cover-ref"),
         "vocal" => Some("vocal"),
+        "vocal-ml" => Some("vocal-ml"),
         "vocal-rvc" => Some("vocal-rvc"),
         _ => None,
     }
@@ -362,6 +363,7 @@ mod tests {
     fn pip_extra_spec_maps_allowlist() {
         assert_eq!(pip_extra_spec("generate"), Some("generate"));
         assert_eq!(pip_extra_spec("cover-ref"), Some("cover-ref"));
+        assert_eq!(pip_extra_spec("vocal-ml"), Some("vocal-ml"));
         assert_eq!(pip_extra_spec("nope"), None);
     }
 

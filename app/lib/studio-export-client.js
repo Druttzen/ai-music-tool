@@ -170,7 +170,7 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
     let settled = false;
     let timeoutId = null;
 
-    const armWorkerStartupTimeout = () => {
+    const armWorkerIdleTimeout = () => {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         fallbackMainThread("Studio export timed out — retrying on main thread");
@@ -218,10 +218,8 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
       const msg = ev.data;
       if (!msg || msg.id !== id) return;
       if (msg.type === "progress") {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
+        // Rearm on each progress tick so a stalled worker cannot leave exportInFlight stuck.
+        armWorkerIdleTimeout();
         opts.onProgress?.({ phase: msg.phase, pct: msg.pct });
         return;
       }
@@ -248,7 +246,7 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
     try {
       const transfers = payload.channelData.map((ch) => ch.buffer);
       worker.postMessage({ id, presetId, payload, format, fileName }, transfers);
-      armWorkerStartupTimeout();
+      armWorkerIdleTimeout();
     } catch (err) {
       fallbackMainThread(
         err instanceof Error ? err.message : "Could not start studio worker",

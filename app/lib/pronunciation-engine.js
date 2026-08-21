@@ -13,6 +13,14 @@ const REPLACEMENTS = [
   [/february/gi, "Feb-yoo-ary"],
 ];
 
+/** Sticky `/g` regexes keep lastIndex across calls — always reset before test. */
+function regexMatches(re, text) {
+  re.lastIndex = 0;
+  const hit = re.test(text);
+  re.lastIndex = 0;
+  return hit;
+}
+
 /**
  * @param {string} lyrics
  */
@@ -21,9 +29,10 @@ export function fixSunoPronunciation(lyrics) {
   const fixes = [];
 
   for (const [re, sub] of REPLACEMENTS) {
-    if (re.test(out)) {
+    const next = out.replace(re, sub);
+    if (next !== out) {
       fixes.push({ pattern: re.source, replacement: sub });
-      out = out.replace(re, sub);
+      out = next;
     }
   }
 
@@ -37,7 +46,7 @@ export function suggestPronunciationSpelling(word) {
   const w = String(word || "").trim();
   if (!w) return "";
   for (const [re, sub] of REPLACEMENTS) {
-    if (re.test(w)) return sub;
+    if (regexMatches(re, w)) return sub;
   }
   return "";
 }

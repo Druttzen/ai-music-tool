@@ -28,7 +28,11 @@ import {
   readStoredVocalAlignPreview,
   writeStoredVocalAlignPreview,
 } from "../lib/vocal-embed-handoff";
-import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
+import {
+  formatSidecarExtraInstallStatus,
+  installSidecarExtra,
+  sidecarExtraInstallStatusTone,
+} from "../lib/sidecar-extra-install-client";
 import { pickVoiceStyleCompactForCoProducer } from "../lib/voice-character-studio-session";
 import {
   buildAlignPreviewPersistence,
@@ -659,6 +663,21 @@ export function useVocalEmbedStudio() {
     [setStatusWithTime],
   );
 
+  const installVocalMlExtra = useCallback(async () => {
+    setSidecarBusy(true);
+    try {
+      const result = await installSidecarExtra("vocal-ml");
+      setStatusWithTime(
+        formatSidecarExtraInstallStatus(result),
+        sidecarExtraInstallStatusTone(result),
+      );
+    } catch (err) {
+      setStatusWithTime(err instanceof Error ? err.message : "Vocal ML install failed", "error");
+    } finally {
+      setSidecarBusy(false);
+    }
+  }, [setStatusWithTime]);
+
   const synthesizeButtonLabel = vocalEmbedSynthesizeButtonLabel({
     plan,
     canLyricsOnlySynth,
@@ -700,6 +719,7 @@ export function useVocalEmbedStudio() {
     synthesizePreview,
     synthesizeButtonLabel,
     handleGuideVocalFileChange,
+    installVocalMlExtra,
     copyToClipboard,
   };
 }

@@ -40,6 +40,7 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
     synthesizePreview,
     synthesizeButtonLabel,
     handleGuideVocalFileChange,
+    installVocalMlExtra,
     copyToClipboard,
   } = studio;
 
@@ -190,13 +191,23 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
       ) : null}
 
       {vocalModels && !vocalModels.models_ready ? (
-        <p className="mb-3 text-[10px] leading-relaxed text-white/40">
-          For RVC: set <span className="text-white/55">AIMC_RVC_MODEL</span> or run an RVC API on{" "}
-          <span className="text-white/55">AIMC_RVC_API_URL</span>. For DiffSinger: set{" "}
-          <span className="text-white/55">AIMC_DIFFSINGER_ROOT</span> + acoustic/variance checkpoints, or{" "}
-          <span className="text-white/55">AIMC_DIFFSINGER_CMD</span> / <span className="text-white/55">AIMC_DIFFSINGER_URL</span>.
-          Run <span className="text-white/55">npm run sidecar:vocal-ml</span> for torch DSP fallback.
-        </p>
+        <>
+          <p className="mb-3 text-[10px] leading-relaxed text-white/40">
+            For RVC: set <span className="text-white/55">AIMC_RVC_MODEL</span> or run an RVC API on{" "}
+            <span className="text-white/55">AIMC_RVC_API_URL</span>. For DiffSinger: set{" "}
+            <span className="text-white/55">AIMC_DIFFSINGER_ROOT</span> + acoustic/variance checkpoints, or{" "}
+            <span className="text-white/55">AIMC_DIFFSINGER_CMD</span> / <span className="text-white/55">AIMC_DIFFSINGER_URL</span>.
+            Run <span className="text-white/55">npm run sidecar:vocal-ml</span> for the torch stack, or install it from Addons.
+          </p>
+          <button
+            type="button"
+            className="mb-3 rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-xs font-bold text-fuchsia-100 hover:bg-fuchsia-500/20 disabled:opacity-40"
+            disabled={sidecarBusy}
+            onClick={() => void installVocalMlExtra()}
+          >
+            {sidecarBusy ? "Installing vocal ML…" : "Install vocal ML (torch)"}
+          </button>
+        </>
       ) : null}
 
       <div className="grid gap-3 md:grid-cols-3">

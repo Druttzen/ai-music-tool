@@ -39,6 +39,8 @@ Install extras (Windows npm scripts; `.sh` counterparts under `scripts/`):
 | `npm run sidecar:generate` | MusicGen |
 | `npm run sidecar:classify` | Genre classifier |
 | `npm run sidecar:vision` | BLIP / CLIP |
+| `npm run sidecar:cover` | Album cover (FLUX text) |
+| `npm run sidecar:cover-ref` | Album cover from image |
 | `npm run sidecar:vocal` | Vocal DSP (scipy) |
 | `npm run sidecar:vocal-ml` | Vocal torch stack |
 | `npm run sidecar:vocal-rvc` | RVC |

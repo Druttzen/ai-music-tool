@@ -21,6 +21,7 @@ import {
   suggestVocalRoleFromAnalysis,
 } from "../../lib/instrumental-lyrics-from-track";
 import { buildMoodWords } from "../../lib/music-helpers";
+import { fixSunoPronunciation } from "../../lib/pronunciation-engine";
 import { useCoProducerVoiceFields } from "./_shared.js";
 
 export function useLyricsActions(deps) {
@@ -40,6 +41,7 @@ export function useLyricsActions(deps) {
     lyricStyle,
     lyricTheme,
     lyricVariantSeed,
+    generatedLyrics,
     mood,
     moodWords,
     promptEngine,
@@ -291,10 +293,23 @@ export function useLyricsActions(deps) {
     setVocal,
   ]);
 
+  const fixPronunciation = useCallback(() => {
+    const { lyrics, changed, fixes } = fixSunoPronunciation(generatedLyrics);
+    if (!changed) {
+      setStatusWithTime("No pronunciation respell needed");
+      return false;
+    }
+    captureSnapshot("before pronunciation fix");
+    setGeneratedLyrics(lyrics);
+    setStatusWithTime(`Pronunciation: ${fixes.length} word(s) respelt for Suno`);
+    return true;
+  }, [captureSnapshot, generatedLyrics, setGeneratedLyrics, setStatusWithTime]);
+
   return {
     generateHooks,
     generateExampleLyrics,
     shuffleExampleLyrics,
     addLyricsFromInstrumentalTrack,
+    fixPronunciation,
   };
 }

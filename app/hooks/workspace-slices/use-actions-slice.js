@@ -33,6 +33,7 @@ const ACTION_KEYS = [
   "exportEnhancedAudio",
   "exportProject",
   "exportMusicExchange",
+  "fixPronunciation",
   "fixSunoWarnings",
   "generateExampleLyrics",
   "generateHooks",

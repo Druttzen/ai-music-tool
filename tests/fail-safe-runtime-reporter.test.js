@@ -2,7 +2,9 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
   buildGitHubNewIssueUrl,
   canQueueRuntimeReports,
+  clearRuntimeReportQueue,
   enqueueRuntimeReport,
+  exportTopRuntimeReportJson,
   formatRuntimeReportPayload,
   getRuntimeReportQueue,
   isRuntimeReportingEnabled,
@@ -100,6 +102,20 @@ describe("fail-safe-runtime-reporter", () => {
     expect(res.ok).toBe(true);
     expect(getRuntimeReportQueue()).toHaveLength(1);
     expect(getRuntimeReportQueue()[0].branch).toMatch(/^cursor\/runtime-fail-/);
+  });
+
+  it("exports and clears the runtime report queue", () => {
+    setRuntimeReportingEnabled(true);
+    setRuntimeTelemetryConsent(true);
+    enqueueRuntimeReport({
+      source: "window.onerror",
+      message: "sidecar offline",
+    });
+    const json = exportTopRuntimeReportJson();
+    expect(json).toContain("sidecar offline");
+    clearRuntimeReportQueue();
+    expect(getRuntimeReportQueue()).toHaveLength(0);
+    expect(exportTopRuntimeReportJson()).toBeNull();
   });
 
   it("maybeReportHealthIssue skips informational ids", () => {
