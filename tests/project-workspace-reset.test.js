@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   PROJECT_WORKSPACE_RESET_EVENT,
+  RESET_WORKSPACES_ON_EXIT_HOOK,
   clearWorkspaceSessionOnReset,
+  resetWorkspacesToDefaultOnExit,
 } from "../app/lib/project-workspace-reset.js";
 import { MAESTRO_CHAT_STORAGE_KEY } from "../app/lib/maestro-chat-engine.js";
 import { VOCAL_ALIGN_PREVIEW_STORAGE_KEY } from "../app/lib/vocal-embed-handoff.js";
+import { HISTORY_KEY, STORAGE_KEY } from "../app/lib/music-config.js";
 
 function createMockStorage() {
   /** @type {Record<string, string>} */
@@ -47,7 +50,22 @@ describe("clearWorkspaceSessionOnReset", () => {
     expect(local.removeItem).toHaveBeenCalledWith(MAESTRO_CHAT_STORAGE_KEY);
     expect(local.removeItem).toHaveBeenCalledWith(VOCAL_ALIGN_PREVIEW_STORAGE_KEY);
     expect(session.removeItem).toHaveBeenCalledWith("aimc_maestro_prefill_pending");
+    expect(session.removeItem).toHaveBeenCalledWith("ai_music_creator_undo_snapshot_v1");
     expect(window.dispatchEvent).toHaveBeenCalledTimes(1);
     expect(window.dispatchEvent.mock.calls[0][0].type).toBe(PROJECT_WORKSPACE_RESET_EVENT);
+  });
+
+  it("resets workspaces on exit without clearing credentials or presets", () => {
+    local.setItem(STORAGE_KEY, "{}");
+    local.setItem(HISTORY_KEY, "[]");
+    local.setItem("ai_music_creator_co_producer_llm_v1", "{\"apiKey\":\"secret\"}");
+    resetWorkspacesToDefaultOnExit();
+    expect(local.removeItem).toHaveBeenCalledWith(STORAGE_KEY);
+    expect(local.removeItem).toHaveBeenCalledWith(HISTORY_KEY);
+    expect(local.removeItem).not.toHaveBeenCalledWith("ai_music_creator_co_producer_llm_v1");
+  });
+
+  it("exposes the same exit hook name the Tauri shell evals", () => {
+    expect(RESET_WORKSPACES_ON_EXIT_HOOK).toBe("__AIMUSIC_RESET_WORKSPACES_ON_EXIT");
   });
 });

@@ -467,36 +467,38 @@ fn open_fallback_page(url: String, mode: &str) -> CanvasAddonActionResult {
     }
 }
 
-fn install_canvas_addon_blocking() -> CanvasAddonActionResult {
-    if let Some(exe) = resolve_canvas_executable() {
-        return CanvasAddonActionResult {
-            ok: true,
-            launched: false,
-            already_installed: true,
-            mode: Some("installed".to_string()),
-            path: Some(exe.to_string_lossy().into_owned()),
-            url: None,
-            error: None,
-        };
-    }
+fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
+    if !force {
+        if let Some(exe) = resolve_canvas_executable() {
+            return CanvasAddonActionResult {
+                ok: true,
+                launched: false,
+                already_installed: true,
+                mode: Some("installed".to_string()),
+                path: Some(exe.to_string_lossy().into_owned()),
+                url: None,
+                error: None,
+            };
+        }
 
-    if let Some(installer) = resolve_canvas_installer() {
-        let (ok, mode) = install_or_open_canvas_setup(&installer);
-        return CanvasAddonActionResult {
-            ok,
-            launched: false,
-            already_installed: colocated_canvas_executable().is_some(),
-            mode: Some(mode.to_string()),
-            path: colocated_canvas_executable()
-                .or(Some(installer.clone()))
-                .map(|p| p.to_string_lossy().into_owned()),
-            url: None,
-            error: if ok {
-                None
-            } else {
-                Some("Could not install Canvas into the app folder".to_string())
-            },
-        };
+        if let Some(installer) = resolve_canvas_installer() {
+            let (ok, mode) = install_or_open_canvas_setup(&installer);
+            return CanvasAddonActionResult {
+                ok,
+                launched: false,
+                already_installed: colocated_canvas_executable().is_some(),
+                mode: Some(mode.to_string()),
+                path: colocated_canvas_executable()
+                    .or(Some(installer.clone()))
+                    .map(|p| p.to_string_lossy().into_owned()),
+                url: None,
+                error: if ok {
+                    None
+                } else {
+                    Some("Could not install Canvas into the app folder".to_string())
+                },
+            };
+        }
     }
 
     let Some(addon) = canvas_addon_config() else {
@@ -632,9 +634,60 @@ fn install_canvas_addon_blocking() -> CanvasAddonActionResult {
     }
 }
 
+/// Refresh Canvas when it is already installed (or a local installer is waiting).
+pub fn refresh_canvas_addon_blocking() -> CanvasAddonActionResult {
+    if resolve_canvas_executable().is_none() && resolve_canvas_installer().is_none() {
+        return CanvasAddonActionResult {
+            ok: true,
+            launched: false,
+            already_installed: false,
+            mode: Some("skipped".to_string()),
+            path: None,
+            url: None,
+            error: None,
+        };
+    }
+    let force = resolve_canvas_executable().is_some();
+    let result = install_canvas_addon_blocking(force);
+    if force && !result.ok {
+        if let Some(installer) = resolve_canvas_installer() {
+            let (ok, mode) = install_or_open_canvas_setup(&installer);
+            if ok {
+                return CanvasAddonActionResult {
+                    ok: true,
+                    launched: false,
+                    already_installed: true,
+                    mode: Some(mode.to_string()),
+                    path: colocated_canvas_executable()
+                        .or(Some(installer))
+                        .map(|p| p.to_string_lossy().into_owned()),
+                    url: None,
+                    error: None,
+                };
+            }
+        }
+        if let Some(exe) = resolve_canvas_executable() {
+            return CanvasAddonActionResult {
+                ok: true,
+                launched: false,
+                already_installed: true,
+                mode: Some("kept".to_string()),
+                path: Some(exe.to_string_lossy().into_owned()),
+                url: None,
+                error: Some(
+                    result
+                        .error
+                        .unwrap_or_else(|| "Could not refresh Canvas; keeping the installed copy".to_string()),
+                ),
+            };
+        }
+    }
+    result
+}
+
 #[tauri::command]
 pub async fn install_canvas_addon() -> CanvasAddonActionResult {
-    match tauri::async_runtime::spawn_blocking(install_canvas_addon_blocking).await {
+    match tauri::async_runtime::spawn_blocking(|| install_canvas_addon_blocking(false)).await {
         Ok(result) => result,
         Err(err) => CanvasAddonActionResult {
             ok: false,

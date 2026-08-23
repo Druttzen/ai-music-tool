@@ -15,7 +15,7 @@ use crate::process_progress::{
 use crate::sidecar_manager::{resolve_sidecar_dir, SidecarManager};
 use crate::sidecar_userdata::{
     checkout_venv_python, find_system_python_310_312, install_extra_into_user_venv,
-    resolve_package_source, user_sidecar_root, user_venv_python,
+    record_installed_extra, resolve_package_source, user_sidecar_root, user_venv_python,
 };
 
 #[derive(Debug, Serialize)]
@@ -212,74 +212,120 @@ fn install_via_checkout_scripts(
     })
 }
 
+pub(crate) fn known_extra_ids() -> &'static [&'static str] {
+    &[
+        "stems",
+        "generate",
+        "classify",
+        "vision",
+        "cover",
+        "cover-ref",
+        "vocal",
+        "vocal-ml",
+        "vocal-rvc",
+    ]
+}
+
+/// Install one extra without stopping/starting the sidecar (caller owns lifecycle).
+pub(crate) fn install_one_sidecar_extra(app: &AppHandle, extra_id: &str) -> SidecarExtraInstallResult {
+    install_one_sidecar_extra_inner(app, extra_id, false)
+}
+
+/// Re-pip an already-installed extra into the user venv (`pip install -U`).
+pub(crate) fn upgrade_one_sidecar_extra(app: &AppHandle, extra_id: &str) -> SidecarExtraInstallResult {
+    install_one_sidecar_extra_inner(app, extra_id, true)
+}
+
+fn install_into_user_venv_result(app: &AppHandle, id: &str, hint: &str) -> SidecarExtraInstallResult {
+    match install_extra_into_user_venv(app, id) {
+        Ok(tail) => {
+            let tail_trim = tail
+                .lines()
+                .rev()
+                .take(8)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>()
+                .join("\n");
+            SidecarExtraInstallResult {
+                ok: true,
+                extra_id: id.to_string(),
+                mode: Some("installed".to_string()),
+                message: Some(format!(
+                    "Installed into user-data sidecar venv — restarting. {tail_trim}"
+                )),
+                error: None,
+                install_hint: Some(hint.to_string()),
+            }
+        }
+        Err(err) => {
+            let mode = if err.to_ascii_lowercase().contains("timed out") {
+                "install-timeout"
+            } else if err.to_ascii_lowercase().contains("need python")
+                || err.to_ascii_lowercase().contains("package source not found")
+            {
+                "bundled-readonly"
+            } else {
+                "install-failed"
+            };
+            fail(id.to_string(), mode, err, hint.to_string())
+        }
+    }
+}
+
+fn install_one_sidecar_extra_inner(
+    app: &AppHandle,
+    extra_id: &str,
+    skip_checkout: bool,
+) -> SidecarExtraInstallResult {
+    let id = extra_id.trim().to_string();
+    let hint = npm_hint(&id);
+    let Some(stem) = script_stem(&id) else {
+        return fail(id, "unknown", "Unknown sidecar extra id".to_string(), hint);
+    };
+
+    emit_install_progress(app, &id, "start", Some("Starting extra install"), None);
+
+    let result = if skip_checkout {
+        install_into_user_venv_result(app, &id, &hint)
+    } else if let Some(result) = install_via_checkout_scripts(app, &id, stem, &hint) {
+        result
+    } else {
+        install_into_user_venv_result(app, &id, &hint)
+    };
+
+    if result.ok {
+        record_installed_extra(app, &id);
+    }
+    emit_install_progress(
+        app,
+        &id,
+        if result.ok { "done" } else { "error" },
+        result.message.as_deref().or(result.error.as_deref()),
+        None,
+    );
+    result
+}
+
 fn install_sidecar_extra_blocking(
     app: AppHandle,
     manager: Arc<SidecarManager>,
     extra_id: String,
 ) -> SidecarExtraInstallResult {
     let id = extra_id.trim().to_string();
-    let hint = npm_hint(&id);
-
-    let Some(stem) = script_stem(&id) else {
+    if script_stem(&id).is_none() {
+        let hint = npm_hint(&id);
         return fail(id, "unknown", "Unknown sidecar extra id".to_string(), hint);
-    };
-
-    emit_install_progress(&app, &id, "start", Some("Starting extra install"), None);
+    }
 
     // Release venv file locks before pip (especially Windows). Restart after either outcome.
     manager.stop();
-
-    let result = if let Some(result) = install_via_checkout_scripts(&app, &id, stem, &hint) {
-        result
-    } else {
-        match install_extra_into_user_venv(&app, &id) {
-            Ok(tail) => {
-                let tail_trim = tail
-                    .lines()
-                    .rev()
-                    .take(8)
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                SidecarExtraInstallResult {
-                    ok: true,
-                    extra_id: id.clone(),
-                    mode: Some("installed".to_string()),
-                    message: Some(format!(
-                        "Installed into user-data sidecar venv — restarting. {tail_trim}"
-                    )),
-                    error: None,
-                    install_hint: Some(hint.clone()),
-                }
-            }
-            Err(err) => {
-                let mode = if err.to_ascii_lowercase().contains("timed out") {
-                    "install-timeout"
-                } else if err.to_ascii_lowercase().contains("need python")
-                    || err.to_ascii_lowercase().contains("package source not found")
-                {
-                    "bundled-readonly"
-                } else {
-                    "install-failed"
-                };
-                fail(id.clone(), mode, err, hint.clone())
-            }
-        }
-    };
-
+    let result = install_one_sidecar_extra(&app, &id);
     manager.restart();
     if result.ok {
         let _ = manager.wait_until_ready(Duration::from_secs(45));
     }
-    emit_install_progress(
-        &app,
-        &id,
-        if result.ok { "done" } else { "error" },
-        result.message.as_deref().or(result.error.as_deref()),
-        None,
-    );
     result
 }
 

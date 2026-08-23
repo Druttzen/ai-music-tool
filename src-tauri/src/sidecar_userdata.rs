@@ -13,6 +13,7 @@ use std::process::Command;
 use std::process::Stdio;
 use std::time::Duration;
 
+use serde_json;
 use tauri::{AppHandle, Manager};
 
 use crate::app_layout;
@@ -381,6 +382,73 @@ pub fn pip_extra_spec(extra_id: &str) -> Option<&'static str> {
     }
 }
 
+const INSTALLED_EXTRAS_FILE: &str = "installed-extras.json";
+
+fn installed_extras_path(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(user_sidecar_root(app)?.join(INSTALLED_EXTRAS_FILE))
+}
+
+pub(crate) fn last_extra_from_state_json(raw: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(raw).ok()?;
+    let id = value
+        .get("lastExtra")
+        .or_else(|| value.get("last_extra"))
+        .and_then(|v| v.as_str())?
+        .trim();
+    if id.is_empty() {
+        return None;
+    }
+    pip_extra_spec(id).map(|_| id.to_string())
+}
+
+pub fn load_installed_extras(app: &AppHandle) -> Vec<String> {
+    let mut ids = Vec::new();
+    if let Ok(path) = installed_extras_path(app) {
+        if let Ok(raw) = fs::read_to_string(path) {
+            ids = serde_json::from_str::<Vec<String>>(&raw)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|id| id.trim().to_string())
+                .filter(|id| !id.is_empty() && pip_extra_spec(id).is_some())
+                .collect();
+        }
+    }
+    if let Ok(root) = user_sidecar_root(app) {
+        if let Ok(raw) = fs::read_to_string(root.join("state.json")) {
+            if let Some(last) = last_extra_from_state_json(&raw) {
+                if !ids.iter().any(|id| id == &last) {
+                    ids.push(last);
+                }
+            }
+        }
+    }
+    ids
+}
+
+pub fn record_installed_extra(app: &AppHandle, extra_id: &str) {
+    let id = extra_id.trim();
+    if pip_extra_spec(id).is_none() {
+        return;
+    }
+    let Ok(path) = installed_extras_path(app) else {
+        return;
+    };
+    let mut extras = load_installed_extras(app);
+    if extras.iter().any(|existing| existing == id) {
+        return;
+    }
+    extras.push(id.to_string());
+    extras.sort();
+    extras.dedup();
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let _ = fs::write(
+        path,
+        serde_json::to_string_pretty(&extras).unwrap_or_else(|_| "[]".to_string()),
+    );
+}
+
 pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<String, String> {
     let root = user_sidecar_root(app)?;
     let py = bootstrap_user_venv(app)?;
@@ -388,7 +456,7 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
     let spec = pip_extra_spec(extra_id).ok_or_else(|| format!("Unknown sidecar extra: {extra_id}"))?;
     let req = format!("{}[{spec}]", pkg.display());
     let progress = Some((app, extra_id));
-    let mut out = match run_pip_with_progress(&py, &["install", "-e", &req], &root, progress) {
+    let mut out = match run_pip_with_progress(&py, &["install", "-U", "-e", &req], &root, progress) {
         Ok(log) => log,
         Err(err) if extra_id == "generate" => {
             let fallback = generate_windows_fallback(&py, &root, progress)?;
@@ -498,6 +566,19 @@ mod tests {
         assert_eq!(pip_extra_spec("cover-ref"), Some("cover-ref"));
         assert_eq!(pip_extra_spec("vocal-ml"), Some("vocal-ml"));
         assert_eq!(pip_extra_spec("nope"), None);
+    }
+
+    #[test]
+    fn last_extra_from_state_json_reads_camel_and_snake() {
+        assert_eq!(
+            last_extra_from_state_json(r#"{"lastExtra":"stems"}"#).as_deref(),
+            Some("stems")
+        );
+        assert_eq!(
+            last_extra_from_state_json(r#"{"last_extra":"vocal-ml"}"#).as_deref(),
+            Some("vocal-ml")
+        );
+        assert_eq!(last_extra_from_state_json(r#"{"lastExtra":"nope"}"#), None);
     }
 
     #[test]

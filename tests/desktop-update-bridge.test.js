@@ -47,7 +47,7 @@ describe("desktop-update-bridge", () => {
     expect(invoke).toHaveBeenCalledWith("check_studio_update");
 
     await installDesktopUpdate();
-    expect(invoke).toHaveBeenCalledWith("install_studio_update");
+    expect(invoke).toHaveBeenCalledWith("update_studio_all");
   });
 
   it("keeps the legacy Electron updater available", async () => {

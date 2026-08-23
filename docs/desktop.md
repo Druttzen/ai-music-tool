@@ -26,7 +26,16 @@ Last dual-tag default ship was **v0.50.2**. From the next release onward, `ship:
 
 ### Studio updates
 
-Tauri Studio checks the latest GitHub Release automatically after startup. When a newer signed `studio-v*` build exists, the header offers **Download and restart**. Packages are verified with the updater public key before installation.
+Tauri Studio checks the latest GitHub Release automatically after startup. **Check for updates** reports whether a newer signed `studio-v*` build exists. **Update all** (always available in Studio) refreshes:
+
+- Installed sidecar plugins / extras (already installed stacks only — it does not download Cover/FLUX if you never installed it)
+- Canvas addon, when it is already present
+- Usable `.zip` archives in `{install}/data/{addons,tools,archives}`
+- Then the Studio app itself, when a newer signed release exists
+
+Packages are verified with the updater public key before installation.
+
+Closing Studio resets project and session workspaces to defaults on the next launch (presets and API credentials are kept).
 
 The first updater-enabled release must still be installed manually because older Studio builds do not contain the updater plugin. Every later signed release can update in-app.
 

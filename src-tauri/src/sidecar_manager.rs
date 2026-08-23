@@ -208,6 +208,11 @@ impl SidecarManager {
         guard.auth_token.clone()
     }
 
+    /// Full `/health` JSON (5s timeout). Used to detect extras that are already installed.
+    pub fn fetch_health_json(&self) -> Option<serde_json::Value> {
+        fetch_health_json(self.auth_token().as_deref())
+    }
+
     pub fn stop(&self) {
         let mut guard = match self.inner.lock() {
             Ok(g) => g,
@@ -387,6 +392,22 @@ fn probe_health(token: Option<&str>) -> HealthProbe {
         }
         _ => HealthProbe { up: false, owned: None },
     }
+}
+
+fn fetch_health_json(token: Option<&str>) -> Option<serde_json::Value> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+        .ok()?;
+    let mut req = client.get(HEALTH_URL);
+    if let Some(t) = token.filter(|s| !s.is_empty()) {
+        req = req.header("X-AIMC-Sidecar-Token", t);
+    }
+    let resp = req.send().ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    resp.json().ok()
 }
 
 fn new_sidecar_token() -> String {

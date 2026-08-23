@@ -21,7 +21,14 @@ import {
   extractCharacterVoicePresetsFromProject,
   persistCharacterVoicePresets,
 } from "../lib/voice-character-preset";
-import { clearWorkspaceSessionOnReset } from "../lib/project-workspace-reset";
+import {
+  RESET_WORKSPACES_ON_EXIT_HOOK,
+  clearWorkspaceSessionOnReset,
+  consumeWorkspaceResetIfPending,
+  resetWorkspacesToDefaultOnExit,
+  setSkipWorkspaceAutosave,
+  shouldSkipWorkspaceAutosave,
+} from "../lib/project-workspace-reset";
 import { clearCharacterVoiceStudioSessionOnReset } from "../lib/voice-character-studio-session";
 import { safeLocalStorage, storageFailureMessage } from "../lib/safe-local-storage";
 
@@ -42,55 +49,77 @@ export function useProjectPersistence({
   setStatusWithTime,
 }) {
   const lastAutosavePayloadRef = useRef("");
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    setSkipWorkspaceAutosave(true);
     const t = window.setTimeout(() => {
-      if (cancelled) return;
-      try {
-        const saved = safeLocalStorage.get(STORAGE_KEY, null);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          let hardReset = false;
-          if (parsed?.appVersion !== APP_VERSION) {
-            if (shouldHardResetProjectOnVersionChange(parsed.appVersion, APP_VERSION)) {
-              hardReset = true;
-              safeLocalStorage.remove(STORAGE_KEY);
-              resetBlank();
-              resetAnalyzers();
-              clearCharacterVoiceStudioSessionOnReset();
-              clearWorkspaceSessionOnReset();
-              patch({ variations: [], guidedStep: 0 });
-              lastAutosavePayloadRef.current = "";
-              setStatusWithTime(
-                `Major upgrade to v${APP_VERSION} — project cleared (presets and history kept)`,
-              );
+      void (async () => {
+        if (cancelled) return;
+        try {
+          const pendingReset = await consumeWorkspaceResetIfPending();
+          if (cancelled) return;
+          if (pendingReset) {
+            resetWorkspacesToDefaultOnExit();
+            resetBlank();
+            resetAnalyzers();
+            patch({ variations: [], guidedStep: 0 });
+            lastAutosavePayloadRef.current = "";
+            const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
+            if (presets) setCustomPresets(presets);
+            setStatusWithTime("Workspaces reset to default");
+            hydratedRef.current = true;
+            return;
+          }
+          setSkipWorkspaceAutosave(false);
+          const saved = safeLocalStorage.get(STORAGE_KEY, null);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            let hardReset = false;
+            if (parsed?.appVersion !== APP_VERSION) {
+              if (shouldHardResetProjectOnVersionChange(parsed.appVersion, APP_VERSION)) {
+                hardReset = true;
+                safeLocalStorage.remove(STORAGE_KEY);
+                resetBlank();
+                resetAnalyzers();
+                clearCharacterVoiceStudioSessionOnReset();
+                clearWorkspaceSessionOnReset();
+                patch({ variations: [], guidedStep: 0 });
+                lastAutosavePayloadRef.current = "";
+                setStatusWithTime(
+                  `Major upgrade to v${APP_VERSION} — project cleared (presets and history kept)`,
+                );
+              } else {
+                loadState(migratePersistedProject(parsed, APP_VERSION));
+                setStatusWithTime(`Upgraded saved project to v${APP_VERSION}`);
+              }
             } else {
-              loadState(migratePersistedProject(parsed, APP_VERSION));
-              setStatusWithTime(`Upgraded saved project to v${APP_VERSION}`);
+              loadState(parsed);
+              setStatusWithTime("Loaded saved project");
             }
-          } else {
-            loadState(parsed);
-            setStatusWithTime("Loaded saved project");
-          }
-          if (!hardReset) {
-            const cvPresets = extractCharacterVoicePresetsFromProject(parsed);
-            if (cvPresets !== null) {
-              persistCharacterVoicePresets(cvPresets, { merge: false });
-            }
-            const cvSession = extractCharacterVoiceStudioSessionFromProject(parsed);
-            if (cvSession !== null) {
-              persistCharacterVoiceStudioSession(cvSession);
+            if (!hardReset) {
+              const cvPresets = extractCharacterVoicePresetsFromProject(parsed);
+              if (cvPresets !== null) {
+                persistCharacterVoicePresets(cvPresets, { merge: false });
+              }
+              const cvSession = extractCharacterVoiceStudioSessionFromProject(parsed);
+              if (cvSession !== null) {
+                persistCharacterVoiceStudioSession(cvSession);
+              }
             }
           }
+          const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
+          if (presets) setCustomPresets(presets);
+          const hist = safeLocalStorage.getJSON(HISTORY_KEY, null);
+          if (hist) setHistory(hist);
+        } catch {
+          setSkipWorkspaceAutosave(false);
+          setStatusWithTime("Could not load saved data");
+        } finally {
+          hydratedRef.current = true;
         }
-        const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
-        if (presets) setCustomPresets(presets);
-        const hist = safeLocalStorage.getJSON(HISTORY_KEY, null);
-        if (hist) setHistory(hist);
-      } catch {
-        setStatusWithTime("Could not load saved data");
-      }
+      })();
     }, 0);
     return () => {
       cancelled = true;
@@ -100,6 +129,7 @@ export function useProjectPersistence({
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
+      if (!hydratedRef.current || shouldSkipWorkspaceAutosave()) return;
       try {
         const payload = JSON.stringify(
           attachCharacterVoiceFieldsToProjectExport(slimStateForPersistence(currentState)),
@@ -126,6 +156,21 @@ export function useProjectPersistence({
     }, 0);
     return () => window.clearTimeout(t);
   }, [promptEngine, setGuidedStep]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onExit = () => resetWorkspacesToDefaultOnExit();
+    window[RESET_WORKSPACES_ON_EXIT_HOOK] = onExit;
+    window.addEventListener("pagehide", onExit);
+    window.addEventListener("beforeunload", onExit);
+    return () => {
+      window.removeEventListener("pagehide", onExit);
+      window.removeEventListener("beforeunload", onExit);
+      if (window[RESET_WORKSPACES_ON_EXIT_HOOK] === onExit) {
+        delete window[RESET_WORKSPACES_ON_EXIT_HOOK];
+      }
+    };
+  }, []);
 
   return { lastAutosavePayloadRef };
 }

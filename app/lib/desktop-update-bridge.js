@@ -29,7 +29,7 @@ export async function checkForDesktopUpdates() {
 
 export async function installDesktopUpdate() {
   const runtime = getDesktopUpdateRuntime();
-  if (runtime === "tauri") return tauriInvoke("install_studio_update");
+  if (runtime === "tauri") return tauriInvoke("update_studio_all");
   if (runtime === "electron") {
     await quitAndInstallUpdate();
     return { ok: true, available: true };
@@ -38,7 +38,18 @@ export async function installDesktopUpdate() {
 }
 
 export function subscribeToDesktopUpdateStatus(callback) {
-  return getDesktopUpdateRuntime() === "electron"
-    ? subscribeToUpdateStatus(callback)
-    : () => {};
+  const runtime = getDesktopUpdateRuntime();
+  if (runtime === "electron") return subscribeToUpdateStatus(callback);
+  if (runtime !== "tauri") return () => {};
+  const listen = window.__TAURI__?.event?.listen;
+  if (typeof listen !== "function") return () => {};
+  let unlisten = () => {};
+  listen("studio-component-update-progress", (event) => {
+    callback(event?.payload ?? event);
+  })
+    .then((fn) => {
+      if (typeof fn === "function") unlisten = fn;
+    })
+    .catch(() => {});
+  return () => unlisten();
 }

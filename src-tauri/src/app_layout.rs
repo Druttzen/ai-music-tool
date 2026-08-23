@@ -21,6 +21,7 @@ pub struct StudioLayout {
     pub sidecar: PathBuf,
     pub addons: PathBuf,
     pub tools: PathBuf,
+    pub archives: PathBuf,
     pub exports: PathBuf,
 }
 
@@ -30,6 +31,7 @@ pub fn layout_at(data: PathBuf) -> StudioLayout {
         sidecar: data.join("sidecar"),
         addons: data.join("addons"),
         tools: data.join("tools"),
+        archives: data.join("archives"),
         exports: data.join("exports"),
         data,
     }
@@ -152,6 +154,10 @@ pub fn tools_dir(app: Option<&AppHandle>) -> Result<PathBuf, String> {
     Ok(studio_layout(app)?.tools)
 }
 
+pub fn archives_dir(app: Option<&AppHandle>) -> Result<PathBuf, String> {
+    Ok(studio_layout(app)?.archives)
+}
+
 pub fn exports_dir(app: Option<&AppHandle>) -> Result<PathBuf, String> {
     Ok(studio_layout(app)?.exports)
 }
@@ -181,6 +187,7 @@ pub fn prepare_app_layout() {
         &layout.sidecar,
         &layout.addons,
         &layout.tools,
+        &layout.archives,
         &layout.exports,
         &layout.addons.join("canvas"),
     ] {
@@ -218,6 +225,7 @@ mod tests {
         assert_eq!(layout.sidecar, PathBuf::from("/app/data/sidecar"));
         assert_eq!(layout.addons, PathBuf::from("/app/data/addons"));
         assert_eq!(layout.tools, PathBuf::from("/app/data/tools"));
+        assert_eq!(layout.archives, PathBuf::from("/app/data/archives"));
         assert_eq!(layout.exports, PathBuf::from("/app/data/exports"));
     }
 

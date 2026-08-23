@@ -37,8 +37,8 @@ export function useDesktopUpdates() {
       setUpdateAvailable(Boolean(result.available));
       setStatus(
         result.available
-          ? `Update available: v${result.version}`
-          : "You are on the latest release.",
+          ? `Studio update available: v${result.version}. Update all also refreshes addons, plugins, tools, and archives.`
+          : "Studio is current. Update all still refreshes addons, plugins, tools, and archives.",
       );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Update check failed");
@@ -52,11 +52,14 @@ export function useDesktopUpdates() {
     const unsubscribe = subscribeToDesktopUpdateStatus((payload) => {
       if (payload?.status === "available") {
         setUpdateAvailable(true);
-        setStatus("Update available — downloading…");
+        setStatus("Studio update available — downloading…");
       }
       if (payload?.status === "downloaded") {
         setDownloaded(true);
-        setStatus(payload.message || "Update ready — restart to install.");
+        setStatus(payload.message || "Studio update ready — restart to install.");
+      }
+      if (payload?.message && payload?.phase) {
+        setStatus(payload.message);
       }
     });
     const timer = setTimeout(() => void checkUpdates({ automatic: true }), 1500);
@@ -68,13 +71,17 @@ export function useDesktopUpdates() {
 
   const restartToUpdate = useCallback(async () => {
     setBusy(true);
-    setStatus(runtime === "tauri" ? "Downloading and installing update…" : "Restarting to install…");
+    setStatus(
+      runtime === "tauri"
+        ? "Updating addons, plugins, tools, archives, and Studio…"
+        : "Restarting to install…",
+    );
     try {
       const result = await installDesktopUpdate();
       if (!result?.ok) setStatus(result?.error || "Update installation failed");
-      else if (!result.available) {
-        setUpdateAvailable(false);
-        setStatus("You are on the latest release.");
+      else {
+        setUpdateAvailable(Boolean(result.available));
+        setStatus(result.summary || (result.available ? "Studio update installed." : "Addons, plugins, tools, and archives are current."));
       }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Update installation failed");
@@ -87,8 +94,8 @@ export function useDesktopUpdates() {
     available: Boolean(runtime),
     status,
     busy,
-    installReady: runtime === "tauri" ? updateAvailable : downloaded,
-    installLabel: runtime === "tauri" ? "Download and restart" : "Restart to install",
+    installReady: runtime === "tauri" ? true : downloaded,
+    installLabel: runtime === "tauri" ? "Update all" : "Restart to install",
     checkUpdates,
     restartToUpdate,
   };

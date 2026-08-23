@@ -6,7 +6,9 @@ mod process_progress;
 mod sidecar_extra_install;
 mod sidecar_manager;
 mod sidecar_userdata;
+mod studio_component_update;
 mod studio_updater;
+mod workspace_reset;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -17,8 +19,10 @@ use canvas_handoff::{
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness};
 use sidecar_extra_install::{install_sidecar_extra, probe_sidecar_extra_install_env};
 use sidecar_manager::{SidecarManager, SidecarStatus};
+use studio_component_update::update_studio_all;
 use studio_updater::{check_studio_update, install_studio_update};
 use tauri::{Manager, RunEvent};
+use workspace_reset::{consume_workspace_reset_flag, workspace_reset_pending};
 
 #[tauri::command]
 fn measure_loudness_bytes(bytes: Vec<u8>) -> Result<Loudness, String> {
@@ -76,6 +80,16 @@ pub fn run() {
                 Ok(())
             }
         })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                workspace_reset::arm_reset_on_launch();
+                if let Some(webview) = window.get_webview_window(window.label()) {
+                    let _ = webview.eval(
+                        r#"try { window.__AIMUSIC_RESET_WORKSPACES_ON_EXIT && window.__AIMUSIC_RESET_WORKSPACES_ON_EXIT(); } catch (e) {}"#,
+                    );
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             measure_loudness_bytes,
             export_mastered,
@@ -90,11 +104,15 @@ pub fn run() {
             probe_sidecar_extra_install_env,
             check_studio_update,
             install_studio_update,
+            update_studio_all,
+            workspace_reset_pending,
+            consume_workspace_reset_flag,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if matches!(event, RunEvent::Exit) {
+                workspace_reset::arm_reset_on_launch();
                 if let Some(manager) = app_handle.try_state::<Arc<SidecarManager>>() {
                     manager.stop();
                 }
