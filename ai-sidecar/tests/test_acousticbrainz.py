@@ -3,12 +3,27 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from urllib.error import URLError
+from urllib.request import Request
 
-from ai_sidecar.acousticbrainz import fetch_acousticbrainz_features
+from ai_sidecar.acousticbrainz import _get_json, fetch_acousticbrainz_features
 
 
 def test_fetch_acousticbrainz_none_when_empty_mbid():
     assert fetch_acousticbrainz_features("") is None
+
+
+def test_get_json_sets_accept_header_without_nameerror(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(req, timeout=12):
+        assert isinstance(req, Request)
+        captured["accept"] = req.get_header("Accept")
+        raise URLError("offline")
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    assert _get_json("https://example.invalid/ab") is None
+    assert captured["accept"] == "application/json"
 
 
 @patch("ai_sidecar.acousticbrainz._get_json")

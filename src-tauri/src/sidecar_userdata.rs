@@ -83,13 +83,18 @@ pub fn checkout_venv_python(sidecar_dir: &Path) -> Option<PathBuf> {
     }
 }
 
+/// Windows `py` launcher version flag. Must be one argv token (`-3.10`), never `py - 3.10`.
+pub fn py_launcher_version_flag(version: &str) -> String {
+    format!("-{version}")
+}
+
 /// Prefer system Python 3.12 → 3.11 → 3.10 (no bare python3 / 3.13+).
 pub fn find_system_python_310_312() -> Option<PathBuf> {
     #[cfg(windows)]
     {
         // py launcher needs a single `-3.10` flag — `py - 3.10` opens the default REPL.
         for v in ["3.12", "3.11", "3.10"] {
-            let flag = format!("-{v}");
+            let flag = py_launcher_version_flag(v);
             if let Ok(out) = Command::new("py")
                 .args([&flag, "-c", "import sys; print(sys.executable)"])
                 .output()
@@ -442,7 +447,7 @@ mod tests {
     #[test]
     fn windows_py_launcher_flag_is_dash_version() {
         // Guard against regressing to `py - 3.10` (two argv tokens → default REPL).
-        let flag = format!("-{}", "3.10");
+        let flag = py_launcher_version_flag("3.10");
         assert_eq!(flag, "-3.10");
         assert!(!flag.contains(' '));
     }

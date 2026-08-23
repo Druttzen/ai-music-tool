@@ -12,7 +12,10 @@ _USER_AGENT = "AI-Music-Creator/0.42.0 (acousticbrainz; local-sidecar)"
 
 
 def _get_json(url: str) -> dict[str, Any] | None:
-    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT, Accept: "application/json"})
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": _USER_AGENT, "Accept": "application/json"},
+    )
     try:
         with urllib.request.urlopen(req, timeout=12) as resp:  # noqa: S310
             return json.loads(resp.read().decode("utf-8"))

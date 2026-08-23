@@ -193,7 +193,7 @@ fn fail(id: String, mode: &str, error: String, hint: String) -> SidecarExtraInst
 }
 
 fn install_via_checkout_scripts(
-    manager: &Arc<SidecarManager>,
+    _manager: &Arc<SidecarManager>,
     id: &str,
     stem: &str,
     hint: &str,
@@ -204,18 +204,14 @@ fn install_via_checkout_scripts(
     let script = resolve_install_script(&repo_root, stem)?;
 
     Some(match run_install_script(&script, &repo_root) {
-        Ok(tail) => {
-            manager.restart();
-            let _ = manager.wait_until_ready(Duration::from_secs(45));
-            SidecarExtraInstallResult {
-                ok: true,
-                extra_id: id.to_string(),
-                mode: Some("installed".to_string()),
-                message: Some(format!("Installed — sidecar restarting. {tail}")),
-                error: None,
-                install_hint: Some(hint.to_string()),
-            }
-        }
+        Ok(tail) => SidecarExtraInstallResult {
+            ok: true,
+            extra_id: id.to_string(),
+            mode: Some("installed".to_string()),
+            message: Some(format!("Installed — sidecar restarting. {tail}")),
+            error: None,
+            install_hint: Some(hint.to_string()),
+        },
         Err(err) => {
             let mode = if err.to_ascii_lowercase().contains("timed out") {
                 "install-timeout"
@@ -239,49 +235,54 @@ fn install_sidecar_extra_blocking(
         return fail(id, "unknown", "Unknown sidecar extra id".to_string(), hint);
     };
 
-    // Prefer contributor checkout when a writable .venv already exists.
-    if let Some(result) = install_via_checkout_scripts(&manager, &id, stem, &hint) {
-        return result;
-    }
+    // Release venv file locks before pip (especially Windows). Restart after either outcome.
+    manager.stop();
 
-    // Packaged / no checkout venv: bootstrap user-data venv + pip.
-    match install_extra_into_user_venv(&app, &id) {
-        Ok(tail) => {
-            manager.restart();
-            let _ = manager.wait_until_ready(Duration::from_secs(45));
-            let tail_trim = tail
-                .lines()
-                .rev()
-                .take(8)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<Vec<_>>()
-                .join("\n");
-            SidecarExtraInstallResult {
-                ok: true,
-                extra_id: id,
-                mode: Some("installed".to_string()),
-                message: Some(format!(
-                    "Installed into user-data sidecar venv — restarting. {tail_trim}"
-                )),
-                error: None,
-                install_hint: Some(hint),
+    let result = if let Some(result) = install_via_checkout_scripts(&manager, &id, stem, &hint) {
+        result
+    } else {
+        match install_extra_into_user_venv(&app, &id) {
+            Ok(tail) => {
+                let tail_trim = tail
+                    .lines()
+                    .rev()
+                    .take(8)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                SidecarExtraInstallResult {
+                    ok: true,
+                    extra_id: id.clone(),
+                    mode: Some("installed".to_string()),
+                    message: Some(format!(
+                        "Installed into user-data sidecar venv — restarting. {tail_trim}"
+                    )),
+                    error: None,
+                    install_hint: Some(hint.clone()),
+                }
+            }
+            Err(err) => {
+                let mode = if err.to_ascii_lowercase().contains("timed out") {
+                    "install-timeout"
+                } else if err.to_ascii_lowercase().contains("need python")
+                    || err.to_ascii_lowercase().contains("package source not found")
+                {
+                    "bundled-readonly"
+                } else {
+                    "install-failed"
+                };
+                fail(id.clone(), mode, err, hint.clone())
             }
         }
-        Err(err) => {
-            let mode = if err.to_ascii_lowercase().contains("timed out") {
-                "install-timeout"
-            } else if err.to_ascii_lowercase().contains("need python")
-                || err.to_ascii_lowercase().contains("package source not found")
-            {
-                "bundled-readonly"
-            } else {
-                "install-failed"
-            };
-            fail(id, mode, err, hint)
-        }
+    };
+
+    manager.restart();
+    if result.ok {
+        let _ = manager.wait_until_ready(Duration::from_secs(45));
     }
+    result
 }
 
 #[derive(Debug, Serialize)]

@@ -19,6 +19,7 @@ const POLL_INTERVAL: Duration = Duration::from_millis(400);
 const HEALTH_TIMEOUT: Duration = Duration::from_millis(500);
 /// Shut down managed sidecar after this many seconds without /analyze or /separate.
 const SIDECAR_IDLE_EXIT_SEC: &str = "300";
+const SPAWN_GRACE: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Serialize, Clone)]
 pub struct SidecarStatus {
@@ -52,7 +53,7 @@ impl SidecarChild {
     fn has_exited(&mut self) -> bool {
         match self {
             SidecarChild::Process(c) => !matches!(c.try_wait(), Ok(None)),
-            SidecarChild::Bundled(_) => false,
+            SidecarChild::Bundled(c) => !pid_alive(c.pid()),
         }
     }
 }
@@ -64,6 +65,7 @@ struct SidecarInner {
     bundled: bool,
     error: Option<String>,
     auth_token: Option<String>,
+    spawn_started: Option<Instant>,
 }
 
 impl Default for SidecarInner {
@@ -75,6 +77,7 @@ impl Default for SidecarInner {
             bundled: false,
             error: None,
             auth_token: None,
+            spawn_started: None,
         }
     }
 }
@@ -138,6 +141,7 @@ impl SidecarManager {
                 guard.child = Some(child);
                 guard.spawned = true;
                 guard.bundled = bundled;
+                guard.spawn_started = Some(Instant::now());
                 guard.error = None;
             }
             Err(e) => {
@@ -166,7 +170,10 @@ impl SidecarManager {
 
         if let Ok(mut guard) = self.inner.lock() {
             if !guard.ready && guard.spawned {
-                guard.error = Some("AI sidecar did not become ready in time".to_string());
+                abandon_spawn(
+                    &mut guard,
+                    "AI sidecar did not become ready in time",
+                );
             }
         }
         false
@@ -196,6 +203,7 @@ impl SidecarManager {
         guard.spawned = false;
         guard.ready = false;
         guard.bundled = false;
+        guard.spawn_started = None;
     }
 
     /// Kill managed process (if any) and start again — used after pip extras install.
@@ -211,25 +219,92 @@ impl Drop for SidecarManager {
     }
 }
 
-fn reconcile_state(guard: &mut SidecarInner) {
-    if let Some(ref mut child) = guard.child {
-        if child.has_exited() {
-            guard.child = None;
-            guard.spawned = false;
-            guard.ready = false;
-            guard.bundled = false;
-            return;
+fn pid_alive(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    #[cfg(windows)]
+    {
+        const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+        const STILL_ACTIVE: u32 = 259;
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut core::ffi::c_void;
+            fn CloseHandle(handle: *mut core::ffi::c_void) -> i32;
+            fn GetExitCodeProcess(handle: *mut core::ffi::c_void, exit_code: *mut u32) -> i32;
         }
+        unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if handle.is_null() {
+                return false;
+            }
+            let mut code = 0u32;
+            let ok = GetExitCodeProcess(handle, &mut code);
+            CloseHandle(handle);
+            ok != 0 && code == STILL_ACTIVE
+        }
+    }
+    #[cfg(unix)]
+    {
+        #[link(name = "c")]
+        extern "C" {
+            fn kill(pid: i32, sig: i32) -> i32;
+        }
+        unsafe { kill(pid as i32, 0) == 0 }
+    }
+}
+
+fn should_abandon_unhealthy_spawn(
+    spawned: bool,
+    ready: bool,
+    healthy: bool,
+    elapsed: Duration,
+    grace: Duration,
+) -> bool {
+    spawned && !ready && !healthy && elapsed >= grace
+}
+
+fn abandon_spawn(guard: &mut SidecarInner, reason: &str) {
+    if let Some(child) = guard.child.take() {
+        child.kill();
+    }
+    guard.spawned = false;
+    guard.ready = false;
+    guard.bundled = false;
+    guard.spawn_started = None;
+    guard.error = Some(reason.to_string());
+}
+
+fn reconcile_state(guard: &mut SidecarInner) {
+    let exited = guard.child.as_mut().is_some_and(SidecarChild::has_exited);
+    if exited {
+        guard.child = None;
+        guard.spawned = false;
+        guard.ready = false;
+        guard.bundled = false;
+        guard.spawn_started = None;
+        return;
     }
 
     let healthy = health_check();
+    let elapsed = guard
+        .spawn_started
+        .map(|t| t.elapsed())
+        .unwrap_or(Duration::ZERO);
+    if should_abandon_unhealthy_spawn(guard.spawned, guard.ready, healthy, elapsed, SPAWN_GRACE) {
+        abandon_spawn(guard, "AI sidecar spawn never became healthy");
+        return;
+    }
 
     if guard.spawned {
         if guard.ready && !healthy {
-            guard.child = None;
+            if let Some(child) = guard.child.take() {
+                child.kill();
+            }
             guard.spawned = false;
             guard.ready = false;
             guard.bundled = false;
+            guard.spawn_started = None;
         } else if !guard.ready && healthy {
             guard.ready = true;
             guard.error = None;
@@ -312,9 +387,11 @@ fn resolve_python_executable(sidecar_dir: &Path) -> Option<PathBuf> {
 
     #[cfg(windows)]
     {
+        use crate::sidecar_userdata::py_launcher_version_flag;
         for v in ["3.12", "3.11", "3.10"] {
+            let flag = py_launcher_version_flag(v);
             if let Ok(out) = Command::new("py")
-                .args(["-", v, "-c", "import sys; print(sys.executable)"])
+                .args([&flag, "-c", "import sys; print(sys.executable)"])
                 .output()
             {
                 if out.status.success() {
@@ -453,5 +530,45 @@ mod tests {
     #[test]
     fn resolves_sidecar_dir_in_dev_tree() {
         assert!(resolve_sidecar_dir().is_some());
+    }
+
+    #[test]
+    fn bundled_exit_detection_is_not_hardcoded_false() {
+        assert!(!pid_alive(0));
+        assert!(pid_alive(std::process::id()));
+    }
+
+    #[test]
+    fn abandons_spawn_that_never_becomes_healthy() {
+        assert!(should_abandon_unhealthy_spawn(
+            true,
+            false,
+            false,
+            Duration::from_secs(30),
+            SPAWN_GRACE,
+        ));
+        assert!(!should_abandon_unhealthy_spawn(
+            true,
+            false,
+            false,
+            Duration::from_secs(1),
+            SPAWN_GRACE,
+        ));
+        assert!(!should_abandon_unhealthy_spawn(
+            true,
+            true,
+            false,
+            Duration::from_secs(60),
+            SPAWN_GRACE,
+        ));
+    }
+
+    #[test]
+    fn windows_py_launcher_flag_is_one_argv_token() {
+        use crate::sidecar_userdata::py_launcher_version_flag;
+        let flag = py_launcher_version_flag("3.12");
+        assert_eq!(flag, "-3.12");
+        assert_ne!(flag.as_str(), "-");
+        assert!(!flag.contains(' '));
     }
 }
