@@ -19,6 +19,8 @@ def test_vocal_model_status_defaults(monkeypatch):
     assert status["rvc_ready"] is False
     assert status["diffsinger_configured"] is False
     assert status["models_ready"] is False
+    assert "transformers_tts" in status
+    assert isinstance(status["transformers_tts"], bool)
 
 
 def test_rvc_api_counts_as_ready(monkeypatch):

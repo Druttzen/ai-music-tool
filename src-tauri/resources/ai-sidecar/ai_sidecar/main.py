@@ -26,6 +26,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
+from .private_network_cors import PrivateNetworkCorsMiddleware
+
 from .vocal_embed import (
     VocalEmbedPlanEnvelope,
     VocalEmbedPlanResponse,
@@ -109,6 +111,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(PrivateNetworkCorsMiddleware)
 
 
 @app.middleware("http")

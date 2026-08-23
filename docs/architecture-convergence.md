@@ -31,6 +31,10 @@ Do not add consumer-specific render settings, executable discovery, or launch IP
 
 Health exposes `device` (string), `device_info`, and `capabilities` while keeping legacy boolean flags.
 
+Packaged user-data `pkg/` is **overlaid** from bundle sources (never `remove_dir_all`). Sidecar CORS includes `Access-Control-Allow-Private-Network` for the Tauri webview. BLIP caption negotiates Transformers 5 `image-text-to-text`. Lyrics synthesis can use transformers TTS when RVC/DiffSinger are not ready.
+
+Fable 5 was a soak-test studio for these packaging lessons. Useful runtime/packaging behavior now lives here; the Fable 5 test project is retired.
+
 Install extras (Windows npm scripts; `.sh` counterparts under `scripts/`):
 
 | Script | Extra |

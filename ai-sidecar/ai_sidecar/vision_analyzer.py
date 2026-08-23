@@ -9,9 +9,11 @@ Heavy — install via `npm run sidecar:vision`.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 MODEL_ID = "Salesforce/blip-image-captioning-base"
+CAPTION_OFF_ENV = "AIMC_CAPTION_OFF"
 CLIP_MODEL_ID = "openai/clip-vit-base-patch32"
 
 _PIPE: Any = None
@@ -66,6 +68,21 @@ def _pipeline_device(device_name: str) -> int:
         return -1
 
 
+def caption_pipeline_task() -> str:
+    """Transformers 5 dropped `image-to-text`; prefer `image-text-to-text`."""
+    try:
+        from transformers.pipelines import check_task  # noqa: PLC0415
+    except Exception:
+        return "image-text-to-text"
+    for task in ("image-text-to-text", "image-to-text"):
+        try:
+            check_task(task)
+            return task
+        except Exception:
+            continue
+    return "image-text-to-text"
+
+
 def _get_pipeline(device_name: str):
     global _PIPE
     if _PIPE is not None:
@@ -74,7 +91,7 @@ def _get_pipeline(device_name: str):
     from transformers import pipeline  # noqa: PLC0415
 
     _PIPE = pipeline(
-        "image-to-text",
+        caption_pipeline_task(),
         model=MODEL_ID,
         device=_pipeline_device(device_name),
     )
@@ -128,6 +145,8 @@ def clip_tags_for_image_bytes(
 
 def caption_image_bytes(raw: bytes, *, device: str = "cpu") -> str | None:
     """Return a short BLIP caption or None when vision deps/model fail."""
+    if os.environ.get(CAPTION_OFF_ENV) == "1":
+        return None
     if not vision_analysis_available() or not raw:
         return None
 
@@ -141,10 +160,17 @@ def caption_image_bytes(raw: bytes, *, device: str = "cpu") -> str | None:
             image.thumbnail((max_edge, max_edge))
 
         pipe = _get_pipeline(device)
-        result = pipe(image)
+        try:
+            result = pipe(image, text="A photo of")
+        except TypeError:
+            result = pipe(image)
         if not result:
             return None
-        caption = str(result[0].get("generated_text", "")).strip()
+        first = result[0] if isinstance(result, list) else result
+        if isinstance(first, dict):
+            caption = str(first.get("generated_text") or first.get("caption") or "").strip()
+        else:
+            caption = str(first).strip()
         return caption or None
     except Exception:
         return None

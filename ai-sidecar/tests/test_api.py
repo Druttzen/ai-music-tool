@@ -82,6 +82,33 @@ def test_health_allows_local_dev_cors():
     res = client.get("/health", headers={"Origin": "http://localhost:3000"})
     assert res.status_code == 200
     assert res.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert res.headers.get("access-control-allow-private-network") == "true"
+
+
+def test_tauri_preflight_allows_private_network():
+    res = client.options(
+        "/health",
+        headers={
+            "Origin": "https://tauri.localhost",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Private-Network": "true",
+        },
+    )
+    assert res.status_code in (200, 204)
+    assert res.headers.get("access-control-allow-origin") == "https://tauri.localhost"
+    assert res.headers.get("access-control-allow-private-network") == "true"
+
+
+def test_caption_pipeline_task_is_supported():
+    from ai_sidecar.vision_analyzer import caption_pipeline_task
+
+    task = caption_pipeline_task()
+    assert task in {"image-text-to-text", "image-to-text"}
+    try:
+        from transformers.pipelines import check_task
+    except Exception:
+        return
+    check_task(task)
 
 
 def test_dev_session_ping():

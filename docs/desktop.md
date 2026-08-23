@@ -46,7 +46,7 @@ Left sidebar **Addons**:
 - **Canvas** — Download / Install and Open work in Tauri Studio (and legacy Electron). The web UI alone cannot install Canvas.
 - **Sidecar extras** (MusicGen, cover, stems, vision, …) —
   - **Dev / checkout:** **Install** runs `scripts/install-sidecar-*.ps1|.sh` when `ai-sidecar/.venv` exists.
-  - **Packaged Studio:** **Install** bootstraps a writable venv under the app local data dir (`…/com.djmad.aimusiccreator.studio/sidecar`), installs the bundled `ai-sidecar` package + the selected extra, then restarts the sidecar from that venv (not the frozen binary). Requires **Python 3.10–3.12** on PATH for first-time setup. If Python or package sources are missing, the UI copies the `npm run sidecar:*` hint instead.
+  - **Packaged Studio:** **Install** bootstraps a writable venv under the app local data dir (`…/com.djmad.aimusiccreator.studio/sidecar`), overlays bundled `ai-sidecar` sources onto `pkg/` (never wipes a locked dir), installs the selected extra, then restarts the sidecar from that venv (not the frozen binary). Requires **Python 3.10–3.12** on PATH for first-time setup. Windows generate / vocal-rvc extras may use a pip fallback when strict pins fail. If Python or package sources are missing, the UI copies the `npm run sidecar:*` hint instead.
 
 Electron is **maintenance-only**: no new desktop features on Electron IPC. Prefer Studio for all contributor and release work.
 

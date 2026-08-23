@@ -195,6 +195,12 @@ def synthesize_lyrics_vocal(
         except Exception:
             pass
 
+    from ai_sidecar.vocal_tts import try_transformers_tts  # noqa: PLC0415
+
+    tts = try_transformers_tts(plan, length, sample_rate)
+    if tts is not None:
+        return tts
+
     if not ml_vocal_stack_available():
         raise RuntimeError("vocal DSP stack unavailable — npm run sidecar:vocal")
 

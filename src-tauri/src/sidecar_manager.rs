@@ -411,6 +411,7 @@ fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild,
     .env("AIMC_SIDECAR_TOKEN", token)
     .env("HF_HOME", cache.join("huggingface"))
     .env("TORCH_HOME", cache.join("torch"))
+    .env("PYTHONPATH", &pkg)
     .current_dir(&pkg)
     .stdin(Stdio::null())
     .stdout(Stdio::null())

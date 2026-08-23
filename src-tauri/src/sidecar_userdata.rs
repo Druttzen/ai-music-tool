@@ -195,7 +195,14 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
             let name = name.to_string_lossy();
             if matches!(
                 name.as_ref(),
-                ".venv" | "__pycache__" | ".pytest_cache" | "dist" | "build" | ".ruff_cache"
+                ".venv"
+                    | "__pycache__"
+                    | ".pytest_cache"
+                    | "dist"
+                    | "build"
+                    | ".ruff_cache"
+                    | "tests"
+                    | ".artifacts"
             ) {
                 continue;
             }
@@ -207,35 +214,34 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Ensure `pkg/` mirrors package source for the current Studio version.
+/// Overlay package sources onto `pkg/`. Never wipe a live directory (Windows file locks).
 pub fn ensure_user_sidecar_pkg(app: &AppHandle) -> Result<PathBuf, String> {
     let root = user_sidecar_root(app)?;
     fs::create_dir_all(&root).map_err(|e| format!("mkdir {}: {e}", root.display()))?;
     let pkg = user_pkg_dir(&root);
     let stamp = root.join("version.txt");
-    let current = fs::read_to_string(&stamp).unwrap_or_default();
-    let current = current.trim();
-
-    if package_source_ok(&pkg) && current == PACKAGE_VERSION {
-        return Ok(pkg);
-    }
 
     let source = resolve_package_source(Some(app))
         .ok_or_else(|| "ai-sidecar package source not found (bundle resources or checkout)".to_string())?;
 
-    if pkg.exists() {
-        fs::remove_dir_all(&pkg).map_err(|e| format!("clear pkg: {e}"))?;
+    match copy_dir_recursive(&source, &pkg) {
+        Ok(()) => {
+            if !package_source_ok(&pkg) {
+                return Err(format!(
+                    "copied package incomplete from {} (need pyproject.toml + ai_sidecar/main.py)",
+                    source.display()
+                ));
+            }
+            fs::write(&stamp, PACKAGE_VERSION).map_err(|e| format!("write version stamp: {e}"))?;
+            Ok(pkg)
+        }
+        Err(err) if package_source_ok(&pkg) => {
+            // Keep the last working sources if a copy is locked; spawn can still proceed.
+            let _ = err;
+            Ok(pkg)
+        }
+        Err(err) => Err(err),
     }
-    copy_dir_recursive(&source, &pkg)?;
-    // Prefer copying only package files when source is a full checkout — already skipped .venv.
-    if !package_source_ok(&pkg) {
-        return Err(format!(
-            "copied package incomplete from {} (need pyproject.toml + ai_sidecar/main.py)",
-            source.display()
-        ));
-    }
-    fs::write(&stamp, PACKAGE_VERSION).map_err(|e| format!("write version stamp: {e}"))?;
-    Ok(pkg)
 }
 
 pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
@@ -335,10 +341,22 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
     let pkg = ensure_user_sidecar_pkg(app)?;
     let spec = pip_extra_spec(extra_id).ok_or_else(|| format!("Unknown sidecar extra: {extra_id}"))?;
     let req = format!("{}[{spec}]", pkg.display());
-    let mut out = run_pip(&py, &["install", "-e", &req], &root)?;
-    if matches!(extra_id, "generate") {
-        let ac = run_pip(&py, &["install", "audiocraft>=1.3", "--no-deps"], &root)?;
-        out = format!("{out}\n{ac}");
+    let mut out = match run_pip(&py, &["install", "-e", &req], &root) {
+        Ok(log) => log,
+        Err(err) if extra_id == "generate" => {
+            let fallback = generate_windows_fallback(&py, &root)?;
+            format!("{err}\n{fallback}")
+        }
+        Err(err) if extra_id == "vocal-rvc" => {
+            let fallback = vocal_rvc_windows_fallback(&py, &root)?;
+            format!("{err}\n{fallback}")
+        }
+        Err(err) => return Err(err),
+    };
+    if extra_id == "generate" {
+        if let Ok(ac) = run_pip(&py, &["install", "audiocraft>=1.3", "--no-deps"], &root) {
+            out = format!("{out}\n{ac}");
+        }
     }
     let _ = fs::write(
         root.join("state.json"),
@@ -347,6 +365,51 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
         ),
     );
     Ok(out)
+}
+
+const GENERATE_FALLBACK_DEPS: &[&str] = &[
+    "torchaudio",
+    "hydra-core",
+    "hydra-colorlog",
+    "flashy",
+    "sentencepiece",
+    "encodec",
+    "omegaconf",
+    "num2words",
+    "protobuf",
+    "torchmetrics",
+    "spacy",
+];
+
+const VOCAL_RVC_FALLBACK_DEPS: &[&str] = &[
+    "faiss-cpu",
+    "loguru",
+    "ffmpeg-python",
+    "python-multipart",
+    "praat-parselmouth>=0.4.2",
+    "pyworld",
+    "torchcrepe",
+];
+
+fn generate_windows_fallback(python: &Path, root: &Path) -> Result<String, String> {
+    let mut log = run_pip(python, &["install", "--only-binary=:all:", "av"], root)?;
+    let mut deps = vec!["install"];
+    deps.extend_from_slice(GENERATE_FALLBACK_DEPS);
+    log.push_str(&run_pip(python, &deps, root)?);
+    log.push_str(&run_pip(
+        python,
+        &["install", "audiocraft>=1.3.0", "--no-deps"],
+        root,
+    )?);
+    Ok(log)
+}
+
+fn vocal_rvc_windows_fallback(python: &Path, root: &Path) -> Result<String, String> {
+    let mut log = run_pip(python, &["install", "rvc-python", "--no-deps"], root)?;
+    let mut deps = vec!["install"];
+    deps.extend_from_slice(VOCAL_RVC_FALLBACK_DEPS);
+    log.push_str(&run_pip(python, &deps, root)?);
+    Ok(log)
 }
 
 #[cfg(test)]
@@ -382,5 +445,26 @@ mod tests {
         let flag = format!("-{}", "3.10");
         assert_eq!(flag, "-3.10");
         assert!(!flag.contains(' '));
+    }
+
+    #[test]
+    fn overlay_copy_does_not_wipe_destination() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("aimc-pkg-overlay-{stamp}"));
+        let src = root.join("src");
+        let dst = root.join("dst");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(src.join("ai_sidecar")).unwrap();
+        fs::write(src.join("pyproject.toml"), "[project]\nname='x'\n").unwrap();
+        fs::write(src.join("ai_sidecar/main.py"), "print(1)\n").unwrap();
+        fs::create_dir_all(dst.join("ai_sidecar")).unwrap();
+        fs::write(dst.join("keep-me.txt"), "alive\n").unwrap();
+        copy_dir_recursive(&src, &dst).unwrap();
+        assert!(dst.join("keep-me.txt").is_file());
+        assert!(package_source_ok(&dst));
+        let _ = fs::remove_dir_all(&root);
     }
 }

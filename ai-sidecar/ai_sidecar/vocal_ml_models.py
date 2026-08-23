@@ -73,9 +73,11 @@ def full_ml_vocal_models_available() -> bool:
 
 def vocal_model_status() -> dict[str, Any]:
     from .vocal_align import mfa_configured as mfa_align_ready  # noqa: PLC0415
+    from .vocal_tts import vocal_tts_engine_ready  # noqa: PLC0415
 
     model_path = _env_path("AIMC_RVC_MODEL")
     index_path = _env_path("AIMC_RVC_INDEX")
+    vocal_tts_ready = vocal_tts_engine_ready()
     return {
         "rvc_python": rvc_python_available(),
         "rvc_api": rvc_api_configured(),
@@ -91,6 +93,7 @@ def vocal_model_status() -> dict[str, Any]:
         "diffsinger_url": os.environ.get("AIMC_DIFFSINGER_URL", "").strip() or None,
         "diffsinger_model_dir": os.environ.get("AIMC_DIFFSINGER_MODEL_DIR", "").strip() or None,
         "diffsinger_openvpi": openvpi_status(),
+        "transformers_tts": vocal_tts_ready,
         "models_ready": full_ml_vocal_models_available(),
         "align": {
             "mfa_configured": mfa_align_ready(),
