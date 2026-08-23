@@ -368,16 +368,16 @@ pub fn run_pip_with_progress(
 }
 
 pub fn pip_extra_spec(extra_id: &str) -> Option<&'static str> {
-    match extra_id {
+    match extra_id.trim().to_ascii_lowercase().as_str() {
         "stems" => Some("stems"),
         "generate" => Some("generate"),
-        "classify" => Some("classify"),
+        "classify" | "genre" => Some("classify"),
         "vision" => Some("vision"),
         "cover" => Some("cover"),
-        "cover-ref" => Some("cover-ref"),
-        "vocal" => Some("vocal"),
+        "cover-ref" | "cover_ref" => Some("cover-ref"),
+        "vocal" | "vocal_ml" => Some("vocal"),
         "vocal-ml" => Some("vocal-ml"),
-        "vocal-rvc" => Some("vocal-rvc"),
+        "vocal-rvc" | "rvc" => Some("vocal-rvc"),
         _ => None,
     }
 }
@@ -398,7 +398,7 @@ pub(crate) fn last_extra_from_state_json(raw: &str) -> Option<String> {
     if id.is_empty() {
         return None;
     }
-    pip_extra_spec(id).map(|_| id.to_string())
+    pip_extra_spec(id).map(str::to_string)
 }
 
 pub fn load_installed_extras(app: &AppHandle) -> Vec<String> {
@@ -408,8 +408,7 @@ pub fn load_installed_extras(app: &AppHandle) -> Vec<String> {
             ids = serde_json::from_str::<Vec<String>>(&raw)
                 .unwrap_or_default()
                 .into_iter()
-                .map(|id| id.trim().to_string())
-                .filter(|id| !id.is_empty() && pip_extra_spec(id).is_some())
+                .filter_map(|id| pip_extra_spec(&id).map(str::to_string))
                 .collect();
         }
     }
@@ -422,14 +421,15 @@ pub fn load_installed_extras(app: &AppHandle) -> Vec<String> {
             }
         }
     }
+    ids.sort();
+    ids.dedup();
     ids
 }
 
 pub fn record_installed_extra(app: &AppHandle, extra_id: &str) {
-    let id = extra_id.trim();
-    if pip_extra_spec(id).is_none() {
+    let Some(id) = pip_extra_spec(extra_id) else {
         return;
-    }
+    };
     let Ok(path) = installed_extras_path(app) else {
         return;
     };
@@ -458,11 +458,11 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
     let progress = Some((app, extra_id));
     let mut out = match run_pip_with_progress(&py, &["install", "-U", "-e", &req], &root, progress) {
         Ok(log) => log,
-        Err(err) if extra_id == "generate" => {
+        Err(err) if spec == "generate" => {
             let fallback = generate_windows_fallback(&py, &root, progress)?;
             format!("{err}\n{fallback}")
         }
-        Err(err) if extra_id == "vocal-rvc" => {
+        Err(err) if spec == "vocal-rvc" => {
             let fallback = vocal_rvc_windows_fallback(&py, &root, progress)?;
             format!("{err}\n{fallback}")
         }
@@ -565,6 +565,10 @@ mod tests {
         assert_eq!(pip_extra_spec("generate"), Some("generate"));
         assert_eq!(pip_extra_spec("cover-ref"), Some("cover-ref"));
         assert_eq!(pip_extra_spec("vocal-ml"), Some("vocal-ml"));
+        assert_eq!(pip_extra_spec("genre"), Some("classify"));
+        assert_eq!(pip_extra_spec("rvc"), Some("vocal-rvc"));
+        assert_eq!(pip_extra_spec("vocal_ml"), Some("vocal"));
+        assert_eq!(pip_extra_spec("cover_ref"), Some("cover-ref"));
         assert_eq!(pip_extra_spec("nope"), None);
     }
 
@@ -577,6 +581,10 @@ mod tests {
         assert_eq!(
             last_extra_from_state_json(r#"{"last_extra":"vocal-ml"}"#).as_deref(),
             Some("vocal-ml")
+        );
+        assert_eq!(
+            last_extra_from_state_json(r#"{"lastExtra":"genre"}"#).as_deref(),
+            Some("classify")
         );
         assert_eq!(last_extra_from_state_json(r#"{"lastExtra":"nope"}"#), None);
     }

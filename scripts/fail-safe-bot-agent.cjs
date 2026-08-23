@@ -27,9 +27,9 @@ async function main() {
     shell: process.platform === "win32",
   }).stdout?.trim();
 
-  if (!log || fetchResult.status === 0 && log.includes("No failed CI runs")) {
+  if (!log || /No failed CI runs/i.test(log)) {
     console.log("No CI failure log found. Run locally: npm run fail-safe:run");
-    process.exit(fetchResult.status ?? 0);
+    process.exit(0);
   }
 
   console.log(formatAgentFixPrompt(log, { branch }));

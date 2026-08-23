@@ -62,19 +62,7 @@ fn emit_progress(app: &AppHandle, phase: &str, item: &str, message: &str) {
 }
 
 pub(crate) fn normalize_extra_id(raw: &str) -> Option<String> {
-    let id = raw.trim().to_ascii_lowercase();
-    let mapped = match id.as_str() {
-        "genre" => "classify",
-        "rvc" => "vocal-rvc",
-        "vocal_ml" => "vocal",
-        "cover_ref" | "cover-ref" => "cover-ref",
-        other => other,
-    };
-    known_extra_ids()
-        .iter()
-        .copied()
-        .find(|known| *known == mapped)
-        .map(str::to_string)
+    crate::sidecar_userdata::pip_extra_spec(raw).map(str::to_string)
 }
 
 pub(crate) fn extras_from_sidecar_health(health: &Value) -> Vec<String> {
@@ -265,11 +253,14 @@ fn extras_to_upgrade(app: &AppHandle, manager: &SidecarManager) -> Vec<String> {
     if let Some(health) = manager.fetch_health_json() {
         ids.extend(extras_from_sidecar_health(&health));
     }
+    let mut ids: Vec<String> = ids
+        .into_iter()
+        .filter_map(|id| normalize_extra_id(&id))
+        .filter(|id| known_extra_ids().contains(&id.as_str()))
+        .collect();
     ids.sort();
     ids.dedup();
-    ids.into_iter()
-        .filter(|id| known_extra_ids().contains(&id.as_str()))
-        .collect()
+    ids
 }
 
 fn update_components_blocking(

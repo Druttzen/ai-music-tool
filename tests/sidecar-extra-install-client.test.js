@@ -39,7 +39,10 @@ describe("sidecar extra install client", () => {
     expect(normalizeSidecarExtraId("vocal_ml")).toBe("vocal");
     expect(normalizeSidecarExtraId("rvc")).toBe("vocal-rvc");
     expect(normalizeSidecarExtraId("genre")).toBe("classify");
+    expect(normalizeSidecarExtraId("GENRE")).toBe("classify");
     expect(normalizeSidecarExtraId("cover-ref")).toBe("cover-ref");
+    expect(normalizeSidecarExtraId("cover_ref")).toBe("cover-ref");
+    expect(normalizeSidecarExtraId("vocal-ml")).toBe("vocal-ml");
   });
 
   it("maps npm hints and allowlist used by the UI", () => {

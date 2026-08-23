@@ -20,10 +20,11 @@ export const SIDECAR_EXTRA_NPM = {
 
 /** Normalize health capability ids to install script / npm keys. */
 export function normalizeSidecarExtraId(id) {
-  const raw = String(id || "").trim();
+  const raw = String(id || "").trim().toLowerCase();
   if (raw === "vocal_ml") return "vocal";
   if (raw === "rvc") return "vocal-rvc";
   if (raw === "genre") return "classify";
+  if (raw === "cover_ref") return "cover-ref";
   return raw;
 }
 

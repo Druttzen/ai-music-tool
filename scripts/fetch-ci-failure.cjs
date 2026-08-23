@@ -47,10 +47,10 @@ const runsJson = gh([
   "databaseId,conclusion,status,workflowName,url,headBranch,event",
 ]);
 
+const { selectActionableFailedRun } = require("./select-ci-failure.cjs");
+
 const runs = JSON.parse(runsJson || "[]");
-const failed = runs.find(
-  (r) => r.conclusion === "failure" || (r.status === "completed" && r.conclusion !== "success"),
-);
+const failed = selectActionableFailedRun(runs);
 
 if (!failed) {
   console.log(`No failed CI runs on branch "${branch}" in recent history.`);
