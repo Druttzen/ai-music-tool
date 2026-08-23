@@ -49,6 +49,7 @@ export interface SidecarHealth {
   device_info?: SidecarDeviceInfo | null;
   capabilities?: SidecarCapability[] | null;
   policy?: Record<string, unknown> | null;
+  owned?: boolean;
 }
 
 export interface SidecarAnalysis {
@@ -75,7 +76,6 @@ export interface SidecarManagedStatus {
   bundled: boolean;
   port: number;
   error: string | null;
-  auth_token?: string | null;
 }
 
 const SIDECAR_AUTH_HEADER = "X-AIMC-Sidecar-Token";
@@ -90,8 +90,8 @@ async function resolveSidecarAuthToken(): Promise<string | null> {
   }
   if (isTauriApp()) {
     try {
-      const status = await getManagedSidecarStatus();
-      cachedSidecarAuthToken = status?.auth_token?.trim() || null;
+      const token = await tauriInvoke<string | null>("sidecar_auth_token");
+      cachedSidecarAuthToken = token?.trim() || null;
       return cachedSidecarAuthToken;
     } catch {
       cachedSidecarAuthToken = null;
@@ -129,6 +129,15 @@ export function shouldReuseHealthCache(
   if (!cache) return false;
   const ttl = cache.ok ? okTtl : failTtl;
   return now - cache.at < ttl;
+}
+
+/** Studio only trusts /health when the sidecar proves it has our token. */
+export function sidecarHttpHealthIsUsable(input: {
+  isTauri: boolean;
+  owned?: boolean | null;
+}): boolean {
+  if (!input.isTauri) return true;
+  return input.owned === true;
 }
 
 function sidecarBaseUrl(): string {
@@ -199,13 +208,22 @@ export async function fetchSidecarHealth(): Promise<SidecarHealth | null> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 2000);
-    const res = await fetch(`${sidecarBaseUrl()}/health`, { signal: ctrl.signal });
+    const headers = await sidecarAuthHeaders();
+    const res = await fetch(`${sidecarBaseUrl()}/health`, { signal: ctrl.signal, headers });
     clearTimeout(timer);
     if (!res.ok) {
       healthCache = { ok: false, at: Date.now() };
       return null;
     }
     const body = (await res.json()) as SidecarHealth;
+    const usable = sidecarHttpHealthIsUsable({
+      isTauri: isTauriApp(),
+      owned: body.owned,
+    });
+    if (!usable) {
+      healthCache = { ok: false, at: Date.now() };
+      return null;
+    }
     healthCache = { ok: true, at: Date.now(), body };
     return body;
   } catch {

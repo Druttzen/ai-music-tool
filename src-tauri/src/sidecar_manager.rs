@@ -28,8 +28,6 @@ pub struct SidecarStatus {
     pub bundled: bool,
     pub port: u16,
     pub error: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auth_token: Option<String>,
 }
 
 enum SidecarChild {
@@ -127,6 +125,7 @@ impl SidecarManager {
 
         reconcile_state(&mut guard);
 
+        // Do not skip spawn just because some other process answered /health.
         if guard.ready || guard.spawned {
             return;
         }
@@ -145,7 +144,14 @@ impl SidecarManager {
                 guard.error = None;
             }
             Err(e) => {
-                guard.error = Some(e);
+                let probe = probe_health(Some(&token));
+                if probe.up && probe.owned != Some(true) {
+                    guard.error = Some(format!(
+                        "port {SIDECAR_PORT} is in use by a process that does not have this app's sidecar token. Stop the other listener and retry."
+                    ));
+                } else {
+                    guard.error = Some(e);
+                }
             }
         }
     }
@@ -180,6 +186,7 @@ impl SidecarManager {
     }
 
     /// Snapshot of sidecar state — no blocking HTTP on the command thread.
+    /// Does not include the sidecar auth token (see [`Self::auth_token`]).
     pub fn status(&self) -> SidecarStatus {
         let guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         SidecarStatus {
@@ -188,8 +195,13 @@ impl SidecarManager {
             bundled: guard.bundled,
             port: SIDECAR_PORT,
             error: guard.error.clone(),
-            auth_token: guard.auth_token.clone(),
         }
+    }
+
+    /// Sidecar token for authenticated renderer fetches. Not part of status polling.
+    pub fn auth_token(&self) -> Option<String> {
+        let guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        guard.auth_token.clone()
     }
 
     pub fn stop(&self) {
@@ -286,18 +298,18 @@ fn reconcile_state(guard: &mut SidecarInner) {
         return;
     }
 
-    let healthy = health_check();
+    let probe = probe_health(guard.auth_token.as_deref());
     let elapsed = guard
         .spawn_started
         .map(|t| t.elapsed())
         .unwrap_or(Duration::ZERO);
-    if should_abandon_unhealthy_spawn(guard.spawned, guard.ready, healthy, elapsed, SPAWN_GRACE) {
+    if should_abandon_unhealthy_spawn(guard.spawned, guard.ready, probe.up, elapsed, SPAWN_GRACE) {
         abandon_spawn(guard, "AI sidecar spawn never became healthy");
         return;
     }
 
     if guard.spawned {
-        if guard.ready && !healthy {
+        if guard.ready && !probe.up {
             if let Some(child) = guard.child.take() {
                 child.kill();
             }
@@ -305,14 +317,15 @@ fn reconcile_state(guard: &mut SidecarInner) {
             guard.ready = false;
             guard.bundled = false;
             guard.spawn_started = None;
-        } else if !guard.ready && healthy {
+        } else if !guard.ready && should_mark_ready(true, probe) {
             guard.ready = true;
             guard.error = None;
         }
         return;
     }
 
-    if healthy {
+    let want_ready = should_mark_ready(false, probe);
+    if want_ready {
         guard.ready = true;
         guard.error = None;
     } else {
@@ -320,14 +333,46 @@ fn reconcile_state(guard: &mut SidecarInner) {
     }
 }
 
-fn health_check() -> bool {
-    reqwest::blocking::Client::builder()
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct HealthProbe {
+    up: bool,
+    /// Sidecar `/health` `owned` field: true only when our token matches.
+    owned: Option<bool>,
+}
+
+/// Ready only for a process we spawned, or a listener that proves token ownership.
+fn should_mark_ready(spawned: bool, probe: HealthProbe) -> bool {
+    if !probe.up {
+        return false;
+    }
+    if spawned {
+        return probe.owned.unwrap_or(true);
+    }
+    probe.owned == Some(true)
+}
+
+fn probe_health(token: Option<&str>) -> HealthProbe {
+    let client = match reqwest::blocking::Client::builder()
         .timeout(HEALTH_TIMEOUT)
         .build()
-        .ok()
-        .and_then(|c| c.get(HEALTH_URL).send().ok())
-        .map(|r| r.status().is_success())
-        .unwrap_or(false)
+    {
+        Ok(c) => c,
+        Err(_) => return HealthProbe { up: false, owned: None },
+    };
+    let mut req = client.get(HEALTH_URL);
+    if let Some(t) = token.filter(|s| !s.is_empty()) {
+        req = req.header("X-AIMC-Sidecar-Token", t);
+    }
+    match req.send() {
+        Ok(resp) if resp.status().is_success() => {
+            let owned = resp
+                .json::<serde_json::Value>()
+                .ok()
+                .and_then(|v| v.get("owned").and_then(|x| x.as_bool()));
+            HealthProbe { up: true, owned }
+        }
+        _ => HealthProbe { up: false, owned: None },
+    }
 }
 
 fn new_sidecar_token() -> String {
@@ -570,5 +615,56 @@ mod tests {
         assert_eq!(flag, "-3.12");
         assert_ne!(flag.as_str(), "-");
         assert!(!flag.contains(' '));
+    }
+
+    #[test]
+    fn sidecar_status_json_omits_auth_token() {
+        let status = SidecarStatus {
+            ready: true,
+            spawned: true,
+            bundled: false,
+            port: 8723,
+            error: None,
+        };
+        let value = serde_json::to_value(&status).expect("serialize status");
+        assert!(
+            value.get("auth_token").is_none(),
+            "sidecar_status must not expose the auth token to the webview"
+        );
+    }
+
+    #[test]
+    fn foreign_health_without_token_ownership_is_not_ready() {
+        let unowned = HealthProbe {
+            up: true,
+            owned: Some(false),
+        };
+        let absent = HealthProbe {
+            up: true,
+            owned: None,
+        };
+        let owned = HealthProbe {
+            up: true,
+            owned: Some(true),
+        };
+        assert!(!should_mark_ready(false, unowned));
+        assert!(!should_mark_ready(false, absent));
+        assert!(should_mark_ready(false, owned));
+        assert!(should_mark_ready(true, absent));
+        assert!(should_mark_ready(true, owned));
+        assert!(!should_mark_ready(
+            true,
+            HealthProbe {
+                up: true,
+                owned: Some(false)
+            }
+        ));
+        assert!(!should_mark_ready(
+            false,
+            HealthProbe {
+                up: false,
+                owned: Some(true)
+            }
+        ));
     }
 }

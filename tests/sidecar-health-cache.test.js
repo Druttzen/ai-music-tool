@@ -3,6 +3,7 @@ import {
   HEALTH_FAIL_TTL_MS,
   HEALTH_OK_TTL_MS,
   shouldReuseHealthCache,
+  sidecarHttpHealthIsUsable,
 } from "../app/lib/sidecar-bridge.ts";
 
 describe("shouldReuseHealthCache", () => {
@@ -22,5 +23,18 @@ describe("shouldReuseHealthCache", () => {
 
   it("returns false when cache is empty", () => {
     expect(shouldReuseHealthCache(null, Date.now())).toBe(false);
+  });
+});
+
+describe("sidecarHttpHealthIsUsable", () => {
+  it("accepts any /health in the browser", () => {
+    expect(sidecarHttpHealthIsUsable({ isTauri: false, owned: false })).toBe(true);
+    expect(sidecarHttpHealthIsUsable({ isTauri: false, owned: undefined })).toBe(true);
+  });
+
+  it("requires owned=true in Studio", () => {
+    expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: true })).toBe(true);
+    expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: false })).toBe(false);
+    expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: undefined })).toBe(false);
   });
 });

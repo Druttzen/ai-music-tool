@@ -45,6 +45,11 @@ fn sidecar_status(manager: tauri::State<'_, Arc<SidecarManager>>) -> SidecarStat
 }
 
 #[tauri::command]
+fn sidecar_auth_token(manager: tauri::State<'_, Arc<SidecarManager>>) -> Option<String> {
+    manager.auth_token()
+}
+
+#[tauri::command]
 async fn ensure_sidecar(
     manager: tauri::State<'_, Arc<SidecarManager>>,
     timeout_ms: Option<u64>,
@@ -78,6 +83,7 @@ pub fn run() {
             measure_loudness_bytes,
             export_mastered,
             sidecar_status,
+            sidecar_auth_token,
             ensure_sidecar,
             export_canvas_handoff,
             suite_canvas_addon_status,

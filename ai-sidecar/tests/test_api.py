@@ -59,6 +59,7 @@ def test_health_ok():
     assert isinstance(body.get("cover_ref_available"), bool)
     assert isinstance(body.get("capabilities"), list)
     assert isinstance(body.get("device_info"), dict)
+    assert body.get("owned") is False
     assert body["device_info"]["device"] == body["device"]
     assert select_device() in ("cpu", "cuda", "mps")
     assert detect_device().device == body["device"]
@@ -274,3 +275,14 @@ def test_health_unauthenticated_when_token_configured(monkeypatch):
     monkeypatch.setattr("ai_sidecar.main._SIDECAR_TOKEN", "test-secret")
     res = client.get("/health")
     assert res.status_code == 200
+    assert res.json().get("owned") is False
+
+
+def test_health_owned_true_only_with_matching_token(monkeypatch):
+    monkeypatch.setattr("ai_sidecar.main._SIDECAR_TOKEN", "test-secret")
+    mismatch = client.get("/health", headers={"x-aimc-sidecar-token": "wrong"})
+    match = client.get("/health", headers={"x-aimc-sidecar-token": "test-secret"})
+    assert mismatch.status_code == 200
+    assert mismatch.json()["owned"] is False
+    assert match.status_code == 200
+    assert match.json()["owned"] is True

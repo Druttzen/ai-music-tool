@@ -158,6 +158,7 @@ class Health(BaseModel):
     device_info: dict[str, Any] | None = None
     capabilities: list[dict[str, Any]] | None = None
     policy: dict[str, Any] | None = None
+    owned: bool = False
 
 
 class GenrePrediction(BaseModel):
@@ -268,12 +269,14 @@ def _vision_available() -> bool:
 
 
 @app.get("/health", response_model=Health)
-def health() -> Health:
+def health(request: Request) -> Health:
     from . import __version__
     from .device import build_policy
 
     info = detect_device()
     flags = capability_flags()
+    header = request.headers.get(_SIDECAR_AUTH_HEADER) or ""
+    owned = bool(_SIDECAR_TOKEN) and header == _SIDECAR_TOKEN
     return Health(
         status="ok",
         device=info.device,
@@ -295,6 +298,7 @@ def health() -> Health:
         device_info=info.as_dict(),
         capabilities=list_capabilities(),
         policy=build_policy(info).as_dict(),
+        owned=owned,
     )
 
 

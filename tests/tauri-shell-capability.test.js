@@ -19,3 +19,16 @@ describe("Tauri webview shell capability", () => {
     expect(blob).not.toContain('"args":true');
   });
 });
+
+describe("Tauri production CSP and sidecar status", () => {
+  it("does not allow script-src unsafe-inline in production CSP", () => {
+    const raw = readFileSync(join(root, "src-tauri/tauri.conf.json"), "utf8");
+    const config = JSON.parse(raw);
+    const csp = config.app.security.csp;
+    const scriptSrc = (csp.match(/script-src[^;]*/i) || [""])[0];
+    expect(scriptSrc).toContain("'self'");
+    expect(scriptSrc).not.toMatch(/unsafe-inline/);
+    const devCsp = config.app.security.devCsp;
+    expect(devCsp).toMatch(/script-src[^;]*unsafe-inline/);
+  });
+});
