@@ -87,13 +87,19 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     : 0;
   const scanAge = mounted && report?.at ? formatScanAge(report.at) : null;
 
+  const e2e = process.env.NEXT_PUBLIC_E2E === "1";
   const fixSession = useFailSafeFixSession({
     actionableIssues: mounted && !checking ? actionable : [],
     fixAndPush,
     fixPushAvailable,
     autoStartFix: fixPushAvailable,
-    autoNotify: process.env.NEXT_PUBLIC_E2E !== "1",
-    includeWarn: lastProbeReason === "fault" || lastProbeReason === "sidecar",
+    autoStartLocal: !e2e,
+    autoNotify: !e2e,
+    includeWarn:
+      lastProbeReason === "fault" ||
+      lastProbeReason === "sidecar" ||
+      lastProbeReason === "launch",
+    onAfterLocalFix: probe,
   });
 
   useEffect(() => {
@@ -125,6 +131,10 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
 
   const handleFixPush = (mode) => {
     fixSession.openBugDialog(actionable, { autoFix: true, mode });
+  };
+
+  const handleLocalRepair = () => {
+    fixSession.openBugDialog(actionable, { autoFix: true, mode: "local" });
   };
 
   const handleFinished = () => {
@@ -256,6 +266,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
         fixPushAvailable={fixPushAvailable}
         canCloud={canCloud}
         onStartFix={(mode) => void fixSession.startFix(mode)}
+        onStartLocalFix={() => void fixSession.startLocalRepair(fixSession.sessionIssues)}
         onFinished={handleFinished}
       />
 
@@ -279,6 +290,17 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
             ) : null}
           </button>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {actionable.length > 0 ? (
+              <button
+                type="button"
+                className="rounded-lg border border-cyan-400/35 bg-cyan-500/15 px-2 py-1 text-[10px] font-bold text-cyan-100 hover:bg-cyan-500/25"
+                disabled={checking || fixSession.phase === "running"}
+                onClick={handleLocalRepair}
+                title="Retry sidecar, free scratch storage, and recover crashed panels — never pushes git"
+              >
+                Repair locally
+              </button>
+            ) : null}
             {actionable.length > 0 ? (
               <button
                 type="button"

@@ -4,14 +4,26 @@ import { memo } from "react";
 
 const STEPS = [
   { id: "detect", label: "Bug detected" },
-  { id: "fix", label: "Auto-fixing" },
-  { id: "verify", label: "Running check:ci" },
-  { id: "push", label: "Commit & push" },
+  { id: "local", label: "Local repair" },
+  { id: "verify", label: "Re-scan" },
+  { id: "push", label: "Commit & push (maintainer)" },
   { id: "done", label: "Finished" },
 ];
 
 /**
- * @param {{ open: boolean, phase: string, statusLine: string, stepIndex: number, issues: object[], result: object|null, fixPushAvailable: boolean, onStartFix: (mode: string) => void, onFinished: () => void, onStartFixLocal?: () => void }} props
+ * @param {{
+ *   open: boolean,
+ *   phase: string,
+ *   statusLine: string,
+ *   stepIndex: number,
+ *   issues: object[],
+ *   result: object|null,
+ *   fixPushAvailable: boolean,
+ *   canCloud?: boolean,
+ *   onStartFix: (mode: string) => void,
+ *   onStartLocalFix?: () => void,
+ *   onFinished: () => void,
+ * }} props
  */
 export const FailSafeFixDialog = memo(function FailSafeFixDialog({
   open,
@@ -23,6 +35,7 @@ export const FailSafeFixDialog = memo(function FailSafeFixDialog({
   fixPushAvailable,
   canCloud,
   onStartFix,
+  onStartLocalFix,
   onFinished,
 }) {
   if (!open) return null;
@@ -57,7 +70,7 @@ export const FailSafeFixDialog = memo(function FailSafeFixDialog({
           </span>
           <div>
             <h2 id="fail-safe-fix-dialog-title" className="text-base font-bold text-white">
-              {failed ? "Fix failed" : done ? "Fix complete" : "Bug found"}
+              {failed ? "Fix incomplete" : done ? "Fix complete" : "Bug found"}
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-white/60">{statusLine}</p>
           </div>
@@ -78,24 +91,29 @@ export const FailSafeFixDialog = memo(function FailSafeFixDialog({
           {STEPS.map((step, index) => {
             const active = index === stepIndex;
             const complete = index < stepIndex || (done && index <= stepIndex);
+            const skipPush = step.id === "push" && !fixPushAvailable;
             return (
               <li
                 key={step.id}
                 className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] ${
-                  active
-                    ? "border border-violet-400/40 bg-violet-500/15 text-violet-100"
-                    : complete
-                      ? "text-emerald-200/90"
-                      : "text-white/35"
+                  skipPush
+                    ? "text-white/25"
+                    : active
+                      ? "border border-violet-400/40 bg-violet-500/15 text-violet-100"
+                      : complete
+                        ? "text-emerald-200/90"
+                        : "text-white/35"
                 }`}
               >
                 <span
                   className={`h-2 w-2 shrink-0 rounded-full ${
-                    active
-                      ? "animate-pulse bg-violet-400"
-                      : complete
-                        ? "bg-emerald-400"
-                        : "bg-white/20"
+                    skipPush
+                      ? "bg-white/15"
+                      : active
+                        ? "animate-pulse bg-violet-400"
+                        : complete
+                          ? "bg-emerald-400"
+                          : "bg-white/20"
                   }`}
                 />
                 {step.label}
@@ -107,22 +125,47 @@ export const FailSafeFixDialog = memo(function FailSafeFixDialog({
           })}
         </ol>
 
-        {result?.pr_url ? (
-          <p className="mb-3 truncate text-[10px] text-emerald-200/90">PR: {result.pr_url}</p>
-        ) : null}
-        {result?.workflow_url ? (
-          <p className="mb-3 truncate text-[10px] text-cyan-200/90">{result.workflow_url}</p>
+        {result?.steps?.length ? (
+          <ul className="mb-3 space-y-1 rounded-xl border border-white/10 bg-black/25 p-3 text-[10px] text-white/60">
+            {result.steps.map((step) => (
+              <li key={`${step.id}-${step.action}`}>
+                <span className={step.ok ? "text-emerald-200/90" : "text-amber-100/80"}>
+                  {step.ok ? "✓" : "•"} {step.detail}
+                </span>
+              </li>
+            ))}
+          </ul>
         ) : null}
 
-        {waiting && fixPushAvailable ? (
+        {result?.pr_url || result?.prUrl ? (
+          <p className="mb-3 truncate text-[10px] text-emerald-200/90">
+            PR: {result.pr_url || result.prUrl}
+          </p>
+        ) : null}
+        {result?.workflow_url || result?.workflowUrl ? (
+          <p className="mb-3 truncate text-[10px] text-cyan-200/90">
+            {result.workflow_url || result.workflowUrl}
+          </p>
+        ) : null}
+
+        {waiting ? (
           <div className="mb-3 flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded-xl border border-violet-400/40 bg-violet-500/20 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-500/30"
-              onClick={() => onStartFix("local")}
+              className="rounded-xl border border-cyan-400/40 bg-cyan-500/20 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/30"
+              onClick={() => onStartLocalFix?.()}
             >
-              Start fix &amp; push
+              Repair locally
             </button>
+            {fixPushAvailable ? (
+              <button
+                type="button"
+                className="rounded-xl border border-violet-400/40 bg-violet-500/20 px-3 py-2 text-xs font-bold text-violet-100 hover:bg-violet-500/30"
+                onClick={() => onStartFix("local")}
+              >
+                Start fix &amp; push
+              </button>
+            ) : null}
             {canCloud ? (
               <button
                 type="button"
@@ -132,6 +175,18 @@ export const FailSafeFixDialog = memo(function FailSafeFixDialog({
                 Cloud fix
               </button>
             ) : null}
+          </div>
+        ) : null}
+
+        {failed && onStartLocalFix ? (
+          <div className="mb-3">
+            <button
+              type="button"
+              className="rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-3 py-2 text-xs font-bold text-cyan-100 hover:bg-cyan-500/25"
+              onClick={() => onStartLocalFix()}
+            >
+              Retry local repair
+            </button>
           </div>
         ) : null}
 

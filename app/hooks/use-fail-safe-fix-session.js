@@ -1,18 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { remediateRuntimeIssues } from "../lib/fail-safe-local-remediate";
 
 /**
- * Fail-safe fix dialog session — bug-found popup, live status, finished gate.
- * @param {{ actionableIssues: object[], fixAndPush: Function, fixPushAvailable: boolean, autoStartFix: boolean }} params
+ * Fail-safe fix dialog session — bug-found popup, local repair, optional maintainer push.
+ * @param {{
+ *   actionableIssues: object[],
+ *   fixAndPush: Function,
+ *   fixPushAvailable: boolean,
+ *   autoStartFix: boolean,
+ *   autoStartLocal?: boolean,
+ *   onAfterLocalFix?: Function,
+ * }} params
  */
 export function useFailSafeFixSession({
   actionableIssues = [],
   fixAndPush,
   fixPushAvailable = false,
-  autoStartFix = true,
+    autoStartFix: _autoStartFix = true,
+  autoStartLocal = true,
   autoNotify = true,
   includeWarn = false,
+  onAfterLocalFix,
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState("idle");
@@ -34,7 +44,7 @@ export function useFailSafeFixSession({
     async (mode = "local") => {
       clearTick();
       setPhase("running");
-      setStepIndex(1);
+      setStepIndex(3);
       setStatusLine(
         mode === "cloud"
           ? "Dispatching cloud fix workflow…"
@@ -71,6 +81,52 @@ export function useFailSafeFixSession({
     [clearTick, fixAndPush],
   );
 
+  const startLocalRepair = useCallback(
+    async (issues) => {
+      const list = issues?.length ? issues : sessionIssues;
+      clearTick();
+      setPhase("running");
+      setStepIndex(1);
+      setStatusLine("Applying local repairs (no git push)…");
+      setResult(null);
+
+      tickRef.current = setInterval(() => {
+        setStepIndex((i) => (i < 2 ? i + 1 : i));
+      }, 2500);
+
+      try {
+        const res = await remediateRuntimeIssues(list);
+        if (typeof onAfterLocalFix === "function") {
+          await onAfterLocalFix();
+        }
+        clearTick();
+        setStepIndex(res.ok ? 4 : 2);
+        setResult(res);
+        if (res.ok) {
+          setPhase("done");
+          setStatusLine(res.message || "Local repair complete.");
+        } else {
+          setPhase("error");
+          setStatusLine(res.message || "Local repair did not finish.");
+        }
+        return res;
+      } catch (err) {
+        clearTick();
+        setStepIndex(4);
+        setPhase("error");
+        const msg = err instanceof Error ? err.message : "Local repair failed";
+        setStatusLine(msg);
+        throw err;
+      }
+    },
+    [clearTick, onAfterLocalFix, sessionIssues],
+  );
+
+  const startLocalThenMaybePush = useCallback(
+    async (_mode = "local", issues) => startLocalRepair(issues?.length ? issues : sessionIssues),
+    [sessionIssues, startLocalRepair],
+  );
+
   const openBugDialog = useCallback(
     (issues, { autoFix = false, mode = "local" } = {}) => {
       const list = issues?.length ? issues : actionableIssues;
@@ -83,11 +139,11 @@ export function useFailSafeFixSession({
       setStatusLine(
         `${list.length} issue${list.length === 1 ? "" : "s"} detected — review below.`,
       );
-      if (autoFix && fixPushAvailable) {
-        void startFix(mode);
+      if (autoFix) {
+        void startLocalThenMaybePush(mode, list);
       }
     },
-    [actionableIssues, fixPushAvailable, startFix],
+    [actionableIssues, startLocalThenMaybePush],
   );
 
   useEffect(() => {
@@ -101,12 +157,19 @@ export function useFailSafeFixSession({
     notifiedRef.current = fp;
     const timer = setTimeout(() => {
       openBugDialog(critical, {
-        autoFix: autoStartFix && fixPushAvailable,
+        autoFix: autoStartLocal,
         mode: "local",
       });
     }, 0);
     return () => clearTimeout(timer);
-  }, [actionableIssues, autoNotify, autoStartFix, fixPushAvailable, includeWarn, openBugDialog, phase]);
+  }, [
+    actionableIssues,
+    autoNotify,
+    autoStartLocal,
+    includeWarn,
+    openBugDialog,
+    phase,
+  ]);
 
   useEffect(() => () => clearTick(), [clearTick]);
 
@@ -127,6 +190,8 @@ export function useFailSafeFixSession({
     sessionIssues,
     openBugDialog,
     startFix,
+    startLocalRepair,
+    startLocalThenMaybePush,
     closeDialog,
   };
 }

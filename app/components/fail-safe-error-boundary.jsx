@@ -2,6 +2,7 @@
 
 import { Component } from "react";
 import { captureRuntimeFault } from "../lib/fail-safe-runtime-capture";
+import { FAIL_SAFE_RETRY_UI_EVENT } from "../lib/fail-safe-local-remediate";
 
 /**
  * Isolates a studio region so a render crash does not blank the whole app.
@@ -26,6 +27,19 @@ export class FailSafeErrorBoundary extends Component {
       message: error instanceof Error ? error.message : String(error || "render error"),
       stack,
     });
+  }
+
+  componentDidMount() {
+    this.onFailSafeRetry = () => this.setState({ error: null });
+    if (typeof window !== "undefined") {
+      window.addEventListener(FAIL_SAFE_RETRY_UI_EVENT, this.onFailSafeRetry);
+    }
+  }
+
+  componentWillUnmount() {
+    if (typeof window !== "undefined" && this.onFailSafeRetry) {
+      window.removeEventListener(FAIL_SAFE_RETRY_UI_EVENT, this.onFailSafeRetry);
+    }
   }
 
   render() {

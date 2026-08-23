@@ -75,7 +75,7 @@ The **Fail-safe bot** strip lives at the **top of the left sidebar** (always vis
 - **Launch:** one health scan when Studio starts (waits until sidecar is past `checking`, or 8s)
 - **Hibernate:** no polling after that — the strip shows “hibernating — watching for errors”
 - **Wake:** window errors, unhandled rejections, error-boundary crashes, or sidecar dropping offline
-- **Fix:** fail issues (and wake-time warnings) open the bug dialog; maintainer mode can auto-run Fix & push
+- **Fix:** fail issues (and wake/launch warnings) open the bug dialog and **auto-run local repairs** (wake sidecar, free fail-safe scratch storage, retry crashed panels). Maintainer mode can then Fix & push. User installs never push git.
 - Window `error` / `unhandledrejection` are always captured **locally**; GitHub queue still needs enable + consent
 
 ## CLI commands
