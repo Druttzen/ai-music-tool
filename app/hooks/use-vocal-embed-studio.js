@@ -34,6 +34,7 @@ import {
   sidecarExtraInstallStatusTone,
 } from "../lib/sidecar-extra-install-client";
 import { pickVoiceStyleCompactForCoProducer } from "../lib/voice-character-studio-session";
+import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
 import {
   buildAlignPreviewPersistence,
   computeVocalEmbedCapabilities,

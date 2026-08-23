@@ -33,18 +33,6 @@ export function isTauriApp(): boolean {
 }
 
 /**
- * Measure EBU R128 loudness of a WAV file via the native DSP core.
- * @param path Absolute path to a WAV file (obtained from a Tauri file dialog).
- */
-export async function measureLoudness(path: string): Promise<Loudness> {
-  const t = tauri();
-  if (!t) {
-    throw new Error("Native DSP core is only available in the Tauri desktop build");
-  }
-  return t.core.invoke<Loudness>("measure_loudness", { path });
-}
-
-/**
  * Measure EBU R128 loudness from encoded audio bytes (MP3/M4A/OGG/FLAC/WAV)
  * via the native DSP core — no browser-side decode required.
  */
