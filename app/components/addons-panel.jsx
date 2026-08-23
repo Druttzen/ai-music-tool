@@ -23,9 +23,15 @@ import {
   formatSidecarExtraRowStatus,
   formatSidecarInstallEnvChip,
   formatSidecarProcessChip,
-  listSidecarCapabilityRows,
   sortSidecarCapabilityRows,
 } from "../lib/sidecar-capabilities";
+import {
+  formatSidecarPluginInstallBusyLabel,
+  formatSidecarPluginInstallProgress,
+  listStudioPluginCatalog,
+  sidecarPluginInstallPercent,
+  sidecarPluginInstallProgressFromEvent,
+} from "../lib/studio-plugin-catalog";
 import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
@@ -33,6 +39,7 @@ import {
   probeSidecarExtraInstallEnv,
   sidecarExtraInstallStatusTone,
   sidecarExtraNpmHint,
+  subscribeSidecarExtraInstallProgress,
 } from "../lib/sidecar-extra-install-client";
 import { SIDECAR_EXTRAS_CHANGED_EVENT } from "../lib/sidecar-startup-install";
 
@@ -62,9 +69,7 @@ export function AddonsPanel() {
   const { sidecarAiStatus } = useProjectWorkspaceAnalyzerState();
   const desktop = useDesktopHost();
   const [canvasStatus, setCanvasStatus] = useState({ ...CANVAS_ADDON, installed: false });
-  const [capabilityRows, setCapabilityRows] = useState(
-    /** @type {{ id: string, title: string, install_hint: string, available: boolean, commercial_use?: boolean|null, license?: string, tasks?: string[] }[]} */ ([]),
-  );
+  const [capabilityRows, setCapabilityRows] = useState(() => listStudioPluginCatalog(null));
   const [deviceSummary, setDeviceSummary] = useState("");
   const [capabilityCounts, setCapabilityCounts] = useState({ available: 0, total: 0 });
   const [installEnv, setInstallEnv] = useState(
@@ -73,6 +78,9 @@ export function AddonsPanel() {
   const [busyKey, setBusyKey] = useState(/** @type {string|null} */ (null));
   const [extraErrors, setExtraErrors] = useState(/** @type {Record<string, string>} */ ({}));
   const [extrasLoaded, setExtrasLoaded] = useState(false);
+  const [installProgress, setInstallProgress] = useState(
+    /** @type {{ extraId: string, line: string, parsedBytes: number|null }|null} */ (null),
+  );
 
   const refreshCanvas = useCallback(async () => {
     try {
@@ -85,17 +93,18 @@ export function AddonsPanel() {
   const refreshExtras = useCallback(async () => {
     try {
       const health = await fetchSidecarHealth();
-      const rows = listSidecarCapabilityRows(health);
-      setCapabilityRows(rows);
+      const catalog = listStudioPluginCatalog(health);
+      setCapabilityRows(catalog);
       setDeviceSummary(formatSidecarDeviceSummary(health));
       setCapabilityCounts({
-        available: rows.filter((r) => r.available).length,
-        total: rows.length,
+        available: catalog.filter((r) => r.available).length,
+        total: catalog.length,
       });
     } catch {
-      setCapabilityRows([]);
+      const catalog = listStudioPluginCatalog(null);
+      setCapabilityRows(catalog);
       setDeviceSummary("");
-      setCapabilityCounts({ available: 0, total: 0 });
+      setCapabilityCounts({ available: 0, total: catalog.length });
     } finally {
       setExtrasLoaded(true);
     }
@@ -139,6 +148,25 @@ export function AddonsPanel() {
     window.addEventListener(SIDECAR_EXTRAS_CHANGED_EVENT, onExtrasChanged);
     return () => window.removeEventListener(SIDECAR_EXTRAS_CHANGED_EVENT, onExtrasChanged);
   }, [refreshCanvas, refreshExtras, refreshInstallEnv]);
+
+  useEffect(() => {
+    return subscribeSidecarExtraInstallProgress((payload) => {
+      const parsed = sidecarPluginInstallProgressFromEvent(payload);
+      setInstallProgress((prev) => {
+        const extraId = parsed.extraId || prev?.extraId || "";
+        if (prev?.extraId && parsed.extraId && parsed.extraId !== prev.extraId) {
+          return prev;
+        }
+        if (!extraId && !parsed.line) return prev;
+        return {
+          extraId,
+          line: parsed.line || prev?.line || "",
+          parsedBytes:
+            typeof parsed.parsedBytes === "number" ? parsed.parsedBytes : (prev?.parsedBytes ?? null),
+        };
+      });
+    });
+  }, []);
 
   const onInstallCanvas = useCallback(async () => {
     if (!desktop) {
@@ -208,6 +236,7 @@ export function AddonsPanel() {
         return;
       }
       setBusyKey(`extra:${id}`);
+      setInstallProgress({ extraId: id, line: "", parsedBytes: null });
       setExtraErrors((prev) => {
         if (!prev[id]) return prev;
         const next = { ...prev };
@@ -234,6 +263,7 @@ export function AddonsPanel() {
         setStatusWithTime(msg, "error");
       } finally {
         setBusyKey(null);
+        setInstallProgress(null);
       }
     },
     [installEnv, refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
@@ -257,20 +287,20 @@ export function AddonsPanel() {
   const envChip = formatSidecarInstallEnvChip(installEnv);
   const extrasEmptyHint =
     sidecarAiStatus !== "ready"
-      ? "Start the sidecar to load addon status."
+      ? "Sidecar offline — plugins stay listed; Install copies the command or waits for Studio."
       : extrasLoaded
-        ? "No installable sidecar extras reported."
-        : "Checking sidecar extras…";
+        ? "No installable sidecar plugins reported."
+        : "Checking sidecar plugins…";
 
   return (
     <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.canvasIntegration} column="left">
       <Panel
-        title="Addons"
-        hint="Canvas suite tool and optional sidecar ML extras (checkout .venv or packaged user-data venv)."
+        title="Plugins"
+        hint="Left-menu catalog: Canvas plus sidecar extras. Each row has Install. Browser copies the npm command; Studio pip-installs into the sidecar venv."
       >
         {desktop ? null : (
           <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
-            {CANVAS_DESKTOP_REQUIRED}. Sidecar Install buttons copy the npm command in the browser.
+            {CANVAS_DESKTOP_REQUIRED}. In the browser, each plugin’s Install copies its npm command.
           </p>
         )}
 
@@ -354,7 +384,7 @@ export function AddonsPanel() {
 
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Sidecar extras</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Sidecar plugins</div>
             <button
               type="button"
               data-testid="addons-refresh-status"
@@ -373,13 +403,29 @@ export function AddonsPanel() {
           ) : (
             <ul className="space-y-2" data-testid="addons-capability-list">
               {sortSidecarCapabilityRows(capabilityRows, extraErrors, normalizeSidecarExtraId).map((cap) => {
-                const id = normalizeSidecarExtraId(cap.id);
+                const id = normalizeSidecarExtraId(cap.extraId || cap.id);
                 const hint = cap.install_hint || sidecarExtraNpmHint(id);
                 const rowBusy = busyKey === `extra:${id}`;
                 const err = extraErrors[id];
                 const installed = Boolean(cap.available);
+                const rowProgress =
+                  rowBusy && installProgress && normalizeSidecarExtraId(installProgress.extraId) === id
+                    ? installProgress
+                    : null;
+                const progressPercent = sidecarPluginInstallPercent(
+                  rowProgress?.extraId,
+                  rowProgress?.parsedBytes,
+                );
+                const progressText = formatSidecarPluginInstallProgress(rowProgress);
                 const rowStatus = formatSidecarExtraRowStatus(cap, { installing: rowBusy, error: err });
                 const tasks = Array.isArray(cap.tasks) ? cap.tasks : [];
+                const actionLabel = err
+                  ? "Retry"
+                  : rowBusy
+                    ? formatSidecarPluginInstallBusyLabel(rowProgress)
+                    : installed
+                      ? "Reinstall"
+                      : installButtonLabel(false);
                 return (
                   <li
                     key={cap.id}
@@ -388,7 +434,7 @@ export function AddonsPanel() {
                     data-status={rowStatus.label.toLowerCase()}
                     className={`rounded-xl border px-3 py-2 ${rowStatus.borderClass}`}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <div className="text-xs font-bold text-white/90">{cap.title}</div>
@@ -403,6 +449,9 @@ export function AddonsPanel() {
                             </span>
                           ) : null}
                         </div>
+                        {cap.blurb ? (
+                          <p className="mt-1 text-[11px] leading-snug text-white/55">{cap.blurb}</p>
+                        ) : null}
                         {tasks.length > 0 ? (
                           <p className="mt-1 flex flex-wrap gap-1">
                             {tasks.map((task) => (
@@ -423,26 +472,30 @@ export function AddonsPanel() {
                           <p className="mt-1 text-[10px] leading-snug text-rose-200/90">{err}</p>
                         ) : null}
                         {rowBusy ? (
-                          <p className="mt-1 text-[10px] text-cyan-100/75">
-                            Pip install in progress — large extras can take several minutes.
-                          </p>
+                          <div data-testid={`addons-install-progress-${id}`} className="mt-1 space-y-1">
+                            <div className="h-1 overflow-hidden rounded-full bg-white/10">
+                              <div
+                                className="h-full bg-cyan-400/80 transition-[width] duration-300"
+                                style={{ width: `${progressPercent ?? 8}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px] leading-snug text-cyan-100/75">
+                              {progressText ||
+                                "Pip install in progress — large extras can take several minutes."}
+                            </p>
+                          </div>
                         ) : null}
                       </div>
-                      <div className="flex shrink-0 flex-col gap-1">
-                        {!installed || err ? (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void onInstallExtra(id)}
-                            className="rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"
-                          >
-                            {err ? "Retry" : installButtonLabel(rowBusy)}
-                          </button>
-                        ) : (
-                          <span className="rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-center text-[11px] font-bold text-emerald-100/80">
-                            Ready
-                          </span>
-                        )}
+                      <div className="flex w-[7.5rem] shrink-0 flex-col">
+                        <button
+                          type="button"
+                          data-testid={`addons-install-${id}`}
+                          disabled={busy}
+                          onClick={() => void onInstallExtra(id)}
+                          className="rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"
+                        >
+                          {actionLabel}
+                        </button>
                       </div>
                     </div>
                   </li>

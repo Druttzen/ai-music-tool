@@ -72,7 +72,7 @@ export function listSidecarCapabilityRows(health) {
  */
 export function sortSidecarCapabilityRows(rows, errorsByExtraId = {}, normalizeId = (id) => id) {
   const rank = (row) => {
-    const id = normalizeId(row.id);
+    const id = normalizeId(row.extraId || row.id);
     if (errorsByExtraId[id]) return 0;
     if (!row.available) return 1;
     return 2;
