@@ -23,7 +23,12 @@ const GuidedFocusContext = createContext(null);
 
 export function GuidedFocusProvider({ children }) {
   const { guidedStep, promptEngine } = useProjectWorkspaceProjectState();
-  const [showAll, setShowAllState] = useState(() => readShowAllPreference());
+  // false on first paint so SSR matches Studio hydration; localStorage after mount.
+  const [showAll, setShowAllState] = useState(false);
+
+  useEffect(() => {
+    setShowAllState(readShowAllPreference());
+  }, []);
 
   const setShowAll = useCallback((value) => {
     setShowAllState((prev) => {

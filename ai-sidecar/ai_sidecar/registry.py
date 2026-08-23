@@ -96,9 +96,11 @@ def _probe_vocal_torch() -> bool:
 
 
 def _probe_rvc() -> bool:
-    from .vocal_ml_models import rvc_ready
+    from .vocal_ml_models import rvc_api_configured, rvc_python_available
 
-    return rvc_ready()
+    # Extra is installed when the library (or a remote API) is present.
+    # Voice models stay a separate runtime config (AIMC_RVC_MODEL).
+    return rvc_python_available() or rvc_api_configured()
 
 
 def _probe_diffsinger() -> bool:

@@ -2,12 +2,15 @@
 
 import { AppHeader, SplashOverlay } from "./components/app-shell";
 import { ActionToast } from "./components/action-toast";
+import { StartupInstallOverlay } from "./components/startup-install-overlay";
+import { useStartupAddonInstall } from "./hooks/use-startup-addon-install";
 import { ProjectWorkspaceProviders } from "./context/project-workspace-context";
 import { GuidedFocusProvider } from "./context/guided-focus-context";
 import { PageSidebarLeft } from "./components/page-sidebar-left";
 import { PageWorkspaceCenter } from "./components/page-workspace-center";
 import { PageSidebarRight } from "./components/page-sidebar-right";
 import { GuidedStepCoachBanner } from "./components/guided-step-coach-banner";
+import { FailSafeErrorBoundary } from "./components/fail-safe-error-boundary";
 import { useProjectWorkspaceProvider } from "./hooks/use-project-workspace";
 import { APP_VERSION, AUTHOR } from "./lib/music-config";
 
@@ -23,10 +26,12 @@ export default function Page() {
     toast,
     workspace,
   } = useProjectWorkspaceProvider();
+  const startupInstall = useStartupAddonInstall();
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0b0d10] p-4 text-white md:p-8">
-      {showSplash && (
+      <StartupInstallOverlay {...startupInstall} />
+      {showSplash && !startupInstall.open && (
         <SplashOverlay
           onDismiss={() => {
             dismissSplash();
@@ -40,20 +45,30 @@ export default function Page() {
       <canvas ref={canvasRef} className="hidden"/>
       <div className="fixed inset-0 pointer-events-none opacity-40" style={{background:"radial-gradient(circle at 18% 0%, rgba(184,115,51,.25), transparent 34%), radial-gradient(circle at 82% 12%, rgba(34,211,238,.16), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 35%)"}}/>
       <div className="relative mx-auto max-w-7xl pb-12">
-        <AppHeader
-          appVersion={APP_VERSION}
-          avgScore={avgScore}
-          saveStatus={saveStatus}
-          statusPulseKey={toast?.tick ?? 0}
-        />
+        <FailSafeErrorBoundary name="header">
+          <AppHeader
+            appVersion={APP_VERSION}
+            avgScore={avgScore}
+            saveStatus={saveStatus}
+            statusPulseKey={toast?.tick ?? 0}
+          />
+        </FailSafeErrorBoundary>
 
         <ProjectWorkspaceProviders slices={workspace}>
           <GuidedFocusProvider>
-            <GuidedStepCoachBanner />
+            <FailSafeErrorBoundary name="guided coach">
+              <GuidedStepCoachBanner />
+            </FailSafeErrorBoundary>
             <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
-              <PageSidebarLeft />
-              <PageWorkspaceCenter />
-              <PageSidebarRight />
+              <FailSafeErrorBoundary name="left tools">
+                <PageSidebarLeft />
+              </FailSafeErrorBoundary>
+              <FailSafeErrorBoundary name="center workspace">
+                <PageWorkspaceCenter />
+              </FailSafeErrorBoundary>
+              <FailSafeErrorBoundary name="right tools">
+                <PageSidebarRight />
+              </FailSafeErrorBoundary>
             </div>
           </GuidedFocusProvider>
         </ProjectWorkspaceProviders>

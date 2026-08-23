@@ -4,6 +4,8 @@
   "description": "Main window: core Tauri APIs only. Sidecar spawn stays in Rust (ShellExt); the webview must not execute ai-sidecar.",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
   ]
 }

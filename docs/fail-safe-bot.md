@@ -70,12 +70,13 @@ Triggers `.github/workflows/fail-safe-auto-fix.yml` via `repository_dispatch`.
 
 ## In-app panel
 
-**Drag & Drop Analyzers** includes a **Fail-safe bot** strip that:
+The **Fail-safe bot** strip lives at the **top of the left sidebar** (always visible in focused-step mode):
 
-- Monitors sidecar/runtime health (hydration-safe — shows "checking…" until mounted)
-- Surfaces **warn/fail** issues first; expand for informational items
-- Shows last scan age and copy-fix commands
-- Reminds you to run `npm run fail-safe:run` before push
+- **Launch:** one health scan when Studio starts (waits until sidecar is past `checking`, or 8s)
+- **Hibernate:** no polling after that — the strip shows “hibernating — watching for errors”
+- **Wake:** window errors, unhandled rejections, error-boundary crashes, or sidecar dropping offline
+- **Fix:** fail issues (and wake-time warnings) open the bug dialog; maintainer mode can auto-run Fix & push
+- Window `error` / `unhandledrejection` are always captured **locally**; GitHub queue still needs enable + consent
 
 ## CLI commands
 

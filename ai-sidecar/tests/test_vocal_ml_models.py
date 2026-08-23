@@ -54,3 +54,14 @@ def test_rvc_model_path_flag(monkeypatch, tmp_path):
     model.write_bytes(b"stub")
     monkeypatch.setenv("AIMC_RVC_MODEL", str(model))
     assert rvc_model_configured() is True
+
+
+def test_registry_rvc_probe_is_package_not_model(monkeypatch):
+    monkeypatch.delenv("AIMC_RVC_MODEL", raising=False)
+    monkeypatch.delenv("AIMC_RVC_MODELS_DIR", raising=False)
+    monkeypatch.delenv("AIMC_RVC_API_URL", raising=False)
+    monkeypatch.setattr("ai_sidecar.vocal_ml_models.rvc_python_available", lambda: True)
+    from ai_sidecar.registry import _probe_rvc
+
+    assert _probe_rvc() is True
+    assert rvc_ready() is False

@@ -58,8 +58,10 @@ Everything lives inside **ai-music-tool**:
 
 **Scope (stays / grows inside ai-music-tool):**
 
-- Background health (sidecar offline, librosa missing, window/`unhandledrejection` errors)
+- Background health: **one scan at Studio launch**, then hibernate until a runtime error (window/`unhandledrejection`, UI crash, sidecar drop)
 - Classify runtime errors (reuse playbooks where relevant)
+- Isolate studio columns with React error boundaries so one tool failure does not blank the app
+- Wrap project/analyzer actions so thrown errors are captured and the rest of the studio keeps running
 - Format a report for maintainers/agents
 - Open a **GitHub issue** (new-issue URL or maintainer `gh`) and/or **agent branch** with the error log
 - **No** silent auto-push from end-user installs

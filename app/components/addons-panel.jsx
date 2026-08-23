@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useDesktopHost } from "../hooks/use-desktop-host";
 import { Panel } from "./ui-blocks";
 import { GUIDED_PANEL_IDS } from "../lib/suno-guided-step-focus";
 import {
@@ -14,7 +15,6 @@ import {
   formatCanvasInstallStatus,
   getCanvasAddonStatus,
   installCanvasAddon,
-  isDesktopAddonHost,
   launchCanvasAddon,
 } from "../lib/canvas-addon-client";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
@@ -34,6 +34,7 @@ import {
   sidecarExtraInstallStatusTone,
   sidecarExtraNpmHint,
 } from "../lib/sidecar-extra-install-client";
+import { SIDECAR_EXTRAS_CHANGED_EVENT } from "../lib/sidecar-startup-install";
 
 /** @deprecated Prefer AddonsPanel — kept for any lingering imports. */
 export function CanvasIntegrationPanel() {
@@ -59,7 +60,7 @@ function statusChipClass(tone) {
 export function AddonsPanel() {
   const { setStatusWithTime, refreshSidecarCapabilities } = useProjectWorkspaceActions();
   const { sidecarAiStatus } = useProjectWorkspaceAnalyzerState();
-  const desktop = isDesktopAddonHost();
+  const desktop = useDesktopHost();
   const [canvasStatus, setCanvasStatus] = useState({ ...CANVAS_ADDON, installed: false });
   const [capabilityRows, setCapabilityRows] = useState(
     /** @type {{ id: string, title: string, install_hint: string, available: boolean, commercial_use?: boolean|null, license?: string, tasks?: string[] }[]} */ ([]),
@@ -128,6 +129,16 @@ export function AddonsPanel() {
     }, 0);
     return () => clearTimeout(timer);
   }, [sidecarAiStatus, refreshExtras]);
+
+  useEffect(() => {
+    const onExtrasChanged = () => {
+      void refreshExtras();
+      void refreshInstallEnv();
+      void refreshCanvas();
+    };
+    window.addEventListener(SIDECAR_EXTRAS_CHANGED_EVENT, onExtrasChanged);
+    return () => window.removeEventListener(SIDECAR_EXTRAS_CHANGED_EVENT, onExtrasChanged);
+  }, [refreshCanvas, refreshExtras, refreshInstallEnv]);
 
   const onInstallCanvas = useCallback(async () => {
     if (!desktop) {
@@ -257,11 +268,11 @@ export function AddonsPanel() {
         title="Addons"
         hint="Canvas suite tool and optional sidecar ML extras (checkout .venv or packaged user-data venv)."
       >
-        {!desktop ? (
+        {desktop ? null : (
           <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
             {CANVAS_DESKTOP_REQUIRED}. Sidecar Install buttons copy the npm command in the browser.
           </p>
-        ) : null}
+        )}
 
         <div
           data-testid="addons-status-strip"

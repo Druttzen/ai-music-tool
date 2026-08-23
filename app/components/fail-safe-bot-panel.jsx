@@ -41,7 +41,16 @@ const SEVERITY_STYLES = {
 export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
   const { sidecarAiStatus, sidecarGenerateAvailable } = useProjectWorkspaceAnalyzerState();
   const { setStatusWithTime } = useProjectWorkspaceActions();
-  const { report, busy, probe, copyFixCommands, mounted, refreshRuntimeListeners } = useFailSafeBot({
+  const {
+    report,
+    busy,
+    probe,
+    copyFixCommands,
+    mounted,
+    refreshRuntimeListeners,
+    hibernating,
+    lastProbeReason,
+  } = useFailSafeBot({
     sidecarAiStatus,
     sidecarGenerateAvailable,
   });
@@ -67,7 +76,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
         ? overallSeverity(actionable)
         : report.overall
       : "ok";
-  const topIssue = actionable[0] || report?.issues?.[0];
+  const topIssue = actionable[0] || null;
   const displayIssues = expanded
     ? report?.issues || []
     : actionable.length
@@ -84,6 +93,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     fixPushAvailable,
     autoStartFix: fixPushAvailable,
     autoNotify: process.env.NEXT_PUBLIC_E2E !== "1",
+    includeWarn: lastProbeReason === "fault" || lastProbeReason === "sidecar",
   });
 
   useEffect(() => {
@@ -101,7 +111,9 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     ? "checking…"
     : topIssue
       ? topIssue.title
-      : "runtime health OK";
+      : hibernating
+        ? "hibernating — watching for errors"
+        : "runtime health OK";
 
   const handleCopy = async () => {
     const ok = await copyFixCommands();

@@ -51,6 +51,7 @@ import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { useAnalyzerRefs } from "./analyzers/use-analyzer-refs";
 import { useE2eAudioFixtures } from "./analyzers/use-e2e-audio-fixtures";
 import { useSidecarStatus } from "./analyzers/use-sidecar-status";
+import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
 import {
   deriveCanvasMotionHint,
   deriveCanvasTrackMeta,
@@ -215,7 +216,8 @@ export function useAnalyzers({
           return next;
         });
         setStatusWithTime("Audio attached — sample-accurate waveform and playback restored");
-      } catch {
+      } catch (err) {
+        reportCaughtError("analyzers.attachAudioFile", err);
         setStatusWithTime("Could not attach audio file");
       } finally {
         if (audioContext) {
@@ -324,6 +326,7 @@ export function useAnalyzers({
             );
             return;
           } catch (sidecarErr) {
+            reportCaughtError("analyzers.analyzeAudioFile", sidecarErr);
             const msg = sidecarErr instanceof Error ? sidecarErr.message : "Sidecar analyze failed";
             setStatusWithTime(`Audio analysis failed — ${msg.slice(0, 80)}`, "error");
             applyAnalyzerPatch({
@@ -716,6 +719,7 @@ export function useAnalyzers({
           );
         }
       } catch (err) {
+        reportCaughtError("analyzers.exportEnhancedAudio", err);
         const msg = err instanceof Error ? err.message : "";
         setStatusWithTime(msg ? msg.slice(0, 80) : "Studio export failed");
       } finally {
@@ -764,6 +768,7 @@ export function useAnalyzers({
           `Stems ready (${result.sources.join(", ")}) — download individual WAVs below`,
         );
       } catch (err) {
+        reportCaughtError("analyzers.separateStems", err);
         const msg = err instanceof Error ? err.message : "Stem separation failed";
         setStatusWithTime(msg.slice(0, 100), "warning");
       } finally {
@@ -889,6 +894,7 @@ export function useAnalyzers({
           }
         }
       } catch (err) {
+        reportCaughtError("analyzers.generateMusicFromPrompt", err);
         const msg = err instanceof Error ? err.message : "MusicGen generation failed";
         setStatusWithTime(msg.slice(0, 120), "warning");
       } finally {
@@ -906,6 +912,7 @@ export function useAnalyzers({
         await downloadSidecarStem(stem.download_url, `${base}-${stem.filename}`);
         setStatusWithTime(`Downloaded ${stem.name} stem`);
       } catch (err) {
+        reportCaughtError("analyzers.downloadStem", err);
         const msg = err instanceof Error ? err.message : "Stem download failed";
         setStatusWithTime(msg.slice(0, 80), "warning");
       }
@@ -950,6 +957,7 @@ export function useAnalyzers({
         setStatusWithTime(result?.error || "Could not open Canvas Tool", "error");
       }
     } catch (err) {
+      reportCaughtError("analyzers.openInCanvasTool", err);
       setStatusWithTime(
         err instanceof Error ? err.message : "Could not open Canvas Tool",
         "error",

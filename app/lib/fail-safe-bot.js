@@ -109,6 +109,41 @@ export const FAILURE_PLAYBOOKS = {
     safeFallback: "Run npm run check:ci locally before push (or npm run hooks:install).",
     docsPath: "docs/ci-reliability.md",
   },
+  unhandled_exception: {
+    title: "Unhandled runtime exception",
+    patterns: [/unhandledrejection/i, /window\.onerror/i, /Minified React error/i],
+    fixCommands: [],
+    safeFallback: "The rest of the studio should keep working — retry the last action or reload.",
+    docsPath: "docs/fail-safe-bot.md",
+  },
+  storage_quota: {
+    title: "Local storage full or unavailable",
+    patterns: [/QuotaExceededError/i, /storage full/i, /local storage unavailable/i],
+    fixCommands: [],
+    safeFallback: "Export JSON and clear history so saves can succeed.",
+    docsPath: "docs/fail-safe-bot.md",
+  },
+  audio_context: {
+    title: "Web Audio unavailable",
+    patterns: [/AudioContext is not (defined|available)/i, /webkitAudioContext/i],
+    fixCommands: [],
+    safeFallback: "Playback and analyzers that need Web Audio are skipped; other tools still work.",
+    docsPath: "docs/fail-safe-bot.md",
+  },
+  studio_export: {
+    title: "Studio export failed",
+    patterns: [/Studio export failed/i, /Enhanced .* download/i],
+    fixCommands: [],
+    safeFallback: "Retry export, or save the project JSON and export from a smaller clip.",
+    docsPath: "docs/fail-safe-bot.md",
+  },
+  react_render: {
+    title: "UI panel render crash",
+    patterns: [/FailSafeErrorBoundary/i, /react:left/i, /react:center/i, /react:right/i],
+    fixCommands: [],
+    safeFallback: "Retry the recovered panel — neighboring columns stay mounted.",
+    docsPath: "docs/fail-safe-bot.md",
+  },
 };
 
 /**
@@ -159,11 +194,24 @@ export function overallSeverity(issues) {
  *   sidecarHealth?: object|null,
  *   sidecarGenerateAvailable?: boolean,
  *   sidecarError?: string|null,
+ *   appSubsystems?: {
+ *     storageOk?: boolean,
+ *     storageReason?: string|null,
+ *     audioContextAvailable?: boolean,
+ *     canvasAvailable?: boolean,
+ *     localFaults?: Array<{ source?: string, message?: string }>,
+ *   },
  * }} input
  * @returns {FailSafeReport}
  */
 export function buildRuntimeHealthReport(input = {}) {
-  const { sidecarAiStatus, sidecarHealth, sidecarGenerateAvailable, sidecarError } = input;
+  const {
+    sidecarAiStatus,
+    sidecarHealth,
+    sidecarGenerateAvailable,
+    sidecarError,
+    appSubsystems,
+  } = input;
   /** @type {FailSafeIssue[]} */
   const issues = [];
 
@@ -207,6 +255,62 @@ export function buildRuntimeHealthReport(input = {}) {
       detail: "MusicGen preview requires npm run sidecar:generate extras.",
       fixCommands: ["npm run sidecar:generate"],
       safeFallback: "MusicGen is optional — other studio tools still work.",
+    });
+  }
+
+  if (appSubsystems && appSubsystems.storageOk === false) {
+    const quota = appSubsystems.storageReason === "quota";
+    issues.push({
+      id: quota ? "storage_quota" : "storage_unavailable",
+      severity: quota ? "fail" : "warn",
+      title: quota ? "Local storage is full" : "Local storage unavailable",
+      detail: quota
+        ? "Saves and history may fail until you export JSON and free space."
+        : "The browser blocked localStorage — session state may not persist.",
+      fixCommands: [],
+      safeFallback: "Export project JSON now; the rest of the studio still runs in memory.",
+      docsPath: "docs/fail-safe-bot.md",
+    });
+  }
+
+  if (appSubsystems && appSubsystems.audioContextAvailable === false) {
+    issues.push({
+      id: "audio_context",
+      severity: "warn",
+      title: "Web Audio is unavailable",
+      detail: "This browser has no AudioContext — waveform decode and meters are skipped.",
+      fixCommands: [],
+      safeFallback: "Sidecar analysis and the rest of the prompt tools still work.",
+      docsPath: "docs/fail-safe-bot.md",
+    });
+  }
+
+  if (appSubsystems && appSubsystems.canvasAvailable === false) {
+    issues.push({
+      id: "canvas_unavailable",
+      severity: "warn",
+      title: "Canvas 2D unavailable",
+      detail: "This environment cannot create a 2D canvas context.",
+      fixCommands: [],
+      safeFallback: "Cover/canvas tools are skipped; prompt and sidecar tools still work.",
+      docsPath: "docs/fail-safe-bot.md",
+    });
+  }
+
+  const localFaults = appSubsystems?.localFaults;
+  if (Array.isArray(localFaults) && localFaults.length) {
+    const latest = localFaults[0];
+    const isReact = String(latest.source || "").startsWith("react:");
+    issues.push({
+      id: isReact ? "react_render" : "unhandled_exception",
+      severity: isReact ? "fail" : "warn",
+      title: isReact ? `UI recovered: ${latest.source}` : "Caught a runtime error",
+      detail: `${latest.source || "runtime"}: ${latest.message || "unknown"}${
+        localFaults.length > 1 ? ` (+${localFaults.length - 1} more)` : ""
+      }`,
+      fixCommands: [],
+      safeFallback: "The rest of the studio should still work. Retry the last action or reload.",
+      docsPath: "docs/fail-safe-bot.md",
     });
   }
 

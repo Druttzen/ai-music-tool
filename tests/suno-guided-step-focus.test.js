@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateGuidedStepCoach,
-  getGuidedPanelVisibility,
   guidedCoachFingerprint,
   GUIDED_PANEL_IDS,
   isGuidedPanelVisible,
@@ -38,10 +37,14 @@ describe("suno-guided-step-focus", () => {
     );
   });
 
-  it("always keeps guided path and save/load visible in focus mode", () => {
-    const vis = getGuidedPanelVisibility(2, "Suno-like");
-    expect(vis.center.has(GUIDED_PANEL_IDS.guidedPath)).toBe(true);
-    expect(vis.left.has(GUIDED_PANEL_IDS.saveLoad)).toBe(true);
+  it("always keeps guided path, save/load, and fail-safe bot visible in focus mode", () => {
+    expect(isGuidedPanelVisible(GUIDED_PANEL_IDS.guidedPath, "center", 2, "Suno-like", false)).toBe(
+      true,
+    );
+    expect(isGuidedPanelVisible(GUIDED_PANEL_IDS.saveLoad, "left", 2, "Suno-like", false)).toBe(true);
+    expect(isGuidedPanelVisible(GUIDED_PANEL_IDS.failSafeBot, "left", 2, "Suno-like", false)).toBe(
+      true,
+    );
   });
 
   it("flags incomplete step 0 on blank project", () => {

@@ -201,35 +201,47 @@ export async function isSidecarAvailable(): Promise<boolean> {
   return health !== null;
 }
 
-export async function fetchSidecarHealth(): Promise<SidecarHealth | null> {
-  if (shouldReuseHealthCache(healthCache, Date.now())) {
-    return healthCache!.ok ? (healthCache!.body ?? null) : null;
-  }
+async function requestSidecarHealthJson(): Promise<SidecarHealth | null> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 2000);
     const headers = await sidecarAuthHeaders();
     const res = await fetch(`${sidecarBaseUrl()}/health`, { signal: ctrl.signal, headers });
     clearTimeout(timer);
-    if (!res.ok) {
-      healthCache = { ok: false, at: Date.now() };
-      return null;
-    }
-    const body = (await res.json()) as SidecarHealth;
-    const usable = sidecarHttpHealthIsUsable({
-      isTauri: isTauriApp(),
-      owned: body.owned,
-    });
-    if (!usable) {
-      healthCache = { ok: false, at: Date.now() };
-      return null;
-    }
-    healthCache = { ok: true, at: Date.now(), body };
-    return body;
+    if (!res.ok) return null;
+    return (await res.json()) as SidecarHealth;
   } catch {
+    return null;
+  }
+}
+
+export async function fetchSidecarHealth(): Promise<SidecarHealth | null> {
+  if (shouldReuseHealthCache(healthCache, Date.now())) {
+    return healthCache!.ok ? (healthCache!.body ?? null) : null;
+  }
+  const body = await requestSidecarHealthJson();
+  if (!body) {
     healthCache = { ok: false, at: Date.now() };
     return null;
   }
+  const usable = sidecarHttpHealthIsUsable({
+    isTauri: isTauriApp(),
+    owned: body.owned,
+  });
+  if (!usable) {
+    healthCache = { ok: false, at: Date.now() };
+    return null;
+  }
+  healthCache = { ok: true, at: Date.now(), body };
+  return body;
+}
+
+/**
+ * Sidecar /health for extras inventory. Token ownership is not required
+ * (dev watcher on :8723 may be unowned) and the analysis health cache is left alone.
+ */
+export async function fetchSidecarHealthInventory(): Promise<SidecarHealth | null> {
+  return requestSidecarHealthJson();
 }
 
 export interface YoutubeResolvePayload {

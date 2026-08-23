@@ -9,6 +9,7 @@ import { useCoProducerActions } from "./use-co-producer-actions";
 import { useVoiceActions } from "./use-voice-actions";
 import { useResetActions } from "./use-reset-actions";
 import { useToggleList } from "./_shared";
+import { failSafeWrapHandlers } from "../../lib/fail-safe-invoke";
 
 /**
  * Composes domain-scoped project action hooks (presets, export, history, lyrics, …).
@@ -24,15 +25,18 @@ export function useProjectActions(deps) {
   const voice = useVoiceActions(deps);
   const reset = useResetActions(deps);
 
-  return {
-    toggle,
-    ...preset,
-    ...exportActions,
-    ...history,
-    ...suno,
-    ...lyrics,
-    ...coProducer,
-    ...voice,
-    ...reset,
-  };
+  return failSafeWrapHandlers(
+    {
+      toggle,
+      ...preset,
+      ...exportActions,
+      ...history,
+      ...suno,
+      ...lyrics,
+      ...coProducer,
+      ...voice,
+      ...reset,
+    },
+    "project-actions",
+  );
 }

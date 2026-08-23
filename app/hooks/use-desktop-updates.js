@@ -9,11 +9,17 @@ import {
 } from "../lib/desktop-update-bridge";
 
 export function useDesktopUpdates() {
-  const [runtime] = useState(getDesktopUpdateRuntime);
+  // Always start as null so SSR HTML matches the first client paint (window.__TAURI__
+  // exists in Studio but not during Next SSR). Detect the host after mount.
+  const [runtime, setRuntime] = useState(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+
+  useEffect(() => {
+    setRuntime(getDesktopUpdateRuntime());
+  }, []);
 
   const checkUpdates = useCallback(async ({ automatic = false } = {}) => {
     if (!runtime) return;

@@ -12,6 +12,7 @@ export function useFailSafeFixSession({
   fixPushAvailable = false,
   autoStartFix = true,
   autoNotify = true,
+  includeWarn = false,
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState("idle");
@@ -91,7 +92,9 @@ export function useFailSafeFixSession({
 
   useEffect(() => {
     if (!autoNotify) return undefined;
-    const critical = actionableIssues.filter((i) => i.severity === "fail");
+    const critical = includeWarn
+      ? actionableIssues.filter((i) => i.severity === "fail" || i.severity === "warn")
+      : actionableIssues.filter((i) => i.severity === "fail");
     if (!critical.length) return undefined;
     const fp = critical.map((i) => i.id).join("|");
     if (notifiedRef.current === fp || phase === "running") return undefined;
@@ -103,7 +106,7 @@ export function useFailSafeFixSession({
       });
     }, 0);
     return () => clearTimeout(timer);
-  }, [actionableIssues, autoNotify, autoStartFix, fixPushAvailable, openBugDialog, phase]);
+  }, [actionableIssues, autoNotify, autoStartFix, fixPushAvailable, includeWarn, openBugDialog, phase]);
 
   useEffect(() => () => clearTick(), [clearTick]);
 

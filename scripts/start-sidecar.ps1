@@ -42,8 +42,20 @@ if (-not (Test-Path $venv)) {
 
 $existing = Get-NetTCPConnection -LocalPort 8723 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($existing) {
-  Write-Host "AI sidecar already running (PID $($existing.OwningProcess)) on http://127.0.0.1:8723"
-  exit 0
+  $owningPid = $existing.OwningProcess
+  $cmd = ""
+  try {
+    $cmd = [string](Get-CimInstance Win32_Process -Filter "ProcessId=$owningPid" -ErrorAction SilentlyContinue).CommandLine
+  } catch {}
+  $venvPy = Join-Path $venv "Scripts\python.exe"
+  $venvNeedle = Join-Path $sidecar ".venv"
+  if ($cmd -and (($cmd -like ("*" + $venvNeedle + "*")) -or ($cmd -like ("*" + $venvPy + "*")))) {
+    Write-Host "AI sidecar already running (PID $owningPid) on http://127.0.0.1:8723"
+    exit 0
+  }
+  Write-Host "Replacing non-venv process on port 8723 (PID $owningPid)"
+  Stop-Process -Id $owningPid -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Seconds 1
 }
 
 $python = Join-Path $venv "Scripts\python.exe"

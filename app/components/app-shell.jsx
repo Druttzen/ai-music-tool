@@ -2,9 +2,9 @@
 
 import { DesktopUpdateControls } from "./desktop-update-controls";
 
-const LOGO_WEBP = "./bones-logo.webp";
+const LOGO_WEBP = "./bones-logo.webp?v=djmad-alpha";
 
-function AppLogo({ className, alt = "BONES VIBRATION logo" }) {
+function AppLogo({ className, alt = "DJ M@D MUSIC TOOL logo" }) {
   return (
     /* eslint-disable-next-line @next/next/no-img-element -- static export/Electron friendly asset */
     <img
@@ -26,9 +26,9 @@ export function SplashOverlay({ onDismiss }) {
         }}
       />
       <div className="relative mx-6 max-w-xl rounded-[2rem] border border-orange-300/25 bg-black/60 p-8 text-center shadow-2xl backdrop-blur">
-        <AppLogo className="mx-auto mb-4 max-h-44 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]" />
+        <AppLogo className="mx-auto mb-4 max-h-44 w-auto object-contain" />
         <div className="text-xs font-black uppercase tracking-[0.35em] text-orange-300">
-          BONES VIBRATION
+          DJ M@D MUSIC TOOL
         </div>
         <h1 className="mt-3 text-4xl font-black tracking-tight text-white">AI Music Creator</h1>
         <p className="mt-3 text-sm text-white/55">Loading Prompt Control Room...</p>
@@ -51,7 +51,7 @@ export function AppHeader({ appVersion, avgScore, saveStatus, statusPulseKey = 0
     <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div>
         <div className="mb-2 inline-flex rounded-full border border-orange-300/25 bg-orange-300/10 px-3 py-1 text-xs font-black tracking-wider text-orange-200">
-          BONES VIBRATION • AI MUSIC CREATOR
+          DJ M@D MUSIC TOOL • AI MUSIC CREATOR
         </div>
         <h1 className="bg-gradient-to-r from-white via-orange-200 to-cyan-200 bg-clip-text text-4xl font-black tracking-tight text-transparent md:text-6xl">
           Prompt Control Room
@@ -73,8 +73,8 @@ export function AppHeader({ appVersion, avgScore, saveStatus, statusPulseKey = 0
           </span>
         </div>
       </div>
-      <div className="hidden items-center justify-center rounded-[2rem] border border-orange-300/15 bg-black/25 p-3 shadow-2xl md:flex">
-        <AppLogo className="max-h-48 w-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.45)]" />
+      <div className="hidden items-center justify-center md:flex">
+        <AppLogo className="max-h-48 w-auto object-contain" />
       </div>
       <div
         key={statusPulseKey}

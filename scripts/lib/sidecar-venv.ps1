@@ -2,13 +2,37 @@
 .SYNOPSIS
   Ensure ai-sidecar/.venv exists (Python 3.10–3.12).
 #>
+function Invoke-SidecarPip {
+  param(
+    [Parameter(Mandatory = $true)][string]$Pip,
+    [Parameter(Mandatory = $true)][string[]]$ArgumentList
+  )
+  # Native pip failures must not become terminating / parse errors under Stop.
+  $eap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  $nativePref = $null
+  if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $nativePref = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+  }
+  & $Pip @ArgumentList
+  $code = $LASTEXITCODE
+  $ErrorActionPreference = $eap
+  if ($null -ne $nativePref) {
+    $PSNativeCommandUseErrorActionPreference = $nativePref
+  }
+  return $code
+}
+
 function Ensure-SidecarVenv {
   param(
     [Parameter(Mandatory = $true)]
     [string]$RepoRoot
   )
-  $ErrorActionPreference = "Stop"
-  $sidecar = Join-Path $RepoRoot "ai-sidecar"
+  $local:ErrorActionPreference = "Stop"
+  $root = $RepoRoot
+  if ($root.StartsWith('\\?\')) { $root = $root.Substring(4) }
+  $sidecar = Join-Path $root "ai-sidecar"
   $venv = Join-Path $sidecar ".venv"
   $py = $null
 
@@ -46,14 +70,31 @@ function Install-SidecarExtra {
   )
   $ctx = Ensure-SidecarVenv -RepoRoot $RepoRoot
   Write-Host "Installing $Label..."
-  & $ctx.Pip install -e "$($ctx.Sidecar)[$ExtraSpec]"
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  # Format operator avoids `"path[$extra]"` which Windows PowerShell can parse as a type literal.
+  $editable = '{0}[{1}]' -f $ctx.Sidecar, $ExtraSpec
+  $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "-e", $editable)
+  if ($code -ne 0) {
+    if ($ExtraSpec -eq "vocal-rvc") {
+      Write-Host "rvc-python extra conflicted (omegaconf pin). Installing rvc-python --no-deps plus companion wheels..."
+      $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "rvc-python", "--no-deps")
+      if ($code -ne 0) { exit $code }
+      $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "fairseq==0.12.2", "--no-deps")
+      if ($code -ne 0) { exit $code }
+      $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @(
+        "install", "faiss-cpu", "loguru", "ffmpeg-python", "praat-parselmouth>=0.4.2",
+        "pyworld", "torchcrepe", "bitarray", "sacrebleu", "cython"
+      )
+      if ($code -ne 0) { exit $code }
+    } else {
+      exit $code
+    }
+  }
   # audiocraft pins torch==2.1.0 which conflicts with shared torch>=2.2 (stems/cover/vision).
   # Install companion deps via the [generate]/[all] extras, then audiocraft itself with --no-deps.
   if ($ExtraSpec -eq "generate" -or $ExtraSpec -eq "all") {
     Write-Host "Installing audiocraft (MusicGen) with --no-deps to keep torch>=2.2..."
-    & $ctx.Pip install "audiocraft>=1.3" --no-deps
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "audiocraft>=1.3", "--no-deps")
+    if ($code -ne 0) { exit $code }
   }
   Write-Host "Done. Restart the sidecar: npm run sidecar"
 }

@@ -46,6 +46,29 @@ describe("fail-safe-bot", () => {
     expect(report.overall).toBe("ok");
   });
 
+  it("buildRuntimeHealthReport warns on storage and local faults", () => {
+    const report = buildRuntimeHealthReport({
+      sidecarAiStatus: "ready",
+      sidecarGenerateAvailable: true,
+      sidecarHealth: { librosa_available: true },
+      appSubsystems: {
+        storageOk: false,
+        storageReason: "quota",
+        audioContextAvailable: true,
+        canvasAvailable: true,
+        localFaults: [{ source: "analyzers.exportEnhancedAudio", message: "Studio export failed" }],
+      },
+    });
+    expect(report.overall).toBe("fail");
+    expect(report.issues.some((i) => i.id === "storage_quota")).toBe(true);
+    expect(report.issues.some((i) => i.id === "unhandled_exception")).toBe(true);
+  });
+
+  it("classifies unhandled runtime exceptions", () => {
+    const issues = classifyFailureText("unhandledrejection: boom\nwindow.onerror");
+    expect(issues.some((i) => i.id === "unhandled_exception")).toBe(true);
+  });
+
   it("overallSeverity prefers fail over warn", () => {
     expect(
       overallSeverity([

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { APP_VERSION } from "./lib/music-config";
+import { captureRuntimeFault } from "./lib/fail-safe-runtime-capture";
 
 /**
  * Catches render errors on the main page so a blank screen is not the only feedback.
@@ -9,7 +10,19 @@ import { APP_VERSION } from "./lib/music-config";
 export default function Error({ error, reset }) {
   useEffect(() => {
     console.error(error);
+    captureRuntimeFault({
+      source: "next-error-boundary",
+      message: error?.message || String(error || "page error"),
+      stack: error?.stack || "",
+    });
   }, [error]);
+
+  useEffect(() => {
+    const msg = String(error?.message || "");
+    if (msg === "useEffect is not defined" || msg === "isDesktopAddonHost is not defined") {
+      reset();
+    }
+  }, [error, reset]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#0b0d10] p-6 text-white">

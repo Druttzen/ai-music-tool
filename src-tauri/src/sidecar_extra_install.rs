@@ -1,13 +1,16 @@
 //! Install opt-in sidecar pip extras via checkout scripts or packaged user-data venv.
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Serialize;
 use tauri::AppHandle;
 
+use crate::process_progress::{
+    emit_install_progress, parse_pip_progress_bytes, run_command_streaming,
+};
 use crate::sidecar_manager::{resolve_sidecar_dir, SidecarManager};
 use crate::sidecar_userdata::{
     checkout_venv_python, find_system_python_310_312, install_extra_into_user_venv,
@@ -52,6 +55,16 @@ fn resolve_repo_root(sidecar_dir: &Path) -> Option<PathBuf> {
     sidecar_dir.parent().map(|p| p.to_path_buf())
 }
 
+/// PowerShell Join-Path rejects Windows verbatim (`\\?\`) paths.
+fn for_child_process(path: &Path) -> PathBuf {
+    let raw = path.to_string_lossy();
+    if let Some(rest) = raw.strip_prefix(r"\\?\") {
+        PathBuf::from(rest)
+    } else {
+        path.to_path_buf()
+    }
+}
+
 fn resolve_install_script(repo_root: &Path, stem: &str) -> Option<PathBuf> {
     #[cfg(windows)]
     {
@@ -82,55 +95,9 @@ fn resolve_install_script(repo_root: &Path, stem: &str) -> Option<PathBuf> {
 
 const INSTALL_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 
-fn kill_process(pid: u32) {
-    #[cfg(windows)]
-    {
-        let _ = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/T", "/F"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = Command::new("kill")
-            .args(["-9", &format!("-{pid}")])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-    }
-}
-
-fn run_command_with_timeout(mut cmd: Command, timeout: Duration) -> Result<std::process::Output, String> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-    }
-    let child = cmd
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to run install script: {e}"))?;
-    let pid = child.id();
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = tx.send(child.wait_with_output());
-    });
-    match rx.recv_timeout(timeout) {
-        Ok(Ok(output)) => Ok(output),
-        Ok(Err(e)) => Err(format!("Failed to run install script: {e}")),
-        Err(_) => {
-            kill_process(pid);
-            Err(format!(
-                "Install timed out after {} minutes",
-                timeout.as_secs() / 60
-            ))
-        }
-    }
-}
-
-fn run_install_script(script: &Path, repo_root: &Path) -> Result<String, String> {
+fn run_install_script(app: &AppHandle, extra_id: &str, script: &Path, repo_root: &Path) -> Result<String, String> {
+    let script = for_child_process(script);
+    let repo_root = for_child_process(repo_root);
     let script_str = script.to_str().ok_or("Invalid script path")?;
     let output = if script
         .extension()
@@ -145,12 +112,33 @@ fn run_install_script(script: &Path, repo_root: &Path) -> Result<String, String>
             "-File",
             script_str,
         ])
+        .env("PYTHONUNBUFFERED", "1")
+        .env("PIP_PROGRESS_BAR", "on")
         .current_dir(repo_root);
-        run_command_with_timeout(cmd, INSTALL_TIMEOUT)?
+        run_command_streaming(cmd, INSTALL_TIMEOUT, |line| {
+            emit_install_progress(
+                app,
+                extra_id,
+                "log",
+                Some(line),
+                parse_pip_progress_bytes(line),
+            );
+        })?
     } else {
         let mut cmd = Command::new("bash");
-        cmd.arg(script_str).current_dir(repo_root);
-        run_command_with_timeout(cmd, INSTALL_TIMEOUT)?
+        cmd.arg(script_str)
+            .env("PYTHONUNBUFFERED", "1")
+            .env("PIP_PROGRESS_BAR", "on")
+            .current_dir(repo_root);
+        run_command_streaming(cmd, INSTALL_TIMEOUT, |line| {
+            emit_install_progress(
+                app,
+                extra_id,
+                "log",
+                Some(line),
+                parse_pip_progress_bytes(line),
+            );
+        })?
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -193,7 +181,7 @@ fn fail(id: String, mode: &str, error: String, hint: String) -> SidecarExtraInst
 }
 
 fn install_via_checkout_scripts(
-    _manager: &Arc<SidecarManager>,
+    app: &AppHandle,
     id: &str,
     stem: &str,
     hint: &str,
@@ -203,7 +191,7 @@ fn install_via_checkout_scripts(
     let repo_root = resolve_repo_root(&sidecar_dir)?;
     let script = resolve_install_script(&repo_root, stem)?;
 
-    Some(match run_install_script(&script, &repo_root) {
+    Some(match run_install_script(app, id, &script, &repo_root) {
         Ok(tail) => SidecarExtraInstallResult {
             ok: true,
             extra_id: id.to_string(),
@@ -235,10 +223,12 @@ fn install_sidecar_extra_blocking(
         return fail(id, "unknown", "Unknown sidecar extra id".to_string(), hint);
     };
 
+    emit_install_progress(&app, &id, "start", Some("Starting extra install"), None);
+
     // Release venv file locks before pip (especially Windows). Restart after either outcome.
     manager.stop();
 
-    let result = if let Some(result) = install_via_checkout_scripts(&manager, &id, stem, &hint) {
+    let result = if let Some(result) = install_via_checkout_scripts(&app, &id, stem, &hint) {
         result
     } else {
         match install_extra_into_user_venv(&app, &id) {
@@ -282,6 +272,13 @@ fn install_sidecar_extra_blocking(
     if result.ok {
         let _ = manager.wait_until_ready(Duration::from_secs(45));
     }
+    emit_install_progress(
+        &app,
+        &id,
+        if result.ok { "done" } else { "error" },
+        result.message.as_deref().or(result.error.as_deref()),
+        None,
+    );
     result
 }
 
@@ -362,6 +359,7 @@ pub async fn install_sidecar_extra(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn script_stem_covers_allowlist() {
@@ -369,5 +367,16 @@ mod tests {
         assert_eq!(script_stem("cover-ref"), Some("install-sidecar-cover-ref"));
         assert_eq!(script_stem("vocal-ml"), Some("install-sidecar-vocal-ml"));
         assert!(script_stem("nope").is_none());
+    }
+
+    #[test]
+    fn strips_windows_verbatim_prefix_for_powershell() {
+        let verbatim = PathBuf::from(r"\\?\F:\ai-music-tool\scripts\install-sidecar-vision.ps1");
+        assert_eq!(
+            for_child_process(&verbatim),
+            PathBuf::from(r"F:\ai-music-tool\scripts\install-sidecar-vision.ps1")
+        );
+        let normal = PathBuf::from(r"F:\ai-music-tool");
+        assert_eq!(for_child_process(&normal), normal);
     }
 }

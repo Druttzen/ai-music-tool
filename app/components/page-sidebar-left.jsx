@@ -12,6 +12,8 @@ import {
 } from "../context/project-workspace-context";
 import { GuidedFocusPanel } from "./guided-focus-panel";
 import { AddonsPanel } from "./addons-panel";
+import { FailSafeBotPanel } from "./fail-safe-bot-panel";
+import { FailSafeErrorBoundary } from "./fail-safe-error-boundary";
 
 export const PageSidebarLeft = memo(function PageSidebarLeft() {
   const {
@@ -45,6 +47,12 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
 
   return (
     <aside className="space-y-4">
+      <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.failSafeBot} column="left">
+        <FailSafeErrorBoundary name="fail-safe bot">
+          <FailSafeBotPanel />
+        </FailSafeErrorBoundary>
+      </GuidedFocusPanel>
+
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.stylePresets} column="left">
         <Panel title="Style Presets" hint="Load factory or custom styles.">
           <div className="space-y-2">

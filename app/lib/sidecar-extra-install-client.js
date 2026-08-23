@@ -3,7 +3,7 @@
  */
 import { isTauriApp } from "./dsp-bridge";
 import { isDesktopAddonHost } from "./canvas-addon-client";
-import { fetchSidecarHealth, resetSidecarHealthCache } from "./sidecar-bridge";
+import { fetchSidecarHealth, fetchSidecarHealthInventory, resetSidecarHealthCache } from "./sidecar-bridge";
 
 /** @type {Record<string, string>} */
 export const SIDECAR_EXTRA_NPM = {
@@ -63,6 +63,20 @@ export function sidecarExtraHealthFlag(id) {
     default:
       return null;
   }
+}
+
+/**
+ * True when /health says this extra is already available (legacy flag or registry row).
+ * @param {import("./sidecar-bridge").SidecarHealth | null | undefined} health
+ * @param {string} extraId
+ */
+export function sidecarExtraIsAvailable(health, extraId) {
+  if (!health) return false;
+  const id = normalizeSidecarExtraId(extraId);
+  const flag = sidecarExtraHealthFlag(id);
+  if (flag && health[flag] === true) return true;
+  const caps = Array.isArray(health.capabilities) ? health.capabilities : [];
+  return caps.some((cap) => normalizeSidecarExtraId(cap?.id) === id && cap.available);
 }
 
 function tauriInvoke(command, args) {
@@ -194,7 +208,13 @@ export function sidecarExtraInstallEnvAllowsPip(env) {
 export async function fetchSidecarHealthAfterExtraInstall() {
   resetSidecarHealthCache();
   try {
-    return await fetchSidecarHealth();
+    const owned = await fetchSidecarHealth();
+    if (owned) return owned;
+  } catch {
+    /* owned /health is optional after extras install */
+  }
+  try {
+    return await fetchSidecarHealthInventory();
   } catch {
     return null;
   }
@@ -213,16 +233,52 @@ function sleep(ms) {
 export async function waitForSidecarExtraReady(extraId, options = {}) {
   const timeoutMs = options.timeoutMs ?? 45_000;
   const intervalMs = options.intervalMs ?? 1_000;
-  const flag = sidecarExtraHealthFlag(extraId);
   const deadline = Date.now() + timeoutMs;
+  const id = normalizeSidecarExtraId(extraId);
+  const hasFlag = Boolean(sidecarExtraHealthFlag(id));
   let health = await fetchSidecarHealthAfterExtraInstall();
-  if (!flag) return health;
-  if (health?.[flag]) return health;
+  if (sidecarExtraIsAvailable(health, extraId)) return health;
 
   while (Date.now() < deadline) {
     await sleep(intervalMs);
     health = await fetchSidecarHealthAfterExtraInstall();
-    if (health?.[flag]) return health;
+    if (sidecarExtraIsAvailable(health, extraId)) return health;
+    const hasCapRow =
+      Array.isArray(health?.capabilities) &&
+      health.capabilities.some((cap) => normalizeSidecarExtraId(cap?.id) === id);
+    if (!hasFlag && !hasCapRow && health) {
+      return health;
+    }
   }
   return health;
+}
+
+export const SIDECAR_INSTALL_PROGRESS_EVENT = "sidecar-extra-install-progress";
+
+/**
+ * Live pip/script lines from the Tauri host. No-op outside Tauri.
+ * @param {(payload: { extraId?: string, extra_id?: string, phase?: string, line?: string|null, parsedBytes?: number|null, parsed_bytes?: number|null }) => void} handler
+ * @returns {() => void} unsubscribe
+ */
+export function subscribeSidecarExtraInstallProgress(handler) {
+  if (typeof window === "undefined") return () => {};
+  const listen = window.__TAURI__?.event?.listen;
+  if (typeof listen !== "function") return () => {};
+  let unlisten = () => {};
+  let cancelled = false;
+  listen(SIDECAR_INSTALL_PROGRESS_EVENT, (event) => {
+    handler(event?.payload ?? event);
+  })
+    .then((fn) => {
+      if (cancelled) {
+        fn?.();
+        return;
+      }
+      unlisten = typeof fn === "function" ? fn : () => {};
+    })
+    .catch(() => {});
+  return () => {
+    cancelled = true;
+    unlisten();
+  };
 }

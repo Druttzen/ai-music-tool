@@ -42,7 +42,16 @@ install_sidecar_extra() {
   local label="$2"
   ensure_sidecar_venv
   echo "Installing ${label}..."
-  "$SIDECAR_PIP" install -e "${SIDECAR_DIR}[${spec}]"
+  if ! "$SIDECAR_PIP" install -e "${SIDECAR_DIR}[${spec}]"; then
+    if [[ "$spec" == "vocal-rvc" ]]; then
+      echo "rvc-python extra conflicted (omegaconf pin). Installing rvc-python --no-deps plus companion wheels..."
+      "$SIDECAR_PIP" install "rvc-python" --no-deps
+      "$SIDECAR_PIP" install "fairseq==0.12.2" --no-deps
+      "$SIDECAR_PIP" install faiss-cpu loguru ffmpeg-python "praat-parselmouth>=0.4.2" pyworld torchcrepe bitarray sacrebleu cython
+    else
+      return 1
+    fi
+  fi
   # audiocraft pins torch==2.1.0 which conflicts with shared torch>=2.2 (stems/cover/vision).
   if [[ "$spec" == "generate" || "$spec" == "all" ]]; then
     echo "Installing audiocraft (MusicGen) with --no-deps to keep torch>=2.2..."

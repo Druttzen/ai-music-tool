@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchSidecarHealth, resetSidecarHealthCache } = vi.hoisted(() => ({
+const { fetchSidecarHealth, fetchSidecarHealthInventory, resetSidecarHealthCache } = vi.hoisted(() => ({
   fetchSidecarHealth: vi.fn(),
+  fetchSidecarHealthInventory: vi.fn(),
   resetSidecarHealthCache: vi.fn(),
 }));
 
 vi.mock("../app/lib/sidecar-bridge.js", () => ({
   fetchSidecarHealth,
+  fetchSidecarHealthInventory,
   resetSidecarHealthCache,
 }));
 
@@ -19,6 +21,7 @@ import {
   sidecarExtraHealthFlag,
   sidecarExtraInstallCompleted,
   sidecarExtraInstallStatusTone,
+  sidecarExtraIsAvailable,
   sidecarExtraNpmHint,
   waitForSidecarExtraReady,
 } from "../app/lib/sidecar-extra-install-client.js";
@@ -27,7 +30,9 @@ import { SCRIPT_STEM } from "../lib/sidecar-extra-install.cjs";
 describe("sidecar extra install client", () => {
   beforeEach(() => {
     fetchSidecarHealth.mockReset();
+    fetchSidecarHealthInventory.mockReset();
     resetSidecarHealthCache.mockReset();
+    fetchSidecarHealthInventory.mockResolvedValue(null);
   });
 
   it("normalizes legacy capability ids", () => {
@@ -54,6 +59,19 @@ describe("sidecar extra install client", () => {
     expect(sidecarExtraHealthFlag("cover-ref")).toBe("cover_ref_available");
     expect(sidecarExtraHealthFlag("vocal_ml")).toBe("vocal_ml_available");
     expect(sidecarExtraHealthFlag("vocal-ml")).toBe(null);
+  });
+
+  it("reads availability from flags or registry capabilities", () => {
+    expect(sidecarExtraIsAvailable({ generate_available: true }, "generate")).toBe(true);
+    expect(
+      sidecarExtraIsAvailable(
+        { capabilities: [{ id: "vocal-ml", available: true }] },
+        "vocal-ml",
+      ),
+    ).toBe(true);
+    expect(sidecarExtraIsAvailable({ capabilities: [{ id: "vocal-ml", available: false }] }, "vocal-ml")).toBe(
+      false,
+    );
   });
 
   it("formats install results", () => {
@@ -131,8 +149,21 @@ describe("sidecar extra install client", () => {
 
   it("returns null when post-install health fetch throws", async () => {
     fetchSidecarHealth.mockRejectedValueOnce(new Error("offline"));
+    fetchSidecarHealthInventory.mockRejectedValueOnce(new Error("offline"));
     await expect(fetchSidecarHealthAfterExtraInstall()).resolves.toBeNull();
     expect(resetSidecarHealthCache).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to inventory /health when Studio owned-gate returns null", async () => {
+    fetchSidecarHealth.mockResolvedValueOnce(null);
+    fetchSidecarHealthInventory.mockResolvedValueOnce({
+      owned: false,
+      vocal_rvc_available: true,
+    });
+    await expect(fetchSidecarHealthAfterExtraInstall()).resolves.toEqual({
+      owned: false,
+      vocal_rvc_available: true,
+    });
   });
 
   it("polls until the extra health flag becomes ready", async () => {
@@ -145,6 +176,24 @@ describe("sidecar extra install client", () => {
     expect(health).toEqual({ generate_available: true });
     expect(fetchSidecarHealth.mock.calls.length).toBeGreaterThanOrEqual(3);
     expect(resetSidecarHealthCache.mock.calls.length).toBe(fetchSidecarHealth.mock.calls.length);
+  });
+
+  it("polls vocal-ml via registry capabilities", async () => {
+    fetchSidecarHealth
+      .mockResolvedValueOnce({ capabilities: [{ id: "vocal-ml", available: false }] })
+      .mockResolvedValueOnce({ capabilities: [{ id: "vocal-ml", available: true }] });
+    const health = await waitForSidecarExtraReady("vocal-ml", { timeoutMs: 5_000, intervalMs: 1 });
+    expect(health).toEqual({ capabilities: [{ id: "vocal-ml", available: true }] });
+  });
+
+  it("sees extras on an unowned sidecar while waiting after install", async () => {
+    fetchSidecarHealth.mockResolvedValue(null);
+    fetchSidecarHealthInventory.mockResolvedValue({
+      owned: false,
+      vocal_rvc_available: true,
+    });
+    const health = await waitForSidecarExtraReady("vocal-rvc", { timeoutMs: 5_000, intervalMs: 1 });
+    expect(health).toEqual({ owned: false, vocal_rvc_available: true });
   });
 
   it("stops polling when flag never becomes ready", async () => {

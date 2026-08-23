@@ -1,6 +1,7 @@
 //! Tauri application logic for AI Music Creator (Path B).
 
 mod canvas_handoff;
+mod process_progress;
 mod sidecar_extra_install;
 mod sidecar_manager;
 mod sidecar_userdata;

@@ -28,6 +28,7 @@ export const GUIDED_PANEL_IDS = {
   sunoLanguageIndex: "sunoLanguageIndex",
   history: "history",
   trackScoring: "trackScoring",
+  failSafeBot: "failSafeBot",
 };
 
 const ALWAYS_VISIBLE = new Set([
@@ -35,6 +36,7 @@ const ALWAYS_VISIBLE = new Set([
   GUIDED_PANEL_IDS.maestro,
   GUIDED_PANEL_IDS.saveLoad,
   GUIDED_PANEL_IDS.canvasIntegration,
+  GUIDED_PANEL_IDS.failSafeBot,
 ]);
 
 /** Suno Voice Style line or compact block counts as voice-style ready for polish-step coach. */

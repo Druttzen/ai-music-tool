@@ -8,10 +8,14 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
+use std::time::Duration;
 
 use tauri::{AppHandle, Manager};
 
+use crate::process_progress::{
+    emit_install_progress, parse_pip_progress_bytes, run_command_streaming,
+};
 use crate::sidecar_manager::resolve_sidecar_dir;
 
 const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -286,6 +290,15 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 pub fn run_pip(python: &Path, args: &[&str], root: &Path) -> Result<String, String> {
+    run_pip_with_progress(python, args, root, None)
+}
+
+pub fn run_pip_with_progress(
+    python: &Path,
+    args: &[&str],
+    root: &Path,
+    progress: Option<(&AppHandle, &str)>,
+) -> Result<String, String> {
     let cache = user_cache_dir(root);
     let mut cmd = Command::new(python);
     cmd.arg("-m").arg("pip");
@@ -295,13 +308,21 @@ pub fn run_pip(python: &Path, args: &[&str], root: &Path) -> Result<String, Stri
     cmd.env("HF_HOME", cache.join("huggingface"))
         .env("TORCH_HOME", cache.join("torch"))
         .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
-        .current_dir(root)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .env("PYTHONUNBUFFERED", "1")
+        .env("PIP_PROGRESS_BAR", "on")
+        .current_dir(root);
 
-    let output = cmd
-        .output()
-        .map_err(|e| format!("pip {:?}: {e}", args))?;
+    let output = run_command_streaming(cmd, Duration::from_secs(20 * 60), |line| {
+        if let Some((app, extra_id)) = progress {
+            emit_install_progress(
+                app,
+                extra_id,
+                "log",
+                Some(line),
+                parse_pip_progress_bytes(line),
+            );
+        }
+    })?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{stdout}{stderr}");
@@ -346,20 +367,26 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
     let pkg = ensure_user_sidecar_pkg(app)?;
     let spec = pip_extra_spec(extra_id).ok_or_else(|| format!("Unknown sidecar extra: {extra_id}"))?;
     let req = format!("{}[{spec}]", pkg.display());
-    let mut out = match run_pip(&py, &["install", "-e", &req], &root) {
+    let progress = Some((app, extra_id));
+    let mut out = match run_pip_with_progress(&py, &["install", "-e", &req], &root, progress) {
         Ok(log) => log,
         Err(err) if extra_id == "generate" => {
-            let fallback = generate_windows_fallback(&py, &root)?;
+            let fallback = generate_windows_fallback(&py, &root, progress)?;
             format!("{err}\n{fallback}")
         }
         Err(err) if extra_id == "vocal-rvc" => {
-            let fallback = vocal_rvc_windows_fallback(&py, &root)?;
+            let fallback = vocal_rvc_windows_fallback(&py, &root, progress)?;
             format!("{err}\n{fallback}")
         }
         Err(err) => return Err(err),
     };
     if extra_id == "generate" {
-        if let Ok(ac) = run_pip(&py, &["install", "audiocraft>=1.3", "--no-deps"], &root) {
+        if let Ok(ac) = run_pip_with_progress(
+            &py,
+            &["install", "audiocraft>=1.3", "--no-deps"],
+            &root,
+            progress,
+        ) {
             out = format!("{out}\n{ac}");
         }
     }
@@ -394,26 +421,44 @@ const VOCAL_RVC_FALLBACK_DEPS: &[&str] = &[
     "praat-parselmouth>=0.4.2",
     "pyworld",
     "torchcrepe",
+    "bitarray",
+    "sacrebleu",
+    "cython",
 ];
 
-fn generate_windows_fallback(python: &Path, root: &Path) -> Result<String, String> {
-    let mut log = run_pip(python, &["install", "--only-binary=:all:", "av"], root)?;
+fn generate_windows_fallback(
+    python: &Path,
+    root: &Path,
+    progress: Option<(&AppHandle, &str)>,
+) -> Result<String, String> {
+    let mut log = run_pip_with_progress(python, &["install", "--only-binary=:all:", "av"], root, progress)?;
     let mut deps = vec!["install"];
     deps.extend_from_slice(GENERATE_FALLBACK_DEPS);
-    log.push_str(&run_pip(python, &deps, root)?);
-    log.push_str(&run_pip(
+    log.push_str(&run_pip_with_progress(python, &deps, root, progress)?);
+    log.push_str(&run_pip_with_progress(
         python,
         &["install", "audiocraft>=1.3.0", "--no-deps"],
         root,
+        progress,
     )?);
     Ok(log)
 }
 
-fn vocal_rvc_windows_fallback(python: &Path, root: &Path) -> Result<String, String> {
-    let mut log = run_pip(python, &["install", "rvc-python", "--no-deps"], root)?;
+fn vocal_rvc_windows_fallback(
+    python: &Path,
+    root: &Path,
+    progress: Option<(&AppHandle, &str)>,
+) -> Result<String, String> {
+    let mut log = run_pip_with_progress(python, &["install", "rvc-python", "--no-deps"], root, progress)?;
+    log.push_str(&run_pip_with_progress(
+        python,
+        &["install", "fairseq==0.12.2", "--no-deps"],
+        root,
+        progress,
+    )?);
     let mut deps = vec!["install"];
     deps.extend_from_slice(VOCAL_RVC_FALLBACK_DEPS);
-    log.push_str(&run_pip(python, &deps, root)?);
+    log.push_str(&run_pip_with_progress(python, &deps, root, progress)?);
     Ok(log)
 }
 

@@ -13,7 +13,6 @@ import {
 import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
-import { FailSafeBotPanel } from "./fail-safe-bot-panel";
 import { musicGenInstallHint, missingSidecarInstallHints } from "../lib/sidecar-capabilities";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
 import {
@@ -215,7 +214,6 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             <li className="font-sans text-white/35">Also under Addons (left sidebar).</li>
           </ul>
         ) : null}
-        <FailSafeBotPanel />
         <div
           className={`mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${
             sunoFieldSlices.style.length > SUNO_STYLE_CHAR_CAP

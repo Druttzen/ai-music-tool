@@ -32,7 +32,7 @@ describe("sidecarHttpHealthIsUsable", () => {
     expect(sidecarHttpHealthIsUsable({ isTauri: false, owned: undefined })).toBe(true);
   });
 
-  it("requires owned=true in Studio", () => {
+  it("requires owned=true in Studio for analysis health", () => {
     expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: true })).toBe(true);
     expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: false })).toBe(false);
     expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: undefined })).toBe(false);

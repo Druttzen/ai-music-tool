@@ -430,41 +430,8 @@ fn resolve_python_executable(sidecar_dir: &Path) -> Option<PathBuf> {
         return Some(venv_py);
     }
 
-    #[cfg(windows)]
-    {
-        use crate::sidecar_userdata::py_launcher_version_flag;
-        for v in ["3.12", "3.11", "3.10"] {
-            let flag = py_launcher_version_flag(v);
-            if let Ok(out) = Command::new("py")
-                .args([&flag, "-c", "import sys; print(sys.executable)"])
-                .output()
-            {
-                if out.status.success() {
-                    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                    if !path.is_empty() && Path::new(&path).exists() {
-                        return Some(PathBuf::from(path));
-                    }
-                }
-            }
-        }
-    }
-
-    #[cfg(not(windows))]
-    {
-        for name in ["python3.12", "python3.11", "python3.10", "python3"] {
-            if Command::new(name)
-                .arg("--version")
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .map(|s| s.success())
-                .unwrap_or(false)
-            {
-                return Some(PathBuf::from(name));
-            }
-        }
-    }
-
+    // Never fall back to system Python: that process reports extras missing even when
+    // ai-sidecar/.venv already has them installed (startup overlay then reinstalls / fails).
     None
 }
 

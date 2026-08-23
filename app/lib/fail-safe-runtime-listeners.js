@@ -1,47 +1,59 @@
 /**
- * Opt-in Fail-Safe Runtime listeners (window error / unhandledrejection).
- * Install only when enable + telemetry consent are both on.
+ * Fail-Safe Runtime listeners (window error / unhandledrejection).
+ * Always capture locally. GitHub queue still requires enable + telemetry consent.
  */
 
-import { enqueueRuntimeReport, canQueueRuntimeReports } from "./fail-safe-runtime-reporter.js";
+import { captureRuntimeFault } from "./fail-safe-runtime-capture.js";
 
 let installed = false;
 let onError = null;
 let onRejection = null;
+/** @type {{ appVersion?: string, sidecarAiStatus?: string }} */
+let metaRef = {};
+
+function shouldIgnoreMessage(message) {
+  const text = String(message || "");
+  if (!text.trim()) return true;
+  if (/ResizeObserver loop/i.test(text)) return true;
+  if (/^Script error\.?$/i.test(text)) return true;
+  return false;
+}
 
 /**
  * @param {{ appVersion?: string, sidecarAiStatus?: string }} [meta]
  * @returns {{ ok: boolean, reason?: string }}
  */
 export function installRuntimeErrorListeners(meta = {}) {
+  metaRef = { ...meta };
   if (typeof window === "undefined") {
     return { ok: false, reason: "no-window" };
-  }
-  if (!canQueueRuntimeReports()) {
-    return { ok: false, reason: "reporting-disabled-or-no-consent" };
   }
   if (installed) {
     return { ok: true, reason: "already-installed" };
   }
 
   onError = (event) => {
-    enqueueRuntimeReport({
+    const message = event?.message || String(event?.error || "window error");
+    if (shouldIgnoreMessage(message)) return;
+    captureRuntimeFault({
       source: "window.onerror",
-      message: event?.message || String(event?.error || "window error"),
+      message,
       stack: event?.error?.stack || "",
-      appVersion: meta.appVersion,
-      sidecarAiStatus: meta.sidecarAiStatus,
+      appVersion: metaRef.appVersion,
+      sidecarAiStatus: metaRef.sidecarAiStatus,
     });
   };
 
   onRejection = (event) => {
     const reason = event?.reason;
-    enqueueRuntimeReport({
+    const message = reason?.message || String(reason || "unhandledrejection");
+    if (shouldIgnoreMessage(message)) return;
+    captureRuntimeFault({
       source: "unhandledrejection",
-      message: reason?.message || String(reason || "unhandledrejection"),
+      message,
       stack: reason?.stack || "",
-      appVersion: meta.appVersion,
-      sidecarAiStatus: meta.sidecarAiStatus,
+      appVersion: metaRef.appVersion,
+      sidecarAiStatus: metaRef.sidecarAiStatus,
     });
   };
 
