@@ -1,5 +1,6 @@
 //! Tauri application logic for AI Music Creator (Path B).
 
+mod app_layout;
 mod canvas_handoff;
 mod process_progress;
 mod sidecar_extra_install;
@@ -60,6 +61,7 @@ async fn ensure_sidecar(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    app_layout::prepare_app_layout();
     let sidecar = Arc::new(SidecarManager::default());
     sidecar.start_health_poller();
 

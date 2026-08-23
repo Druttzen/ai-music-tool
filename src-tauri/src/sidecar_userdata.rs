@@ -1,6 +1,6 @@
 //! User-data sidecar layout for packaged Studio extras installs.
 //!
-//! Layout under `{app_local_data}/sidecar/`:
+//! Layout under `{install}/data/sidecar/` (see `app_layout`):
 //! - `pkg/` — installable ai-music-sidecar sources (from bundle resources or checkout)
 //! - `.venv/` — writable venv used for uvicorn + pip extras
 //! - `version.txt` — package version stamp for pkg refresh
@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use tauri::{AppHandle, Manager};
 
+use crate::app_layout;
 use crate::process_progress::{
     emit_install_progress, parse_pip_progress_bytes, run_command_streaming,
 };
@@ -23,34 +24,28 @@ use crate::sidecar_manager::resolve_sidecar_dir;
 const PACKAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn user_sidecar_root(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_local_data_dir()
-        .map(|p| p.join("sidecar"))
-        .map_err(|e| format!("app local data dir: {e}"))
+    app_layout::sidecar_dir(Some(app))
 }
 
 /// Fallback when AppHandle is unavailable (tests / early spawn).
 pub fn user_sidecar_root_fallback() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("com.djmad.aimusiccreator.studio").join("sidecar"))
+    app_layout::sidecar_dir(None)
+        .ok()
+        .or_else(app_layout::legacy_appdata_sidecar_root)
+}
+
+/// Prefer the colocated venv; keep a previous AppData venv alive until extras are reinstalled.
+pub fn user_sidecar_runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
+    let primary = user_sidecar_root(app)?;
+    if user_venv_python(&primary).is_some() {
+        return Ok(primary);
     }
-    #[cfg(target_os = "macos")]
-    {
-        std::env::var_os("HOME").map(|p| {
-            PathBuf::from(p)
-                .join("Library/Application Support/com.djmad.aimusiccreator.studio/sidecar")
-        })
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        if let Some(xdg) = std::env::var_os("XDG_DATA_HOME") {
-            Some(PathBuf::from(xdg).join("com.djmad.aimusiccreator.studio/sidecar"))
-        } else {
-            std::env::var_os("HOME")
-                .map(|p| PathBuf::from(p).join(".local/share/com.djmad.aimusiccreator.studio/sidecar"))
+    if let Some(legacy) = app_layout::legacy_appdata_sidecar_root() {
+        if legacy != primary && user_venv_python(&legacy).is_some() {
+            return Ok(legacy);
         }
     }
+    Ok(primary)
 }
 
 pub fn user_pkg_dir(root: &Path) -> PathBuf {

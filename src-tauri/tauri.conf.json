@@ -41,7 +41,12 @@
     ],
     "resources": [
       "resources/ai-sidecar"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   },
   "plugins": {
     "updater": {

@@ -8,6 +8,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::AppHandle;
 
+use crate::app_layout;
 use crate::process_progress::{
     emit_install_progress, parse_pip_progress_bytes, run_command_streaming,
 };
@@ -306,7 +307,10 @@ fn probe_install_env(app: &AppHandle) -> SidecarExtraInstallEnv {
             return SidecarExtraInstallEnv {
                 mode: "writable".to_string(),
                 writable: true,
-                message: "User-data sidecar venv found — Install can run pip extras.".to_string(),
+                message: format!(
+                    "Sidecar extras venv is next to the app at {} — Install can run pip extras.",
+                    root.display()
+                ),
             };
         }
     }
@@ -317,8 +321,10 @@ fn probe_install_env(app: &AppHandle) -> SidecarExtraInstallEnv {
         return SidecarExtraInstallEnv {
             mode: "user-data-bootstrap".to_string(),
             writable: true,
-            message: "First Install will create a writable sidecar venv under app data (needs Python 3.10–3.12; may take several minutes)."
-                .to_string(),
+            message: format!(
+                "First Install will create a writable sidecar venv next to the app at {} (needs Python 3.10–3.12; may take several minutes).",
+                app_layout::sidecar_dir(Some(app)).unwrap_or_else(|_| std::path::PathBuf::from("data/sidecar")).display()
+            ),
         };
     }
 

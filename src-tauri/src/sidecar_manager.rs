@@ -551,10 +551,11 @@ fn spawn_dev_sidecar(token: &str) -> Result<SidecarChild, String> {
 
 fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, String> {
     use crate::sidecar_userdata::{
-        user_cache_dir, user_pkg_dir, user_sidecar_root, user_sidecar_root_fallback, user_venv_python,
+        user_cache_dir, user_pkg_dir, user_sidecar_root_fallback, user_sidecar_runtime_root,
+        user_venv_python,
     };
 
-    let root = user_sidecar_root(app).or_else(|e| {
+    let root = user_sidecar_runtime_root(app).or_else(|e| {
         user_sidecar_root_fallback().ok_or_else(|| format!("user sidecar root: {e}"))
     })?;
     let python = user_venv_python(&root).ok_or_else(|| "user-data venv python missing".to_string())?;
@@ -590,11 +591,11 @@ fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild,
 
 fn user_data_sidecar_is_current(app: &AppHandle) -> bool {
     use crate::sidecar_userdata::{
-        user_pkg_dir, user_sidecar_root, user_sidecar_root_fallback,
+        user_pkg_dir, user_sidecar_root_fallback, user_sidecar_runtime_root,
         user_sidecar_stamp_matches_package, user_venv_python,
     };
 
-    let root = match user_sidecar_root(app) {
+    let root = match user_sidecar_runtime_root(app) {
         Ok(p) => p,
         Err(_) => match user_sidecar_root_fallback() {
             Some(p) => p,

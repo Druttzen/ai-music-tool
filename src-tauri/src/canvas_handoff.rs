@@ -11,6 +11,8 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 
+use crate::app_layout;
+
 const CONFIG_JSON: &str = include_str!("../../lib/suite-handoff-paths.json");
 
 #[derive(Debug, Deserialize)]
@@ -110,11 +112,11 @@ fn user_home() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-fn downloads_dir() -> PathBuf {
-    user_home().join("Downloads")
-}
-
 fn suite_dir() -> PathBuf {
+    if let Ok(exports) = app_layout::exports_dir(None) {
+        let _ = fs::create_dir_all(&exports);
+        return exports;
+    }
     let mut dir = user_home();
     for segment in &config().suite_path_from_home {
         dir.push(segment);
@@ -136,7 +138,54 @@ fn expand_path_template(template: &str) -> PathBuf {
     if let Ok(v) = std::env::var("ProgramFiles") {
         s = s.replace("$ProgramFiles", &v);
     }
+    if let Some(install) = app_layout::install_dir() {
+        s = s.replace("$APPDIR", &install.to_string_lossy());
+    }
+    if let Ok(data) = app_layout::data_dir(None) {
+        s = s.replace("$STUDIO_DATA", &data.to_string_lossy());
+    }
     PathBuf::from(s)
+}
+
+fn looks_like_canvas_exe(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    name.ends_with(".exe") && name.contains("canvas")
+}
+
+fn find_exe_in_dir(dir: &Path, depth: u8) -> Option<PathBuf> {
+    if depth == 0 || !dir.is_dir() {
+        return None;
+    }
+    let entries = fs::read_dir(dir).ok()?;
+    let mut nested = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && looks_like_canvas_exe(&path) {
+            return Some(path);
+        }
+        if path.is_dir() {
+            nested.push(path);
+        }
+    }
+    for path in nested {
+        if let Some(found) = find_exe_in_dir(&path, depth - 1) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+fn colocated_canvas_executable() -> Option<PathBuf> {
+    let canvas_dir = app_layout::canvas_addon_dir(None).ok()?;
+    if let Some(found) = find_exe_in_dir(&canvas_dir, 3) {
+        return Some(found);
+    }
+    let tools = app_layout::tools_dir(None).ok()?.join("canvas");
+    find_exe_in_dir(&tools, 3)
 }
 
 fn platform_candidate_list(cands: &CanvasCandidates) -> &[String] {
@@ -159,6 +208,9 @@ fn canvas_platform_candidates() -> &'static [String] {
 }
 
 fn resolve_canvas_executable() -> Option<PathBuf> {
+    if let Some(local) = colocated_canvas_executable() {
+        return Some(local);
+    }
     canvas_platform_candidates()
         .iter()
         .map(|t| expand_path_template(t))
@@ -173,6 +225,49 @@ fn resolve_canvas_installer() -> Option<PathBuf> {
         .iter()
         .map(|t| expand_path_template(t))
         .find(|p| p.is_file())
+}
+
+fn canvas_install_dest() -> PathBuf {
+    app_layout::canvas_addon_dir(None).unwrap_or_else(|_| user_home().join("AI Canvas Tool"))
+}
+
+fn run_installer_into(installer: &Path, dest: &Path) -> bool {
+    let _ = fs::create_dir_all(dest);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let dest_str = dest.to_string_lossy().replace('/', "\\");
+        // NSIS: /D= must be last and unquoted (even with spaces).
+        let nsis = Command::new(installer)
+            .arg("/S")
+            .raw_arg(format!("/D={dest_str}"))
+            .status();
+        if nsis.map(|s| s.success()).unwrap_or(false) && colocated_canvas_executable().is_some() {
+            return true;
+        }
+        let inno = Command::new(installer)
+            .args(["/VERYSILENT", "/NORESTART"])
+            .arg(format!("/DIR={dest_str}"))
+            .status();
+        if inno.map(|s| s.success()).unwrap_or(false) && colocated_canvas_executable().is_some() {
+            return true;
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = installer;
+        let _ = dest;
+    }
+    false
+}
+
+fn install_or_open_canvas_setup(installer: &Path) -> (bool, &'static str) {
+    let dest = canvas_install_dest();
+    if run_installer_into(installer, &dest) {
+        return (true, "installed-local");
+    }
+    let opened = open::that(installer).is_ok();
+    (opened, "local-installer")
 }
 
 fn launch_canvas_tool(handoff_file: Option<&Path>) -> bool {
@@ -386,18 +481,20 @@ fn install_canvas_addon_blocking() -> CanvasAddonActionResult {
     }
 
     if let Some(installer) = resolve_canvas_installer() {
-        let opened = open::that(&installer).is_ok();
+        let (ok, mode) = install_or_open_canvas_setup(&installer);
         return CanvasAddonActionResult {
-            ok: opened,
+            ok,
             launched: false,
-            already_installed: false,
-            mode: Some("local-installer".to_string()),
-            path: Some(installer.to_string_lossy().into_owned()),
+            already_installed: colocated_canvas_executable().is_some(),
+            mode: Some(mode.to_string()),
+            path: colocated_canvas_executable()
+                .or(Some(installer.clone()))
+                .map(|p| p.to_string_lossy().into_owned()),
             url: None,
-            error: if opened {
+            error: if ok {
                 None
             } else {
-                Some("Could not open local Canvas installer".to_string())
+                Some("Could not install Canvas into the app folder".to_string())
             },
         };
     }
@@ -498,7 +595,9 @@ fn install_canvas_addon_blocking() -> CanvasAddonActionResult {
         return open_fallback_page(canvas_releases_fallback_url(addon), "no-release-assets");
     };
 
-    let dest = downloads_dir().join(&name);
+    let dest_dir = canvas_install_dest();
+    let _ = fs::create_dir_all(&dest_dir);
+    let dest = dest_dir.join(&name);
     if let Err(err) = download_url_to_file(&url, &dest) {
         return CanvasAddonActionResult {
             ok: false,
@@ -511,18 +610,24 @@ fn install_canvas_addon_blocking() -> CanvasAddonActionResult {
         };
     }
 
-    let opened = open::that(&dest).is_ok();
+    let (ok, mode) = install_or_open_canvas_setup(&dest);
     CanvasAddonActionResult {
-        ok: opened,
+        ok,
         launched: false,
-        already_installed: false,
-        mode: Some("downloaded".to_string()),
-        path: Some(dest.to_string_lossy().into_owned()),
+        already_installed: colocated_canvas_executable().is_some(),
+        mode: Some(if mode == "installed-local" {
+            "installed".to_string()
+        } else {
+            "downloaded".to_string()
+        }),
+        path: colocated_canvas_executable()
+            .or(Some(dest))
+            .map(|p| p.to_string_lossy().into_owned()),
         url: None,
-        error: if opened {
+        error: if ok {
             None
         } else {
-            Some("Downloaded installer but could not open it".to_string())
+            Some("Downloaded installer but could not install it into the app folder".to_string())
         },
     }
 }

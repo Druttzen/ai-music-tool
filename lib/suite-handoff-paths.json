@@ -4,6 +4,10 @@
   "handoffFile": "handoff.json",
   "canvasCandidates": {
     "windows": [
+      "$STUDIO_DATA/addons/canvas/AI Canvas Tool.exe",
+      "$STUDIO_DATA/addons/canvas/ai-canvas-tool.exe",
+      "$APPDIR/addons/canvas/AI Canvas Tool.exe",
+      "$APPDIR/tools/canvas/AI Canvas Tool.exe",
       "$LOCALAPPDATA/Programs/ai-canvas-tool/AI Canvas Tool.exe",
       "$LOCALAPPDATA/Programs/AI Canvas Tool/AI Canvas Tool.exe",
       "$ProgramFiles/AI Canvas Tool/AI Canvas Tool.exe",
@@ -27,8 +31,10 @@
     "githubOwner": "Druttzen",
     "githubRepo": "ai-canvas-tool",
     "installerCandidates": {
-      "windows": [
-        "$USERPROFILE/Downloads/AI.Canvas.Tool-1.1.1-Setup.exe",
+    "windows": [
+      "$STUDIO_DATA/addons/canvas/AI.Canvas.Tool-Setup.exe",
+      "$APPDIR/addons/canvas/AI.Canvas.Tool-Setup.exe",
+      "$USERPROFILE/Downloads/AI.Canvas.Tool-1.1.1-Setup.exe",
         "$USERPROFILE/Downloads/AI.Canvas.Tool-1.1.0-Setup.exe",
         "$USERPROFILE/Downloads/AI Canvas Tool Setup.exe",
         "$USERPROFILE/Downloads/AI Canvas Tool-1.1.1-Setup.exe",

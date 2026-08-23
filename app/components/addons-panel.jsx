@@ -296,7 +296,7 @@ export function AddonsPanel() {
     <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.canvasIntegration} column="left">
       <Panel
         title="Plugins"
-        hint="Left-menu catalog: Canvas plus sidecar extras. Each row has Install. Browser copies the npm command; Studio pip-installs into the sidecar venv."
+        hint="Left-menu catalog: Canvas plus sidecar extras. Each row has Install. Browser copies the npm command; Studio installs into the app data folder (profile, addons, extras, tools)."
       >
         {desktop ? null : (
           <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
