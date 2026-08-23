@@ -18,7 +18,10 @@ export function useDesktopUpdates() {
   const [downloaded, setDownloaded] = useState(false);
 
   useEffect(() => {
-    setRuntime(getDesktopUpdateRuntime());
+    const timer = setTimeout(() => {
+      setRuntime(getDesktopUpdateRuntime());
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const checkUpdates = useCallback(async ({ automatic = false } = {}) => {

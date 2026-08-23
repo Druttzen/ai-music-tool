@@ -10,7 +10,10 @@ import { isDesktopAddonHost } from "../lib/canvas-addon-client";
 export function useDesktopHost() {
   const [desktop, setDesktop] = useState(false);
   useEffect(() => {
-    setDesktop(isDesktopAddonHost());
+    const timer = setTimeout(() => {
+      setDesktop(isDesktopAddonHost());
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
   return desktop;
 }

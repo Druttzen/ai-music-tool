@@ -27,7 +27,10 @@ export function GuidedFocusProvider({ children }) {
   const [showAll, setShowAllState] = useState(false);
 
   useEffect(() => {
-    setShowAllState(readShowAllPreference());
+    const timer = setTimeout(() => {
+      setShowAllState(readShowAllPreference());
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const setShowAll = useCallback((value) => {
