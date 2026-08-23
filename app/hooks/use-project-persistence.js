@@ -159,13 +159,11 @@ export function useProjectPersistence({
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
+    // Tauri CloseRequested evals this hook. Do not bind pagehide/beforeunload:
+    // Playwright reloads and Next HMR would wipe the project as if the app exited.
     const onExit = () => resetWorkspacesToDefaultOnExit();
     window[RESET_WORKSPACES_ON_EXIT_HOOK] = onExit;
-    window.addEventListener("pagehide", onExit);
-    window.addEventListener("beforeunload", onExit);
     return () => {
-      window.removeEventListener("pagehide", onExit);
-      window.removeEventListener("beforeunload", onExit);
       if (window[RESET_WORKSPACES_ON_EXIT_HOOK] === onExit) {
         delete window[RESET_WORKSPACES_ON_EXIT_HOOK];
       }
