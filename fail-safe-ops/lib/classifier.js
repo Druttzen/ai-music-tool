@@ -13,4 +13,7 @@ export {
   formatReportSummary,
   overallSeverity,
   getActionableIssues,
+  clipText,
+  FAIL_SAFE_COMMENT_MAX_CHARS,
+  FAIL_SAFE_LOG_EXCERPT_CHARS,
 } from "../../app/lib/fail-safe-bot.js";

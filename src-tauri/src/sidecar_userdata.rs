@@ -9,6 +9,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(not(windows))]
+use std::process::Stdio;
 use std::time::Duration;
 
 use tauri::{AppHandle, Manager};

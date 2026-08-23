@@ -139,5 +139,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           SHA="${{ github.event.workflow_run.head_sha }}"
-          gh api "repos/${{ github.repository }}/commits/${SHA}/comments" \
-            -f body="$(cat /tmp/bot-comment.md)"
+          # File payload — do not pass the body on the argv (`Argument list too long`).
+          node -e 'const fs=require("fs"); fs.writeFileSync("/tmp/commit-comment.json", JSON.stringify({body: fs.readFileSync("/tmp/bot-comment.md","utf8")}));'
+          gh api --method POST "repos/${{ github.repository }}/commits/${SHA}/comments" --input /tmp/commit-comment.json

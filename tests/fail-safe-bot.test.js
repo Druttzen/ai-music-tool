@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildRuntimeHealthReport,
   classifyFailureText,
+  clipText,
+  FAIL_SAFE_COMMENT_MAX_CHARS,
+  FAIL_SAFE_LOG_EXCERPT_CHARS,
   formatAgentFixPrompt,
   formatScanAge,
   getActionableIssues,
@@ -9,6 +12,13 @@ import {
 } from "../app/lib/fail-safe-bot.js";
 
 describe("fail-safe-bot", () => {
+  it("classifies rust compile errors", () => {
+    const issues = classifyFailureText(
+      "error[E0433]: cannot find type `Stdio` in this scope\nerror: could not compile `ai-music-studio` (lib)",
+    );
+    expect(issues.some((i) => i.id === "rust_compile")).toBe(true);
+  });
+
   it("classifies rust lock drift", () => {
     const issues = classifyFailureText(
       "verify-rust-locks — Cargo.lock is out of sync in src-tauri",
@@ -85,6 +95,16 @@ describe("fail-safe-bot", () => {
     expect(prompt).toContain("FAIL-SAFE BOT");
     expect(prompt).toContain("cursor/test");
     expect(prompt).toMatch(/pytest|CI gate/i);
+  });
+
+  it("clipText and excerptLog keep GitHub comments under ARG_MAX", () => {
+    expect(clipText("short", 80)).toBe("short");
+    const huge = "x".repeat(FAIL_SAFE_LOG_EXCERPT_CHARS + 5000);
+    const excerpt = formatAgentFixPrompt(huge, { excerptLog: true });
+    expect(excerpt.length).toBeLessThan(FAIL_SAFE_LOG_EXCERPT_CHARS + 800);
+    expect(excerpt).toContain("log excerpt");
+    const comment = clipText("y".repeat(FAIL_SAFE_COMMENT_MAX_CHARS + 10), FAIL_SAFE_COMMENT_MAX_CHARS);
+    expect(comment.length).toBeLessThanOrEqual(FAIL_SAFE_COMMENT_MAX_CHARS);
   });
 
   it("getActionableIssues filters warn and fail only", () => {

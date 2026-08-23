@@ -85,16 +85,21 @@ pub async fn install_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
         return StudioUpdateCheckResult::error(current_version, error);
     }
 
-    #[cfg(not(target_os = "windows"))]
-    app.restart();
-
-    #[cfg(target_os = "windows")]
-    StudioUpdateCheckResult {
+    let result = StudioUpdateCheckResult {
         ok: true,
         available: true,
         version: Some(version),
         current_version,
         notes,
         error: None,
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = &result;
+        app.restart();
     }
+
+    #[cfg(target_os = "windows")]
+    result
 }

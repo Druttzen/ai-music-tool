@@ -59,6 +59,18 @@ export const FAILURE_PLAYBOOKS = {
     safeFallback: "Install Rust via https://rustup.rs before building Tauri.",
     docsPath: "docs/ci-reliability.md",
   },
+  rust_compile: {
+    title: "Rust compile error",
+    patterns: [
+      /error\[E[0-9]+\]/,
+      /could not compile `/i,
+      /use of undeclared type/i,
+      /cannot find (type|value|function|struct) `/i,
+    ],
+    fixCommands: ["cd src-tauri && cargo check", "npm run check:ci"],
+    safeFallback: "Fix rustc errors in src-tauri — tauri-smoke runs cargo build --locked.",
+    docsPath: "docs/ci-reliability.md",
+  },
   eslint: {
     title: "ESLint errors",
     patterns: [/eslint/i, /max-warnings/i, /npm run lint/i],
@@ -348,10 +360,34 @@ export function mergeBuildIssues(base, buildIssues) {
   };
 }
 
+/** GitHub issue/PR/commit comment hard limit is 65536; keep a buffer. */
+export const FAIL_SAFE_COMMENT_MAX_CHARS = 60_000;
+/** Keep CI comments short enough for `gh api` / the comment API. */
+export const FAIL_SAFE_LOG_EXCERPT_CHARS = 8_000;
+
+/**
+ * Truncate text with an omitted-count footer.
+ * @param {string} text
+ * @param {number} maxChars
+ * @param {string} [label]
+ */
+export function clipText(text, maxChars, label = "truncated") {
+  const s = String(text ?? "");
+  if (s.length <= maxChars) return s;
+  const footerFor = (omitted) => `\n\n…(${label}: omitted ${omitted} characters)`;
+  let omitted = s.length - maxChars;
+  let footer = footerFor(omitted);
+  let budget = Math.max(0, maxChars - footer.length);
+  omitted = s.length - budget;
+  footer = footerFor(omitted);
+  budget = Math.max(0, maxChars - footer.length);
+  return `${s.slice(0, budget)}${footer}`;
+}
+
 /**
  * Format agent prompt from CI/build failure text.
  * @param {string} failureText
- * @param {{ prUrl?: string, branch?: string }} [ctx]
+ * @param {{ prUrl?: string, branch?: string, excerptLog?: boolean, excerptChars?: number }} [ctx]
  */
 export function formatAgentFixPrompt(failureText, ctx = {}) {
   const issues = classifyFailureText(failureText);
@@ -360,6 +396,10 @@ export function formatAgentFixPrompt(failureText, ctx = {}) {
     ...i.fixCommands.map((c) => `  fix: ${c}`),
     ...(i.safeFallback ? [`  fallback: ${i.safeFallback}`] : []),
   ]);
+  const rawLog = String(failureText || "").trim();
+  const log = ctx.excerptLog
+    ? clipText(rawLog, ctx.excerptChars ?? FAIL_SAFE_LOG_EXCERPT_CHARS, "log excerpt")
+    : rawLog;
 
   return `[FAIL-SAFE BOT — auto-fix CI/build failure]
 
@@ -371,7 +411,7 @@ Classified issues:
 ${playbookLines.length ? playbookLines.join("\n") : "- (unclassified — diagnose from log)"}
 
 --- failure log ---
-${String(failureText || "").trim()}
+${log}
 --- end ---`;
 }
 

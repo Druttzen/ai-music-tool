@@ -141,7 +141,7 @@ Optional: top up credits at [cursor.com/dashboard](https://cursor.com/dashboard)
 
 ## GitHub
 
-`.github/workflows/fail-safe-bot.yml` comments on PRs **and master push** CI failures with classified fix hints. That workflow is the in-repo “review-like” feedback on CI failures; it does not depend on Cursor billing.
+`.github/workflows/fail-safe-bot.yml` comments on PRs **and master push** CI failures with classified fix hints. Master commit comments are posted from a JSON file (not argv) so huge `--log-failed` dumps cannot hit `Argument list too long`. Agent prompts in those comments use an 8k log excerpt; GitHub bodies are capped at 60k. That workflow is the in-repo “review-like” feedback on CI failures; it does not depend on Cursor billing.
 
 ## Fail-Safe Runtime reporter (opt-in)
 
