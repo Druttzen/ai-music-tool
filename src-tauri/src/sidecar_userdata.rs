@@ -77,6 +77,29 @@ pub fn user_venv_python(root: &Path) -> Option<PathBuf> {
     }
 }
 
+/// Version stamp from `version.txt` or `state.json` `packageVersion`.
+pub fn user_sidecar_version_stamp(root: &Path) -> Option<String> {
+    if let Ok(raw) = fs::read_to_string(root.join("version.txt")) {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    let raw = fs::read_to_string(root.join("state.json")).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    value
+        .get("packageVersion")
+        .or_else(|| value.get("package_version"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToString::to_string)
+}
+
+pub fn user_sidecar_stamp_matches_package(root: &Path) -> bool {
+    user_sidecar_version_stamp(root).as_deref() == Some(PACKAGE_VERSION)
+}
+
 pub fn checkout_venv_python(sidecar_dir: &Path) -> Option<PathBuf> {
     #[cfg(windows)]
     let py = sidecar_dir.join(".venv/Scripts/python.exe");
@@ -489,6 +512,34 @@ mod tests {
         fs::create_dir_all(&tmp).unwrap();
         assert!(user_venv_python(&tmp).is_none());
         let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn user_sidecar_stamp_matches_package_from_version_txt_and_state() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("aimc-sidecar-stamp-{stamp}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        assert!(!user_sidecar_stamp_matches_package(&root));
+        fs::write(root.join("version.txt"), "0.0.0-stale\n").unwrap();
+        assert!(!user_sidecar_stamp_matches_package(&root));
+        fs::write(root.join("version.txt"), format!("{PACKAGE_VERSION}\n")).unwrap();
+        assert!(user_sidecar_stamp_matches_package(&root));
+        fs::remove_file(root.join("version.txt")).unwrap();
+        fs::write(
+            root.join("state.json"),
+            format!(r#"{{"preferUserVenv":true,"packageVersion":"{PACKAGE_VERSION}"}}"#),
+        )
+        .unwrap();
+        assert_eq!(
+            user_sidecar_version_stamp(&root).as_deref(),
+            Some(PACKAGE_VERSION)
+        );
+        assert!(user_sidecar_stamp_matches_package(&root));
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

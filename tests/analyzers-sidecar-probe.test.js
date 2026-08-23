@@ -40,6 +40,16 @@ describe("analyzers-sidecar-probe", () => {
     ).toBe("offline");
   });
 
+  it("returns offline when Tauri reports a spawn error", () => {
+    expect(
+      resolveSidecarAiStatus({
+        httpOk: false,
+        isTauri: true,
+        tauriManaged: { ready: false, spawned: false, error: "bundled sidecar missing" },
+      }),
+    ).toBe("offline");
+  });
+
   it("reads generate_available from health payload", () => {
     expect(resolveSidecarGenerateAvailable({ health: { generate_available: true } })).toBe(true);
     expect(resolveSidecarGenerateAvailable({ health: { generate_available: false } })).toBe(false);

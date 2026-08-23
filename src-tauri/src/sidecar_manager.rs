@@ -64,6 +64,8 @@ struct SidecarInner {
     error: Option<String>,
     auth_token: Option<String>,
     spawn_started: Option<Instant>,
+    /// After a user-data venv child dies before ready, skip it and try the packaged binary.
+    skip_user_venv: bool,
 }
 
 impl Default for SidecarInner {
@@ -76,6 +78,7 @@ impl Default for SidecarInner {
             error: None,
             auth_token: None,
             spawn_started: None,
+            skip_user_venv: false,
         }
     }
 }
@@ -135,7 +138,8 @@ impl SidecarManager {
             guard.auth_token = Some(new_sidecar_token());
         }
         let token = guard.auth_token.clone().unwrap_or_default();
-        match spawn_sidecar_process(app.as_ref(), &token) {
+        let skip_user_venv = guard.skip_user_venv;
+        match spawn_sidecar_process(app.as_ref(), &token, skip_user_venv) {
             Ok((child, bundled)) => {
                 guard.child = Some(child);
                 guard.spawned = true;
@@ -158,10 +162,10 @@ impl SidecarManager {
 
     /// Wait until the sidecar is ready. Network I/O runs only on the background poller.
     pub fn wait_until_ready(&self, timeout: Duration) -> bool {
-        self.ensure_started();
         let deadline = Instant::now() + timeout;
 
         while Instant::now() < deadline {
+            self.ensure_started();
             if let Ok(mut guard) = self.inner.lock() {
                 reconcile_state(&mut guard);
                 if guard.ready {
@@ -221,6 +225,9 @@ impl SidecarManager {
     /// Kill managed process (if any) and start again — used after pip extras install.
     pub fn restart(&self) {
         self.stop();
+        if let Ok(mut guard) = self.inner.lock() {
+            guard.skip_user_venv = false;
+        }
         self.ensure_started();
     }
 }
@@ -277,6 +284,7 @@ fn should_abandon_unhealthy_spawn(
 }
 
 fn abandon_spawn(guard: &mut SidecarInner, reason: &str) {
+    let was_user_venv = !guard.bundled;
     if let Some(child) = guard.child.take() {
         child.kill();
     }
@@ -284,12 +292,18 @@ fn abandon_spawn(guard: &mut SidecarInner, reason: &str) {
     guard.ready = false;
     guard.bundled = false;
     guard.spawn_started = None;
+    if was_user_venv {
+        guard.skip_user_venv = true;
+    }
     guard.error = Some(reason.to_string());
 }
 
 fn reconcile_state(guard: &mut SidecarInner) {
     let exited = guard.child.as_mut().is_some_and(SidecarChild::has_exited);
     if exited {
+        if !guard.bundled && !guard.ready {
+            guard.skip_user_venv = true;
+        }
         guard.child = None;
         guard.spawned = false;
         guard.ready = false;
@@ -379,13 +393,67 @@ fn new_sidecar_token() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
+fn apply_spawn_stdio(cmd: &mut Command) {
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+}
+
+fn sidecar_binary_names() -> &'static [&'static str] {
+    #[cfg(windows)]
+    {
+        &["ai-sidecar.exe", "ai-sidecar-x86_64-pc-windows-msvc.exe"]
+    }
+    #[cfg(target_os = "macos")]
+    {
+        &[
+            "ai-sidecar",
+            "ai-sidecar-aarch64-apple-darwin",
+            "ai-sidecar-x86_64-apple-darwin",
+        ]
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        &["ai-sidecar", "ai-sidecar-x86_64-unknown-linux-gnu"]
+    }
+}
+
+fn find_sidecar_binary_in_dir(dir: &Path) -> Option<PathBuf> {
+    sidecar_binary_names()
+        .iter()
+        .map(|name| dir.join(name))
+        .find(|path| path.is_file())
+}
+
+fn spawn_sidecar_exe(path: &Path, token: &str) -> Result<SidecarChild, String> {
+    let port = SIDECAR_PORT.to_string();
+    let mut cmd = Command::new(path);
+    cmd.args([
+        "--host",
+        "127.0.0.1",
+        "--port",
+        &port,
+        "--idle-exit-sec",
+        SIDECAR_IDLE_EXIT_SEC,
+    ])
+    .env("AIMC_SIDECAR_TOKEN", token);
+    apply_spawn_stdio(&mut cmd);
+    let child = cmd
+        .spawn()
+        .map_err(|e| format!("failed to spawn sidecar exe ({}): {e}", path.display()))?;
+    Ok(SidecarChild::Process(child))
+}
+
 fn spawn_bundled_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, String> {
     let port = SIDECAR_PORT.to_string();
-    let (_rx, child) = app
-        .shell()
-        .sidecar("ai-sidecar")
-        .map_err(|e| format!("bundled sidecar missing: {e}"))?
-        .args([
+    let shell_result = app.shell().sidecar("ai-sidecar").and_then(|cmd| {
+        cmd.args([
             "--host",
             "127.0.0.1",
             "--port",
@@ -395,8 +463,20 @@ fn spawn_bundled_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, S
         ])
         .env("AIMC_SIDECAR_TOKEN", token)
         .spawn()
-        .map_err(|e| format!("failed to spawn bundled sidecar: {e}"))?;
-    Ok(SidecarChild::Bundled(child))
+    });
+    match shell_result {
+        Ok((_rx, child)) => Ok(SidecarChild::Bundled(child)),
+        Err(shell_err) => {
+            let dir = std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(Path::to_path_buf));
+            let adjacent = dir.as_deref().and_then(find_sidecar_binary_in_dir);
+            match adjacent {
+                Some(path) => spawn_sidecar_exe(&path, token),
+                None => Err(format!("bundled sidecar missing: {shell_err}")),
+            }
+        }
+    }
 }
 
 pub(crate) fn resolve_sidecar_dir() -> Option<PathBuf> {
@@ -456,10 +536,8 @@ fn spawn_dev_sidecar(token: &str) -> Result<SidecarChild, String> {
     ])
     .env("SIDECAR_IDLE_EXIT_SEC", SIDECAR_IDLE_EXIT_SEC)
     .env("AIMC_SIDECAR_TOKEN", token)
-    .current_dir(&sidecar_dir)
-    .stdin(Stdio::null())
-    .stdout(Stdio::null())
-    .stderr(Stdio::null());
+    .current_dir(&sidecar_dir);
+    apply_spawn_stdio(&mut cmd);
 
     if !has_venv {
         cmd.env("PYTHONPATH", sidecar_dir.as_os_str());
@@ -501,10 +579,8 @@ fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild,
     .env("HF_HOME", cache.join("huggingface"))
     .env("TORCH_HOME", cache.join("torch"))
     .env("PYTHONPATH", &pkg)
-    .current_dir(&pkg)
-    .stdin(Stdio::null())
-    .stdout(Stdio::null())
-    .stderr(Stdio::null());
+    .current_dir(&pkg);
+    apply_spawn_stdio(&mut cmd);
 
     let child = cmd
         .spawn()
@@ -512,27 +588,88 @@ fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild,
     Ok(SidecarChild::Process(child))
 }
 
-/// Prefer user-data venv when present; then debug checkout; then packaged binary.
-fn spawn_sidecar_process(app: Option<&AppHandle>, token: &str) -> Result<(SidecarChild, bool), String> {
-    if let Some(handle) = app {
-        if let Ok(child) = spawn_user_data_sidecar(handle, token) {
-            return Ok((child, false));
+fn user_data_sidecar_is_current(app: &AppHandle) -> bool {
+    use crate::sidecar_userdata::{
+        user_pkg_dir, user_sidecar_root, user_sidecar_root_fallback,
+        user_sidecar_stamp_matches_package, user_venv_python,
+    };
+
+    let root = match user_sidecar_root(app) {
+        Ok(p) => p,
+        Err(_) => match user_sidecar_root_fallback() {
+            Some(p) => p,
+            None => return false,
+        },
+    };
+    user_venv_python(&root).is_some()
+        && user_pkg_dir(&root).join("ai_sidecar/main.py").is_file()
+        && user_sidecar_stamp_matches_package(&root)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SidecarSpawnStep {
+    CurrentUserVenv,
+    Dev,
+    Bundled,
+    AnyUserVenv,
+}
+
+fn sidecar_spawn_steps(skip_user_venv: bool, user_venv_current: bool, debug: bool) -> Vec<SidecarSpawnStep> {
+    let mut steps = Vec::new();
+    if !skip_user_venv && user_venv_current {
+        steps.push(SidecarSpawnStep::CurrentUserVenv);
+    }
+    if debug {
+        steps.push(SidecarSpawnStep::Dev);
+    }
+    steps.push(SidecarSpawnStep::Bundled);
+    if !skip_user_venv {
+        steps.push(SidecarSpawnStep::AnyUserVenv);
+    }
+    if !debug {
+        steps.push(SidecarSpawnStep::Dev);
+    }
+    steps
+}
+
+/// Prefer a current user-data venv; then packaged binary (including `ai-sidecar.exe`
+/// next to the app when Tauri's triple-suffixed sidecar name is missing); then a
+/// leftover venv; then checkout uvicorn.
+fn spawn_sidecar_process(
+    app: Option<&AppHandle>,
+    token: &str,
+    skip_user_venv: bool,
+) -> Result<(SidecarChild, bool), String> {
+    let user_venv_current = app.map(user_data_sidecar_is_current).unwrap_or(false);
+    let debug = cfg!(debug_assertions);
+    let mut last_err: Option<String> = None;
+
+    for step in sidecar_spawn_steps(skip_user_venv, user_venv_current, debug) {
+        match step {
+            SidecarSpawnStep::CurrentUserVenv | SidecarSpawnStep::AnyUserVenv => {
+                if let Some(handle) = app {
+                    match spawn_user_data_sidecar(handle, token) {
+                        Ok(child) => return Ok((child, false)),
+                        Err(e) => last_err = Some(e),
+                    }
+                }
+            }
+            SidecarSpawnStep::Dev => match spawn_dev_sidecar(token) {
+                Ok(child) => return Ok((child, false)),
+                Err(e) => last_err = Some(e),
+            },
+            SidecarSpawnStep::Bundled => {
+                if let Some(handle) = app {
+                    match spawn_bundled_sidecar(handle, token) {
+                        Ok(child) => return Ok((child, true)),
+                        Err(e) => last_err = Some(e),
+                    }
+                }
+            }
         }
     }
 
-    #[cfg(debug_assertions)]
-    {
-        if let Ok(child) = spawn_dev_sidecar(token) {
-            return Ok((child, false));
-        }
-    }
-
-    if let Some(handle) = app {
-        if let Ok(child) = spawn_bundled_sidecar(handle, token) {
-            return Ok((child, true));
-        }
-    }
-    Ok((spawn_dev_sidecar(token)?, false))
+    Err(last_err.unwrap_or_else(|| "failed to spawn AI sidecar".to_string()))
 }
 
 #[cfg(test)]
@@ -573,6 +710,41 @@ mod tests {
             Duration::from_secs(60),
             SPAWN_GRACE,
         ));
+    }
+
+    #[test]
+    fn packaged_spawn_skips_stale_user_venv_then_tries_bundled() {
+        let steps = sidecar_spawn_steps(false, false, false);
+        assert_eq!(
+            steps,
+            vec![
+                SidecarSpawnStep::Bundled,
+                SidecarSpawnStep::AnyUserVenv,
+                SidecarSpawnStep::Dev,
+            ]
+        );
+        let skipped = sidecar_spawn_steps(true, true, false);
+        assert_eq!(skipped, vec![SidecarSpawnStep::Bundled, SidecarSpawnStep::Dev]);
+        let current = sidecar_spawn_steps(false, true, false);
+        assert_eq!(current.first(), Some(&SidecarSpawnStep::CurrentUserVenv));
+        assert!(current.contains(&SidecarSpawnStep::Bundled));
+    }
+
+    #[test]
+    fn finds_sidecar_exe_beside_app_without_target_triple() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("aimc-sidecar-exe-{stamp}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(find_sidecar_binary_in_dir(&dir).is_none());
+        let name = sidecar_binary_names()[0];
+        let path = dir.join(name);
+        std::fs::write(&path, b"fake").unwrap();
+        assert_eq!(find_sidecar_binary_in_dir(&dir).as_deref(), Some(path.as_path()));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

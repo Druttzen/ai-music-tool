@@ -3,13 +3,14 @@
  */
 
 /**
- * @param {{ httpOk: boolean, tauriManaged?: { ready?: boolean, spawned?: boolean } | null, isTauri?: boolean }} input
+ * @param {{ httpOk: boolean, tauriManaged?: { ready?: boolean, spawned?: boolean, error?: string | null } | null, isTauri?: boolean }} input
  * @returns {"ready" | "standby" | "offline"}
  */
 export function resolveSidecarAiStatus(input) {
   const { httpOk, tauriManaged, isTauri } = input;
   if (httpOk) return "ready";
   if (isTauri && tauriManaged?.ready) return "ready";
+  if (isTauri && tauriManaged?.error) return "offline";
   if (isTauri && tauriManaged?.spawned) return "offline";
   if (isTauri) return "standby";
   return "offline";
