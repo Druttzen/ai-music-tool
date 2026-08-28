@@ -77,6 +77,25 @@ test.describe("Voice Character Studio e2e", () => {
   });
 
   test("loading file-only preset clears linked YouTube reference", async ({ page }) => {
+    await page.route("**/musicbrainz.org/ws/2/recording**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          recordings: [
+            {
+              id: "e2e-youtube-ref",
+              title: "Never Gonna Give You Up",
+              length: 213000,
+              tags: [{ name: "pop" }],
+              "artist-credit": [{ name: "Rick Astley" }],
+              releases: [{ title: "Whenever You Need Somebody", date: "1987" }],
+            },
+          ],
+        }),
+      });
+    });
+
     await dismissSplash(page);
 
     const panel = voiceCharacterStudioPanel(page);

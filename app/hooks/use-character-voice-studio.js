@@ -261,7 +261,7 @@ export function useCharacterVoiceStudio() {
           presetName,
         });
         setStatusWithTime(
-          err instanceof Error ? err.message : "YouTube resolve failed — start sidecar (npm run sidecar)",
+          `YouTube resolve failed — ${err instanceof Error ? err.message : "start sidecar (npm run sidecar)"}`,
           "warning",
         );
       } finally {
