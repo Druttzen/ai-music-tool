@@ -37,6 +37,41 @@ ensure_sidecar_venv() {
   SIDECAR_PIP="$venv/bin/pip"
 }
 
+nvidia_gpu_present() {
+  command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1
+}
+
+sidecar_torch_cuda_ok() {
+  local py="${SIDECAR_DIR}/.venv/bin/python"
+  [[ -x "$py" ]] || return 1
+  "$py" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" >/dev/null 2>&1
+}
+
+ensure_sidecar_cuda_torch() {
+  local force=0
+  if [[ "${1:-}" == "--force" ]]; then force=1; fi
+  if [[ "${AIMC_FORCE_CPU:-}" == "1" ]]; then
+    echo "AIMC_FORCE_CPU=1 — skipping CUDA torch upgrade"
+    return 0
+  fi
+  if ! nvidia_gpu_present; then
+    echo "No NVIDIA GPU detected — keeping CPU torch"
+    return 0
+  fi
+  if [[ "$force" -eq 0 ]] && sidecar_torch_cuda_ok; then
+    echo "torch.cuda already available — skipping CUDA torch upgrade"
+    return 0
+  fi
+  local index="${AIMC_TORCH_CUDA_INDEX:-https://download.pytorch.org/whl/cu126}"
+  echo "Installing CUDA torch/torchaudio from ${index} ..."
+  "$SIDECAR_PIP" install --upgrade torch torchaudio --index-url "$index"
+  if sidecar_torch_cuda_ok; then
+    echo "CUDA torch OK (torch.cuda.is_available()=True)"
+  else
+    echo "WARNING: CUDA wheels installed but torch.cuda.is_available() is still False — check NVIDIA driver"
+  fi
+}
+
 install_sidecar_extra() {
   local spec="$1"
   local label="$2"
@@ -57,5 +92,10 @@ install_sidecar_extra() {
     echo "Installing audiocraft (MusicGen) with --no-deps to keep torch>=2.2..."
     "$SIDECAR_PIP" install "audiocraft>=1.3" --no-deps
   fi
+  case ",${spec}," in
+    *,stems,*|*,stems-melband,*|*,generate,*|*,classify,*|*,vision,*|*,cover,*|*,cover-ref,*|*,vocal-ml,*|*,vocal-rvc,*|*,all,*)
+      ensure_sidecar_cuda_torch
+      ;;
+  esac
   echo "Done. Restart the sidecar: npm run sidecar"
 }

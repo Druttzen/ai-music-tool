@@ -129,6 +129,16 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     );
   };
 
+  const handleCopyOpsAuto = async () => {
+    const cmd = "npm run fail-safe-ops -- auto";
+    try {
+      await navigator.clipboard.writeText(cmd);
+      setStatusWithTime("Ops CLI command copied — run from repo root", "success");
+    } catch {
+      setStatusWithTime(`Copy failed — run: ${cmd}`, "warning");
+    }
+  };
+
   const handleFixPush = (mode) => {
     fixSession.openBugDialog(actionable, { autoFix: true, mode });
   };
@@ -340,6 +350,14 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
                 Copy fixes
               </button>
             ) : null}
+            <button
+              type="button"
+              className="rounded-lg border border-violet-400/25 bg-violet-500/10 px-2 py-1 text-[10px] text-violet-100/90 hover:bg-violet-500/20"
+              onClick={() => void handleCopyOpsAuto()}
+              title="Copy Fail-Safe Ops CLI (npm run fail-safe-ops -- auto) — interim deep-link until Ops desktop shell"
+            >
+              Copy Ops auto
+            </button>
             <button
               type="button"
               className="rounded-lg border border-white/15 bg-black/30 px-2 py-1 text-[10px] text-white/80 hover:bg-black/45"

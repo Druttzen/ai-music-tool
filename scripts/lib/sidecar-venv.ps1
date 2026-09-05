@@ -62,6 +62,62 @@ function Ensure-SidecarVenv {
   }
 }
 
+function Test-NvidiaGpuPresent {
+  try {
+    $null = & nvidia-smi -L 2>$null
+    return ($LASTEXITCODE -eq 0)
+  } catch {
+    return $false
+  }
+}
+
+function Test-SidecarTorchCuda {
+  param([Parameter(Mandatory = $true)][string]$Python)
+  try {
+    $pyCode = 'import torch; print("1" if torch.cuda.is_available() else "0")'
+    $out = & $Python -c $pyCode 2>$null
+    return ("$out".Trim() -eq "1")
+  } catch {
+    return $false
+  }
+}
+
+function Ensure-SidecarCudaTorch {
+  param(
+    [Parameter(Mandatory = $true)][string]$Pip,
+    [Parameter(Mandatory = $true)][string]$Python,
+    [switch]$Force
+  )
+  if ($env:AIMC_FORCE_CPU -eq "1") {
+    Write-Host "AIMC_FORCE_CPU=1 - skipping CUDA torch upgrade"
+    return
+  }
+  if (-not (Test-NvidiaGpuPresent)) {
+    Write-Host "No NVIDIA GPU detected - keeping CPU torch"
+    return
+  }
+  if (-not $Force -and (Test-SidecarTorchCuda -Python $Python)) {
+    Write-Host "torch.cuda already available - skipping CUDA torch upgrade"
+    return
+  }
+  # cu126: broad driver support (incl. Ada). Override with AIMC_TORCH_CUDA_INDEX (e.g. cu130).
+  $index = if ($env:AIMC_TORCH_CUDA_INDEX) {
+    $env:AIMC_TORCH_CUDA_INDEX.Trim()
+  } else {
+    "https://download.pytorch.org/whl/cu126"
+  }
+  Write-Host "Installing CUDA torch/torchaudio from $index ..."
+  $code = Invoke-SidecarPip -Pip $Pip -ArgumentList @(
+    "install", "--upgrade", "torch", "torchaudio", "--index-url", $index
+  )
+  if ($code -ne 0) { exit $code }
+  if (Test-SidecarTorchCuda -Python $Python) {
+    Write-Host "CUDA torch OK"
+  } else {
+    Write-Host "WARNING: CUDA wheels installed but torch.cuda still unavailable - check NVIDIA driver"
+  }
+}
+
 function Install-SidecarExtra {
   param(
     [Parameter(Mandatory = $true)][string]$RepoRoot,
@@ -95,6 +151,18 @@ function Install-SidecarExtra {
     Write-Host "Installing audiocraft (MusicGen) with --no-deps to keep torch>=2.2..."
     $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "audiocraft>=1.3", "--no-deps")
     if ($code -ne 0) { exit $code }
+  }
+  # PyPI defaults to CPU wheels on Windows; upgrade to CUDA when NVIDIA is present.
+  $torchExtras = @(
+    "stems", "stems-melband", "generate", "classify", "vision", "cover", "cover-ref",
+    "vocal-ml", "vocal-rvc", "all"
+  )
+  $needsCuda = $false
+  foreach ($part in ($ExtraSpec -split ",")) {
+    if ($torchExtras -contains $part.Trim()) { $needsCuda = $true; break }
+  }
+  if ($needsCuda) {
+    Ensure-SidecarCudaTorch -Pip $ctx.Pip -Python (Join-Path $ctx.Venv "Scripts\python.exe")
   }
   Write-Host "Done. Restart the sidecar: npm run sidecar"
 }

@@ -631,6 +631,7 @@ See [`ai-sidecar/README.md`](ai-sidecar/README.md). Quick paths:
 npm run bootstrap           # Rust + Python 3.12 if missing (Windows)
 npm run sidecar:stems       # Demucs (~2 GB)
 npm run sidecar:stems-melband  # Mel-Band RoFormer vocals/instrumental (see docs/stems-melband.md)
+npm run sidecar:cuda        # CUDA torch when NVIDIA GPU present (auto after torch extras)
 npm run sidecar:generate    # MusicGen (CC-BY-NC)
 # ACE-Step full songs: set AIMC_ACESTEP_API_URL (see docs/acestep.md)
 # Vocal region transform: npm run sidecar:stems (+ sidecar:vocal-rvc for RVC mode) — docs/vocal-transform.md

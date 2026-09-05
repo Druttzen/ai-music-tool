@@ -158,7 +158,8 @@ Ops (A) remains the only path that auto-fixes and pushes under maintainer/CI cre
 - [x] Maintainer `deliver-runtime` (`gh issue create`, optional `--branch`)
 - [ ] Electron/Tauri Ops desktop shell (deferred)
 - [ ] Move workflows out of ai-music-tool into Ops repo (deferred)
-- [ ] In-app Fix & push → “open Ops” deep link (deferred)
+- [x] In-app Ops CLI deep-link (interim): panel **Copy Ops auto** copies
+  `npm run fail-safe-ops -- auto` (full Ops desktop shell still deferred)
 
 ### Phase 3 — Richer Runtime reporting
 

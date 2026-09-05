@@ -39,6 +39,7 @@ Install extras (Windows npm scripts; `.sh` counterparts under `scripts/`):
 |--------|-------|
 | `npm run sidecar:stems` | Demucs |
 | `npm run sidecar:stems-melband` | Mel-Band RoFormer |
+| `npm run sidecar:cuda` | CUDA torch/torchaudio (NVIDIA; also auto after torch extras) |
 | `npm run sidecar:generate` | MusicGen |
 | `npm run sidecar:classify` | Genre classifier |
 | `npm run sidecar:vision` | BLIP / CLIP |
