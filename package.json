@@ -12,8 +12,6 @@
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
     "cleanup:dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cleanup-locked-electron-dist.ps1",
     "cleanup:dist:admin": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-cleanup-elevated.ps1",
-    "cleanup:sudo": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/enable-sudo-and-cleanup.ps1",
-    "cleanup:dist:sudo": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"sudo powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cleanup-locked-electron-dist.ps1\"",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -128,6 +126,7 @@
       "lib/suite-bridge.cjs",
       "lib/suite-handoff-config.cjs",
       "lib/suite-handoff-paths.json",
+      "lib/sidecar-extra-install.cjs",
       "out/**/*",
       "icon.ico"
     ],

@@ -10,8 +10,8 @@ When changing desktop, sidecar, or ship/release paths in this repo:
 1. **Do not rewrite** the music app from scratch or migrate Next → Vite unless the user explicitly asks.
 2. **Converge layers** toward AI Video Studio patterns: Tauri shell → Rust bridge → Python sidecar (`device` / `registry` / `jobs`).
 3. **Ship tags** — default `npm run ship:tag` is **studio-only** (`studio-v*`). Use `--electron` only when legacy `v*` Electron is intentionally needed.
-4. **Sidecar extras** stay opt-in via `npm run sidecar:*` (stems, generate, classify, vision, vocal, vocal-ml, vocal-rvc, all). Prefer registry `install_hint` strings that match those npm scripts.
+4. **Sidecar extras** stay opt-in via `npm run sidecar:*` (stems, generate, classify, vision, cover, cover-ref, vocal, vocal-ml, vocal-rvc, all). Prefer registry `install_hint` strings that match those npm scripts.
 5. **Electron handoffs** stay until Studio canvas/video paths are verified on a tagged `studio-v*` install — see `docs/architecture-convergence.md`.
-6. **Studio updates** are manual (`studio-v*` installers) until Tauri updater is configured; do not claim in-app auto-update for Studio.
+6. **Studio updates** — the signed Tauri updater is configured (`latest.json` from `studio-v*` releases; pubkey in `src-tauri/tauri.conf.json`), and in-app **Update all** refreshes sidecar, Canvas, extras, then the app. Keep updater pubkey/endpoints intact when touching `tauri.conf.json`.
 
 Source of truth: `docs/architecture-convergence.md`, `docs/desktop.md`.

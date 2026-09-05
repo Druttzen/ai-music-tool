@@ -490,6 +490,3 @@ export function StylePromptPicker({
     </div>
   );
 }
-
-/** @deprecated Use StylePromptPicker */
-export const SunoEnglishStylePromptPicker = StylePromptPicker;

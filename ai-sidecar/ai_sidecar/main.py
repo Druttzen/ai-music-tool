@@ -9,8 +9,9 @@ stacks (torch/demucs/audiocraft) are installed.
 Run standalone:
     uvicorn ai_sidecar.main:app --port 8723
 
-Capability roadmap (Phase B3): analysis (this file) -> stem separation (Demucs)
--> generation (MusicGen / Riffusion) -> singing voice (DiffSinger).
+Capabilities: analysis (this file), stem separation (Demucs), generation
+(MusicGen), covers (FLUX), vision (BLIP/CLIP), and vocal synthesis
+(placement-mix / DSP / RVC / DiffSinger) — see registry.py for the catalog.
 """
 
 from __future__ import annotations

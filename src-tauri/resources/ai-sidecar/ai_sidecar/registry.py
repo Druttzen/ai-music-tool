@@ -15,7 +15,8 @@ class CapabilitySpec:
     license: str
     commercial_use: bool
     probe: Callable[[], bool]
-    # When True, missing stacks are surfaced in /health missing_install_hints + UI.
+    # When True, missing stacks are offered for install in the UI
+    # (via /health capabilities + missing_install_hints() helper).
     prompt_install: bool = True
 
     def snapshot(self) -> dict:

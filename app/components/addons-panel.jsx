@@ -43,11 +43,6 @@ import {
 } from "../lib/sidecar-extra-install-client";
 import { SIDECAR_EXTRAS_CHANGED_EVENT } from "../lib/sidecar-startup-install";
 
-/** @deprecated Prefer AddonsPanel — kept for any lingering imports. */
-export function CanvasIntegrationPanel() {
-  return <AddonsPanel />;
-}
-
 /** @param {"ok"|"info"|"warn"|"muted"|"bad"} tone */
 function statusChipClass(tone) {
   switch (tone) {

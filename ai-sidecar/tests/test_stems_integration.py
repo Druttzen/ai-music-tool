@@ -33,13 +33,18 @@ def _make_tone_wav(duration_sec=2.0, sample_rate=22050) -> bytes:
 
 @pytest.fixture
 def client():
-    from ai_sidecar.main import _MODEL_CACHE, _STEM_JOBS, app
+    from ai_sidecar.jobs import JOBS
+    from ai_sidecar.main import app
+    from ai_sidecar.stems_separate import _MODEL_CACHE
 
-    _MODEL_CACHE.clear()
-    _STEM_JOBS.clear()
+    def _clear():
+        _MODEL_CACHE.clear()
+        with JOBS._lock:
+            JOBS._jobs.clear()
+
+    _clear()
     yield TestClient(app)
-    _MODEL_CACHE.clear()
-    _STEM_JOBS.clear()
+    _clear()
 
 
 @pytest.mark.slow
