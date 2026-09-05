@@ -1,10 +1,9 @@
-# Pre-tag release gate: sync versions, full check, optional e2e / Tauri / Electron dist.
+# Pre-tag release gate: sync versions, full check, optional e2e / Tauri.
 param(
   [switch]$E2e,
   [switch]$E2eSubset,
   [switch]$Tauri,
   [switch]$Smoke,
-  [switch]$Dist,
   [switch]$TagOnly
 )
 
@@ -39,14 +38,8 @@ if ($Tauri) {
   Write-Host "ship-preflight: installers under src-tauri/target/release/bundle/" -ForegroundColor DarkGray
 }
 
-if ($Dist) {
-  Write-Host "ship-preflight: npm run dist (legacy Electron)" -ForegroundColor Cyan
-  npm run dist
-  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-}
-
 if ($TagOnly) {
-  Write-Host "ship-preflight: tag-only — push studio-v* (pass --electron to ship-tag-release for Electron)" -ForegroundColor Cyan
+  Write-Host "ship-preflight: tag-only — push studio-v*" -ForegroundColor Cyan
   node scripts/ship-tag-release.cjs
   exit $LASTEXITCODE
 }

@@ -30,22 +30,20 @@ Status shows **Installed** when an executable from [`lib/suite-handoff-paths.jso
 2. `handoff.json` is written with track title, artist, and art path
 3. **AI Canvas Tool** launches and imports the handoff automatically (when installed)
 
-Shared paths, executable candidates, and Canvas install metadata live in `lib/suite-handoff-paths.json` (used by Tauri and Electron).
+Shared paths, executable candidates, and Canvas install metadata live in `lib/suite-handoff-paths.json` (used by Tauri; also archived Electron shell).
 
 ## Desktop builds
 
 | Build | Bridge |
 |-------|--------|
 | **Tauri Studio** (primary) | `export_canvas_handoff`, `suite_canvas_addon_status`, `install_canvas_addon`, `launch_canvas_addon` |
-| **Electron** (legacy) | `window.electronAPI.openInCanvasTool` / `installCanvasAddon` / `launchCanvasAddon` via `lib/suite-bridge.cjs` |
 
-Browser-only dev (`npm run dev:web`) cannot install or launch Canvas (desktop shell required); handoff/launch needs Tauri or Electron.
+Browser-only dev (`npm run dev:web`) cannot install or launch Canvas (desktop shell required). Electron packaging is retired; see [desktop.md](desktop.md).
 
 ## Dev
 
 ```bash
 npm run tauri:dev    # recommended
-npm run electron     # legacy — requires npm run build first
 ```
 
 Manual install: download from [ai-canvas-tool releases](https://github.com/Druttzen/ai-canvas-tool/releases) or build locally (`npm run dist:setup`).

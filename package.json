@@ -4,14 +4,11 @@
   "description": "AI Music Creator — Suno prompts, local track analyzer, EBU R128 LUFS meter, and studio WAV export",
   "author": "DJ M@D",
   "private": true,
-  "main": "main.js",
   "scripts": {
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1",
     "dev:web": "next dev",
     "debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -Inspect",
     "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1",
-    "cleanup:dist": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/cleanup-locked-electron-dist.ps1",
-    "cleanup:dist:admin": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-cleanup-elevated.ps1",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -82,13 +79,9 @@
     "ship:tag": "node scripts/ship-tag-release.cjs",
     "build": "next build",
     "postbuild": "node scripts/verify-lazy-catalog-chunks.cjs",
-    "electron": "electron .",
-    "build:readme-pdf": "node scripts/generate-readme-pdf.cjs",
-    "prepare:electron-dist": "node scripts/prep-electron-dist.cjs",
-    "dist": "npm run build && npm run build:readme-pdf && npm run prepare:electron-dist && node scripts/run-electron-builder.cjs"
+    "build:readme-pdf": "node scripts/generate-readme-pdf.cjs"
   },
   "dependencies": {
-    "electron-updater": "^6.8.9",
     "lamejs": "^1.2.1",
     "next": "^16.2.10",
     "react": "19.2.7",
@@ -103,8 +96,6 @@
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "electron": "^43.1.0",
-    "electron-builder": "26.15.3",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.10",
     "fake-indexeddb": "^6.2.5",
@@ -116,46 +107,5 @@
   },
   "overrides": {
     "postcss": "^8.5.10"
-  },
-  "build": {
-    "appId": "com.djmad.aimusiccreator",
-    "productName": "AI Music Creator",
-    "artifactName": "AI-Music-Creator-Setup-${version}.${ext}",
-    "files": [
-      "main.js",
-      "preload.js",
-      "lib/suite-bridge.cjs",
-      "lib/suite-handoff-config.cjs",
-      "lib/suite-handoff-paths.json",
-      "lib/sidecar-extra-install.cjs",
-      "out/**/*",
-      "icon.ico"
-    ],
-    "extraResources": [
-      "build/AI_Music_Creator_README.pdf"
-    ],
-    "directories": {
-      "buildResources": "build",
-      "output": "electron-dist"
-    },
-    "win": {
-      "target": "nsis",
-      "icon": "icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "runAfterFinish": true
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Druttzen",
-        "repo": "ai-music-tool",
-        "releaseType": "release"
-      }
-    ]
   }
 }

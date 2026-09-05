@@ -4,20 +4,21 @@ AI Music Creator owns music prompting, analysis, generation, vocal workflows, ma
 
 Other AI Creator projects collaborate through the neutral [Music Exchange](music-exchange.md) bundle. They may import its project, prompt, analysis, artwork metadata, and optional audio sidecar, but Music Creator does not launch or configure those consumers.
 
-Plan phases: Electron sunset truth → sidecar `device` / `registry` / `jobs` → UI capabilities helper → retire default Electron train.
+Plan phases (status): Electron sunset truth → sidecar `device` / `registry` / `jobs` → UI capabilities helper → **retire Electron train** (**done** as of `studio-v0.50.21` — Studio canvas verified on tagged install).
 
-## Electron IPC inventory (cutover checklist)
+## Electron IPC inventory (historical / dead-code)
+
+Do **not** add new Electron IPC. Packaging (`npm run dist`, `v*` tags, `release.yml`) is retired. Leftover renderer branches still detect Electron so old installs do not crash; remove them in a later cleanup when field `v*` installs no longer matter.
 
 | Surface | Path | Role | Tauri parity |
 |---------|------|------|--------------|
-| Bridge | [`app/lib/electron-bridge.js`](../app/lib/electron-bridge.js) | `isElectronApp`, update APIs | N/A (web/Tauri skip) |
+| Bridge | [`app/lib/electron-bridge.js`](../app/lib/electron-bridge.js) | `isElectronApp`, update APIs (dead-code) | N/A (web/Tauri skip) |
 | Updates hook | [`app/hooks/use-desktop-updates.js`](../app/hooks/use-desktop-updates.js) | Check / quit-and-install | Signed Tauri updater commands |
-| Preload API | [`preload.js`](../preload.js) | `window.electronAPI` | — |
-| Main process | [`main.js`](../main.js) | Window, updater, IPC | [`src-tauri`](../src-tauri) |
+| Preload / main | [`preload.js`](../preload.js), [`main.js`](../main.js) | Archived Electron shell (not packaged) | [`src-tauri`](../src-tauri) |
 | Music Exchange | [`app/hooks/project-actions/use-export-actions.js`](../app/hooks/project-actions/use-export-actions.js) | Browser download | Same portable download |
-| Canvas handoff | [`app/lib/suite-canvas-client.js`](../app/lib/suite-canvas-client.js) | `electronAPI.openInCanvasTool` | `exportCanvasHandoffNative` |
-| Addons (Canvas) | [`app/lib/canvas-addon-client.js`](../app/lib/canvas-addon-client.js) | `installCanvasAddon` / `launchCanvasAddon` | `install_canvas_addon` / `launch_canvas_addon` |
-| Canvas bridge | [`lib/suite-bridge.cjs`](../lib/suite-bridge.cjs) | Electron Canvas paths + install | Shared `lib/suite-handoff-paths.json` |
+| Canvas handoff | [`app/lib/suite-canvas-client.js`](../app/lib/suite-canvas-client.js) | Prefers Tauri; Electron fallback dead-code | `exportCanvasHandoffNative` |
+| Addons (Canvas) | [`app/lib/canvas-addon-client.js`](../app/lib/canvas-addon-client.js) | Tauri install/launch | `install_canvas_addon` / `launch_canvas_addon` |
+| Canvas bridge | [`lib/suite-bridge.cjs`](../lib/suite-bridge.cjs) | Archived Electron Canvas paths | Shared `lib/suite-handoff-paths.json` |
 
 Do not add consumer-specific render settings, executable discovery, or launch IPC to Music Creator. Extend the portable exchange contract instead.
 
@@ -40,6 +41,7 @@ Install extras (Windows npm scripts; `.sh` counterparts under `scripts/`):
 | Script | Extra |
 |--------|-------|
 | `npm run sidecar:stems` | Demucs |
+| `npm run sidecar:stems-melband` | Mel-Band RoFormer |
 | `npm run sidecar:generate` | MusicGen |
 | `npm run sidecar:classify` | Genre classifier |
 | `npm run sidecar:vision` | BLIP / CLIP |
@@ -53,8 +55,7 @@ Install extras (Windows npm scripts; `.sh` counterparts under `scripts/`):
 ## Ship commands
 
 ```bash
-npm run ship:tag                 # studio-v* only
-npm run ship:tag -- --electron   # also legacy v*
+npm run ship:tag                 # studio-v* only (Electron retired)
 ```
 
 See [desktop.md](desktop.md).

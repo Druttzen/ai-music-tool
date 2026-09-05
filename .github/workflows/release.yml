@@ -1,135 +1,30 @@
-name: Release
+name: Release (Electron retired)
 
-# Electron legacy installer — manual only.
-# Default ship:tag pushes studio-v* (Tauri). Use workflow_dispatch here, or
-# `npm run ship:tag -- --electron` then run this workflow for the v* tag.
+# Electron Windows installer train retired after studio-v0.50.21
+# (Studio canvas/video paths verified on tagged Studio). Ship Studio only:
+#   npm run ship:tag  →  studio-v*  →  tauri-studio-release.yml
+#
+# This workflow fails fast so accidental dispatch does not rebuild Electron.
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Git tag to rebuild (e.g. v0.50.2) — Electron legacy only"
+      acknowledge:
+        description: "Type RETIRED to confirm you understand Electron shipping is disabled"
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    runs-on: windows-latest
-    permissions:
-      contents: write
+  retired:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: npm ci
-      - run: npm run check:full
-      - name: Extract release notes from README
-        shell: bash
-        env:
-          VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      - name: Electron train retired
         run: |
-          export TAG_VER="${VERSION#v}"
-          node <<'NODE'
-          const fs = require("fs");
-          const ver = (process.env.TAG_VER || "").replace(/^v/, "");
-          const lines = fs.readFileSync("README.md", "utf8").split(/\r?\n/);
-          const header = `## Highlights (v${ver})`;
-          const start = lines.findIndex((line) => line.startsWith(header));
-          let out = [];
-          if (start >= 0) {
-            for (let i = start; i < lines.length; i++) {
-              if (i > start && /^## Highlights \(v/.test(lines[i])) break;
-              out.push(lines[i]);
-            }
-          }
-          if (!out.length) out = [`Release v${ver}`];
-          fs.writeFileSync("release-notes.md", out.join("\n") + "\n");
-          NODE
-      - run: npm run build && npm run build:readme-pdf && npm run prepare:electron-dist
-      # Build only. electron-builder's GitHub publisher races itself (parallel
-      # create-release for .exe + .blockmap -> 422 already_exists) and is brittle
-      # on GitHub upload 5xx. Upload assets with gh instead.
-      - name: Build Windows installer
-        run: node scripts/run-electron-builder.cjs --publish never
-      - name: Upload installer artifacts (recovery backup)
-        uses: actions/upload-artifact@v4
-        with:
-          name: electron-windows-installer
-          path: |
-            electron-dist/*Setup*.exe
-            electron-dist/*Setup*.exe.blockmap
-            electron-dist/latest.yml
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Ensure GitHub release and upload installer assets
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-        run: |
-          set -euo pipefail
-          OUT=$(cat build/.electron-dist-output 2>/dev/null || echo electron-dist)
-          shopt -s nullglob
-          files=("${OUT}"/*Setup*.exe "${OUT}"/*Setup*.exe.blockmap "${OUT}"/latest.yml)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No installer artifacts in ${OUT}"
-            ls -la "${OUT}" || true
-            exit 1
+          echo "::error::Electron packaging retired after studio-v0.50.21. Ship Studio with: npm run ship:tag"
+          echo "See docs/desktop.md and docs/architecture-convergence.md"
+          if [ "${{ inputs.acknowledge }}" != "RETIRED" ]; then
+            echo "Dispatch acknowledge must be exactly RETIRED (still exits non-zero)."
           fi
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release ${TAG} already exists; updating notes (best effort)"
-            if ! gh release edit "$TAG" --notes-file release-notes.md --title "${TAG#v}"; then
-              echo "Release notes edit failed (often transient 5xx); continuing to asset upload"
-            fi
-          else
-            for attempt in 1 2 3 4 5; do
-              echo "Creating release ${TAG} (attempt ${attempt})"
-              if gh release create "$TAG" \
-                --title "${TAG#v}" \
-                --notes-file release-notes.md \
-                --verify-tag; then
-                break
-              fi
-              echo "Release create failed; waiting before retry..."
-              sleep $((attempt * 20))
-            done
-          fi
-          gh release view "$TAG" >/dev/null
-
-          # Upload one file at a time with long backoff (uploads.github.com 5xx).
-          failed=0
-          for f in "${files[@]}"; do
-            ok=0
-            for attempt in 1 2 3 4 5 6 7 8; do
-              echo "Uploading $(basename "$f") (attempt ${attempt})"
-              if gh release upload "$TAG" "$f" --clobber; then
-                ok=1
-                break
-              fi
-              # --clobber 404s when the asset name is not present yet; retry without it.
-              if gh release upload "$TAG" "$f"; then
-                ok=1
-                break
-              fi
-              sleep $((attempt * 20))
-            done
-            if [ "$ok" -ne 1 ]; then
-              echo "Failed to upload $(basename "$f") after retries"
-              failed=1
-            fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            echo "One or more asset uploads failed (artifacts retained for recovery)"
-            exit 1
-          fi
-          echo "All assets uploaded to ${TAG}"
+          exit 1

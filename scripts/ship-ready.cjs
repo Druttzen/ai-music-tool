@@ -62,8 +62,7 @@ function printChecklist(pkgVersion) {
    edit package.json version → npm run sync:version → commit
 
 6) Publish (CI builds installers + GitHub Release)
-   npm run ship:tag                # pushes ${studioTag} only
-   npm run ship:tag -- --electron  # also legacy v* Electron
+   npm run ship:tag                # pushes ${studioTag} (Studio only)
 
 7) After CI finishes
    Open https://github.com/Druttzen/ai-music-tool/releases
@@ -71,7 +70,7 @@ function printChecklist(pkgVersion) {
 
 Notes
   • Studio auto-update requires the TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD repository secrets.
-  • Electron train is maintenance-only; default ship is Studio.
+  • Electron packaging retired after studio-v0.50.21 — Studio only.
   • Docs: docs/publish.md · docs/desktop.md
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);

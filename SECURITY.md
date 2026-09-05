@@ -46,17 +46,17 @@ MusicGen weights are **CC-BY-NC** (non-commercial). The sidecar and UI warn befo
 
 ## Release trains
 
-Two tag families can ship installers:
+Two tag families exist historically; only Studio ships now:
 
 | Tag | Target | How to ship |
 |-----|--------|-------------|
-| `studio-v*` | Tauri Studio (**primary**, default) | `npm run ship:tag` |
-| `v*` | Legacy Electron (deprecated) | `npm run ship:tag -- --electron` or manual `release.yml` |
+| `studio-v*` | Tauri Studio (**only**) | `npm run ship:tag` |
+| `v*` | Electron (**retired** after `studio-v0.50.21`) | — |
 
-Both run `npm run check:full` (unit + lint + build + sidecar pytest) before building.
+Studio releases run `npm run check:full` (unit + lint + build + sidecar pytest) before building installers.
 
-**Updates:** Electron `v*` builds use `electron-updater`. Studio `studio-v*` builds require installing the new package from Releases until a Tauri updater is configured.
+**Updates:** Studio `studio-v*` builds use the signed Tauri updater (`latest.json`). Legacy Electron `v*` installs no longer receive new packages — migrate to Studio.
 
 ## Electron sunset
 
-Electron is deprecated. Default `ship:tag` no longer pushes `v*` (as of post-0.50.2 process). Use Studio installers (`studio-v*`). See [docs/desktop.md](docs/desktop.md) and [docs/architecture-convergence.md](docs/architecture-convergence.md).
+Electron packaging is **retired** (verified Studio canvas on `studio-v0.50.21`). Use Studio installers (`studio-v*`). See [docs/desktop.md](docs/desktop.md) and [docs/architecture-convergence.md](docs/architecture-convergence.md).

@@ -70,11 +70,10 @@ npm run test:smoke:vocal
 ### 6. Tag and publish
 
 ```bash
-npm run ship:tag                 # studio-vX.Y.Z only → tauri-studio-release.yml
-npm run ship:tag -- --electron   # also legacy Electron v* (maintenance)
+npm run ship:tag                 # studio-vX.Y.Z → tauri-studio-release.yml
 ```
 
-`ship:tag` refuses a dirty working tree, runs `check:full --e2e-subset`, creates/pushes the tag(s).
+`ship:tag` refuses a dirty working tree, runs `check:full --e2e-subset`, creates/pushes the Studio tag. Electron `v*` tagging is retired (`--electron` exits non-zero).
 
 GitHub Actions builds Windows / macOS / Linux installers and creates the Release:
 
@@ -89,13 +88,13 @@ https://github.com/Druttzen/ai-music-tool/releases
 ## What publish does *not* include
 
 - **In-app Studio auto-update** — release builds are signed with `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; `tauri-action` publishes updater archives, `.sig` files, and `latest.json` before making the release public.
-- **Electron auto-update** — only applies to legacy `v*` Electron builds.
+- **Electron auto-update** — retired with the Electron train; migrate to Studio.
 
 ## Related
 
 | Doc / script | Role |
 |--------------|------|
-| [desktop.md](desktop.md) | Tauri vs Electron trains |
+| [desktop.md](desktop.md) | Studio desktop (Electron retired) |
 | [ci-reliability.md](ci-reliability.md) | Local vs CI gates |
 | `npm run ship:preflight` | Sync + check:full; optional `-E2e` / `-E2eSubset` / `-Tauri` / `-Dist` / `-TagOnly` |
 | `npm run fail-safe:run` | Classify + auto-fix if gates fail |

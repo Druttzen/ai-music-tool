@@ -1,4 +1,7 @@
-const { contextBridge, ipcRenderer } = require("electron");
+/**
+ * Archived Electron preload — packaging retired after studio-v0.50.21.
+ * Do not revive Electron IPC; Studio uses Tauri commands (docs/desktop.md).
+ */
 
 contextBridge.exposeInMainWorld("electronAPI", {
   checkForUpdates: () => ipcRenderer.invoke("app-check-for-updates"),

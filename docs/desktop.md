@@ -2,7 +2,7 @@
 
 **Primary:** [Tauri](https://tauri.app/) (`npm run tauri:dev`, `npm run tauri:build`)
 
-Tauri is the supported desktop path going forward. It bundles:
+Tauri is the supported desktop path. It bundles:
 
 - Static Next.js export (`out/`)
 - Native **dsp-core** (EBU R128 LUFS, encoded-audio loudness, studio export)
@@ -11,18 +11,16 @@ Tauri is the supported desktop path going forward. It bundles:
 - Portable **Music Exchange** downloads for collaboration with other AI Creator projects (no app-specific native bridge)
 - Signed **Studio auto-updates** from the latest `studio-v*` GitHub Release
 
-## Legacy: Electron
+## Electron (retired)
 
-The **Electron** installer (`npm run dist`, `main.js`) remains for existing installs but is **deprecated**. Do not start new desktop features on Electron IPC.
-
-**Sunset timeline (updated for v0.50.2+):**
+The **Electron** Windows installer train (`main.js`, `v*` tags, `release.yml`) is **retired** as of **`studio-v0.50.21`**, after Studio canvas/video paths were verified on a tagged Studio install.
 
 | Train | Tag | Status |
 |-------|-----|--------|
-| **Tauri Studio (canonical)** | `studio-v*` | Default `npm run ship:tag` |
-| **Electron (legacy)** | `v*` | Opt-in only: `npm run ship:tag -- --electron` or `workflow_dispatch` on `release.yml` |
+| **Tauri Studio (canonical)** | `studio-v*` | `npm run ship:tag` |
+| **Electron** | `v*` | **Retired** — no new packages; `ship:tag -- --electron` exits non-zero |
 
-Last dual-tag default ship was **v0.50.2**. From the next release onward, `ship:tag` pushes **studio only** unless `--electron` is passed. Electron auto-update users should migrate to Studio installers; maintenance Electron builds remain via `npm run dist` / manual workflow.
+Existing Electron installs stay on their last published `v*` build. Migrate to Studio installers from [Releases](https://github.com/Druttzen/ai-music-tool/releases). Renderer-side Electron detection (`electron-bridge.js`, etc.) remains as dead-code so old installs do not crash; do not add new Electron IPC.
 
 ### Studio updates
 
@@ -39,12 +37,12 @@ Closing Studio resets project and session workspaces to defaults on the next lau
 
 The first updater-enabled release must still be installed manually because older Studio builds do not contain the updater plugin. Every later signed release can update in-app.
 
-| Capability | Tauri Studio (primary) | Electron (legacy / maintenance-only) |
-|------------|------------------------|--------------------------------------|
-| Updates | Signed `latest.json` + Tauri updater on `studio-v*` releases | `electron-updater` on `v*` releases |
-| Native DSP | `dsp-bridge.ts` | Browser / lamejs only |
-| Sidecar | Managed spawn in Tauri shell | Manual `npm run sidecar` |
-| Canvas handoff | `exportCanvasHandoffNative` | `window.electronAPI.openInCanvasTool` |
+| Capability | Tauri Studio |
+|------------|--------------|
+| Updates | Signed `latest.json` + Tauri updater on `studio-v*` releases |
+| Native DSP | `dsp-bridge.ts` |
+| Sidecar | Managed spawn in Tauri shell |
+| Canvas handoff | `exportCanvasHandoffNative` |
 
 The desktop shell only launches Canvas. Other projects consume the neutral Music Exchange JSON and optional audio sidecar selected by the user.
 
@@ -52,12 +50,10 @@ The desktop shell only launches Canvas. Other projects consume the neutral Music
 
 Left sidebar **Addons**:
 
-- **Canvas** — Download / Install and Open work in Tauri Studio (and legacy Electron). The web UI alone cannot install Canvas.
+- **Canvas** — Download / Install and Open work in Tauri Studio. The web UI alone cannot install Canvas.
 - **Sidecar extras** (MusicGen, cover, stems, vision, …) —
   - **Dev / checkout:** **Install** runs `scripts/install-sidecar-*.ps1|.sh` when `ai-sidecar/.venv` exists.
   - **Packaged Studio:** **Install** bootstraps a writable venv **next to the app** (`{install}/data/sidecar`), overlays bundled `ai-sidecar` sources onto `pkg/` (never wipes a locked dir), installs the selected extra, then restarts the sidecar from that venv (not the frozen binary). Canvas, profile, extras, and tools share that same `{install}/data` folder (`profile/`, `addons/`, `tools/`, `exports/`). Requires **Python 3.10–3.12** on PATH for first-time setup. Windows generate / vocal-rvc extras may use a pip fallback when strict pins fail. If the install folder is not writable (Program Files), Studio falls back to the OS app-data directory. If Python or package sources are missing, the UI copies the `npm run sidecar:*` hint instead.
-
-Electron is **maintenance-only**: no new desktop features on Electron IPC. Prefer Studio for all contributor and release work.
 
 ## Development
 
@@ -67,24 +63,18 @@ npm run dev
 
 # Tauri desktop
 npm run tauri:dev
-
-# Legacy Electron (deprecated)
-npm run electron   # requires npm run build first
-npm run dist       # Windows NSIS installer
+npm run tauri:build
 ```
 
 ## CI & releases
 
 - `tauri-smoke` — Tauri build smoke on every push
-- `tauri-studio-release.yml` — publishes **Tauri** studio builds on `studio-v*` tags (**default ship**)
-- `release.yml` — Electron installer via **manual** `workflow_dispatch` only (no automatic `v*` push from default `ship:tag`)
+- `tauri-studio-release.yml` — publishes **Tauri** studio builds on `studio-v*` tags (**only ship path**)
+- `release.yml` — **retired** (fails fast if dispatched)
 
 ```bash
-npm run ship:tag              # studio-vX.Y.Z only
-npm run ship:tag -- --electron  # also push vX.Y.Z for legacy Electron
+npm run ship:tag              # studio-vX.Y.Z → tauri-studio-release.yml
 ```
-
-See [desktop.md](desktop.md).
 
 ## Publish
 

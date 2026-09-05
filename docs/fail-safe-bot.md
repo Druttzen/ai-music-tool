@@ -35,7 +35,7 @@ Installs pre-push hook + Sourcery + Fail-safe Cursor rules so Agent chat auto-im
 Maintainers can **fix code from the app** and push to GitHub. After merge:
 
 - **Tauri Studio users:** the app checks signed `studio-v*` releases automatically; the first updater-enabled build must be installed manually.
-- **Legacy Electron users:** `electron-updater` picks up the next published `v*` release when that train is still shipped.
+- **Legacy Electron users:** Electron packaging is retired (after `studio-v0.50.21`). Migrate to Studio; no new `v*` builds.
 
 ### Enable maintainer mode
 

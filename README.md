@@ -2,7 +2,7 @@
 
 **Version 0.50.10**
 
-A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build (primary) with native DSP export and Python sidecar integration. Legacy **Electron** Windows installer remains but is deprecated — see [docs/desktop.md](docs/desktop.md).
+A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build with native DSP export and Python sidecar integration. Electron packaging is **retired** — see [docs/desktop.md](docs/desktop.md).
 
 The product boundary is audio and music. **AI Canvas Tool** is the sole direct visual-app integration; every other AI Creator project collaborates through the portable [**Music Exchange**](docs/music-exchange.md) JSON plus an optional audio sidecar.
 
@@ -103,7 +103,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 
 - **Vocal Embed Studio hook split** — `useVocalEmbedStudio` + `vocal-embed-studio-utils` (testable capabilities/engine labels).
 - **CC0 catalog lazy-load** — `awesome-suno-catalog-loader` dynamic import; Maestro preloads on mount; picker loads on open.
-- **CI-only release path** — `npm run ship:tag` pushes **`studio-v*`** (Tauri primary); pass `--electron` for legacy `v*`. Electron `release.yml` is **workflow_dispatch** only.
+- **CI-only release path** — `npm run ship:tag` pushes **`studio-v*`** (Tauri). Electron `v*` packaging is retired.
 - **OpenVPI live e2e** — `openvpi-inference-live.spec.js` hits real `/vocal-embed/models` (skips when OpenVPI not configured).
 - **MusicGen e2e on every push** — completed in v0.34 (`e2e-musicgen` CI job + weekly live runner).
 
@@ -536,25 +536,13 @@ Stop stuck dev/debug ports on Windows:
 npm run stop
 ```
 
-Remove stale packaging folders (when not locked):
-
-```bash
-npm run cleanup:dist
-```
-
-If folders stay locked (Cursor/Electron holding files), run elevated cleanup — it removes what it can and schedules the rest for delete on next reboot:
-
-```bash
-npm run cleanup:dist:admin
-```
-
-Old installer output under `dist/` is gitignored; safe to delete locally anytime.
+Remove stale packaging folders (when not locked) — optional local cleanup scripts under `scripts/cleanup-locked-electron-dist.ps1` (Electron pack dirs; packaging retired).
 
 ### Desktop auto-update
 
-Packaged **Electron** builds check **GitHub Releases** for `Druttzen/ai-music-tool` on startup. Updates require a published `v*` release with `latest.yml`. Dev/`npm run electron` skips update checks.
-
 **Tauri Studio** checks signed `studio-v*` releases through `latest.json`. Install the first updater-enabled Studio release manually; later versions update from the app header. See [docs/desktop.md](docs/desktop.md).
+
+Legacy Electron `v*` auto-update is retired with that train.
 
 ## Production build
 
@@ -655,21 +643,21 @@ npm run sidecar:all         # every optional extra (multi-GB)
 npm run sidecar
 npm run test:smoke:stems    # Demucs UI e2e (slow on CPU)
 ```
-## Desktop (Electron)
+## Desktop (Electron — retired)
+
+Electron packaging (`npm run dist`, `v*` tags) was **retired** after `studio-v0.50.21`. Use Studio:
 
 ```bash
-npm run dist
+npm run tauri:dev
+npm run tauri:build
+npm run ship:tag
 ```
 
-Runs `npm run build`, regenerates **`build/AI_Music_Creator_README.pdf`** from this README (`npm run build:readme-pdf`), prepares `out/` for Electron (`npm run prepare:electron-dist`), then **electron-builder**. Installer output under `electron-dist/` (see `package.json` `build` section). The PDF opens once on first launch (`main.js`).
-
-Regenerate the PDF alone:
+Optional PDF from this README (not required for Studio):
 
 ```bash
 npm run build:readme-pdf
 ```
-
-If `electron-dist/win-unpacked` is locked, `prepare:electron-dist` automatically falls back to `electron-dist-fresh`, `electron-dist-v{version}` (e.g. `electron-dist-v071`), or a timestamped `electron-dist-build-*` folder. Close any running **AI Music Creator** instance and Explorer windows in old output folders if you want the default `electron-dist/` path back.
 
 ## Saved data
 
