@@ -18,6 +18,7 @@ const ANALYZER_KEYS = [
   "sidecarAiStatus",
   "sidecarGenerateAvailable",
   "sidecarAcestepAvailable",
+  "sidecarStemsMelbandAvailable",
   "sidecarVocalTransformAvailable",
   "stemSeparationBusy",
   "stemSeparationStems",

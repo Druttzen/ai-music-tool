@@ -47,6 +47,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     sidecarAiStatus,
     sidecarGenerateAvailable,
     sidecarAcestepAvailable,
+    sidecarStemsMelbandAvailable,
     sidecarVocalTransformAvailable,
     audioAnalysis,
     audioPreviewUrl,
@@ -112,7 +113,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     return () => {
       cancelled = true;
     };
-  }, [sidecarAiStatus, sidecarGenerateAvailable, sidecarAcestepAvailable, sidecarVocalTransformAvailable]);
+  }, [sidecarAiStatus, sidecarGenerateAvailable, sidecarAcestepAvailable, sidecarStemsMelbandAvailable, sidecarVocalTransformAvailable]);
 
   const musicGenHint = musicGenInstallHint(sidecarHealth);
   const missingCaps = missingSidecarInstallHints(sidecarHealth);
@@ -195,6 +196,40 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
               ? "ready"
               : sidecarAiStatus === "ready"
                 ? `install extra (${musicGenHint})`
+                : "needs sidecar"}
+          </span>
+          <span
+            className={`rounded-full border px-2.5 py-1 font-mono text-[10px] ${
+              sidecarAcestepAvailable
+                ? "border-rose-400/40 bg-rose-500/15 text-rose-100"
+                : sidecarAiStatus === "ready"
+                  ? "border-amber-400/35 bg-amber-500/10 text-amber-50"
+                  : "border-white/15 bg-black/30 text-white/45"
+            }`}
+            title="ACE-Step full-song via AIMC_ACESTEP_API_URL (docs/acestep.md)"
+          >
+            ACE-Step:{" "}
+            {sidecarAcestepAvailable
+              ? "ready"
+              : sidecarAiStatus === "ready"
+                ? "set AIMC_ACESTEP_API_URL"
+                : "needs sidecar"}
+          </span>
+          <span
+            className={`rounded-full border px-2.5 py-1 font-mono text-[10px] ${
+              sidecarStemsMelbandAvailable
+                ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-100"
+                : sidecarAiStatus === "ready"
+                  ? "border-amber-400/35 bg-amber-500/10 text-amber-50"
+                  : "border-white/15 bg-black/30 text-white/45"
+            }`}
+            title="Mel-Band RoFormer vocals/instrumental (npm run sidecar:stems-melband)"
+          >
+            Mel-Band:{" "}
+            {sidecarStemsMelbandAvailable
+              ? "ready"
+              : sidecarAiStatus === "ready"
+                ? "npm run sidecar:stems-melband"
                 : "needs sidecar"}
           </span>
         </div>
@@ -314,6 +349,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 onGenerateSong={generateSongFromPrompt}
                 generateSongBusy={generateSongBusy}
                 sidecarAcestepAvailable={sidecarAcestepAvailable}
+                sidecarStemsMelbandAvailable={sidecarStemsMelbandAvailable}
                 onTransformVocals={transformVocalsOnTrack}
                 vocalTransformBusy={vocalTransformBusy}
                 sidecarVocalTransformAvailable={sidecarVocalTransformAvailable}

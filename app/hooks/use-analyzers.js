@@ -43,6 +43,7 @@ import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fe
 import {
   resolveSidecarAcestepAvailable,
   resolveSidecarGenerateAvailable,
+  resolveSidecarStemsMelbandAvailable,
   resolveSidecarVocalTransformAvailable,
 } from "../lib/analyzers-sidecar-probe";
 import { waitForSidecarExtraReady, fetchSidecarHealthAfterExtraInstall } from "../lib/sidecar-extra-install-client";
@@ -92,6 +93,8 @@ export function useAnalyzers({
     setSidecarGenerateAvailable,
     sidecarAcestepAvailable,
     setSidecarAcestepAvailable,
+    sidecarStemsMelbandAvailable,
+    setSidecarStemsMelbandAvailable,
     sidecarVocalTransformAvailable,
     setSidecarVocalTransformAvailable,
   } = useSidecarStatus();
@@ -102,9 +105,15 @@ export function useAnalyzers({
       : await fetchSidecarHealthAfterExtraInstall();
     setSidecarGenerateAvailable(resolveSidecarGenerateAvailable({ health }));
     setSidecarAcestepAvailable(resolveSidecarAcestepAvailable({ health }));
+    setSidecarStemsMelbandAvailable(resolveSidecarStemsMelbandAvailable({ health }));
     setSidecarVocalTransformAvailable(resolveSidecarVocalTransformAvailable({ health }));
     return health;
-  }, [setSidecarGenerateAvailable, setSidecarAcestepAvailable, setSidecarVocalTransformAvailable]);
+  }, [
+    setSidecarGenerateAvailable,
+    setSidecarAcestepAvailable,
+    setSidecarStemsMelbandAvailable,
+    setSidecarVocalTransformAvailable,
+  ]);
 
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
@@ -746,17 +755,21 @@ export function useAnalyzers({
   );
 
   const separateStems = useCallback(
-    async (stemName = null) => {
+    async (modelName = "htdemucs") => {
       if (!audioAnalysis) {
         setStatusWithTime("No track loaded for stem separation");
         return;
       }
       if (stemSeparationBusy) return;
 
+      const model = String(modelName || "htdemucs").trim() || "htdemucs";
+      const isMelband = model.toLowerCase().startsWith("melband");
       setStemSeparationBusy(true);
       setStemSeparationStems([]);
       try {
-        setStatusWithTime("Demucs stem separation started…");
+        setStatusWithTime(
+          isMelband ? "Mel-Band RoFormer separation started…" : "Demucs stem separation started…",
+        );
         const resolved = await resolveAudioCacheBlob(audioAnalysis);
         const blob = resolved?.blob;
         if (!blob) {
@@ -768,19 +781,15 @@ export function useAnalyzers({
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
           return;
         }
-        const result = await separateStemsViaSidecar(blob, audioAnalysis.fileName || "track.wav");
+        const result = await separateStemsViaSidecar(
+          blob,
+          audioAnalysis.fileName || "track.wav",
+          model,
+        );
         setStemSeparationStems(result.stems || []);
-        if (stemName) {
-          const stem = result.stems.find((s) => s.name === stemName);
-          if (stem) {
-            const base = String(audioAnalysis.fileName || "track").replace(/\.[^.]+$/, "");
-            await downloadSidecarStem(stem.download_url, `${base}-${stem.filename}`);
-            setStatusWithTime(`Downloaded ${stem.name} stem`);
-            return;
-          }
-        }
+        const device = result.device ? ` on ${result.device}` : "";
         setStatusWithTime(
-          `Stems ready (${result.sources.join(", ")}) — download individual WAVs below`,
+          `Stems ready (${result.sources.join(", ")})${device} — ${result.model || model}`,
         );
       } catch (err) {
         reportCaughtError("analyzers.separateStems", err);
@@ -1214,6 +1223,7 @@ export function useAnalyzers({
     sidecarAiStatus,
     sidecarGenerateAvailable,
     sidecarAcestepAvailable,
+    sidecarStemsMelbandAvailable,
     sidecarVocalTransformAvailable,
     stemSeparationBusy,
     stemSeparationStems,

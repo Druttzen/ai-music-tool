@@ -536,7 +536,7 @@ Stop stuck dev/debug ports on Windows:
 npm run stop
 ```
 
-Remove stale packaging folders (when not locked) — optional local cleanup scripts under `scripts/cleanup-locked-electron-dist.ps1` (Electron pack dirs; packaging retired).
+Old installer output under `dist/` / `electron-dist*` is gitignored; safe to delete locally anytime.
 
 ### Desktop auto-update
 

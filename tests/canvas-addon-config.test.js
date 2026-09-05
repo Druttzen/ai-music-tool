@@ -11,7 +11,6 @@ import {
   formatCanvasInstallStatus,
   isDesktopAddonHost,
 } from "../app/lib/canvas-addon-client.js";
-import { pickReleaseAsset } from "../lib/suite-bridge.cjs";
 
 describe("Canvas integration", () => {
   it("exposes Canvas metadata from the shared paths config", () => {
@@ -73,7 +72,7 @@ describe("Canvas integration", () => {
     expect(CANVAS_INSTALL_HINT).not.toMatch(/No GitHub release yet/i);
   });
 
-  it("reports non-desktop host in vitest (no Tauri/Electron)", () => {
+  it("reports non-desktop host in vitest (no Tauri)", () => {
     expect(isDesktopAddonHost()).toBe(false);
   });
 
@@ -82,28 +81,5 @@ describe("Canvas integration", () => {
     expect(meta.installUrl).toContain("github.com/Druttzen/ai-canvas-tool");
     expect(meta.installUrl).not.toContain("/releases/latest");
     expect(meta.releasesUrl).toContain("/releases");
-  });
-
-  it("prefers Setup.exe assets over portable exe on Windows", () => {
-    if (process.platform !== "win32") return;
-    const asset = pickReleaseAsset([
-      { name: "AI.Canvas.Tool-1.1.1.exe", browser_download_url: "https://example/portable.exe" },
-      { name: "AI.Canvas.Tool-1.1.1-Setup.exe", browser_download_url: "https://example/setup.exe" },
-      { name: "notes.txt", browser_download_url: "https://example/notes.txt" },
-    ]);
-    expect(asset?.name).toBe("AI.Canvas.Tool-1.1.1-Setup.exe");
-  });
-
-  it("picks platform installer extensions", () => {
-    const assets = [
-      { name: "App.dmg", browser_download_url: "https://example/a.dmg" },
-      { name: "App.AppImage", browser_download_url: "https://example/a.AppImage" },
-      { name: "App-Setup.exe", browser_download_url: "https://example/setup.exe" },
-    ];
-    const picked = pickReleaseAsset(assets);
-    expect(picked).toBeTruthy();
-    if (process.platform === "win32") expect(picked.name).toMatch(/Setup\.exe$/i);
-    else if (process.platform === "darwin") expect(picked.name).toMatch(/\.dmg$/i);
-    else if (process.platform === "linux") expect(picked.name).toMatch(/\.AppImage$/i);
   });
 });

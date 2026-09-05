@@ -2,30 +2,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { isTauriApp } from "../app/lib/dsp-bridge";
 import {
-  checkForAppUpdates,
-  isElectronApp,
-  quitAndInstallUpdate,
-} from "../app/lib/electron-bridge";
-import {
   checkForDesktopUpdates,
   getDesktopUpdateRuntime,
   installDesktopUpdate,
 } from "../app/lib/desktop-update-bridge";
 
 vi.mock("../app/lib/dsp-bridge", () => ({ isTauriApp: vi.fn() }));
-vi.mock("../app/lib/electron-bridge", () => ({
-  checkForAppUpdates: vi.fn(),
-  isElectronApp: vi.fn(),
-  quitAndInstallUpdate: vi.fn(),
-  subscribeToUpdateStatus: vi.fn(() => () => {}),
-}));
 
 describe("desktop-update-bridge", () => {
   const invoke = vi.fn();
 
   beforeEach(() => {
     vi.mocked(isTauriApp).mockReturnValue(false);
-    vi.mocked(isElectronApp).mockReturnValue(false);
     invoke.mockReset();
     Object.defineProperty(window, "__TAURI__", {
       configurable: true,
@@ -48,16 +36,6 @@ describe("desktop-update-bridge", () => {
 
     await installDesktopUpdate();
     expect(invoke).toHaveBeenCalledWith("update_studio_all");
-  });
-
-  it("keeps the legacy Electron updater available", async () => {
-    vi.mocked(isElectronApp).mockReturnValue(true);
-    vi.mocked(checkForAppUpdates).mockResolvedValue({ ok: true, available: false });
-
-    expect(getDesktopUpdateRuntime()).toBe("electron");
-    await expect(checkForDesktopUpdates()).resolves.toMatchObject({ available: false });
-    await installDesktopUpdate();
-    expect(quitAndInstallUpdate).toHaveBeenCalledOnce();
   });
 
   it("stays inert in the browser", async () => {

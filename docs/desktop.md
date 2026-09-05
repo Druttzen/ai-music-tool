@@ -20,7 +20,7 @@ The **Electron** Windows installer train (`main.js`, `v*` tags, `release.yml`) i
 | **Tauri Studio (canonical)** | `studio-v*` | `npm run ship:tag` |
 | **Electron** | `v*` | **Retired** — no new packages; `ship:tag -- --electron` exits non-zero |
 
-Existing Electron installs stay on their last published `v*` build. Migrate to Studio installers from [Releases](https://github.com/Druttzen/ai-music-tool/releases). Renderer-side Electron detection (`electron-bridge.js`, etc.) remains as dead-code so old installs do not crash; do not add new Electron IPC.
+Existing Electron installs stay on their last published `v*` build. Migrate to Studio installers from [Releases](https://github.com/Druttzen/ai-music-tool/releases). Electron shell sources and packaging scripts have been removed from the repo.
 
 ### Studio updates
 

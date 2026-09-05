@@ -94,8 +94,8 @@ export function useDesktopUpdates() {
     available: Boolean(runtime),
     status,
     busy,
-    installReady: runtime === "tauri" ? true : downloaded,
-    installLabel: runtime === "tauri" ? "Update all" : "Restart to install",
+    installReady: runtime === "tauri",
+    installLabel: "Update all",
     checkUpdates,
     restartToUpdate,
   };

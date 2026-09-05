@@ -22,28 +22,18 @@ function tauriInvoke(command, args) {
   return args === undefined ? invoke(command) : invoke(command, args);
 }
 
-function isElectronApp() {
-  return typeof window !== "undefined" && Boolean(window.electronAPI);
-}
-
-/** True when Tauri Studio or Electron can run native Canvas install/launch. */
+/** True when Tauri Studio can run native Canvas install/launch. */
 export function isDesktopAddonHost() {
-  return isTauriApp() || isElectronApp();
+  return isTauriApp();
 }
 
 export async function getCanvasAddonStatus() {
   if (isTauriApp()) return tauriInvoke("suite_canvas_addon_status");
-  if (isElectronApp() && window.electronAPI?.canvasAddonStatus) {
-    return window.electronAPI.canvasAddonStatus();
-  }
   return { ...CANVAS_ADDON, installed: false, path: null, desktop: false };
 }
 
 export async function installCanvasAddon() {
   if (isTauriApp()) return tauriInvoke("install_canvas_addon");
-  if (isElectronApp() && window.electronAPI?.installCanvasAddon) {
-    return window.electronAPI.installCanvasAddon();
-  }
   return {
     ok: false,
     mode: "desktop-required",
@@ -53,9 +43,6 @@ export async function installCanvasAddon() {
 
 export async function launchCanvasAddon() {
   if (isTauriApp()) return tauriInvoke("launch_canvas_addon");
-  if (isElectronApp() && window.electronAPI?.launchCanvasAddon) {
-    return window.electronAPI.launchCanvasAddon();
-  }
   return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
 }
 

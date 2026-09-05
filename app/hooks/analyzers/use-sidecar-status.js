@@ -5,6 +5,7 @@ import {
   resolveSidecarAcestepAvailable,
   resolveSidecarAiStatus,
   resolveSidecarGenerateAvailable,
+  resolveSidecarStemsMelbandAvailable,
   resolveSidecarVocalTransformAvailable,
   sidecarProbeDelayMs,
 } from "../../lib/analyzers-sidecar-probe";
@@ -20,6 +21,7 @@ export function useSidecarStatus() {
   const [sidecarAiStatus, setSidecarAiStatus] = useState("checking");
   const [sidecarGenerateAvailable, setSidecarGenerateAvailable] = useState(false);
   const [sidecarAcestepAvailable, setSidecarAcestepAvailable] = useState(false);
+  const [sidecarStemsMelbandAvailable, setSidecarStemsMelbandAvailable] = useState(false);
   const [sidecarVocalTransformAvailable, setSidecarVocalTransformAvailable] = useState(false);
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export function useSidecarStatus() {
         if (!cancelled) {
           setSidecarGenerateAvailable(resolveSidecarGenerateAvailable({ health }));
           setSidecarAcestepAvailable(resolveSidecarAcestepAvailable({ health }));
+          setSidecarStemsMelbandAvailable(resolveSidecarStemsMelbandAvailable({ health }));
           setSidecarVocalTransformAvailable(resolveSidecarVocalTransformAvailable({ health }));
           setSidecarAiStatus(nextStatus);
         }
@@ -68,6 +71,7 @@ export function useSidecarStatus() {
           setSidecarAiStatus("offline");
           setSidecarGenerateAvailable(false);
           setSidecarAcestepAvailable(false);
+          setSidecarStemsMelbandAvailable(false);
           setSidecarVocalTransformAvailable(false);
         }
       }
@@ -87,6 +91,8 @@ export function useSidecarStatus() {
     setSidecarGenerateAvailable,
     sidecarAcestepAvailable,
     setSidecarAcestepAvailable,
+    sidecarStemsMelbandAvailable,
+    setSidecarStemsMelbandAvailable,
     sidecarVocalTransformAvailable,
     setSidecarVocalTransformAvailable,
   };

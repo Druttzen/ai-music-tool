@@ -172,6 +172,7 @@ export function buildProjectWorkspaceAnalyzerState(s) {
     sidecarAiStatus: s.sidecarAiStatus,
     sidecarGenerateAvailable: s.sidecarGenerateAvailable,
     sidecarAcestepAvailable: s.sidecarAcestepAvailable,
+    sidecarStemsMelbandAvailable: s.sidecarStemsMelbandAvailable,
     sidecarVocalTransformAvailable: s.sidecarVocalTransformAvailable,
     stemSeparationBusy: s.stemSeparationBusy,
     stemSeparationStems: s.stemSeparationStems,

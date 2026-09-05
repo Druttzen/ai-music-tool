@@ -45,16 +45,18 @@ def resolve_melband_model_id(model_name: str | None) -> str:
 
 
 def _select_torch_device(preferred: str) -> str:
+    """Pick cuda/mps/cpu from real torch capability (prefer GPU when available)."""
     try:
         import torch
 
-        if preferred == "cuda" and torch.cuda.is_available():
+        if torch.cuda.is_available():
             return "cuda"
         mps = getattr(torch.backends, "mps", None)
-        if preferred == "mps" and mps is not None and mps.is_available():
+        if mps is not None and mps.is_available():
             return "mps"
     except Exception:
         pass
+    _ = preferred
     return "cpu"
 
 

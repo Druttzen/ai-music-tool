@@ -87,6 +87,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   onGenerateSong,
   generateSongBusy = false,
   sidecarAcestepAvailable = false,
+  sidecarStemsMelbandAvailable = false,
   onTransformVocals,
   vocalTransformBusy = false,
   sidecarVocalTransformAvailable = false,
@@ -99,6 +100,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
 }) {
   const audioRef = useRef(null);
   const [playhead, setPlayhead] = useState(null);
+  const [stemsModel, setStemsModel] = useState("htdemucs");
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
   const [waveSurferPrototype, setWaveSurferPrototype] = useState(() => readWaveSurferPref());
@@ -494,22 +496,45 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
       {onSeparateStems ? (
         <section className="rounded-2xl border border-fuchsia-400/25 bg-fuchsia-500/10 p-3 space-y-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-100/90">
-            Demucs stem separation
+            Stem separation
           </div>
           <p className="text-[10px] leading-relaxed text-white/45">
-            Requires the Python sidecar with the <code className="text-white/60">stems</code> extra installed
-            (torch + demucs). Returns vocals, drums, bass, and other stems as WAV downloads.
+            Demucs returns four stems (vocals, drums, bass, other). Mel-Band RoFormer returns
+            vocals + instrumental when{" "}
+            <code className="text-white/60">npm run sidecar:stems-melband</code> is installed.
           </p>
+          <label className="block space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Model</span>
+            <select
+              value={stemsModel}
+              disabled={stemSeparationBusy || exportBusy}
+              onChange={(e) => setStemsModel(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-2.5 py-2 text-xs text-white outline-none focus:border-fuchsia-400/50 disabled:opacity-50"
+            >
+              <option value="htdemucs">Demucs (4 stems)</option>
+              <option value="melband" disabled={!sidecarStemsMelbandAvailable}>
+                Mel-Band RoFormer{sidecarStemsMelbandAvailable ? "" : " — install stems-melband"}
+              </option>
+            </select>
+          </label>
           <button
             type="button"
-            disabled={stemSeparationBusy || exportBusy}
+            disabled={
+              stemSeparationBusy ||
+              exportBusy ||
+              (stemsModel === "melband" && !sidecarStemsMelbandAvailable)
+            }
             onClick={(e) => {
               e.preventDefault();
-              onSeparateStems();
+              onSeparateStems(stemsModel);
             }}
             className="w-full rounded-xl border border-fuchsia-400/35 bg-fuchsia-500/20 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/30 disabled:opacity-50"
           >
-            {stemSeparationBusy ? "Separating stems…" : "Separate stems (Demucs)"}
+            {stemSeparationBusy
+              ? "Separating stems…"
+              : stemsModel === "melband"
+                ? "Separate stems (Mel-Band)"
+                : "Separate stems (Demucs)"}
           </button>
           {stemSeparationStems?.length ? (
             <div className="flex flex-wrap gap-2">

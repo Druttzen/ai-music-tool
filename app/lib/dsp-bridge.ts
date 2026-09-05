@@ -3,10 +3,9 @@
 /**
  * Bridge to the native Rust DSP core, exposed through Tauri commands.
  *
- * Mirrors the `electron-bridge` pattern: a no-op outside the Tauri desktop
- * build. Uses the global `window.__TAURI__` (enabled via `withGlobalTauri` in
- * tauri.conf.json) so no extra npm dependency is required during the parallel
- * Electron → Tauri migration.
+ * Thin wrappers around Tauri `invoke` for native DSP. No-op outside the Tauri desktop
+ * webview (browser / web export). Uses the global `window.__TAURI__` (enabled via
+ * `withGlobalTauri` in tauri.conf.json) so no extra npm dependency is required.
  */
 
 export interface Loudness {

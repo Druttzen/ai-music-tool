@@ -386,8 +386,9 @@ export async function separateStemsViaSidecar(
 ): Promise<SidecarSeparateResult> {
   const form = new FormData();
   form.append("file", file, fileName);
+  form.append("model_name", modelName);
 
-  const res = await fetch(`${sidecarBaseUrl()}/separate?model_name=${encodeURIComponent(modelName)}`, {
+  const res = await fetch(`${sidecarBaseUrl()}/separate`, {
     method: "POST",
     headers: await sidecarAuthHeaders(),
     body: form,

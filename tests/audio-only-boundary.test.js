@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const RUNTIME_TARGETS = ["app", "lib", "src-tauri/src", "main.js", "preload.js"];
+const RUNTIME_TARGETS = ["app", "lib", "src-tauri/src"];
 const FORBIDDEN_CONSUMER_COUPLING = [
   "AI Video Creator",
   "Glitchframe",

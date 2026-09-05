@@ -25,7 +25,8 @@ import {
   sidecarExtraNpmHint,
   waitForSidecarExtraReady,
 } from "../app/lib/sidecar-extra-install-client.js";
-import { SCRIPT_STEM } from "../lib/sidecar-extra-install.cjs";
+import fs from "node:fs";
+import path from "node:path";
 
 describe("sidecar extra install client", () => {
   beforeEach(() => {
@@ -134,12 +135,14 @@ describe("sidecar extra install client", () => {
     expect(sidecarExtraInstallStatusTone({ ok: false, error: "nope" })).toBe("error");
   });
 
-  it("keeps Electron script stem map aligned with allowlist", () => {
-    expect(Object.keys(SCRIPT_STEM).sort()).toEqual(Object.keys(SIDECAR_EXTRA_NPM).sort());
-    expect(SCRIPT_STEM.generate).toBe("install-sidecar-generate");
-    expect(SCRIPT_STEM.cover).toBe("install-sidecar-cover");
-    expect(SCRIPT_STEM["cover-ref"]).toBe("install-sidecar-cover-ref");
-    expect(SCRIPT_STEM["vocal-ml"]).toBe("install-sidecar-vocal-ml");
+  it("keeps npm allowlist aligned with install-sidecar scripts on disk", () => {
+    const scriptsDir = path.resolve(import.meta.dirname, "../scripts");
+    for (const id of Object.keys(SIDECAR_EXTRA_NPM)) {
+      const stem = `install-sidecar-${id}`;
+      expect(fs.existsSync(path.join(scriptsDir, `${stem}.ps1`))).toBe(true);
+    }
+    expect(SIDECAR_EXTRA_NPM.generate).toBe("npm run sidecar:generate");
+    expect(SIDECAR_EXTRA_NPM["stems-melband"]).toBe("npm run sidecar:stems-melband");
   });
 
   it("busts health cache before re-fetch after install", async () => {

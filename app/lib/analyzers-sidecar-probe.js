@@ -33,6 +33,14 @@ export function resolveSidecarAcestepAvailable(input) {
 }
 
 /**
+ * @param {{ health?: { stems_melband_available?: boolean } | null }} input
+ * @returns {boolean}
+ */
+export function resolveSidecarStemsMelbandAvailable(input) {
+  return !!input.health?.stems_melband_available;
+}
+
+/**
  * @param {{ health?: { vocal_transform_available?: boolean } | null }} input
  * @returns {boolean}
  */

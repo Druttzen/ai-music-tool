@@ -83,18 +83,5 @@ export async function openImageInCanvasTool(payload) {
     });
   }
 
-  if (typeof window !== "undefined" && window.electronAPI?.openInCanvasTool) {
-    return window.electronAPI.openInCanvasTool({
-      title: payload.title,
-      artist: payload.artist,
-      buffer,
-      audioBuffer: audioBytes,
-      audioExt,
-      ext: payload.ext || "png",
-      motionHint: payload.motionHint || "cinematic drift, 8 seconds",
-      durationSec: 8,
-    });
-  }
-
-  throw new Error("Open in Canvas Tool requires the desktop app (Tauri Studio or Electron)");
+  throw new Error("Open in Canvas Tool requires Tauri Studio");
 }

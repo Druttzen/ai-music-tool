@@ -89,10 +89,6 @@ function tauriInvoke(command, args) {
   return invoke(command, args);
 }
 
-function isElectronApp() {
-  return typeof window !== "undefined" && Boolean(window.electronAPI);
-}
-
 /**
  * Probe whether pip extras can install (writable ai-sidecar/.venv).
  * @returns {Promise<{ mode: string, writable: boolean, message: string }>}
@@ -100,9 +96,6 @@ function isElectronApp() {
 export async function probeSidecarExtraInstallEnv() {
   if (isTauriApp()) {
     return tauriInvoke("probe_sidecar_extra_install_env");
-  }
-  if (isElectronApp() && window.electronAPI?.probeSidecarExtraInstallEnv) {
-    return window.electronAPI.probeSidecarExtraInstallEnv();
   }
   // Browser / web: Install copies the npm hint; environment is not desktop-writable here.
   return {
@@ -126,9 +119,6 @@ export async function installSidecarExtra(extraId) {
 
   if (isTauriApp()) {
     return tauriInvoke("install_sidecar_extra", { extraId: id });
-  }
-  if (isElectronApp() && window.electronAPI?.installSidecarExtra) {
-    return window.electronAPI.installSidecarExtra(id);
   }
 
   // Browser / web: copy npm hint; do not pretend pip ran.

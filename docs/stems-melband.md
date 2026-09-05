@@ -15,6 +15,9 @@ First `POST /separate` with `model_name=melband` downloads the Kim checkpoint
 (~870 MB) into `~/.cache/melband-roformer-infer/` (override with
 `MELBAND_ROFORMER_MODELS_PATH`).
 
+In Studio, choose **Mel-Band RoFormer** in the Analyzers stem-separation model
+picker (requires `stems_melband_available` on `/health`).
+
 ## Use
 
 - `POST /separate` with `model_name=melband` (or `melband-roformer-kim-vocals`)

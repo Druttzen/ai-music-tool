@@ -4,21 +4,18 @@ AI Music Creator owns music prompting, analysis, generation, vocal workflows, ma
 
 Other AI Creator projects collaborate through the neutral [Music Exchange](music-exchange.md) bundle. They may import its project, prompt, analysis, artwork metadata, and optional audio sidecar, but Music Creator does not launch or configure those consumers.
 
-Plan phases (status): Electron sunset truth → sidecar `device` / `registry` / `jobs` → UI capabilities helper → **retire Electron train** (**done** as of `studio-v0.50.21` — Studio canvas verified on tagged install).
+Plan phases (status): Electron sunset truth → sidecar `device` / `registry` / `jobs` → UI capabilities helper → **retire Electron train** (**done** as of `studio-v0.50.21`; shell/dead-code removed after `studio-v0.50.22`).
 
-## Electron IPC inventory (historical / dead-code)
+## Desktop shell
 
-Do **not** add new Electron IPC. Packaging (`npm run dist`, `v*` tags, `release.yml`) is retired. Leftover renderer branches still detect Electron so old installs do not crash; remove them in a later cleanup when field `v*` installs no longer matter.
+Canonical desktop is **Tauri Studio** (`src-tauri`). Shared Canvas discovery lives in [`lib/suite-handoff-paths.json`](../lib/suite-handoff-paths.json) + [`lib/suite-handoff-config.cjs`](../lib/suite-handoff-config.cjs). Do not add Electron IPC or packaging.
 
-| Surface | Path | Role | Tauri parity |
-|---------|------|------|--------------|
-| Bridge | [`app/lib/electron-bridge.js`](../app/lib/electron-bridge.js) | `isElectronApp`, update APIs (dead-code) | N/A (web/Tauri skip) |
-| Updates hook | [`app/hooks/use-desktop-updates.js`](../app/hooks/use-desktop-updates.js) | Check / quit-and-install | Signed Tauri updater commands |
-| Preload / main | [`preload.js`](../preload.js), [`main.js`](../main.js) | Archived Electron shell (not packaged) | [`src-tauri`](../src-tauri) |
-| Music Exchange | [`app/hooks/project-actions/use-export-actions.js`](../app/hooks/project-actions/use-export-actions.js) | Browser download | Same portable download |
-| Canvas handoff | [`app/lib/suite-canvas-client.js`](../app/lib/suite-canvas-client.js) | Prefers Tauri; Electron fallback dead-code | `exportCanvasHandoffNative` |
-| Addons (Canvas) | [`app/lib/canvas-addon-client.js`](../app/lib/canvas-addon-client.js) | Tauri install/launch | `install_canvas_addon` / `launch_canvas_addon` |
-| Canvas bridge | [`lib/suite-bridge.cjs`](../lib/suite-bridge.cjs) | Archived Electron Canvas paths | Shared `lib/suite-handoff-paths.json` |
+| Surface | Path | Role |
+|---------|------|------|
+| Updates | [`app/lib/desktop-update-bridge.js`](../app/lib/desktop-update-bridge.js) | Signed Tauri updater |
+| Music Exchange | [`app/hooks/project-actions/use-export-actions.js`](../app/hooks/project-actions/use-export-actions.js) | Portable download |
+| Canvas handoff | [`app/lib/suite-canvas-client.js`](../app/lib/suite-canvas-client.js) | `exportCanvasHandoffNative` |
+| Addons (Canvas) | [`app/lib/canvas-addon-client.js`](../app/lib/canvas-addon-client.js) | `install_canvas_addon` / `launch_canvas_addon` |
 
 Do not add consumer-specific render settings, executable discovery, or launch IPC to Music Creator. Extend the portable exchange contract instead.
 
