@@ -10,6 +10,18 @@
 const LEGACY_INSTALLABLE = [
   { id: "stems", title: "Demucs stem separation", flag: "stems_available", install_hint: "npm run sidecar:stems" },
   { id: "generate", title: "MusicGen preview", flag: "generate_available", install_hint: "npm run sidecar:generate" },
+  {
+    id: "acestep",
+    title: "ACE-Step full song",
+    flag: "acestep_available",
+    install_hint: "Set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+  },
+  {
+    id: "vocal-transform",
+    title: "Vocal region transform",
+    flag: "vocal_transform_available",
+    install_hint: "npm run sidecar:stems (RVC mode also needs sidecar:vocal-rvc)",
+  },
   { id: "genre", title: "Genre classifier", flag: "genre_available", install_hint: "npm run sidecar:classify" },
   { id: "vision", title: "Image caption / CLIP", flag: "vision_available", install_hint: "npm run sidecar:vision" },
   { id: "cover", title: "Album cover (FLUX text)", flag: "cover_available", install_hint: "npm run sidecar:cover" },

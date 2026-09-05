@@ -643,6 +643,8 @@ See [`ai-sidecar/README.md`](ai-sidecar/README.md). Quick paths:
 npm run bootstrap           # Rust + Python 3.12 if missing (Windows)
 npm run sidecar:stems       # Demucs (~2 GB)
 npm run sidecar:generate    # MusicGen (CC-BY-NC)
+# ACE-Step full songs: set AIMC_ACESTEP_API_URL (see docs/acestep.md)
+# Vocal region transform: npm run sidecar:stems (+ sidecar:vocal-rvc for RVC mode) — docs/vocal-transform.md
 npm run sidecar:classify    # genre classifier
 npm run sidecar:vision      # BLIP / CLIP image analysis
 npm run sidecar:vocal       # lightweight vocal DSP (scipy)

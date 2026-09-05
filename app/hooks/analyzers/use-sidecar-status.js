@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import {
+  resolveSidecarAcestepAvailable,
   resolveSidecarAiStatus,
   resolveSidecarGenerateAvailable,
+  resolveSidecarVocalTransformAvailable,
   sidecarProbeDelayMs,
 } from "../../lib/analyzers-sidecar-probe";
 import {
@@ -17,6 +19,8 @@ import { isTauriApp } from "../../lib/dsp-bridge";
 export function useSidecarStatus() {
   const [sidecarAiStatus, setSidecarAiStatus] = useState("checking");
   const [sidecarGenerateAvailable, setSidecarGenerateAvailable] = useState(false);
+  const [sidecarAcestepAvailable, setSidecarAcestepAvailable] = useState(false);
+  const [sidecarVocalTransformAvailable, setSidecarVocalTransformAvailable] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,12 +59,16 @@ export function useSidecarStatus() {
         });
         if (!cancelled) {
           setSidecarGenerateAvailable(resolveSidecarGenerateAvailable({ health }));
+          setSidecarAcestepAvailable(resolveSidecarAcestepAvailable({ health }));
+          setSidecarVocalTransformAvailable(resolveSidecarVocalTransformAvailable({ health }));
           setSidecarAiStatus(nextStatus);
         }
       } catch {
         if (!cancelled) {
           setSidecarAiStatus("offline");
           setSidecarGenerateAvailable(false);
+          setSidecarAcestepAvailable(false);
+          setSidecarVocalTransformAvailable(false);
         }
       }
       scheduleNext(nextStatus);
@@ -73,5 +81,13 @@ export function useSidecarStatus() {
     };
   }, []);
 
-  return { sidecarAiStatus, sidecarGenerateAvailable, setSidecarGenerateAvailable };
+  return {
+    sidecarAiStatus,
+    sidecarGenerateAvailable,
+    setSidecarGenerateAvailable,
+    sidecarAcestepAvailable,
+    setSidecarAcestepAvailable,
+    sidecarVocalTransformAvailable,
+    setSidecarVocalTransformAvailable,
+  };
 }

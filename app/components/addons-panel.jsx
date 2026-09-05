@@ -35,6 +35,7 @@ import {
 import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
+  isSidecarExtraAllowlisted,
   normalizeSidecarExtraId,
   probeSidecarExtraInstallEnv,
   sidecarExtraInstallStatusTone,
@@ -202,7 +203,39 @@ export function AddonsPanel() {
 
   const onInstallExtra = useCallback(
     async (extraId) => {
-      const id = normalizeSidecarExtraId(extraId);
+      let id = normalizeSidecarExtraId(extraId);
+      // Config-only / stem-backed catalog rows are not pip extras.
+      if (id === "acestep") {
+        const copyHint = "Set AIMC_ACESTEP_API_URL (see docs/acestep.md)";
+        try {
+          if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(copyHint);
+            setStatusWithTime(`Copied setup hint — ${copyHint}`, "info");
+          } else {
+            setStatusWithTime(copyHint, "info");
+          }
+        } catch {
+          setStatusWithTime(copyHint, "info");
+        }
+        return;
+      }
+      if (id === "vocal-transform") {
+        id = "stems";
+      }
+      if (!isSidecarExtraAllowlisted(id)) {
+        const hint = sidecarExtraNpmHint(id);
+        try {
+          if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(hint);
+            setStatusWithTime(`Copied setup hint — ${hint}`, "info");
+          } else {
+            setStatusWithTime(hint, "info");
+          }
+        } catch {
+          setStatusWithTime(hint, "info");
+        }
+        return;
+      }
       const hint = sidecarExtraNpmHint(id);
       if (installEnv?.mode === "bundled-readonly") {
         setBusyKey(`extra:${id}`);

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveSidecarAcestepAvailable,
   resolveSidecarAiStatus,
   resolveSidecarGenerateAvailable,
+  resolveSidecarVocalTransformAvailable,
   sidecarProbeDelayMs,
 } from "../app/lib/analyzers-sidecar-probe.js";
 
@@ -54,6 +56,17 @@ describe("analyzers-sidecar-probe", () => {
     expect(resolveSidecarGenerateAvailable({ health: { generate_available: true } })).toBe(true);
     expect(resolveSidecarGenerateAvailable({ health: { generate_available: false } })).toBe(false);
     expect(resolveSidecarGenerateAvailable({ health: null })).toBe(false);
+  });
+
+  it("reads acestep and vocal_transform flags from health payload", () => {
+    expect(resolveSidecarAcestepAvailable({ health: { acestep_available: true } })).toBe(true);
+    expect(resolveSidecarAcestepAvailable({ health: null })).toBe(false);
+    expect(resolveSidecarVocalTransformAvailable({ health: { vocal_transform_available: true } })).toBe(
+      true,
+    );
+    expect(resolveSidecarVocalTransformAvailable({ health: { vocal_transform_available: false } })).toBe(
+      false,
+    );
   });
 
   it("uses longer delay when sidecar is ready", () => {

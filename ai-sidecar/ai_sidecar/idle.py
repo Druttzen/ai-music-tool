@@ -25,6 +25,8 @@ _ACTIVITY_PATHS = frozenset({
     "/vocal-embed/ds-export",
     "/generate",
     "/generate/melody",
+    "/generate/song",
+    "/vocal-transform",
     "/cover",
     "/cover-ref",
 })
@@ -76,4 +78,4 @@ def start_idle_watchdog() -> None:
 def is_activity_path(path: str) -> bool:
     if path in _ACTIVITY_PATHS:
         return True
-    return path.startswith("/separate/download/")
+    return path.startswith("/separate/download/") or path.startswith("/vocal-transform/download/")

@@ -19,6 +19,8 @@ import { clamp } from "../lib/music-helpers";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
+import { AceStepSongControls } from "./acestep-song-controls";
+import { VocalTransformControls } from "./vocal-transform-controls";
 import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 
 /** WaveSurfer pro editor on by default; set NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0 to force classic. */
@@ -82,8 +84,16 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   onGenerateMusic,
   generateMusicBusy = false,
   sidecarGenerateAvailable = false,
+  onGenerateSong,
+  generateSongBusy = false,
+  sidecarAcestepAvailable = false,
+  onTransformVocals,
+  vocalTransformBusy = false,
+  sidecarVocalTransformAvailable = false,
+  rvcAvailable = false,
   musicGenInstallHint: musicGenHintProp = "npm run sidecar:generate",
   defaultMusicGenPrompt = "",
+  defaultAceStepLyrics = "",
   exportBusy = false,
   exportProgress = null,
 }) {
@@ -531,6 +541,26 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           canUseMelodyReference={!!audioUrl}
           canUseHighlightMelody={hasMeaningfulHighlightRange(analysis)}
           onGenerate={onGenerateMusic}
+        />
+      ) : null}
+
+      {onGenerateSong ? (
+        <AceStepSongControls
+          defaultPrompt={defaultMusicGenPrompt}
+          defaultLyrics={defaultAceStepLyrics}
+          busy={generateSongBusy || exportBusy}
+          available={sidecarAcestepAvailable}
+          onGenerate={onGenerateSong}
+        />
+      ) : null}
+
+      {onTransformVocals ? (
+        <VocalTransformControls
+          analysis={analysis}
+          busy={vocalTransformBusy || stemSeparationBusy || exportBusy}
+          available={sidecarVocalTransformAvailable}
+          rvcAvailable={rvcAvailable}
+          onTransform={onTransformVocals}
         />
       ) : null}
 

@@ -55,6 +55,8 @@ def test_health_ok():
     assert isinstance(body["vocal_rvc_available"], bool)
     assert isinstance(body["vocal_diffsinger_available"], bool)
     assert isinstance(body["generate_available"], bool)
+    assert isinstance(body.get("acestep_available"), bool)
+    assert isinstance(body.get("vocal_transform_available"), bool)
     assert isinstance(body.get("cover_available"), bool)
     assert isinstance(body.get("cover_ref_available"), bool)
     assert isinstance(body.get("capabilities"), list)
@@ -178,6 +180,27 @@ def test_generate_without_extra_returns_503():
     res = client.post("/generate", json={"prompt": "dark techno groove", "duration_sec": 5})
     assert res.status_code == 503
     assert "generate" in res.json()["detail"].lower()
+
+
+def test_generate_song_without_acestep_returns_503(monkeypatch):
+    monkeypatch.delenv("AIMC_ACESTEP_API_URL", raising=False)
+    res = client.post("/generate/song", json={"prompt": "soft piano ballad", "duration_sec": 30})
+    assert res.status_code == 503
+    assert "ace-step" in res.json()["detail"].lower()
+
+
+def test_vocal_transform_without_stems_returns_503():
+    from ai_sidecar.stems_separate import stems_available
+
+    if stems_available():
+        pytest.skip("stems extra installed in this environment")
+    wav = _make_tone_wav(duration_sec=1.0)
+    res = client.post(
+        "/vocal-transform",
+        files={"file": ("tone.wav", BytesIO(wav), "audio/wav")},
+        data={"mode": "pitch", "regions_json": "[]"},
+    )
+    assert res.status_code == 503
 
 
 def test_cover_without_extra_returns_503():

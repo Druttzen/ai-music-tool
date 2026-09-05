@@ -42,6 +42,8 @@ export interface SidecarHealth {
   vocal_rvc_available?: boolean;
   vocal_diffsinger_available?: boolean;
   generate_available?: boolean;
+  acestep_available?: boolean;
+  vocal_transform_available?: boolean;
   cover_available?: boolean;
   cover_ref_available?: boolean;
   fix_push_available?: boolean;
@@ -671,6 +673,110 @@ export async function generateMusicWithMelodyViaSidecar(
     durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
     mode: res.headers.get("X-MusicGen-Mode") || "melody",
   };
+}
+
+/**
+ * POST text (+ optional lyrics/meta) to /generate/song (ACE-Step API bridge).
+ */
+export async function generateSongViaSidecar(options: {
+  prompt: string;
+  lyrics?: string;
+  durationSec?: number | null;
+  vocalLanguage?: string;
+  bpm?: number | null;
+  keyScale?: string;
+  thinking?: boolean;
+  audioFormat?: string;
+}): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
+  const res = await fetch(`${sidecarBaseUrl()}/generate/song`, {
+    method: "POST",
+    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      prompt: options.prompt,
+      lyrics: options.lyrics || "",
+      duration_sec: options.durationSec ?? null,
+      vocal_language: options.vocalLanguage || "",
+      bpm: options.bpm ?? null,
+      key_scale: options.keyScale || "",
+      thinking: options.thinking !== false,
+      audio_format: options.audioFormat || "wav",
+    }),
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar ACE-Step song generate failed (${res.status})`);
+  }
+
+  return {
+    blob: await res.blob(),
+    model: res.headers.get("X-AceStep-Model"),
+    durationSec: Number(res.headers.get("X-AceStep-Duration-Sec") || options.durationSec || 0) || null,
+    mode: res.headers.get("X-AceStep-Mode") || "song",
+  };
+}
+
+/**
+ * POST mix + region list to /vocal-transform. Returns remix blob and optional vocals blob.
+ */
+export async function transformVocalsViaSidecar(options: {
+  file: Blob;
+  fileName?: string;
+  mode?: string;
+  regions?: { start_sec: number; end_sec: number }[];
+  pitchSemitones?: number;
+  formantShift?: number;
+  output?: "remix" | "vocals" | "both";
+}): Promise<{ remixBlob: Blob | null; vocalsBlob: Blob | null; mode: string | null; jobId: string | null }> {
+  const form = new FormData();
+  form.append("file", options.file, options.fileName || "mix.wav");
+  form.append("mode", options.mode || "pitch");
+  form.append("regions_json", JSON.stringify(options.regions || []));
+  form.append("pitch_semitones", String(options.pitchSemitones ?? 0));
+  form.append("formant_shift", String(options.formantShift ?? 0));
+  form.append("output", options.output || "both");
+
+  const res = await fetch(`${sidecarBaseUrl()}/vocal-transform`, {
+    method: "POST",
+    headers: await sidecarAuthHeaders(),
+    body: form,
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const body = await res.json();
+      detail = body?.detail ?? JSON.stringify(body);
+    } catch {
+      detail = await res.text();
+    }
+    throw new Error(detail || `sidecar vocal transform failed (${res.status})`);
+  }
+
+  const mode = res.headers.get("X-Vocal-Transform-Mode");
+  const jobId = res.headers.get("X-Job-Id");
+  const hasRemix = res.headers.get("X-Vocal-Transform-Has-Remix") === "1";
+  const hasVocals = res.headers.get("X-Vocal-Transform-Has-Vocals") === "1";
+  const primary = await res.blob();
+
+  let remixBlob: Blob | null = hasRemix || (!hasVocals && primary) ? primary : null;
+  let vocalsBlob: Blob | null = hasVocals && !hasRemix ? primary : null;
+
+  const vocalsUrl = res.headers.get("X-Vocal-Transform-Vocals-Url");
+  if (hasRemix && hasVocals && vocalsUrl) {
+    const vRes = await fetch(`${sidecarBaseUrl()}${vocalsUrl}`, {
+      headers: await sidecarAuthHeaders(),
+    });
+    if (vRes.ok) vocalsBlob = await vRes.blob();
+  }
+
+  return { remixBlob, vocalsBlob, mode, jobId };
 }
 
 /**

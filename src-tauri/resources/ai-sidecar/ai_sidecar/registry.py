@@ -51,6 +51,18 @@ def _probe_generate() -> bool:
     return generation_available()
 
 
+def _probe_acestep() -> bool:
+    from .acestep_bridge import acestep_configured
+
+    return acestep_configured()
+
+
+def _probe_vocal_transform() -> bool:
+    from .vocal_transform import vocal_transform_available
+
+    return vocal_transform_available(mode="pitch")
+
+
 def _probe_genre() -> bool:
     from .genre_classifier import genre_classification_available
 
@@ -128,6 +140,25 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         license="CC-BY-NC (weights)",
         commercial_use=False,
         probe=_probe_generate,
+    ),
+    CapabilitySpec(
+        id="acestep",
+        title="ACE-Step full song",
+        tasks=("generate-song",),
+        install_hint="Set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+        license="MIT (ACE-Step 1.5)",
+        commercial_use=True,
+        probe=_probe_acestep,
+        prompt_install=False,  # external API server, not an npm pip extra
+    ),
+    CapabilitySpec(
+        id="vocal-transform",
+        title="Vocal region transform",
+        tasks=("vocal-transform",),
+        install_hint="npm run sidecar:stems (RVC mode also needs sidecar:vocal-rvc)",
+        license="project / model-dependent (RVC)",
+        commercial_use=True,
+        probe=_probe_vocal_transform,
     ),
     CapabilitySpec(
         id="genre",
@@ -229,6 +260,8 @@ def capability_flags() -> dict[str, bool]:
         "cover_available": snaps.get("cover", False),
         "cover_ref_available": snaps.get("cover-ref", False),
         "generate_available": snaps.get("generate", False),
+        "acestep_available": snaps.get("acestep", False),
+        "vocal_transform_available": snaps.get("vocal-transform", False),
         "vocal_synthesis_available": snaps.get("vocal_synth", False),
         "vocal_ml_available": snaps.get("vocal_ml", False),
         "vocal_rvc_available": snaps.get("rvc", False),

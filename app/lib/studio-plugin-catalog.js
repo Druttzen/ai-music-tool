@@ -10,6 +10,8 @@ import { STARTUP_INSTALL_SPECS, formatByteSize, parsePipProgressBytes } from "./
 export const STUDIO_SIDECAR_PLUGIN_CATALOG = [
   { id: "stems", title: "Demucs stems", blurb: "Split a mix into drums, bass, vocals, and other." },
   { id: "generate", title: "MusicGen preview", blurb: "Local text-to-music preview clips." },
+  { id: "acestep", title: "ACE-Step full song", blurb: "Full songs via local ACE-Step API (AIMC_ACESTEP_API_URL)." },
+  { id: "vocal-transform", title: "Vocal region transform", blurb: "Rewrite selected vocal regions; export remix + acapella." },
   { id: "genre", title: "Genre classifier", blurb: "Tag tracks with predicted genres." },
   { id: "vision", title: "Image caption / CLIP", blurb: "Caption stills and score image tags." },
   { id: "cover", title: "Album cover (FLUX)", blurb: "Generate cover art from a text prompt." },

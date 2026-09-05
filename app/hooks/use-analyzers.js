@@ -39,8 +39,12 @@ import {
 } from "../lib/audio-highlight-slice";
 import { analyzeImagePixelData } from "../lib/image-analyzer";
 import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
-import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, fetchSonicSignatureViaSidecar, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, separateStemsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
-import { resolveSidecarGenerateAvailable } from "../lib/analyzers-sidecar-probe";
+import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, fetchSonicSignatureViaSidecar, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, generateSongViaSidecar, separateStemsViaSidecar, transformVocalsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import {
+  resolveSidecarAcestepAvailable,
+  resolveSidecarGenerateAvailable,
+  resolveSidecarVocalTransformAvailable,
+} from "../lib/analyzers-sidecar-probe";
 import { waitForSidecarExtraReady, fetchSidecarHealthAfterExtraInstall } from "../lib/sidecar-extra-install-client";
 import { musicGenInstallHint } from "../lib/sidecar-capabilities";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
@@ -82,16 +86,25 @@ export function useAnalyzers({
     setAudioPreviewFromBlob: setPreviewFromBlob,
   } = refs;
 
-  const { sidecarAiStatus, sidecarGenerateAvailable, setSidecarGenerateAvailable } =
-    useSidecarStatus();
+  const {
+    sidecarAiStatus,
+    sidecarGenerateAvailable,
+    setSidecarGenerateAvailable,
+    sidecarAcestepAvailable,
+    setSidecarAcestepAvailable,
+    sidecarVocalTransformAvailable,
+    setSidecarVocalTransformAvailable,
+  } = useSidecarStatus();
 
   const refreshSidecarCapabilities = useCallback(async (options) => {
     const health = options?.waitForExtraId
       ? await waitForSidecarExtraReady(options.waitForExtraId, options)
       : await fetchSidecarHealthAfterExtraInstall();
     setSidecarGenerateAvailable(resolveSidecarGenerateAvailable({ health }));
+    setSidecarAcestepAvailable(resolveSidecarAcestepAvailable({ health }));
+    setSidecarVocalTransformAvailable(resolveSidecarVocalTransformAvailable({ health }));
     return health;
-  }, [setSidecarGenerateAvailable]);
+  }, [setSidecarGenerateAvailable, setSidecarAcestepAvailable, setSidecarVocalTransformAvailable]);
 
   const [audioAnalysis, setAudioAnalysis] = useState(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
@@ -104,6 +117,8 @@ export function useAnalyzers({
   const [stemSeparationBusy, setStemSeparationBusy] = useState(false);
   const [stemSeparationStems, setStemSeparationStems] = useState([]);
   const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
+  const [generateSongBusy, setGenerateSongBusy] = useState(false);
+  const [vocalTransformBusy, setVocalTransformBusy] = useState(false);
   const [analyzeAudioBusy, setAnalyzeAudioBusy] = useState(false);
   const [analyzeImageBusy, setAnalyzeImageBusy] = useState(false);
 
@@ -904,6 +919,187 @@ export function useAnalyzers({
     [applyAnalyzerPatch, generateMusicBusy, navigateToPolishStep, promptEngine, audioAnalysis, audioPreviewUrlRef, setAudioPreviewFromBlob, setSidecarGenerateAvailable, setStatusWithTime, syncCacheKeysRef],
   );
 
+  const generateSongFromPrompt = useCallback(
+    async (prompt, options = {}) => {
+      const text = String(prompt || "").trim();
+      if (!text || generateSongBusy) return;
+      const attach = options.attach !== false;
+      const download = !!options.download;
+      const durationSec = Number(options.durationSec) || 60;
+      const lyrics = String(options.lyrics || "").trim();
+
+      setGenerateSongBusy(true);
+      try {
+        setStatusWithTime("ACE-Step full-song generation started (this can take a few minutes)…");
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        if (!sidecarReady) {
+          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
+          return;
+        }
+        const health = await fetchSidecarHealth();
+        if (!health?.acestep_available) {
+          setStatusWithTime(
+            "ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+            "warning",
+          );
+          setSidecarAcestepAvailable(false);
+          return;
+        }
+        const { blob, model, durationSec: dur } = await generateSongViaSidecar({
+          prompt: text,
+          lyrics,
+          durationSec,
+        });
+        const resolvedDuration = dur || durationSec;
+        const fileName = `acestep-song-${Date.now()}.wav`;
+        const file =
+          blob instanceof File ? blob : new File([blob], fileName, { type: blob.type || "audio/wav" });
+
+        if (attach) {
+          let report = await buildMusicGenAnalysisReport(file, {
+            prompt: text,
+            model: model || "acestep",
+            durationSec: resolvedDuration,
+            fileName,
+            mode: "acestep-song",
+          });
+          report = {
+            ...(await enrichMusicGenReportWithSidecar(file, report)),
+            sourceEngine: "acestep",
+            trackSummary: `ACE-Step song (${model || "acestep"}, ${resolvedDuration}s): ${text.slice(0, 160)}`,
+            vocals: lyrics ? "Vocals (ACE-Step)" : report.vocals,
+          };
+          setAudioPreviewFromBlob(file);
+          setAudioAnalysis(report);
+          syncCacheKeysRef(report);
+          setStatusWithTime(
+            `ACE-Step song loaded (${model || "acestep"} · ${resolvedDuration}s)`,
+            "success",
+          );
+        }
+
+        if (download) {
+          downloadMusicGenBlob(file, fileName);
+          if (!attach) {
+            setStatusWithTime(
+              `ACE-Step song downloaded (${model || "acestep"} · ${resolvedDuration}s)`,
+              "success",
+            );
+          }
+        }
+      } catch (err) {
+        reportCaughtError("analyzers.generateSongFromPrompt", err);
+        const msg = err instanceof Error ? err.message : "ACE-Step generation failed";
+        setStatusWithTime(msg.slice(0, 120), "warning");
+      } finally {
+        setGenerateSongBusy(false);
+      }
+    },
+    [
+      generateSongBusy,
+      setAudioPreviewFromBlob,
+      setSidecarAcestepAvailable,
+      setStatusWithTime,
+      syncCacheKeysRef,
+    ],
+  );
+
+  const transformVocalsOnTrack = useCallback(
+    async (options = {}) => {
+      if (vocalTransformBusy || !audioAnalysis) return;
+      setVocalTransformBusy(true);
+      try {
+        setStatusWithTime("Vocal transform started (separate → rewrite → remix)…");
+        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        if (!sidecarReady) {
+          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
+          return;
+        }
+        const health = await fetchSidecarHealth();
+        if (!health?.vocal_transform_available) {
+          setStatusWithTime("Vocal transform needs Demucs — npm run sidecar:stems", "warning");
+          setSidecarVocalTransformAvailable(false);
+          return;
+        }
+        let mixBlob = null;
+        if (audioPreviewUrlRef.current) {
+          const res = await fetch(audioPreviewUrlRef.current);
+          if (res.ok) mixBlob = await res.blob();
+        }
+        if (!mixBlob) {
+          throw new Error("No mix loaded — drop an audio file first");
+        }
+
+        const regions =
+          options.useHighlight && hasMeaningfulHighlightRange(audioAnalysis)
+            ? [
+                {
+                  start_sec: Number(audioAnalysis.highlightStart) || 0,
+                  end_sec: Number(audioAnalysis.highlightEnd) || 0,
+                },
+              ]
+            : [];
+
+        const { remixBlob, vocalsBlob, mode } = await transformVocalsViaSidecar({
+          file: mixBlob,
+          fileName: audioAnalysis.fileName || "mix.wav",
+          mode: options.mode || "pitch",
+          regions,
+          pitchSemitones: options.pitchSemitones ?? 0,
+          formantShift: options.formantShift ?? options.pitchSemitones ?? 0,
+          output: options.downloadVocals === false ? "remix" : "both",
+        });
+
+        if (remixBlob) {
+          const fileName = `remix-transformed-${Date.now()}.wav`;
+          const file = new File([remixBlob], fileName, { type: "audio/wav" });
+          let report = await buildMusicGenAnalysisReport(file, {
+            prompt: `vocal-transform:${mode || options.mode || "pitch"}`,
+            model: mode || options.mode || "pitch",
+            fileName,
+            mode: "vocal-transform",
+          });
+          report = await enrichMusicGenReportWithSidecar(file, report);
+          report = {
+            ...report,
+            sourceEngine: "vocal-transform",
+            trackSummary: `Vocal transform (${mode || options.mode || "pitch"})`,
+            vocals: "Transformed vocals",
+          };
+          setAudioPreviewFromBlob(file);
+          setAudioAnalysis(report);
+          syncCacheKeysRef(report);
+        }
+
+        if (options.downloadVocals !== false && vocalsBlob) {
+          downloadMusicGenBlob(vocalsBlob, `vocals-transformed-${Date.now()}.wav`);
+        }
+
+        setStatusWithTime(
+          `Vocal transform done (${mode || options.mode || "pitch"}${
+            vocalsBlob ? " · acapella downloaded" : ""
+          })`,
+          "success",
+        );
+      } catch (err) {
+        reportCaughtError("analyzers.transformVocalsOnTrack", err);
+        const msg = err instanceof Error ? err.message : "Vocal transform failed";
+        setStatusWithTime(msg.slice(0, 120), "warning");
+      } finally {
+        setVocalTransformBusy(false);
+      }
+    },
+    [
+      audioAnalysis,
+      audioPreviewUrlRef,
+      setAudioPreviewFromBlob,
+      setSidecarVocalTransformAvailable,
+      setStatusWithTime,
+      syncCacheKeysRef,
+      vocalTransformBusy,
+    ],
+  );
+
   const downloadStem = useCallback(
     async (stem) => {
       if (!stem?.download_url || !audioAnalysis) return;
@@ -1003,6 +1199,10 @@ export function useAnalyzers({
     downloadStem,
     generateMusicBusy,
     generateMusicFromPrompt,
+    generateSongBusy,
+    generateSongFromPrompt,
+    vocalTransformBusy,
+    transformVocalsOnTrack,
     imageAnalysis,
     imagePreview,
     openInCanvasTool,
@@ -1013,6 +1213,8 @@ export function useAnalyzers({
     separateStems,
     sidecarAiStatus,
     sidecarGenerateAvailable,
+    sidecarAcestepAvailable,
+    sidecarVocalTransformAvailable,
     stemSeparationBusy,
     stemSeparationStems,
     updateAudioAnalysis,

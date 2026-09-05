@@ -10,8 +10,9 @@ Run standalone:
     uvicorn ai_sidecar.main:app --port 8723
 
 Capabilities: analysis (this file), stem separation (Demucs), generation
-(MusicGen), covers (FLUX), vision (BLIP/CLIP), and vocal synthesis
-(placement-mix / DSP / RVC / DiffSinger) — see registry.py for the catalog.
+(MusicGen + ACE-Step bridge), covers (FLUX), vision (BLIP/CLIP), vocal
+synthesis (placement-mix / DSP / RVC / DiffSinger), and vocal region
+transform — see registry.py for the catalog.
 """
 
 from __future__ import annotations
@@ -53,6 +54,7 @@ from .genre_classifier import active_genre_model_id, classify_music_genres
 from .vision_analyzer import CLIP_MODEL_ID, MODEL_ID as VISION_MODEL_ID
 from .vision_analyzer import caption_image_bytes, clip_tags_for_image_bytes, vision_analysis_available
 from .musicgen import active_musicgen_model_id, generation_available
+from .acestep_bridge import SONG_MEDIA_TYPES, acestep_configured, normalize_song_format
 from .cover_generator import active_cover_model_id, cover_available, generate_cover_png
 from .cover_ref_generator import (
     MAX_COVER_REF_UPLOAD_BYTES,
@@ -67,8 +69,10 @@ from .registry import capability_flags, list_capabilities
 from .jobs import JOBS
 from . import generate_jobs as _generate_jobs  # noqa: F401 — register runners
 from . import stems_separate as _stems_separate  # noqa: F401 — register runners
+from . import vocal_transform as _vocal_transform  # noqa: F401 — register runners
 from .stems_separate import separate_audio, stems_available
-from .generate_jobs import generate_via_jobs
+from .generate_jobs import generate_song_via_jobs, generate_via_jobs
+from .vocal_transform import transform_via_jobs, vocal_transform_available
 from .idle import (
     configure_idle_exit,
     hold_dev_session,
@@ -152,6 +156,8 @@ class Health(BaseModel):
     vocal_rvc_available: bool
     vocal_diffsinger_available: bool
     generate_available: bool
+    acestep_available: bool = False
+    vocal_transform_available: bool = False
     cover_available: bool = False
     cover_ref_available: bool = False
     fix_push_available: bool = False
@@ -292,6 +298,8 @@ def health(request: Request) -> Health:
         vocal_rvc_available=flags["vocal_rvc_available"],
         vocal_diffsinger_available=flags["vocal_diffsinger_available"],
         generate_available=flags["generate_available"],
+        acestep_available=flags["acestep_available"],
+        vocal_transform_available=flags["vocal_transform_available"],
         cover_available=flags["cover_available"],
         cover_ref_available=flags["cover_ref_available"],
         fix_push_available=maintainer_enabled() and bool(repo_root()),
@@ -623,6 +631,145 @@ async def generate_music_with_melody(
             "X-MusicGen-Mode": "melody",
         },
     )
+
+
+class GenerateSongRequest(BaseModel):
+    prompt: str
+    lyrics: str = ""
+    duration_sec: float | None = None
+    vocal_language: str = ""
+    bpm: int | None = None
+    key_scale: str = ""
+    thinking: bool = True
+    audio_format: str = "wav"
+
+
+@app.post("/generate/song")
+async def generate_full_song(body: GenerateSongRequest):
+    """Full-song generation via ACE-Step API bridge (AIMC_ACESTEP_API_URL)."""
+    if not acestep_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+        )
+
+    prompt = str(body.prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt is required")
+
+    fmt = normalize_song_format(body.audio_format)
+    try:
+        result = generate_song_via_jobs(
+            prompt,
+            lyrics=body.lyrics,
+            duration_sec=body.duration_sec,
+            vocal_language=body.vocal_language,
+            bpm=body.bpm,
+            key_scale=body.key_scale,
+            thinking=body.thinking,
+            audio_format=fmt,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    meta = result.get("meta") or {}
+    return FileResponse(
+        result["path"],
+        media_type=SONG_MEDIA_TYPES.get(fmt, "audio/wav"),
+        filename=f"acestep-song.{fmt}",
+        headers={
+            "X-AceStep-Model": str(meta.get("model") or result.get("model") or "acestep"),
+            "X-AceStep-Duration-Sec": str(meta.get("duration_sec") or body.duration_sec or ""),
+            "X-AceStep-Mode": "song",
+            "X-Job-Id": str(result.get("job_id") or ""),
+        },
+    )
+
+
+@app.post("/vocal-transform")
+async def vocal_transform_mix(
+    file: UploadFile = File(...),
+    mode: str = Form("pitch"),
+    regions_json: str = Form("[]"),
+    pitch_semitones: float = Form(0.0),
+    formant_shift: float = Form(0.0),
+    output: str = Form("both"),
+):
+    """Separate vocals, transform selected regions, return remix and/or acapella."""
+    import json as _json
+
+    if not vocal_transform_available(mode=mode):
+        detail = (
+            "vocal transform unavailable — npm run sidecar:stems"
+            if mode != "rvc"
+            else "RVC vocal transform unavailable — npm run sidecar:stems + sidecar:vocal-rvc (or AIMC_RVC_API_URL)"
+        )
+        raise HTTPException(status_code=503, detail=detail)
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty upload")
+
+    try:
+        regions = _json.loads(regions_json or "[]")
+    except _json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail="regions_json must be a JSON array") from exc
+
+    try:
+        result = transform_via_jobs(
+            raw,
+            filename=file.filename or "mix.wav",
+            mode=mode,
+            regions=regions if isinstance(regions, list) else [],
+            pitch_semitones=pitch_semitones,
+            formant_shift=formant_shift,
+            output=output,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # Prefer remix when both requested; include vocals download URL via second file when present.
+    primary = result.get("remix_path") or result.get("vocals_path")
+    if not primary:
+        raise HTTPException(status_code=500, detail="vocal transform produced no audio")
+
+    headers = {
+        "X-Vocal-Transform-Mode": str(result.get("mode") or mode),
+        "X-Job-Id": str(result.get("job_id") or ""),
+        "X-Vocal-Transform-Has-Remix": "1" if result.get("remix_path") else "0",
+        "X-Vocal-Transform-Has-Vocals": "1" if result.get("vocals_path") else "0",
+    }
+    if result.get("vocals_path") and result.get("remix_path"):
+        # Client can fetch the parallel acapella via /vocal-transform/download/{job_id}/vocals
+        headers["X-Vocal-Transform-Vocals-Url"] = f"/vocal-transform/download/{result['job_id']}/vocals"
+
+    # Keep job result paths alive for parallel download.
+    job = JOBS.get(str(result.get("job_id") or ""))
+    if job is not None:
+        job.result = result
+
+    filename = "remix-transformed.wav" if result.get("remix_path") else "vocals-transformed.wav"
+    return FileResponse(primary, media_type="audio/wav", filename=filename, headers=headers)
+
+
+@app.get("/vocal-transform/download/{job_id}/{kind}")
+async def vocal_transform_download(job_id: str, kind: str):
+    """Download remix or vocals artifact from a completed vocal-transform job."""
+    job = JOBS.get(job_id)
+    if not job or not job.result:
+        raise HTTPException(status_code=404, detail="job not found")
+    key = "remix_path" if kind == "remix" else "vocals_path" if kind == "vocals" else None
+    if not key:
+        raise HTTPException(status_code=400, detail="kind must be remix or vocals")
+    path = job.result.get(key)
+    if not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"{kind} artifact missing")
+    name = "remix-transformed.wav" if kind == "remix" else "vocals-transformed.wav"
+    return FileResponse(path, media_type="audio/wav", filename=name)
 
 
 class CoverRequest(BaseModel):

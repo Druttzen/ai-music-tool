@@ -25,6 +25,22 @@ export function resolveSidecarGenerateAvailable(input) {
 }
 
 /**
+ * @param {{ health?: { acestep_available?: boolean } | null }} input
+ * @returns {boolean}
+ */
+export function resolveSidecarAcestepAvailable(input) {
+  return !!input.health?.acestep_available;
+}
+
+/**
+ * @param {{ health?: { vocal_transform_available?: boolean } | null }} input
+ * @returns {boolean}
+ */
+export function resolveSidecarVocalTransformAvailable(input) {
+  return !!input.health?.vocal_transform_available;
+}
+
+/**
  * @param {"ready" | "standby" | "offline"} status
  * @returns {number} ms until next probe
  */

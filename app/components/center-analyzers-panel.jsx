@@ -13,6 +13,8 @@ import {
 import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
+import { AceStepSongControls } from "./acestep-song-controls";
+import { VocalTransformControls } from "./vocal-transform-controls";
 import { musicGenInstallHint, missingSidecarInstallHints } from "../lib/sidecar-capabilities";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
 import {
@@ -44,6 +46,8 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
   const {
     sidecarAiStatus,
     sidecarGenerateAvailable,
+    sidecarAcestepAvailable,
+    sidecarVocalTransformAvailable,
     audioAnalysis,
     audioPreviewUrl,
     audioLoudness,
@@ -55,6 +59,8 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     stemSeparationBusy,
     stemSeparationStems,
     generateMusicBusy,
+    generateSongBusy,
+    vocalTransformBusy,
   } = useProjectWorkspaceAnalyzerState();
   const {
     analyzeAudioFile,
@@ -70,6 +76,8 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     separateStems,
     downloadStem,
     generateMusicFromPrompt,
+    generateSongFromPrompt,
+    transformVocalsOnTrack,
     applyImageToSunoStyle,
     copyToClipboard,
     openInCanvasTool,
@@ -104,12 +112,13 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     return () => {
       cancelled = true;
     };
-  }, [sidecarAiStatus, sidecarGenerateAvailable]);
+  }, [sidecarAiStatus, sidecarGenerateAvailable, sidecarAcestepAvailable, sidecarVocalTransformAvailable]);
 
   const musicGenHint = musicGenInstallHint(sidecarHealth);
   const missingCaps = missingSidecarInstallHints(sidecarHealth);
   const llmStyleReady = isCoProducerLlmReady(coProducerLlmSettings);
   const [extraInstallBusy, setExtraInstallBusy] = useState(/** @type {string|null} */ (null));
+  const rvcAvailable = Boolean(sidecarHealth?.vocal_rvc_available);
 
   const onInstallMissingExtra = useCallback(
     async (extraId) => {
@@ -251,7 +260,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             onFile={analyzeAudioFile}
           >
             {!audioAnalysis ? (
-              <div className="mt-3">
+              <div className="mt-3 space-y-3">
                 <MusicGenPreviewControls
                   defaultPrompt={defaultMusicGenPrompt}
                   busy={generateMusicBusy}
@@ -259,6 +268,14 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                   installHint={musicGenHint}
                   canUseMelodyReference={!!audioPreviewUrl}
                   onGenerate={generateMusicFromPrompt}
+                  compact
+                />
+                <AceStepSongControls
+                  defaultPrompt={defaultMusicGenPrompt}
+                  defaultLyrics={sunoFieldSlices.lyrics || ""}
+                  busy={generateSongBusy}
+                  available={sidecarAcestepAvailable}
+                  onGenerate={generateSongFromPrompt}
                   compact
                 />
               </div>
@@ -294,8 +311,16 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 onGenerateMusic={generateMusicFromPrompt}
                 generateMusicBusy={generateMusicBusy}
                 sidecarGenerateAvailable={sidecarGenerateAvailable}
+                onGenerateSong={generateSongFromPrompt}
+                generateSongBusy={generateSongBusy}
+                sidecarAcestepAvailable={sidecarAcestepAvailable}
+                onTransformVocals={transformVocalsOnTrack}
+                vocalTransformBusy={vocalTransformBusy}
+                sidecarVocalTransformAvailable={sidecarVocalTransformAvailable}
+                rvcAvailable={rvcAvailable}
                 musicGenInstallHint={musicGenHint}
                 defaultMusicGenPrompt={defaultMusicGenPrompt}
+                defaultAceStepLyrics={sunoFieldSlices.lyrics || ""}
                 exportBusy={audioExportBusy}
                 exportProgress={audioExportProgress}
               />

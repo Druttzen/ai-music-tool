@@ -38,6 +38,8 @@ const ACTION_KEYS = [
   "generateExampleLyrics",
   "generateHooks",
   "generateMusicFromPrompt",
+  "generateSongFromPrompt",
+  "transformVocalsOnTrack",
   "generateVariations",
   "generateVoiceStyleFromArtistId",
   "generateVoiceStyleFromPreset",
