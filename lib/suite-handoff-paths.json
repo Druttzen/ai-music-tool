@@ -8,6 +8,7 @@
       "$STUDIO_DATA/addons/canvas/ai-canvas-tool.exe",
       "$APPDIR/addons/canvas/AI Canvas Tool.exe",
       "$APPDIR/tools/canvas/AI Canvas Tool.exe",
+      "$LOCALAPPDATA/AI/AI Canvas Tool.exe",
       "$LOCALAPPDATA/Programs/ai-canvas-tool/AI Canvas Tool.exe",
       "$LOCALAPPDATA/Programs/AI Canvas Tool/AI Canvas Tool.exe",
       "$ProgramFiles/AI Canvas Tool/AI Canvas Tool.exe",
