@@ -8,7 +8,7 @@ point the sidecar at it:
     AIMC_ACESTEP_API_URL=http://127.0.0.1:8001
     AIMC_ACESTEP_API_KEY=...                 # only when ACESTEP_API_KEY is set
     AIMC_ACESTEP_MODEL=acestep-v15-turbo     # optional DiT model override
-    AIMC_ACESTEP_TIMEOUT_SEC=600             # optional poll budget
+    AIMC_ACESTEP_TIMEOUT_SEC=1800           # optional poll budget (first-run model download)
 
 Protocol (see ACE-Step docs/en/API.md): POST /release_task -> task_id,
 poll POST /query_result until status 1 (done) / 2 (failed), then download
@@ -22,7 +22,7 @@ import os
 import time
 from typing import Any
 
-DEFAULT_TIMEOUT_SEC = 600.0
+DEFAULT_TIMEOUT_SEC = 1800.0
 _POLL_INTERVAL_SEC = 2.0
 _MIN_DURATION_SEC = 10.0
 _MAX_DURATION_SEC = 600.0

@@ -9,6 +9,11 @@ import { STARTUP_INSTALL_SPECS, formatByteSize, parsePipProgressBytes } from "./
 /** @type {{ id: string, title: string, blurb: string }[]} */
 export const STUDIO_SIDECAR_PLUGIN_CATALOG = [
   { id: "stems", title: "Demucs stems", blurb: "Split a mix into drums, bass, vocals, and other." },
+  {
+    id: "stems-melband",
+    title: "Mel-Band RoFormer stems",
+    blurb: "Higher-quality vocals/instrumental separation (Kim checkpoint).",
+  },
   { id: "generate", title: "MusicGen preview", blurb: "Local text-to-music preview clips." },
   { id: "acestep", title: "ACE-Step full song", blurb: "Full songs via local ACE-Step API (AIMC_ACESTEP_API_URL)." },
   { id: "vocal-transform", title: "Vocal region transform", blurb: "Rewrite selected vocal regions; export remix + acapella." },

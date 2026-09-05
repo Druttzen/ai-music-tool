@@ -147,6 +147,7 @@ class Health(BaseModel):
     device: str
     version: str
     stems_available: bool
+    stems_melband_available: bool = False
     genre_available: bool
     vision_available: bool
     vocal_embed_plan_available: bool
@@ -289,6 +290,7 @@ def health(request: Request) -> Health:
         device=info.device,
         version=__version__,
         stems_available=flags["stems_available"],
+        stems_melband_available=flags["stems_melband_available"],
         genre_available=flags["genre_available"],
         vision_available=flags["vision_available"],
         vocal_embed_plan_available=flags["vocal_embed_plan_available"],
@@ -973,9 +975,17 @@ def separate_download(job_id: str, filename: str):
 
 
 @app.post("/separate", response_model=SeparateResult)
-async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
-    """Stem separation via Demucs — returns HTTP download URLs for each stem."""
-    if not stems_available():
+async def separate(file: UploadFile = File(...), model_name: str = Form("htdemucs")):
+    """Stem separation via Demucs or Mel-Band RoFormer — returns HTTP download URLs."""
+    from .stems_melband import is_melband_model_name, melband_available
+
+    if is_melband_model_name(model_name):
+        if not melband_available():
+            raise HTTPException(
+                status_code=503,
+                detail="Mel-Band RoFormer deps missing — npm run sidecar:stems-melband",
+            )
+    elif not stems_available():
         raise HTTPException(
             status_code=503,
             detail="stem separation unavailable — install the 'stems' extra",
@@ -987,6 +997,8 @@ async def separate(file: UploadFile = File(...), model_name: str = "htdemucs"):
 
     try:
         result = separate_audio(raw, filename=file.filename or "in.wav", model_name=model_name)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"separation failed: {exc}") from exc
 

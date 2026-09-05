@@ -18,6 +18,8 @@ dependencies = [
 # can run before the multi-GB model deps are installed.
 [project.optional-dependencies]
 stems = ["torch>=2.2", "torchaudio>=2.2", "demucs>=4.0"]
+# Higher-quality vocals/instrumental (Kim Mel-Band RoFormer). Requires torch (from stems or elsewhere).
+stems-melband = ["melband-roformer-infer>=0.1.5"]
 classify = ["torch>=2.2", "transformers>=4.40"]
 vision = ["torch>=2.2", "transformers>=4.40", "pillow>=10.0"]
 cover = ["torch>=2.2", "diffusers>=0.30", "transformers>=4.40", "accelerate", "safetensors", "pillow>=10.0", "sentencepiece", "protobuf"]
@@ -51,6 +53,7 @@ all = [
     "torch>=2.2",
     "torchaudio>=2.2",
     "demucs>=4.0",
+    "melband-roformer-infer>=0.1.5",
     "transformers>=4.40",
     "pillow>=10.0",
     "diffusers>=0.30",

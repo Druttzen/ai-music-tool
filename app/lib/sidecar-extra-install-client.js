@@ -8,6 +8,7 @@ import { fetchSidecarHealth, fetchSidecarHealthInventory, resetSidecarHealthCach
 /** @type {Record<string, string>} */
 export const SIDECAR_EXTRA_NPM = {
   stems: "npm run sidecar:stems",
+  "stems-melband": "npm run sidecar:stems-melband",
   generate: "npm run sidecar:generate",
   classify: "npm run sidecar:classify",
   vision: "npm run sidecar:vision",
@@ -47,6 +48,8 @@ export function sidecarExtraHealthFlag(id) {
   switch (normalizeSidecarExtraId(id)) {
     case "stems":
       return "stems_available";
+    case "stems-melband":
+      return "stems_melband_available";
     case "generate":
       return "generate_available";
     case "classify":

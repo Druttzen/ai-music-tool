@@ -70,6 +70,8 @@ pub(crate) fn extras_from_sidecar_health(health: &Value) -> Vec<String> {
     let flags = [
         ("stems_available", "stems"),
         ("stemsAvailable", "stems"),
+        ("stems_melband_available", "stems-melband"),
+        ("stemsMelbandAvailable", "stems-melband"),
         ("generate_available", "generate"),
         ("generateAvailable", "generate"),
         ("genre_available", "classify"),

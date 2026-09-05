@@ -370,6 +370,7 @@ pub fn run_pip_with_progress(
 pub fn pip_extra_spec(extra_id: &str) -> Option<&'static str> {
     match extra_id.trim().to_ascii_lowercase().as_str() {
         "stems" => Some("stems"),
+        "stems-melband" | "stems_melband" | "melband" => Some("stems-melband"),
         "generate" => Some("generate"),
         "classify" | "genre" => Some("classify"),
         "vision" => Some("vision"),

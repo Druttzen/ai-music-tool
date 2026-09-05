@@ -33,6 +33,7 @@ export interface SidecarHealth {
   device: string;
   version: string;
   stems_available?: boolean;
+  stems_melband_available?: boolean;
   genre_available?: boolean;
   vision_available?: boolean;
   vocal_embed_plan_available?: boolean;

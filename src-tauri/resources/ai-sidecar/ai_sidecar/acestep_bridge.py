@@ -22,7 +22,7 @@ import os
 import time
 from typing import Any
 
-DEFAULT_TIMEOUT_SEC = 600.0
+DEFAULT_TIMEOUT_SEC = 1800.0
 _POLL_INTERVAL_SEC = 2.0
 _MIN_DURATION_SEC = 10.0
 _MAX_DURATION_SEC = 600.0

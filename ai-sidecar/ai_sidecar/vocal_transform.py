@@ -253,7 +253,10 @@ def run_vocal_transform(ctx: JobContext) -> dict[str, Any]:
             raise RuntimeError("RVC not configured — npm run sidecar:vocal-rvc or set AIMC_RVC_API_URL")
 
     ctx.set_progress(0.1, "separating stems")
-    separated = separate_audio(raw, filename=filename)
+    from .stems_separate import preferred_stems_backend
+
+    model_name = "melband" if preferred_stems_backend() == "melband" else "htdemucs"
+    separated = separate_audio(raw, filename=filename, model_name=model_name)
     paths: dict[str, str] = separated.get("paths") or {}
     vocals_path = None
     for name, path in paths.items():

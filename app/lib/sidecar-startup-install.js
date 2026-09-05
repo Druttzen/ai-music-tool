@@ -31,6 +31,11 @@ export const STARTUP_INSTALL_SPECS = {
     estimatedBytes: 2.5 * GB,
     typicalMs: 600_000,
   },
+  "stems-melband": {
+    title: "Mel-Band RoFormer stems",
+    estimatedBytes: 1.2 * GB,
+    typicalMs: 480_000,
+  },
   generate: {
     title: "MusicGen preview",
     estimatedBytes: 3.5 * GB,

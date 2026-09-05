@@ -9,6 +9,12 @@
 /** @type {{ id: string, title: string, flag: string, install_hint: string }[]} */
 const LEGACY_INSTALLABLE = [
   { id: "stems", title: "Demucs stem separation", flag: "stems_available", install_hint: "npm run sidecar:stems" },
+  {
+    id: "stems-melband",
+    title: "Mel-Band RoFormer stems",
+    flag: "stems_melband_available",
+    install_hint: "npm run sidecar:stems-melband",
+  },
   { id: "generate", title: "MusicGen preview", flag: "generate_available", install_hint: "npm run sidecar:generate" },
   {
     id: "acestep",

@@ -17,6 +17,8 @@ _VOCAL_ENV_KEYS = (
     "AIMC_ACESTEP_API_KEY",
     "AIMC_ACESTEP_MODEL",
     "AIMC_ACESTEP_TIMEOUT_SEC",
+    "AIMC_STEMS_BACKEND",
+    "AIMC_MELBAND_MODEL",
 )
 
 
@@ -27,14 +29,15 @@ def load_vocal_env_file(env_path: Path | None = None) -> list[str]:
         return []
 
     loaded: list[str] = []
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    text = path.read_text(encoding="utf-8-sig")  # strip UTF-8 BOM if present
+    for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         if "=" not in line:
             continue
         key, value = line.split("=", 1)
-        key = key.strip()
+        key = key.strip().lstrip("\ufeff")
         value = value.strip().strip('"').strip("'")
         if key not in _VOCAL_ENV_KEYS:
             continue

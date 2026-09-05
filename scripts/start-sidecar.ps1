@@ -59,6 +59,9 @@ if ($existing) {
 }
 
 $python = Join-Path $venv "Scripts\python.exe"
+# Mel-Band / torch libs print emoji progress; avoid cp1252 UnicodeEncodeError on Windows.
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
 if ($IdleExitSec -le 0) {
   $env:SIDECAR_IDLE_EXIT_SEC = "0"
 } else {

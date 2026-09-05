@@ -40,6 +40,7 @@ fn npm_hint(extra_id: &str) -> String {
 fn script_stem(extra_id: &str) -> Option<&'static str> {
     match extra_id {
         "stems" => Some("install-sidecar-stems"),
+        "stems-melband" => Some("install-sidecar-stems-melband"),
         "generate" => Some("install-sidecar-generate"),
         "classify" => Some("install-sidecar-classify"),
         "vision" => Some("install-sidecar-vision"),
@@ -215,6 +216,7 @@ fn install_via_checkout_scripts(
 pub(crate) fn known_extra_ids() -> &'static [&'static str] {
     &[
         "stems",
+        "stems-melband",
         "generate",
         "classify",
         "vision",

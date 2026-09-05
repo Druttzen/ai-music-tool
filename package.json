@@ -33,6 +33,7 @@
     "sidecar": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1",
     "sidecar:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1",
     "sidecar:stems": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-stems.ps1",
+    "sidecar:stems-melband": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-stems-melband.ps1",
     "sidecar:vocal": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-vocal.ps1",
     "sidecar:vocal-ml": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-vocal-ml.ps1",
     "sidecar:vocal-rvc": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-vocal-rvc.ps1",

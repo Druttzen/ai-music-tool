@@ -45,6 +45,12 @@ def _probe_stems() -> bool:
     return True
 
 
+def _probe_stems_melband() -> bool:
+    from .stems_melband import melband_available
+
+    return melband_available()
+
+
 def _probe_generate() -> bool:
     from .musicgen import generation_available
 
@@ -131,6 +137,15 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         license="MIT (Demucs)",
         commercial_use=True,
         probe=_probe_stems,
+    ),
+    CapabilitySpec(
+        id="stems-melband",
+        title="Mel-Band RoFormer stems",
+        tasks=("separate",),
+        install_hint="npm run sidecar:stems-melband",
+        license="MIT (melband-roformer-infer / Kim weights)",
+        commercial_use=True,
+        probe=_probe_stems_melband,
     ),
     CapabilitySpec(
         id="generate",
@@ -255,6 +270,7 @@ def capability_flags() -> dict[str, bool]:
     snaps = {c["id"]: c["available"] for c in list_capabilities()}
     return {
         "stems_available": snaps.get("stems", False),
+        "stems_melband_available": snaps.get("stems-melband", False),
         "genre_available": snaps.get("genre", False),
         "vision_available": snaps.get("vision", False),
         "cover_available": snaps.get("cover", False),

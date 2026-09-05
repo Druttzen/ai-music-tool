@@ -1,4 +1,4 @@
-"""Demucs stem separation via JobManager."""
+"""Demucs + optional Mel-Band RoFormer stem separation via JobManager."""
 
 from __future__ import annotations
 
@@ -18,6 +18,14 @@ def stems_available() -> bool:
     except Exception:
         return False
     return True
+
+
+def preferred_stems_backend() -> str:
+    """demucs (default) or melband when AIMC_STEMS_BACKEND=melband and installed."""
+    raw = os.environ.get("AIMC_STEMS_BACKEND", "").strip().lower()
+    if raw in {"melband", "melband-roformer", "mel-band"}:
+        return "melband"
+    return "demucs"
 
 
 def _load_demucs(model_name: str, device: str | None = None):
@@ -48,12 +56,26 @@ def _save_stem_wav(source, path: str, samplerate: int) -> None:
 
 @register("stems.separate")
 def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
+    from .stems_melband import is_melband_model_name, melband_available, run_melband_separate
+
+    model_name = str(ctx.payload.get("model_name") or "htdemucs")
+    want_melband = is_melband_model_name(model_name) or (
+        preferred_stems_backend() == "melband" and model_name in {"htdemucs", "auto"}
+    )
+    if want_melband:
+        if not melband_available():
+            if is_melband_model_name(model_name):
+                raise RuntimeError("Mel-Band RoFormer deps missing — npm run sidecar:stems-melband")
+        else:
+            if not is_melband_model_name(model_name):
+                ctx.payload["model_name"] = "melband"
+            return run_melband_separate(ctx)
+
     from demucs.apply import apply_model
     from demucs.audio import AudioFile
 
     raw: bytes = ctx.payload["raw"]
     filename = str(ctx.payload.get("filename") or "in.wav")
-    model_name = str(ctx.payload.get("model_name") or "htdemucs")
     policy = build_policy()
     device = policy.device or select_device()
 
@@ -85,6 +107,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
         return {
             "device": device,
             "model": model_name,
+            "backend": "demucs",
             "sources": list(model.sources),
             "paths": {f"{name}.wav": p for name, p in stems.items()},
             "out_dir": out_dir,
