@@ -159,5 +159,9 @@ mod loudness_command_tests {
         assert_eq!(result.sample_rate, 48_000);
         assert!(result.integrated_lufs.is_finite(), "integrated LUFS must be finite");
         assert!(result.true_peak_dbtp <= 0.5);
+        assert!(
+            result.momentary_lufs.is_some(),
+            "native meter should report momentary LUFS"
+        );
     }
 }

@@ -1,3 +1,3 @@
 """Local AI inference sidecar for AI Music Creator."""
 
-__version__ = "0.50.26"
+__version__ = "0.50.27"

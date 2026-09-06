@@ -63,7 +63,7 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, onSeparateStems?: () => void, onDownloadStem?: (stem: object) => void, stemSeparationBusy?: boolean, stemSeparationStems?: object[], onGenerateMusic?: (prompt: string, durationSec?: number, options?: { attach?: boolean, download?: boolean }) => void, generateMusicBusy?: boolean, sidecarGenerateAvailable?: boolean, defaultMusicGenPrompt?: string, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number, shortTermLUFS?: number|null, momentaryLUFS?: number|null, engine?: string }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, onSeparateStems?: () => void, onDownloadStem?: (stem: object) => void, stemSeparationBusy?: boolean, stemSeparationStems?: object[], onGenerateMusic?: (prompt: string, durationSec?: number, options?: { attach?: boolean, download?: boolean }) => void, generateMusicBusy?: boolean, sidecarGenerateAvailable?: boolean, defaultMusicGenPrompt?: string, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
 export const AudioTrackEditor = memo(function AudioTrackEditor({
   analysis,
@@ -395,8 +395,17 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               <span className="text-white/45">Measuring LUFS…</span>
             ) : loudness ? (
               <span>
-                Source: {formatLufs(loudness.integratedLUFS)} · {formatTruePeak(loudness.truePeakDbTP)} · BS.1770-4
-                / EBU R128
+                Source: {formatLufs(loudness.integratedLUFS)}
+                {typeof loudness.shortTermLUFS === "number" ? (
+                  <> · S {formatLufs(loudness.shortTermLUFS)}</>
+                ) : null}
+                {typeof loudness.momentaryLUFS === "number" ? (
+                  <> · M {formatLufs(loudness.momentaryLUFS)}</>
+                ) : null}{" "}
+                · {formatTruePeak(loudness.truePeakDbTP)} · BS.1770-4 / EBU R128
+                {loudness.engine === "native" ? (
+                  <span className="text-white/35"> · native</span>
+                ) : null}
               </span>
             ) : (
               <span className="text-white/40">
@@ -406,7 +415,8 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           </div>
           <p className="text-[10px] leading-relaxed text-white/45">
             Mastering runs in a background worker with progress. Streaming normalizes to{" "}
-            {STREAMING_TARGET_LUFS} LUFS (gated integrated) with −1 dBTP limit.
+            {STREAMING_TARGET_LUFS} LUFS (gated integrated) with −1 dBTP limit. Studio exports
+            resample to 48 kHz.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-white/50">
             <span>Format</span>

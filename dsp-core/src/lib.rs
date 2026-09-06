@@ -6,18 +6,25 @@
 mod decode;
 mod loudness;
 mod mastering;
+mod resample;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
 
+pub use loudness::{EXPORT_SAMPLE_RATE, STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP};
 pub use mastering::{export_mastered_bytes, ExportMasteredResult, MAX_EXPORT_DURATION_SEC};
 
-/// Loudness measurement result — mirrors JS `measureIntegratedLoudnessSync`.
+/// Loudness measurement result — mirrors JS `measureIntegratedLoudnessSync`
+/// plus native short-term / momentary maxima.
 #[derive(Debug, Clone, Serialize)]
 pub struct Loudness {
     pub integrated_lufs: f64,
     pub true_peak_dbtp: f64,
     pub sample_peak_dbfs: f64,
+    /// Max short-term loudness (3 s windows) over the file, when available.
+    pub short_term_lufs: Option<f64>,
+    /// Max momentary loudness (400 ms windows) over the file, when available.
+    pub momentary_lufs: Option<f64>,
     pub channels: u32,
     pub sample_rate: u32,
     pub duration_sec: f64,

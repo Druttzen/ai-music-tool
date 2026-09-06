@@ -476,6 +476,10 @@ export function useAnalyzers({
                 typeof native.integrated_lufs === "number" ? native.integrated_lufs : NaN,
               truePeakDbTP: native.true_peak_dbtp,
               samplePeakDbFS: native.sample_peak_dbfs,
+              shortTermLUFS:
+                typeof native.short_term_lufs === "number" ? native.short_term_lufs : null,
+              momentaryLUFS:
+                typeof native.momentary_lufs === "number" ? native.momentary_lufs : null,
               engine: "native",
             };
           } catch {

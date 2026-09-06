@@ -12,6 +12,10 @@ export interface Loudness {
   integrated_lufs: number | null;
   true_peak_dbtp: number;
   sample_peak_dbfs: number;
+  /** Max short-term LUFS over the file (Studio native only). */
+  short_term_lufs?: number | null;
+  /** Max momentary LUFS over the file (Studio native only). */
+  momentary_lufs?: number | null;
   channels: number;
   sample_rate: number;
   duration_sec: number;
@@ -52,6 +56,8 @@ export interface ExportMasteredResult {
   target_lufs: number | null;
   preset: string;
   bits_per_sample: number;
+  /** Encoded output sample rate (48 kHz after Studio export resample). */
+  sample_rate?: number;
 }
 
 /**

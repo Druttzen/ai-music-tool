@@ -11,8 +11,8 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 | librosa | ISC | Python sidecar audio analysis | Use existing dependency for richer tempo, chroma/key, onset, HPSS, and spectral descriptors. |
 | Zod | MIT | Maestro/LLM structured output | Already installed; use it to validate and repair LLM JSON before sanitizing patches. |
 | wavesurfer.js | BSD-3-Clause | Browser waveform UX | **Default ON** in Highlight editor; set `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or use classic toggle (`aimc-classic-waveform`) to opt out. |
-| rubato | MIT | Rust DSP sample-rate conversion | Evaluate only if native export needs higher-quality resampling. |
-| oximedia-normalize | Apache-2.0 | Rust loudness normalization | Evaluate against current `ebur128` + limiter behavior before adopting. |
+| rubato | MIT | Rust DSP sample-rate conversion | **Adopted** in `dsp-core` — Studio export resamples to 48 kHz. |
+| oximedia-normalize | Apache-2.0 | Rust loudness normalization | Deferred — keep `ebur128` + true-peak limiter; revisit only if goldens regress. |
 | awesome-suno-prompts | CC0 | Style prompt inspiration | Imported via `npm run import:awesome-suno` into Style Prompt Library (`awesomeSunoConcepts`). |
 
 ## Optional / User-Installed Integrations
@@ -61,10 +61,8 @@ classic editor path.
 
 ### DSP / Export
 
-`dsp-core` currently uses `ebur128`, `symphonia`, `hound`, and `mp3lame-encoder`, with
-locked Rust CI for both `dsp-core` and Tauri smoke builds. `oximedia-normalize` and `rubato`
-remain good candidates, but adopting either should be driven by a failing quality requirement
-(for example: inter-sample clipping, poor resampling, or measurable loudness drift). Decision:
-do not add new Rust DSP dependencies during this pass; first extend golden tests if export
-quality issues appear.
+`dsp-core` uses `ebur128`, `symphonia`, `hound`, `mp3lame-encoder`, and `rubato`
+(48 kHz export resample), with locked Rust CI for both `dsp-core` and Tauri smoke
+builds. Streaming preset targets −14 LUFS integrated with a true-peak limiter at
+−1 dBTP. `oximedia-normalize` remains deferred while goldens stay green.
 

@@ -5,7 +5,7 @@
 Tauri is the supported desktop path. It bundles:
 
 - Static Next.js export (`out/`)
-- Native **dsp-core** (EBU R128 LUFS, encoded-audio loudness, studio export)
+- Native **dsp-core** (EBU R128 LUFS including short-term/momentary maxima, true-peak limiting, 48 kHz studio export)
 - Managed Python **AI sidecar** spawn on demand
 - Native **canvas handoff** to AI Canvas Tool for Spotify loops via `canvas-handoff-bridge.ts` — see [canvas-handoff.md](canvas-handoff.md)
 - Portable **Music Exchange** downloads for collaboration with other AI Creator projects (no app-specific native bridge)

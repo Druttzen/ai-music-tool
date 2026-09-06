@@ -4,7 +4,11 @@ use anyhow::{anyhow, Result};
 use serde::Serialize;
 
 use crate::decode::{decode_interleaved, slice_interleaved, to_stereo_interleaved};
-use crate::loudness::{apply_target_integrated_lufs, normalize_peak, measure_interleaved, STREAMING_TARGET_LUFS};
+use crate::loudness::{
+    apply_target_integrated_lufs, limit_true_peak, measure_interleaved, normalize_peak,
+    STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP,
+};
+use crate::resample::resample_interleaved_to_export_rate;
 
 pub const MAX_EXPORT_DURATION_SEC: f64 = 600.0;
 
@@ -16,6 +20,8 @@ pub struct ExportMasteredResult {
     pub target_lufs: Option<f64>,
     pub preset: String,
     pub bits_per_sample: u16,
+    /// Sample rate of the encoded output (always 48 kHz after export resample).
+    pub sample_rate: u32,
 }
 
 /// Biquad direct-form II transposed (RBJ cookbook coefficients).
@@ -371,6 +377,10 @@ pub fn export_mastered_bytes(
         samples = slice_interleaved(&samples, channels, sample_rate, s, e);
     }
 
+    // Delivery path: normalize to 48 kHz before the mastering chain.
+    let (mut samples, channels, sample_rate) =
+        resample_interleaved_to_export_rate(&samples, channels, sample_rate)?;
+
     let duration = samples.len() as f64 / (channels as f64 * sample_rate as f64);
     if duration > MAX_EXPORT_DURATION_SEC {
         return Err(anyhow!(
@@ -394,6 +404,7 @@ pub fn export_mastered_bytes(
         )?);
     } else {
         normalize_peak(&mut samples, 0.944);
+        limit_true_peak(&mut samples, channels, sample_rate, TRUE_PEAK_CEILING_DBTP);
     }
 
     let loudness = measure_interleaved(&samples, channels, sample_rate)?;
@@ -410,12 +421,14 @@ pub fn export_mastered_bytes(
         target_lufs,
         preset: preset_id.to_string(),
         bits_per_sample: if is_mp3 { 0 } else { bits },
+        sample_rate,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::loudness::{STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP};
     use std::f32::consts::PI;
 
     fn sine_wav_bytes() -> Vec<u8> {
@@ -442,7 +455,45 @@ mod tests {
         let r = export_mastered_bytes(sine_wav_bytes(), "streaming", "wav", None, None).unwrap();
         assert!(r.wav_bytes.starts_with(b"RIFF"));
         assert_eq!(r.bits_per_sample, 16);
+        assert_eq!(r.sample_rate, 48_000);
         assert!(r.integrated_lufs.is_some());
+        let lufs = r.integrated_lufs.unwrap();
+        assert!(
+            (lufs - STREAMING_TARGET_LUFS).abs() <= 0.3,
+            "integrated={lufs}"
+        );
+        assert!(
+            r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.05,
+            "tp={}",
+            r.true_peak_dbtp
+        );
+    }
+
+    #[test]
+    fn exports_streaming_from_44100_is_48k() {
+        let spec = hound::WavSpec {
+            channels: 2,
+            sample_rate: 44_100,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut cursor = std::io::Cursor::new(Vec::new());
+        let mut w = hound::WavWriter::new(&mut cursor, spec).unwrap();
+        for n in 0..44_100 {
+            let s = (2.0 * PI * 440.0 * n as f32 / 44_100.0).sin() * 0.45;
+            let v = (s * i16::MAX as f32) as i16;
+            w.write_sample(v).unwrap();
+            w.write_sample(v).unwrap();
+        }
+        w.finalize().unwrap();
+        let bytes = cursor.into_inner();
+        let r = export_mastered_bytes(bytes, "streaming", "wav", None, None).unwrap();
+        assert_eq!(r.sample_rate, 48_000);
+        let wav = hound::WavReader::new(std::io::Cursor::new(&r.wav_bytes)).unwrap();
+        assert_eq!(wav.spec().sample_rate, 48_000);
+        let lufs = r.integrated_lufs.expect("streaming lufs");
+        assert!((lufs - STREAMING_TARGET_LUFS).abs() <= 0.3);
+        assert!(r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.05);
     }
 
     #[test]
@@ -450,6 +501,8 @@ mod tests {
         let r = export_mastered_bytes(sine_wav_bytes(), "punch", "wav24", None, None).unwrap();
         assert!(r.wav_bytes.len() > 44);
         assert_eq!(r.bits_per_sample, 24);
+        assert_eq!(r.sample_rate, 48_000);
+        assert!(r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.15);
     }
 
     #[test]
