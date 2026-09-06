@@ -9,7 +9,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 | Candidate | License | Area | Decision |
 | --- | --- | --- | --- |
 | librosa | ISC | Python sidecar audio analysis | Use existing dependency for richer tempo, chroma/key, onset, HPSS, and spectral descriptors. |
-| Zod | MIT | Maestro/LLM structured output | Already installed; use it to validate and repair LLM JSON before sanitizing patches. |
+| Zod | MIT | Maestro/LLM structured output | **Adopted** — `repairMaestroLlmJson` + Zod schemas in `maestro-chat-llm.js` strip unknown keys / coerce shapes, then `sanitizeMaestroPatch`. |
 | wavesurfer.js | BSD-3-Clause | Browser waveform UX | **Default ON** in Highlight editor; set `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or use classic toggle (`aimc-classic-waveform`) to opt out. |
 | rubato | MIT | Rust DSP sample-rate conversion | **Adopted** in `dsp-core` — Studio export resamples to 48 kHz. |
 | oximedia-normalize | Apache-2.0 | Rust loudness normalization | Deferred — keep `ebur128` + true-peak limiter; revisit only if goldens regress. |

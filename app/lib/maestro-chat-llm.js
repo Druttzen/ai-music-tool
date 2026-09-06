@@ -16,16 +16,39 @@ export { enrichMaestroLlmResult } from "./maestro-chat-llm-enrich";
 
 export const MAESTRO_LLM_TIMEOUT_MS = 45_000;
 
+const MOOD_KEYS = ["darkness", "energy", "aggression", "emotion", "complexity", "space"];
+const ARTIFACT_KEYS = [
+  "musicGenPrompt",
+  "stylePrompt",
+  "lyrics",
+  "hooks",
+  "useHighlightMelody",
+  "vocalEmbedBrief",
+];
+const RESPONSE_KEYS = ["reply", "patch", "commands", "artifacts", "suggestions"];
+
+/** Coerce a lone string into a one-element string array (common LLM slip). */
+function asStringArray(value) {
+  if (value == null) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  return value;
+}
+
+const stringListField = z.preprocess(asStringArray, z.array(z.coerce.string()).optional());
+
 const MaestroPatchSchema = z
   .object({
-    idea: z.string().optional(),
-    tempo: z.string().optional(),
-    structure: z.string().optional(),
-    selectedGenres: z.array(z.coerce.string()).optional(),
-    genres: z.array(z.coerce.string()).optional(),
-    selectedRhythms: z.array(z.coerce.string()).optional(),
-    selectedSounds: z.array(z.coerce.string()).optional(),
-    vocal: z.string().optional(),
+    idea: z.coerce.string().optional(),
+    tempo: z.coerce.string().optional(),
+    structure: z.coerce.string().optional(),
+    selectedGenres: stringListField,
+    genres: stringListField,
+    selectedRhythms: stringListField,
+    selectedSounds: stringListField,
+    vocal: z.coerce.string().optional(),
     instrumentalVocalFx: z.coerce.boolean().optional(),
     mood: z
       .object({
@@ -38,10 +61,10 @@ const MaestroPatchSchema = z
       })
       .strict()
       .optional(),
-    lyricTheme: z.string().optional(),
-    lyricLanguage: z.string().optional(),
-    lyricStyle: z.string().optional(),
-    rules: z.string().optional(),
+    lyricTheme: z.coerce.string().optional(),
+    lyricLanguage: z.coerce.string().optional(),
+    lyricStyle: z.coerce.string().optional(),
+    rules: z.coerce.string().optional(),
   })
   .strict()
   .transform((patch) => {
@@ -84,6 +107,89 @@ const MaestroLlmResponseSchema = z
       ),
   })
   .strict();
+
+/**
+ * Strip unknown keys and normalize common LLM shape mistakes before Zod.
+ * Keeps valid fields when models add extras or send a lone genre string.
+ * @param {unknown} raw
+ * @returns {Record<string, unknown>}
+ */
+export function repairMaestroLlmJson(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { reply: "…", patch: null, commands: [], artifacts: null, suggestions: [] };
+  }
+  const src = /** @type {Record<string, unknown>} */ (raw);
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  for (const key of RESPONSE_KEYS) {
+    if (key in src) out[key] = src[key];
+  }
+  if (!("reply" in out)) out.reply = "…";
+
+  if (out.patch && typeof out.patch === "object" && !Array.isArray(out.patch)) {
+    const patchIn = /** @type {Record<string, unknown>} */ (out.patch);
+    /** @type {Record<string, unknown>} */
+    const patchOut = {};
+    for (const key of MAESTRO_PATCHABLE_KEYS) {
+      if (key in patchIn) patchOut[key] = patchIn[key];
+    }
+    // Alias accepted by schema transform → selectedGenres.
+    if ("genres" in patchIn) patchOut.genres = patchIn.genres;
+    if (patchOut.mood && typeof patchOut.mood === "object" && !Array.isArray(patchOut.mood)) {
+      const moodIn = /** @type {Record<string, unknown>} */ (patchOut.mood);
+      /** @type {Record<string, unknown>} */
+      const moodOut = {};
+      for (const key of MOOD_KEYS) {
+        if (key in moodIn) moodOut[key] = moodIn[key];
+      }
+      patchOut.mood = moodOut;
+    }
+    out.patch = patchOut;
+  } else if (out.patch != null) {
+    out.patch = null;
+  }
+
+  if (out.artifacts && typeof out.artifacts === "object" && !Array.isArray(out.artifacts)) {
+    const artIn = /** @type {Record<string, unknown>} */ (out.artifacts);
+    /** @type {Record<string, unknown>} */
+    const artOut = {};
+    for (const key of ARTIFACT_KEYS) {
+      if (key in artIn) artOut[key] = artIn[key];
+    }
+    out.artifacts = artOut;
+  } else if (out.artifacts != null) {
+    out.artifacts = null;
+  }
+
+  if (out.commands != null && !Array.isArray(out.commands)) {
+    out.commands = [];
+  }
+  if (out.suggestions != null && !Array.isArray(out.suggestions)) {
+    out.suggestions = [];
+  }
+
+  return out;
+}
+
+/**
+ * Validate repaired JSON; drop patch/artifacts progressively if still invalid.
+ * @param {unknown} parsed
+ * @returns {z.infer<typeof MaestroLlmResponseSchema> | null}
+ */
+function validateMaestroLlmPayload(parsed) {
+  const repaired = repairMaestroLlmJson(parsed);
+  const attempts = [
+    repaired,
+    { ...repaired, patch: null },
+    { ...repaired, patch: null, artifacts: null },
+    { ...repaired, patch: null, artifacts: null, suggestions: [] },
+  ];
+  for (const attempt of attempts) {
+    const result = MaestroLlmResponseSchema.safeParse(attempt);
+    if (result.success) return result.data;
+  }
+  return null;
+}
 
 /**
  * @param {Array<{ role: string, text: string }>} history - prior chat turns (oldest first)
@@ -158,8 +264,8 @@ export function parseMaestroLlmResponse(raw, snapshot, userMessage = "") {
   }
   try {
     const parsed = JSON.parse(text.slice(start, end + 1));
-    const schemaResult = MaestroLlmResponseSchema.safeParse(parsed);
-    if (!schemaResult.success) {
+    const validated = validateMaestroLlmPayload(parsed);
+    if (!validated) {
       return {
         reply: String(parsed?.reply || text || "…").trim() || "…",
         patch: null,
@@ -168,7 +274,6 @@ export function parseMaestroLlmResponse(raw, snapshot, userMessage = "") {
         suggestions: [],
       };
     }
-    const validated = schemaResult.data;
     const base = {
       reply: validated.reply.trim() || "…",
       patch: sanitizeMaestroPatch(validated.patch, snapshot),

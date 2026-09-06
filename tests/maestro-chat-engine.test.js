@@ -18,7 +18,12 @@ import {
   sanitizeMaestroPatch,
   wantsVocalEmbedQuery,
 } from "../app/lib/maestro-chat-engine.js";
-import { parseMaestroLlmResponse, buildMaestroLlmMessages, enrichMaestroLlmResult } from "../app/lib/maestro-chat-llm.js";
+import {
+  parseMaestroLlmResponse,
+  buildMaestroLlmMessages,
+  enrichMaestroLlmResult,
+  repairMaestroLlmJson,
+} from "../app/lib/maestro-chat-llm.js";
 import { SUNO_STYLE_CHAR_CAP } from "../app/lib/suno-limits.js";
 
 const SNAPSHOT = {
@@ -293,24 +298,55 @@ describe("maestro-chat-llm", () => {
     expect(res.patch.vocal).toBe("Choir");
   });
 
-  it("rejects LLM responses with unknown top-level keys", () => {
+  it("repairs LLM responses with unknown top-level keys (keeps valid patch)", () => {
     const res = parseMaestroLlmResponse(
       '{"reply":"Done.","patch":{"tempo":"132 BPM"},"extraTool":"danger"}',
       SNAPSHOT,
     );
     expect(res.reply).toBe("Done.");
-    expect(res.patch).toBeNull();
+    expect(res.patch.tempo).toBe("132 BPM");
     expect(res.commands).toEqual([]);
-    expect(res.artifacts).toBeNull();
   });
 
-  it("rejects malformed patch shapes before sanitizing", () => {
+  it("strips unknown mood keys and keeps valid mood values", () => {
     const res = parseMaestroLlmResponse(
-      '{"reply":"Bad patch.","patch":{"mood":{"darkness":80,"bogus":99}}}',
+      '{"reply":"Mood set.","patch":{"mood":{"darkness":80,"bogus":99}}}',
       SNAPSHOT,
     );
-    expect(res.reply).toBe("Bad patch.");
+    expect(res.reply).toBe("Mood set.");
+    expect(res.patch.mood.darkness).toBe(80);
+    expect(res.patch.mood).not.toHaveProperty("bogus");
+  });
+
+  it("repairs a lone genre string into selectedGenres", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Genre.","patch":{"selectedGenres":"Techno"}}',
+      SNAPSHOT,
+    );
+    expect(res.patch.selectedGenres).toEqual(["Techno"]);
+  });
+
+  it("drops only a broken patch while keeping commands", () => {
+    const res = parseMaestroLlmResponse(
+      '{"reply":"Partial.","patch":{"mood":"not-an-object"},"commands":["gotoPolish"]}',
+      SNAPSHOT,
+    );
+    expect(res.reply).toBe("Partial.");
     expect(res.patch).toBeNull();
+    expect(res.commands).toEqual(["gotoPolish"]);
+  });
+
+  it("repairMaestroLlmJson strips unknown keys before Zod", () => {
+    const repaired = repairMaestroLlmJson({
+      reply: "ok",
+      patch: { tempo: "120 BPM", evil: 1, mood: { energy: 70, nope: true } },
+      artifacts: { lyrics: "hi", secret: "x" },
+      extraTool: "nope",
+    });
+    expect(repaired).not.toHaveProperty("extraTool");
+    expect(repaired.patch).not.toHaveProperty("evil");
+    expect(repaired.patch.mood).toEqual({ energy: 70 });
+    expect(repaired.artifacts).toEqual({ lyrics: "hi" });
   });
 
   it("degrades to plain text when JSON is broken", () => {
