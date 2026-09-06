@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::decode::{decode_interleaved, slice_interleaved, to_stereo_interleaved};
 use crate::loudness::{
     apply_target_integrated_lufs, limit_true_peak, measure_interleaved, normalize_peak,
-    STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP,
+    BROADCAST_TARGET_LUFS, PODCAST_TARGET_LUFS, STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP,
 };
 use crate::resample::resample_interleaved_to_export_rate;
 
@@ -174,6 +174,22 @@ fn apply_haas_wide(samples: &mut [f32], sample_rate: u32, amount: f32) {
     }
 }
 
+fn loudness_target_for_preset(preset_id: &str) -> Option<f64> {
+    match preset_id {
+        "streaming" => Some(STREAMING_TARGET_LUFS),
+        "podcast" => Some(PODCAST_TARGET_LUFS),
+        "broadcast" => Some(BROADCAST_TARGET_LUFS),
+        _ => None,
+    }
+}
+
+fn is_known_preset(preset_id: &str) -> bool {
+    matches!(
+        preset_id,
+        "streaming" | "podcast" | "broadcast" | "measure" | "wide" | "punch"
+    )
+}
+
 fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32, preset: &str) -> Result<()> {
     if channels != 2 {
         return Err(anyhow!("mastering chain requires stereo"));
@@ -183,6 +199,7 @@ fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32
     let mut hpf_l = Biquad::highpass(sr, 32.0, 0.71);
     let mut hpf_r = Biquad::highpass(sr, 32.0, 0.71);
 
+    // podcast / broadcast reuse the streaming polish curve; measure skips this fn.
     let (mut shelf_l, mut shelf_r) = match preset {
         "punch" => (
             Some(Biquad::lowshelf(sr, 110.0, 3.0)),
@@ -364,11 +381,12 @@ pub fn export_mastered_bytes(
     start_sec: Option<f64>,
     end_sec: Option<f64>,
 ) -> Result<ExportMasteredResult> {
-    if !matches!(preset_id, "streaming" | "wide" | "punch") {
+    if !is_known_preset(preset_id) {
         return Err(anyhow!("unknown preset: {preset_id}"));
     }
     let is_mp3 = format == "mp3";
     let bits: u16 = if format == "wav24" { 24 } else { 16 };
+    let measure_only = preset_id == "measure";
 
     let (samples, channels, sample_rate) = decode_interleaved(bytes)?;
     let (mut samples, channels) = to_stereo_interleaved(samples, channels);
@@ -389,25 +407,30 @@ pub fn export_mastered_bytes(
         ));
     }
 
-    render_enhancement_chain(&mut samples, channels, sample_rate, preset_id)?;
+    if !measure_only {
+        render_enhancement_chain(&mut samples, channels, sample_rate, preset_id)?;
+    }
 
     let mut integrated_lufs = None;
     let mut target_lufs = None;
 
-    if preset_id == "streaming" {
-        target_lufs = Some(STREAMING_TARGET_LUFS);
+    if let Some(target) = loudness_target_for_preset(preset_id) {
+        target_lufs = Some(target);
         integrated_lufs = Some(apply_target_integrated_lufs(
             &mut samples,
             channels,
             sample_rate,
-            STREAMING_TARGET_LUFS,
+            target,
         )?);
-    } else {
+    } else if !measure_only {
         normalize_peak(&mut samples, 0.944);
         limit_true_peak(&mut samples, channels, sample_rate, TRUE_PEAK_CEILING_DBTP);
     }
 
     let loudness = measure_interleaved(&samples, channels, sample_rate)?;
+    if measure_only {
+        integrated_lufs = Some(loudness.integrated_lufs);
+    }
     let wav_bytes = if is_mp3 {
         encode_mp3(&samples, channels, sample_rate)?
     } else {
@@ -428,7 +451,9 @@ pub fn export_mastered_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::loudness::{STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP};
+    use crate::loudness::{
+        BROADCAST_TARGET_LUFS, PODCAST_TARGET_LUFS, STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP,
+    };
     use std::f32::consts::PI;
 
     fn sine_wav_bytes() -> Vec<u8> {
@@ -503,6 +528,41 @@ mod tests {
         assert_eq!(r.bits_per_sample, 24);
         assert_eq!(r.sample_rate, 48_000);
         assert!(r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.15);
+    }
+
+    #[test]
+    fn exports_podcast_at_minus_16() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "podcast", "wav", None, None).unwrap();
+        assert_eq!(r.target_lufs, Some(PODCAST_TARGET_LUFS));
+        let lufs = r.integrated_lufs.expect("podcast lufs");
+        assert!(
+            (lufs - PODCAST_TARGET_LUFS).abs() <= 0.3,
+            "integrated={lufs}"
+        );
+        assert!(r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.05);
+    }
+
+    #[test]
+    fn exports_broadcast_at_minus_23() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "broadcast", "wav", None, None).unwrap();
+        assert_eq!(r.target_lufs, Some(BROADCAST_TARGET_LUFS));
+        let lufs = r.integrated_lufs.expect("broadcast lufs");
+        assert!(
+            (lufs - BROADCAST_TARGET_LUFS).abs() <= 0.3,
+            "integrated={lufs}"
+        );
+        assert!(r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.05);
+    }
+
+    #[test]
+    fn exports_measure_without_normalize() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "measure", "wav", None, None).unwrap();
+        assert!(r.target_lufs.is_none());
+        assert!(r.integrated_lufs.is_some());
+        assert_eq!(r.sample_rate, 48_000);
+        assert!(r.wav_bytes.starts_with(b"RIFF"));
+        // Quiet sine should stay well below streaming loudness after no gain stage.
+        assert!(r.true_peak_dbtp < -1.0);
     }
 
     #[test]

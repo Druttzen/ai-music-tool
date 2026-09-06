@@ -7,7 +7,7 @@ import { deserializeAudioBuffer } from "../lib/audio-buffer-serialize";
 import { audioBufferToMp3Blob, normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import {
   measureIntegratedLoudness,
-  STREAMING_TARGET_LUFS,
+  targetLufsForPreset,
 } from "../lib/lufs-meter";
 
 /** @param {MessageEvent} ev */
@@ -23,7 +23,8 @@ self.onmessage = async (ev) => {
     self.postMessage({ id, type: "progress", phase: "mastering", pct: 35 });
     const enhanced = await renderEnhancedAudioBuffer(source, ev.data.presetId);
     let afterLufs;
-    if (ev.data.presetId === "streaming") {
+    const targetLufs = targetLufsForPreset(ev.data.presetId);
+    if (typeof targetLufs === "number" || ev.data.presetId === "measure") {
       const m = await measureIntegratedLoudness(enhanced);
       afterLufs = m.integratedLUFS;
     }
@@ -58,7 +59,7 @@ self.onmessage = async (ev) => {
         formatFallback: outFormat !== format,
         pct: 100,
         afterLufs,
-        targetLufs: ev.data.presetId === "streaming" ? STREAMING_TARGET_LUFS : undefined,
+        targetLufs,
       },
       [arrayBuffer],
     );

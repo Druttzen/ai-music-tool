@@ -263,18 +263,17 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
   try {
     const { renderEnhancedAudioBuffer } = await import("./audio-enhancer");
     const { downloadAudioBufferAsFormat } = await import("./audio-export-formats");
-    const { measureIntegratedLoudness, STREAMING_TARGET_LUFS } = await import("./lufs-meter");
+    const { measureIntegratedLoudness, targetLufsForPreset } = await import("./lufs-meter");
 
     opts.onProgress?.({ phase: "preparing", pct: 10 });
     opts.onProgress?.({ phase: "mastering", pct: 40 });
     const enhanced = await renderEnhancedAudioBuffer(sourceBuffer, presetId);
 
     let afterLufs;
-    let targetLufs;
-    if (presetId === "streaming") {
+    let targetLufs = targetLufsForPreset(presetId);
+    if (typeof targetLufs === "number" || presetId === "measure") {
       const m = await measureIntegratedLoudness(enhanced);
       afterLufs = m.integratedLUFS;
-      targetLufs = STREAMING_TARGET_LUFS;
     }
 
     opts.onProgress?.({ phase: "encoding", pct: 85 });

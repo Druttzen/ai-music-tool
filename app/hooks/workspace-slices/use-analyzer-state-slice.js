@@ -9,6 +9,7 @@ const ANALYZER_KEYS = [
   "audioExportProgress",
   "audioLoudness",
   "audioLoudnessBusy",
+  "audioStereoPhase",
   "audioPreviewUrl",
   "generateMusicBusy",
   "generateSongBusy",

@@ -16,7 +16,7 @@ use std::time::Duration;
 use canvas_handoff::{
     export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
 };
-use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness};
+use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness, StereoPhase};
 use sidecar_extra_install::{install_sidecar_extra, probe_sidecar_extra_install_env};
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use studio_component_update::update_studio_all;
@@ -27,6 +27,11 @@ use workspace_reset::{consume_workspace_reset_flag, workspace_reset_pending};
 #[tauri::command]
 fn measure_loudness_bytes(bytes: Vec<u8>) -> Result<Loudness, String> {
     dsp_core::measure_loudness_bytes(bytes).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn measure_stereo_phase_bytes(bytes: Vec<u8>) -> Result<StereoPhase, String> {
+    dsp_core::measure_stereo_phase_bytes(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -92,6 +97,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             measure_loudness_bytes,
+            measure_stereo_phase_bytes,
             export_mastered,
             sidecar_status,
             sidecar_auth_token,

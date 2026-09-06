@@ -6,13 +6,18 @@
 mod decode;
 mod loudness;
 mod mastering;
+mod phase;
 mod resample;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-pub use loudness::{EXPORT_SAMPLE_RATE, STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP};
+pub use loudness::{
+    BROADCAST_TARGET_LUFS, EXPORT_SAMPLE_RATE, PODCAST_TARGET_LUFS, STREAMING_TARGET_LUFS,
+    TRUE_PEAK_CEILING_DBTP,
+};
 pub use mastering::{export_mastered_bytes, ExportMasteredResult, MAX_EXPORT_DURATION_SEC};
+pub use phase::{measure_stereo_phase, StereoPhase};
 
 /// Loudness measurement result — mirrors JS `measureIntegratedLoudnessSync`
 /// plus native short-term / momentary maxima.
@@ -60,6 +65,13 @@ pub fn measure_loudness_wav(path: &str) -> Result<Loudness> {
 pub fn measure_loudness_bytes(bytes: Vec<u8>) -> Result<Loudness> {
     let (samples, channels, sample_rate) = decode::decode_interleaved(bytes)?;
     loudness::measure_interleaved(&samples, channels, sample_rate)
+}
+
+/// Stereo correlation + mono-sum peak from encoded audio bytes.
+pub fn measure_stereo_phase_bytes(bytes: Vec<u8>) -> Result<StereoPhase> {
+    let (samples, channels, _sample_rate) = decode::decode_interleaved(bytes)?;
+    let (samples, channels) = decode::to_stereo_interleaved(samples, channels);
+    measure_stereo_phase(&samples, channels)
 }
 
 #[cfg(test)]

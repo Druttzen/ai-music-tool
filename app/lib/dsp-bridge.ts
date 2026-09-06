@@ -49,6 +49,25 @@ export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness
   });
 }
 
+export interface StereoPhase {
+  correlation: number;
+  left_peak: number;
+  right_peak: number;
+  mono_peak: number;
+  mono_cancel_db: number;
+  out_of_phase: boolean;
+}
+
+export async function measureStereoPhaseBytes(bytes: ArrayBuffer): Promise<StereoPhase> {
+  const t = tauri();
+  if (!t) {
+    throw new Error("Native DSP core is only available in the Tauri desktop build");
+  }
+  return t.core.invoke<StereoPhase>("measure_stereo_phase_bytes", {
+    bytes: new Uint8Array(bytes),
+  });
+}
+
 export interface ExportMasteredResult {
   wav_bytes: number[];
   integrated_lufs: number | null;

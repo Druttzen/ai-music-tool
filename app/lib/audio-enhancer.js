@@ -1,14 +1,17 @@
 /**
  * Browser-side studio chains → 16-bit stereo WAV export.
- * Streaming preset uses EBU R128 integrated loudness targeting −14 LUFS.
+ * Loudness presets: Streaming −14, Podcast −16, Broadcast −23 LUFS; Measure = no normalize.
  */
 
 import {
   applyTargetIntegratedLufs,
+  BROADCAST_TARGET_LUFS,
+  PODCAST_TARGET_LUFS,
   STREAMING_TARGET_LUFS,
+  targetLufsForPreset,
 } from "./lufs-meter";
 
-/** @typedef {{ id: string, label: string, fileSuffix: string, hint: string }} StudioExportPreset */
+/** @typedef {{ id: string, label: string, fileSuffix: string, hint: string, targetLufs?: number }} StudioExportPreset */
 
 /** @type {StudioExportPreset[]} */
 export const STUDIO_EXPORT_PRESETS = [
@@ -17,6 +20,27 @@ export const STUDIO_EXPORT_PRESETS = [
     label: "Streaming",
     fileSuffix: "streaming",
     hint: `R128 polish → ${STREAMING_TARGET_LUFS} LUFS`,
+    targetLufs: STREAMING_TARGET_LUFS,
+  },
+  {
+    id: "podcast",
+    label: "Podcast",
+    fileSuffix: "podcast",
+    hint: `R128 polish → ${PODCAST_TARGET_LUFS} LUFS`,
+    targetLufs: PODCAST_TARGET_LUFS,
+  },
+  {
+    id: "broadcast",
+    label: "Broadcast",
+    fileSuffix: "broadcast",
+    hint: `EBU R128 → ${BROADCAST_TARGET_LUFS} LUFS`,
+    targetLufs: BROADCAST_TARGET_LUFS,
+  },
+  {
+    id: "measure",
+    label: "Measure only",
+    fileSuffix: "measure",
+    hint: "Export as-is — no loudness normalize",
   },
   {
     id: "wide",
@@ -49,6 +73,10 @@ export async function renderEnhancedAudioBuffer(buffer, presetId) {
     );
   }
 
+  if (preset.id === "measure") {
+    return bufferToStereoBuffer(buffer);
+  }
+
   const sampleRate = buffer.sampleRate;
   const length = buffer.length;
   const offline = new OfflineAudioContext(2, length, sampleRate);
@@ -64,9 +92,10 @@ export async function renderEnhancedAudioBuffer(buffer, presetId) {
 
   const rendered = await offline.startRendering();
 
-  if (preset.id === "streaming") {
-    const { buffer } = await applyTargetIntegratedLufs(rendered, STREAMING_TARGET_LUFS);
-    return buffer;
+  const target = targetLufsForPreset(preset.id);
+  if (typeof target === "number") {
+    const { buffer: normalized } = await applyTargetIntegratedLufs(rendered, target);
+    return normalized;
   }
 
   normalizeBufferPeak(rendered, 0.944);
@@ -196,6 +225,17 @@ function bufferToStereo(ctx, buffer) {
 }
 
 /**
+ * Measure-only export: stereo-upmix without OfflineAudioContext rendering.
+ * @param {AudioBuffer} buffer
+ * @returns {AudioBuffer}
+ */
+function bufferToStereoBuffer(buffer) {
+  if (buffer.numberOfChannels >= 2) return buffer;
+  const ctx = new OfflineAudioContext(2, buffer.length, buffer.sampleRate);
+  return bufferToStereo(ctx, buffer);
+}
+
+/**
  * @param {BaseAudioContext} ctx
  * @param {StudioExportPreset} preset
  */
@@ -219,7 +259,9 @@ function buildEnhancementChain(ctx, preset) {
     tail = low;
   }
 
-  if (preset.id === "streaming" || preset.id === "wide") {
+  const loudnessPolish =
+    preset.id === "streaming" || preset.id === "podcast" || preset.id === "broadcast";
+  if (loudnessPolish || preset.id === "wide") {
     const air = ctx.createBiquadFilter();
     air.type = "highshelf";
     air.frequency.value = preset.id === "wide" ? 6500 : 9000;

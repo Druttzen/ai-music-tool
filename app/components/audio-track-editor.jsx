@@ -14,6 +14,8 @@ import {
   formatLufs,
   formatTruePeak,
   STREAMING_TARGET_LUFS,
+  PODCAST_TARGET_LUFS,
+  BROADCAST_TARGET_LUFS,
 } from "../lib/lufs-meter";
 import { clamp } from "../lib/music-helpers";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
@@ -21,6 +23,7 @@ import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 import { AceStepSongControls } from "./acestep-song-controls";
 import { VocalTransformControls } from "./vocal-transform-controls";
+import { PreviewMonitorStrip } from "./preview-monitor-strip";
 import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
 
 /** WaveSurfer pro editor on by default; set NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0 to force classic. */
@@ -70,6 +73,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   audioUrl,
   loudness = null,
   loudnessBusy = false,
+  stereoPhase = null,
   onChange,
   onApply,
   onClear,
@@ -385,6 +389,12 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
         </section>
       ) : null}
 
+      <PreviewMonitorStrip
+        audioUrl={audioUrl}
+        stereoPhase={stereoPhase}
+        programLufs={loudness?.integratedLUFS ?? null}
+      />
+
       {onExportEnhanced ? (
         <section className="rounded-2xl border border-violet-400/25 bg-violet-500/10 p-3 space-y-2">
           <div className="text-[10px] font-bold uppercase tracking-wider text-violet-200/90">
@@ -414,9 +424,10 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             )}
           </div>
           <p className="text-[10px] leading-relaxed text-white/45">
-            Mastering runs in a background worker with progress. Streaming normalizes to{" "}
-            {STREAMING_TARGET_LUFS} LUFS (gated integrated) with −1 dBTP limit. Studio exports
-            resample to 48 kHz.
+            Mastering runs in a background worker with progress. Loudness presets: Streaming{" "}
+            {STREAMING_TARGET_LUFS}, Podcast {PODCAST_TARGET_LUFS}, Broadcast {BROADCAST_TARGET_LUFS}{" "}
+            LUFS (gated integrated, -1 dBTP). Measure only exports without normalize. Studio
+            exports resample to 48 kHz.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-white/50">
             <span>Format</span>
@@ -455,7 +466,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               </div>
             </div>
           ) : null}
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {STUDIO_EXPORT_PRESETS.map((preset) => (
               <button
                 key={preset.id}
