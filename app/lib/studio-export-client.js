@@ -12,7 +12,7 @@ let exportInFlight = false;
 /** After a worker failure, prefer main-thread export for this session. */
 let workerDisabled = false;
 
-const WORKER_REPLY_TIMEOUT_MS = 12000;
+const WORKER_REPLY_TIMEOUT_MS = 60_000;
 
 function isFileProtocol() {
   if (typeof window === "undefined") return true;
@@ -51,12 +51,13 @@ function getWorker() {
 
 /**
  * @param {string} baseFileName — stem without extension (may already include -enhanced- or -highlight- suffix)
- * @param {"wav"|"mp3"|"wav24"|"wav32"|"flac"} format
+ * @param {"wav"|"mp3"|"wav24"|"wav32"|"flac"|"m4a"} format
  */
 export function buildExportFileName(baseFileName, format) {
   const normalized = normalizeStudioExportFormat(format);
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
   if (normalized === "mp3") return `${base}.mp3`;
+  if (normalized === "m4a") return `${base}.m4a`;
   if (normalized === "flac") return `${base}.flac`;
   if (normalized === "wav24") return `${base}-24bit.wav`;
   if (normalized === "wav32") return `${base}-32float.wav`;
@@ -64,8 +65,8 @@ export function buildExportFileName(baseFileName, format) {
 }
 
 /**
- * Studio export from a file/blob. Uses native Rust mastering in Tauri (WAV/WAV24/WAV32/FLAC/MP3);
- * falls back to Web Worker / main-thread JS for browser (FLAC → WAV24 fallback).
+ * Studio export from a file/blob. Uses native Rust mastering in Tauri (WAV/WAV24/WAV32/FLAC/MP3/M4A);
+ * falls back to Web Worker / main-thread JS for browser (FLAC → WAV24, M4A → MP3).
  *
  * @param {Blob} blob
  * @param {string} presetId
@@ -74,13 +75,23 @@ export function buildExportFileName(baseFileName, format) {
  */
 export async function exportEnhancedFromBlob(blob, presetId, baseFileName, opts = {}) {
   const format = normalizeStudioExportFormat(opts.format);
+  const nativeOnly = format === "flac" || format === "m4a";
 
   if (isTauriApp()) {
     try {
       return await exportMasteredNativePath(blob, presetId, baseFileName, format, opts);
-    } catch {
-      // Fall through to JS worker path.
+    } catch (err) {
+      // FLAC/M4A have no honest JS encoder — never silently deliver WAV24/MP3 as success.
+      if (nativeOnly) {
+        const detail = err instanceof Error ? err.message : String(err || "native export failed");
+        throw new Error(
+          `${format.toUpperCase()} export needs Studio native encoder (${detail.slice(0, 120)})`,
+        );
+      }
+      // wav*/mp3: allow JS worker fallback if IPC fails.
     }
+  } else if (nativeOnly) {
+    // Browser: intentional fallback with formatFallback flag (WAV24 / MP3).
   }
 
   const arrayBuffer = await blob.arrayBuffer();
@@ -126,7 +137,13 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
     opts.onProgress?.({ phase: "encoding", pct: 90 });
     const outBytes = new Uint8Array(result.wav_bytes);
     const mime =
-      format === "mp3" ? "audio/mpeg" : format === "flac" ? "audio/flac" : "audio/wav";
+      format === "mp3"
+        ? "audio/mpeg"
+        : format === "m4a"
+          ? "audio/mp4"
+          : format === "flac"
+            ? "audio/flac"
+            : "audio/wav";
     const outBlob = new Blob([outBytes], { type: mime });
     const fileName = buildExportFileName(baseFileName, format);
     downloadFormatBlob(outBlob, fileName);
@@ -156,6 +173,12 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
   }
 
   if (!canUseStudioWorker()) {
+    return exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, opts);
+  }
+
+  // Playwright / some Chromium builds stall OfflineAudioContext inside Workers.
+  // Prefer main-thread export when automation is detected.
+  if (typeof navigator !== "undefined" && navigator.webdriver) {
     return exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, opts);
   }
 

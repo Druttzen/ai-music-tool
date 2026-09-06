@@ -50,6 +50,7 @@ import { waitForSidecarExtraReady, fetchSidecarHealthAfterExtraInstall } from ".
 import { musicGenInstallHint } from "../lib/sidecar-capabilities";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
 import { isTauriApp, measureLoudnessBytes, measureStereoPhaseBytes } from "../lib/dsp-bridge";
+import { decodeAnalyzerAudioBuffer } from "../lib/decode-analyzer-audio";
 import { measureStereoPhase } from "../lib/stereo-phase";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import { exportEnhancedFromBlob } from "../lib/studio-export-client";
@@ -219,8 +220,9 @@ export function useAnalyzers({
       try {
         setStatusWithTime("Attaching audio...");
         const arrayBuffer = await file.arrayBuffer();
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+        const decoded = await decodeAnalyzerAudioBuffer(arrayBuffer, file.name);
+        audioContext = decoded.audioContext;
+        const buffer = decoded.buffer;
 
         if (!audioFileMatchesAnalysis(file, audioAnalysis, buffer.duration)) {
           setStatusWithTime("File name/duration does not match this report — drop as new analysis instead");
@@ -229,9 +231,10 @@ export function useAnalyzers({
 
         const cacheKey = makeAudioCacheKey(file);
         const keys = await putAudioCacheEntries(file, cacheKey, buffer.duration);
-        const peaks = await decodeWaveformPeaksFromBlob(file);
+        const peaksBlob = decoded.previewBlob || file;
+        const peaks = await decodeWaveformPeaksFromBlob(peaksBlob);
 
-        setAudioPreviewFromBlob(file);
+        setAudioPreviewFromBlob(decoded.previewBlob || file);
         setAudioAnalysis((prev) => {
           const next = patchAudioAnalysis(prev, {
             audioCacheKey: keys.audioCacheKey,
@@ -243,10 +246,15 @@ export function useAnalyzers({
           syncCacheKeysRef(next);
           return next;
         });
-        setStatusWithTime("Audio attached — sample-accurate waveform and playback restored");
+        setStatusWithTime(
+          decoded.engine === "native"
+            ? "Audio attached via Symphonia (ALAC/CAF/codec unsupported in Web Audio)"
+            : "Audio attached — sample-accurate waveform and playback restored",
+        );
       } catch (err) {
         reportCaughtError("analyzers.attachAudioFile", err);
-        setStatusWithTime("Could not attach audio file");
+        const msg = err instanceof Error ? err.message : "";
+        setStatusWithTime(msg ? msg.slice(0, 100) : "Could not attach audio file");
       } finally {
         if (audioContext) {
           try {
@@ -277,8 +285,9 @@ export function useAnalyzers({
       try {
         setStatusWithTime("Analyzing audio...");
         const arrayBuffer = await file.arrayBuffer();
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+        const decoded = await decodeAnalyzerAudioBuffer(arrayBuffer, file.name);
+        audioContext = decoded.audioContext;
+        const buffer = decoded.buffer;
         const cacheKey = makeAudioCacheKey(file);
         const report = analyzeAudioBuffer(buffer, file.name);
         try {
@@ -314,7 +323,14 @@ export function useAnalyzers({
           sidecarStatusType = "warning";
         }
 
-        setAudioPreviewFromBlob(file);
+        if (decoded.engine === "native" && !sidecarStatusMsg) {
+          sidecarStatusMsg = "Decoded via Symphonia (browser codec missing) — track report ready";
+          sidecarStatusType = "success";
+        } else if (decoded.engine === "native" && sidecarStatusMsg) {
+          sidecarStatusMsg = `${sidecarStatusMsg} · Symphonia preview decode`;
+        }
+
+        setAudioPreviewFromBlob(decoded.previewBlob || file);
         setAudioAnalysis(finalReport);
         setStatusWithTime(
           sidecarStatusMsg ?? getAudioAnalyzerReadyMessage(finalReport),
@@ -363,9 +379,11 @@ export function useAnalyzers({
             return;
           }
         }
-        setStatusWithTime("Audio analysis failed");
+        setStatusWithTime(
+          decodeErr instanceof Error ? decodeErr.message.slice(0, 100) : "Audio analysis failed",
+        );
         applyAnalyzerPatch({
-          notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL} in a format your browser can decode, or start the librosa sidecar for FLAC.`,
+          notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL}. ALAC/CAF needs Studio Symphonia decode; FLAC may need the librosa sidecar in browser.`,
         });
       } finally {
         setAnalyzeAudioBusy(false);
@@ -734,11 +752,19 @@ export function useAnalyzers({
       setStatusWithTime("Studio export started…");
 
       try {
-        const resolved = await resolveAudioCacheBlob(audioAnalysis);
-        let blob = resolved?.blob;
-        if (!blob && audioPreviewUrlRef.current) {
-          const res = await fetch(audioPreviewUrlRef.current);
-          if (res.ok) blob = await res.blob();
+        // Prefer live preview blob (avoids IndexedDB stalls in e2e / private mode).
+        let blob = null;
+        if (audioPreviewUrlRef.current) {
+          try {
+            const res = await fetch(audioPreviewUrlRef.current);
+            if (res.ok) blob = await res.blob();
+          } catch {
+            /* fall through to cache */
+          }
+        }
+        if (!blob) {
+          const resolved = await resolveAudioCacheBlob(audioAnalysis);
+          blob = resolved?.blob ?? null;
         }
         if (!blob) {
           setStatusWithTime("Attach the audio file before studio export");
@@ -763,7 +789,11 @@ export function useAnalyzers({
         });
 
         const fmtLabel = (result?.format || format).toUpperCase();
-        const fallbackNote = result?.formatFallback ? " (MP3 unavailable — saved as WAV)" : "";
+        const fallbackNote = result?.formatFallback
+          ? result?.engine === "native"
+            ? " (native format fallback)"
+            : " (browser format fallback)"
+          : "";
         if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
           setStatusWithTime(
             `${fmtLabel} downloaded${fallbackNote} · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,

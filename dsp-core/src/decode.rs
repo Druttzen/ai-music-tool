@@ -11,7 +11,7 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 
-/// Decode arbitrary audio bytes (MP3/M4A/OGG/FLAC/WAV) into interleaved f32.
+/// Decode arbitrary audio bytes (MP3/M4A/AAC/ALAC/OGG/FLAC/WAV) into interleaved f32.
 pub fn decode_interleaved(bytes: Vec<u8>) -> Result<(Vec<f32>, u32, u32)> {
     let mss = MediaSourceStream::new(Box::new(Cursor::new(bytes)), Default::default());
     let probed = symphonia::default::get_probe()
@@ -188,5 +188,27 @@ mod tests {
         assert_eq!(ch, 2);
         assert_eq!(out.len(), 2);
         assert!(out[0].is_finite() && out[1].is_finite());
+    }
+
+    #[test]
+    fn alac_codec_is_registered() {
+        use symphonia::core::codecs::CODEC_TYPE_ALAC;
+        let codecs = symphonia::default::get_codecs();
+        assert!(
+            codecs.get_codec(CODEC_TYPE_ALAC).is_some(),
+            "Symphonia alac feature should register Apple Lossless"
+        );
+    }
+
+    #[test]
+    fn decodes_alac_caf_fixture() {
+        let bytes = include_bytes!("../tests/fixtures/sine-alac.caf").to_vec();
+        assert!(bytes.len() > 64, "fixture missing");
+        let (samples, channels, sample_rate) = decode_interleaved(bytes).expect("decode ALAC CAF");
+        assert_eq!(channels, 2);
+        assert_eq!(sample_rate, 48_000);
+        // 0.5 s stereo → ~48000 frames
+        assert!(samples.len() > 40_000, "got {} samples", samples.len());
+        assert!(samples.iter().any(|s| s.abs() > 0.01));
     }
 }

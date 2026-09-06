@@ -106,15 +106,28 @@ export async function getAudioCacheBlob(key) {
   if (!key) return null;
   try {
     const db = await openDb();
-    return new Promise((resolve, reject) => {
+    const blob = await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, "readonly");
       const req = tx.objectStore(STORE).get(key);
+      const timer = setTimeout(() => {
+        try {
+          db.close();
+        } catch {
+          /* ignore */
+        }
+        reject(new Error("IndexedDB audio cache read timed out"));
+      }, 8_000);
       req.onsuccess = () => {
+        clearTimeout(timer);
         db.close();
         resolve(req.result ?? null);
       };
-      req.onerror = () => reject(req.error);
+      req.onerror = () => {
+        clearTimeout(timer);
+        reject(req.error);
+      };
     });
+    return blob;
   } catch {
     return null;
   }

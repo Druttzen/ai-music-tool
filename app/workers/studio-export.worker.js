@@ -27,6 +27,7 @@ self.onmessage = async (ev) => {
     const source = deserializeAudioBuffer(ctx, payload);
     self.postMessage({ id, type: "progress", phase: "mastering", pct: 35 });
     const enhanced = await renderEnhancedAudioBuffer(source, ev.data.presetId);
+    self.postMessage({ id, type: "progress", phase: "metering", pct: 55 });
     let afterLufs;
     const targetLufs = targetLufsForPreset(ev.data.presetId);
     if (typeof targetLufs === "number" || ev.data.presetId === "measure") {
@@ -40,7 +41,14 @@ self.onmessage = async (ev) => {
     let formatFallback = false;
     try {
       if (format === "mp3") blob = await audioBufferToMp3Blob(enhanced);
-      else if (format === "flac") {
+      else if (format === "m4a") {
+        // No browser AAC/M4A encoder — fall back to MP3 for delivery.
+        blob = await audioBufferToMp3Blob(enhanced);
+        outFormat = "mp3";
+        formatFallback = true;
+        const base = String(fileName || "track.m4a").replace(/\.[^.]+$/, "");
+        fileName = `${base}.mp3`;
+      } else if (format === "flac") {
         // No browser FLAC encoder — lossless fallback is 24-bit WAV.
         blob = audioBufferToWav24Blob(enhanced);
         outFormat = "wav24";

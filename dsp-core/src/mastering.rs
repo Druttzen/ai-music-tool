@@ -337,6 +337,40 @@ fn encode_mp3(samples: &[f32], channels: u32, sample_rate: u32) -> Result<Vec<u8
     Ok(out)
 }
 
+fn encode_m4a(samples: &[f32], channels: u32, sample_rate: u32) -> Result<Vec<u8>> {
+    use rusty_aac::{AacEncoder, AacEncoderConfig, Error as AacError};
+
+    if channels == 0 || channels > 2 {
+        return Err(anyhow!("m4a export requires mono or stereo"));
+    }
+
+    const BITRATE: u32 = 256_000;
+    let mut enc = AacEncoder::new(AacEncoderConfig {
+        bitrate_bps: BITRATE,
+        ..Default::default()
+    });
+    enc.push_pcm(samples, channels as u16, sample_rate)
+        .map_err(|e| anyhow!("aac push: {e:?}"))?;
+    enc.finish();
+
+    let mut packets: Vec<Vec<u8>> = Vec::new();
+    loop {
+        match enc.next_packet() {
+            Ok(p) => packets.push(p.data),
+            Err(AacError::Eof) => break,
+            Err(AacError::Again) => {
+                return Err(anyhow!("aac encode incomplete before finish"));
+            }
+            Err(e) => return Err(anyhow!("aac packet: {e:?}")),
+        }
+    }
+    if packets.is_empty() {
+        return Err(anyhow!("aac produced no frames"));
+    }
+
+    crate::m4a::mux_aac_lc_m4a(&packets, sample_rate, channels, BITRATE)
+}
+
 fn encode_flac(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
     use flacenc::bitsink::ByteSink;
     use flacenc::component::BitRepr;
@@ -386,7 +420,7 @@ fn encode_flac(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> R
     Ok(sink.as_slice().to_vec())
 }
 
-fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
+pub(crate) fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
     use std::io::Cursor;
     if bits == 32 {
         let spec = hound::WavSpec {
@@ -442,7 +476,7 @@ fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Re
     Ok(cursor.into_inner())
 }
 
-/// Decode, master, and encode to WAV / FLAC / MP3.
+/// Decode, master, and encode to WAV / FLAC / MP3 / M4A.
 pub fn export_mastered_bytes(
     bytes: Vec<u8>,
     preset_id: &str,
@@ -455,9 +489,11 @@ pub fn export_mastered_bytes(
     }
     let is_mp3 = format == "mp3";
     let is_flac = format == "flac";
+    let is_m4a = format == "m4a" || format == "aac";
     let bits: u16 = match format {
         "wav24" | "flac" => 24,
         "wav32" => 32,
+        "m4a" | "aac" | "mp3" => 0,
         _ => 16,
     };
     let measure_only = preset_id == "measure";
@@ -507,6 +543,8 @@ pub fn export_mastered_bytes(
     }
     let wav_bytes = if is_mp3 {
         encode_mp3(&samples, channels, sample_rate)?
+    } else if is_m4a {
+        encode_m4a(&samples, channels, sample_rate)?
     } else if is_flac {
         encode_flac(&samples, channels, sample_rate, 24)?
     } else {
@@ -519,7 +557,7 @@ pub fn export_mastered_bytes(
         true_peak_dbtp: loudness.true_peak_dbtp,
         target_lufs,
         preset: preset_id.to_string(),
-        bits_per_sample: if is_mp3 { 0 } else { bits },
+        bits_per_sample: if is_mp3 || is_m4a { 0 } else { bits },
         sample_rate,
     })
 }
@@ -657,6 +695,45 @@ mod tests {
         assert_eq!(r.sample_rate, 48_000);
         let lufs = r.integrated_lufs.expect("streaming lufs");
         assert!((lufs - STREAMING_TARGET_LUFS).abs() <= 0.3);
+    }
+
+    #[test]
+    fn exports_m4a_has_ftyp() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "streaming", "m4a", None, None).unwrap();
+        assert!(r.wav_bytes.len() > 128);
+        assert_eq!(r.bits_per_sample, 0);
+        assert_eq!(r.sample_rate, 48_000);
+        // ISO BMFF: size + 'ftyp'
+        assert_eq!(&r.wav_bytes[4..8], b"ftyp");
+        let lufs = r.integrated_lufs.expect("streaming lufs");
+        assert!((lufs - STREAMING_TARGET_LUFS).abs() <= 0.3);
+
+        // Round-trip through Symphonia AAC-in-MP4 decode.
+        let (samples, channels, sample_rate) =
+            crate::decode::decode_interleaved(r.wav_bytes.clone()).expect("decode m4a");
+        assert_eq!(channels, 2);
+        assert_eq!(sample_rate, 48_000);
+        assert!(samples.len() > 1_000);
+    }
+
+    #[test]
+    fn smoke_writes_flac_and_m4a_artifacts() {
+        let flac = export_mastered_bytes(sine_wav_bytes(), "streaming", "flac", None, None).unwrap();
+        let m4a = export_mastered_bytes(sine_wav_bytes(), "streaming", "m4a", None, None).unwrap();
+        assert!(flac.wav_bytes.starts_with(b"fLaC"));
+        assert_eq!(&m4a.wav_bytes[4..8], b"ftyp");
+        let mut out = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        out.pop();
+        out.push("test-results");
+        std::fs::create_dir_all(&out).unwrap();
+        let flac_path = out.join("smoke-export.flac");
+        let m4a_path = out.join("smoke-export.m4a");
+        std::fs::write(&flac_path, &flac.wav_bytes).unwrap();
+        std::fs::write(&m4a_path, &m4a.wav_bytes).unwrap();
+        assert!(flac_path.is_file());
+        assert!(m4a_path.is_file());
+        eprintln!("wrote {} ({} bytes)", flac_path.display(), flac.wav_bytes.len());
+        eprintln!("wrote {} ({} bytes)", m4a_path.display(), m4a.wav_bytes.len());
     }
 
     #[test]

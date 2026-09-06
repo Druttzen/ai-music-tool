@@ -217,11 +217,25 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
     try {
       if (refUrl) URL.revokeObjectURL(refUrl);
       sourceNodesRef.current.reference = null;
-      const url = URL.createObjectURL(file);
+      const bytes = await file.arrayBuffer();
+      // Prefer a Web-Audio-playable preview (Symphonia→WAV in Studio for ALAC/CAF).
+      let playBlob = file;
+      try {
+        const { decodeAnalyzerAudioBuffer } = await import("../lib/decode-analyzer-audio");
+        const decoded = await decodeAnalyzerAudioBuffer(bytes, file.name);
+        try {
+          await decoded.audioContext.close();
+        } catch {
+          /* ignore */
+        }
+        if (decoded.previewBlob) playBlob = decoded.previewBlob;
+      } catch {
+        /* keep original file URL; measure may still work natively */
+      }
+      const url = URL.createObjectURL(playBlob);
       setRefUrl(url);
       setRefName(file.name);
-      // Studio: Symphonia via dsp-bridge (MP3/M4A/OGG/FLAC/WAV). Browser: Web Audio.
-      const measured = await measureIntegratedLufsFromBytes(await file.arrayBuffer());
+      const measured = await measureIntegratedLufsFromBytes(bytes.slice(0));
       setRefLufs(measured.integratedLUFS);
       setRefEngine(measured.engine);
       setAbMode("B");

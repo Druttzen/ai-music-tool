@@ -254,8 +254,13 @@ export function downloadAudioBlob(wavBlob, fileName) {
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  // Keep the blob URL alive long enough for the browser/WebView2 download to start.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 /**

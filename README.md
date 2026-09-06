@@ -462,7 +462,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 
 ## Highlights (v0.7.6)
 
-- **WAV 24-bit export** — honest third studio format alongside 16-bit WAV and MP3.
+- **WAV 24-bit export** — studio format alongside WAV16/32-float, FLAC, MP3, and AAC/M4A.
 - **Undo keeps compact waveforms** — peak arrays ≤4096 samples restore on revert.
 - **Desktop update controls** — automatic startup check plus signed Studio **Download and restart** and Electron **Restart to install** actions.
 - **Pinned Electron toolchain** — `electron@41.3.0` and `electron-builder@26.8.1` for reproducible builds.
@@ -470,7 +470,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 ## Highlights (v0.7.5)
 
 - **Undo snapshot fix** — capture uses the correct slim state (guided step, variations, history).
-- **Honest studio export** — WAV and MP3 only; legacy `flac` requests map to WAV.
+- **Honest studio export** — WAV16/24/32-float, FLAC, MP3, and AAC/M4A (Apple delivery) in Studio; browser falls back for FLAC→WAV24 and M4A→MP3.
 - **Release workflow** — push a `v*` tag to publish the Windows installer and `latest.yml` for auto-update.
 - **Vitest 4** — clears the npm audit advisory on the test runner.
 
@@ -486,7 +486,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 
 - **Analyzer honesty** — In-app banners clarify that track/image scans are local heuristics, not ML classification.
 - **Lyrics priority trim** — Suno Lyrics paste matches Style: theme/language/sections first, long bodies trim from the end (≤5000).
-- **Studio export** — Background worker with progress bar; WAV / MP3; highlight-loop export.
+- **Studio export** — Background worker with progress bar; WAV16/24/32-float, FLAC, MP3, AAC/M4A; highlight-loop export.
 - **Undo snapshot** — Revert to last snapshot before preset load, import, merge, or variations.
 - **Variation A/B** — Side-by-side compare with changed-line summary.
 - **CI** — GitHub Actions runs `npm test` + `npm run check` on push/PR.
@@ -496,11 +496,11 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 
 - **Guided Suno path** — Step-through workflow, Polish step, progressive style preview, **Style** capped at **1000 characters** with priority ordering on copy.
 - **Expanded English style vocabulary** — Large curated catalog including world/regional styles paired with instruments, sound-design FX, environment beds, orchestral and band instruments, moods, and fusion labels; English-only picker with dedupe.
-- **Track analyzer (local)** — Drop **WAV / MP3 / OGG / M4A** for a Sonoteller-style report: editable summary, genres, moods, instruments, BPM/key estimates, and a **highlight** section with full-track + zoomed **waveforms** (drag amber handles to set the range).
+- **Track analyzer (local)** — Drop **WAV / MP3 / OGG / M4A / FLAC / CAF (ALAC)** for a Sonoteller-style report: editable summary, genres, moods, instruments, BPM/key estimates, and a **highlight** section with full-track + zoomed **waveforms** (drag amber handles to set the range). ALAC/CAF uses Studio Symphonia when Web Audio cannot decode.
 - **Audio DNA → Suno** — **Merge into Suno fields** applies tempo, genres, sounds, rhythms, mood sliders, a compact **`AUDIO:`** rule line, and copies the track summary into **Goal** and **Notes** when present.
 - **Image analyzer** — Drop **JPG / PNG** for palette-driven genre/sound suggestions; merges into **`IMAGE:`** rule lines and guided fields.
 - **LUFS meter (EBU R128)** — After attach/analyze, shows **gated integrated LUFS** and **true peak (dBTP)** using a **BS.1770-4**-style engine (libebur128-aligned K-weighting and oversampling). Studio (native) also shows **max short-term** and **momentary** LUFS.
-- **Studio WAV export** — Three local mastering presets: **Streaming** (−14 LUFS integrated + −1 dBTP limit), **Wide spatial** (stereo width), **Punch** (low-end and dynamics). Exports 16-bit / 24-bit stereo WAV or MP3; Studio delivery resamples to **48 kHz**.
+- **Studio export** — Loudness presets (Streaming −14, Podcast −16, Broadcast −23, Measure) plus Wide/Punch. Formats: WAV16/24/32-float, FLAC, MP3, AAC/M4A. Studio delivery resamples to **48 kHz**.
 - **Waveform persistence** — Autosave/history omit heavy peak arrays; **IndexedDB** caches audio for rehydrate. **Export JSON** keeps full `waveformPeaks`; **import** preserves them. **Attach audio** reconnects playback when the cache is missing.
 - **Version-aware reset** — A **major** `package.json` version bump clears the autosaved project and analyzer state; **presets and history are kept**. Patch/minor bumps migrate the saved project in place.
 - **Refactored UI** — Analyzer logic in `use-analyzers`, splash/header in `app-shell`, splash timing via `useSyncExternalStore` (no hydration mismatch in dev).

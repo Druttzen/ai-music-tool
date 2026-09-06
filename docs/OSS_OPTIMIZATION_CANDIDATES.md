@@ -11,6 +11,8 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 | librosa | ISC | Python sidecar audio analysis | Use existing dependency for richer tempo, chroma/key, onset, HPSS, and spectral descriptors. |
 | Zod | MIT | Maestro/LLM structured output | **Adopted** — `repairMaestroLlmJson` + Zod schemas in `maestro-chat-llm.js` strip unknown keys / coerce shapes, then `sanitizeMaestroPatch`. |
 | wavesurfer.js | BSD-3-Clause | Browser waveform UX | **Default ON** in Highlight editor; set `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or use classic toggle (`aimc-classic-waveform`) to opt out. |
+| flacenc | Apache-2.0 | Pure-Rust FLAC encode | **Adopted** in `dsp-core` Studio export. |
+| rusty_aac | MIT/Apache-2.0 | Pure-Rust AAC-LC encode | **Adopted** in `dsp-core` with custom ISOBMFF M4A mux. |
 | rubato | MIT | Rust DSP sample-rate conversion | **Adopted** in `dsp-core` — Studio export resamples to 48 kHz. |
 | oximedia-normalize | Apache-2.0 | Rust loudness normalization | Deferred — keep `ebur128` + true-peak limiter; revisit only if goldens regress. |
 | awesome-suno-prompts | CC0 | Style prompt inspiration | Imported via `npm run import:awesome-suno` into Style Prompt Library (`awesomeSunoConcepts`). |
@@ -61,8 +63,9 @@ classic editor path.
 
 ### DSP / Export
 
-`dsp-core` uses `ebur128`, `symphonia`, `hound`, `mp3lame-encoder`, and `rubato`
-(48 kHz export resample), with locked Rust CI for both `dsp-core` and Tauri smoke
+`dsp-core` uses `ebur128`, `symphonia` (mp3/aac/alac/isomp4/caf/ogg/vorbis/flac/wav),
+`hound`, `mp3lame-encoder`, `rubato` (48 kHz export resample), `flacenc` (FLAC export),
+and `rusty_aac` (AAC-LC → M4A mux), with locked Rust CI for both `dsp-core` and Tauri smoke
 builds. Streaming preset targets −14 LUFS integrated with a true-peak limiter at
 −1 dBTP. `oximedia-normalize` remains deferred while goldens stay green.
 
