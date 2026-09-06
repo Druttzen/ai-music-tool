@@ -427,8 +427,8 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             Mastering runs in a background worker with progress. Loudness presets: Streaming{" "}
             {STREAMING_TARGET_LUFS}, Podcast {PODCAST_TARGET_LUFS}, Broadcast {BROADCAST_TARGET_LUFS}{" "}
             LUFS (gated integrated, -1 dBTP). Measure only exports without normalize. Studio
-            exports resample to 48 kHz. FLAC uses native flacenc in Studio (browser falls back to
-            WAV 24-bit).
+            exports resample to 48 kHz. FLAC / M4A use native encoders in Studio (browser: FLAC →
+            WAV 24-bit, M4A → MP3). Decode includes Apple Lossless (ALAC) via Symphonia.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-white/50">
             <span>Format</span>
@@ -437,6 +437,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               ["wav24", "WAV 24-bit"],
               ["wav32", "WAV 32-float"],
               ["flac", "FLAC"],
+              ["m4a", "M4A (AAC)"],
               ["mp3", "MP3"],
             ].map(([id, label]) => (
               <button

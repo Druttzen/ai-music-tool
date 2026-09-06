@@ -5,6 +5,7 @@
 
 mod decode;
 mod loudness;
+mod m4a;
 mod mastering;
 mod phase;
 mod resample;
@@ -74,6 +75,14 @@ pub fn measure_stereo_phase_bytes(bytes: Vec<u8>) -> Result<StereoPhase> {
     measure_stereo_phase(&samples, channels)
 }
 
+/// Decode any Symphonia-supported format (including ALAC/CAF) to a 16-bit stereo WAV
+/// for Studio preview / Web Audio when the browser codec is missing.
+pub fn decode_preview_wav_bytes(bytes: Vec<u8>) -> Result<Vec<u8>> {
+    let (samples, channels, sample_rate) = decode::decode_interleaved(bytes)?;
+    let (samples, channels) = decode::to_stereo_interleaved(samples, channels);
+    mastering::encode_wav(&samples, channels, sample_rate, 16)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,6 +129,32 @@ mod tests {
         assert_eq!(r.sample_rate, 48_000);
         assert!(r.true_peak_dbtp <= 0.5);
         let _ = std::fs::remove_file(&path);
+        Ok(())
+    }
+
+    #[test]
+    fn decode_preview_wav_bytes_roundtrips() -> Result<()> {
+        let path = std::env::temp_dir().join("dsp_core_preview_src.wav");
+        write_sine(&path);
+        let bytes = std::fs::read(&path)?;
+        let wav = decode_preview_wav_bytes(bytes)?;
+        assert!(wav.starts_with(b"RIFF"));
+        let r = measure_loudness_bytes(wav)?;
+        assert_eq!(r.channels, 2);
+        assert_eq!(r.sample_rate, 48_000);
+        let _ = std::fs::remove_file(&path);
+        Ok(())
+    }
+
+    #[test]
+    fn decode_preview_wav_from_alac_caf() -> Result<()> {
+        let bytes = include_bytes!("../tests/fixtures/sine-alac.caf").to_vec();
+        let wav = decode_preview_wav_bytes(bytes)?;
+        assert!(wav.starts_with(b"RIFF"));
+        let r = measure_loudness_bytes(wav)?;
+        assert_eq!(r.channels, 2);
+        assert_eq!(r.sample_rate, 48_000);
+        assert!(r.duration_sec > 0.4);
         Ok(())
     }
 }

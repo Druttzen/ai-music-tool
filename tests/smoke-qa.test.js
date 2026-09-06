@@ -37,6 +37,7 @@ describe("smoke QA flows", () => {
     expect(buildExportFileName(base, normalizeStudioExportFormat("wav24"))).toBe(`${base}-24bit.wav`);
     expect(buildExportFileName(base, normalizeStudioExportFormat("wav32"))).toBe(`${base}-32float.wav`);
     expect(buildExportFileName(base, normalizeStudioExportFormat("flac"))).toBe(`${base}.flac`);
+    expect(buildExportFileName(base, normalizeStudioExportFormat("m4a"))).toBe(`${base}.m4a`);
     expect(buildExportFileName(base, normalizeStudioExportFormat("mp3"))).toBe(`${base}.mp3`);
   });
 });

@@ -17,6 +17,11 @@ from ai_sidecar.acestep_bridge import (
 def test_normalize_song_format():
     assert normalize_song_format("WAV") == "wav"
     assert normalize_song_format("mp3") == "mp3"
+    assert normalize_song_format("flac") == "flac"
+    assert normalize_song_format("m4a") == "aac"
+    assert normalize_song_format("aac") == "aac"
+    assert normalize_song_format("opus") == "opus"
+    assert normalize_song_format("wav32") == "wav32"
     assert normalize_song_format("nope") == "wav"
     assert normalize_song_format(None) == "wav"
 

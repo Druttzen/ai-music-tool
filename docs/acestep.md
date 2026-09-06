@@ -42,7 +42,7 @@ link to this doc when the API is unreachable.
 | `duration_sec` | 10–600 (clamped) |
 | `bpm`, `key_scale`, `vocal_language` | Optional metadata |
 | `thinking` | Default `true` (ACE-Step LM planning) |
-| `audio_format` | `wav` (default), `mp3`, `flac` |
+| `audio_format` | `wav` (default), `mp3`, `flac`, `aac`/`m4a`, `opus`, `wav32` |
 
 Returns the audio file with `X-AceStep-Model` / `X-AceStep-Duration-Sec` headers.
 

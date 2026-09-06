@@ -9,7 +9,7 @@ import {
   downloadAudioBlob,
 } from "./audio-enhancer";
 
-/** @typedef {"wav"|"wav24"|"wav32"|"flac"|"mp3"} StudioExportFormat */
+/** @typedef {"wav"|"wav24"|"wav32"|"flac"|"mp3"|"m4a"} StudioExportFormat */
 
 /**
  * Normalize legacy/alias format ids to supported studio export formats.
@@ -18,7 +18,13 @@ import {
  */
 export function normalizeStudioExportFormat(format) {
   const f = String(format || "wav").toLowerCase();
+  if (f === "alac" || f === "caf") {
+    throw new Error(
+      "ALAC/CAF is decode-only — choose FLAC (lossless) or M4A (AAC) for studio export",
+    );
+  }
   if (f === "mp3") return "mp3";
+  if (f === "m4a" || f === "aac" || f === "mp4-audio" || f === "apple") return "m4a";
   if (f === "wav24" || f === "24bit" || f === "wav-24") return "wav24";
   if (f === "wav32" || f === "32bit" || f === "float" || f === "wav-float") return "wav32";
   if (f === "flac" || f === "wav-lossless" || f === "lossless") return "flac";
@@ -80,6 +86,12 @@ export async function downloadAudioBufferAsFormat(buffer, format, baseFileName) 
     // Studio/Tauri uses native flacenc via dsp-bridge instead.
     downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
     return { format: "wav24", formatFallback: true };
+  }
+  if (normalized === "m4a") {
+    // Browser path has no AAC/M4A encoder; fall back to MP3 for delivery.
+    // Studio/Tauri uses rusty_aac + custom ISOBMFF muxer via dsp-bridge instead.
+    downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
+    return { format: "mp3", formatFallback: true };
   }
   if (normalized === "wav32") {
     downloadFormatBlob(audioBufferToWav32Blob(buffer), `${base}-32float.wav`);

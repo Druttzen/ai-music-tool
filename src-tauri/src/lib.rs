@@ -35,6 +35,11 @@ fn measure_stereo_phase_bytes(bytes: Vec<u8>) -> Result<StereoPhase, String> {
 }
 
 #[tauri::command]
+fn decode_preview_wav_bytes(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+    dsp_core::decode_preview_wav_bytes(bytes).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn export_mastered(
     bytes: Vec<u8>,
     preset_id: String,
@@ -98,6 +103,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             measure_loudness_bytes,
             measure_stereo_phase_bytes,
+            decode_preview_wav_bytes,
             export_mastered,
             sidecar_status,
             sidecar_auth_token,

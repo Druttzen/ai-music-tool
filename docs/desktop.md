@@ -5,7 +5,7 @@
 Tauri is the supported desktop path. It bundles:
 
 - Static Next.js export (`out/`)
-- Native **dsp-core** (Symphonia decode for MP3/M4A/OGG/FLAC/WAV via `dsp-bridge`; EBU R128 LUFS including short-term/momentary maxima, true-peak limiting, 48 kHz studio export; loudness presets −14/−16/−23 + measure-only; stereo phase / correlation; export WAV16/24/32-float, FLAC, MP3)
+- Native **dsp-core** (Symphonia decode for MP3/M4A/AAC/ALAC/CAF/OGG/FLAC/WAV via `dsp-bridge`; EBU R128 LUFS including short-term/momentary maxima, true-peak limiting, 48 kHz studio export; loudness presets −14/−16/−23 + measure-only; stereo phase / correlation; export WAV16/24/32-float, FLAC, MP3, AAC/M4A). ALAC/CAF attach uses native preview WAV when Web Audio cannot decode.
 - Preview monitor in Analyzers: A/B reference at matched LUFS (Symphonia measure in Studio), live spectrum, preview-only headphone EQ (not Atmos/DTS)
 - Managed Python **AI sidecar** spawn on demand
 - Native **canvas handoff** to AI Canvas Tool for Spotify loops via `canvas-handoff-bridge.ts` — see [canvas-handoff.md](canvas-handoff.md)

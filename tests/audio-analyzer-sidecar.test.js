@@ -175,6 +175,12 @@ describe("analyzer-file-types", () => {
     expect(isSupportedAudioFile({ name: "master.flac", type: "audio/flac" })).toBe(true);
     expect(SUPPORTED_AUDIO_LABEL).toContain("FLAC");
   });
+
+  it("accepts CAF/ALAC for Studio Symphonia decode", () => {
+    expect(isSupportedAudioFile({ name: "voice.caf", type: "audio/x-caf" })).toBe(true);
+    expect(isSupportedAudioFile({ name: "voice.alac", type: "" })).toBe(true);
+    expect(SUPPORTED_AUDIO_LABEL).toMatch(/ALAC|CAF/);
+  });
 });
 
 describe("buildSidecarFallbackReport", () => {

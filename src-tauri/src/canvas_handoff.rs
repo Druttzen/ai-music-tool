@@ -309,7 +309,8 @@ fn sanitize_audio_ext(ext: &str) -> String {
         .as_str()
     {
         "wav" => "wav".to_string(),
-        "m4a" | "aac" => "m4a".to_string(),
+        "m4a" | "aac" | "alac" => "m4a".to_string(),
+        "caf" => "caf".to_string(),
         "flac" => "flac".to_string(),
         "ogg" => "ogg".to_string(),
         _ => "mp3".to_string(),

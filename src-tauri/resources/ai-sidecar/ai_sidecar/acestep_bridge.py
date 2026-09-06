@@ -29,8 +29,13 @@ _MAX_DURATION_SEC = 600.0
 
 SONG_MEDIA_TYPES = {
     "wav": "audio/wav",
+    "wav32": "audio/wav",
     "mp3": "audio/mpeg",
     "flac": "audio/flac",
+    # ACE-Step API accepts `aac`; treat m4a as the same delivery intent.
+    "aac": "audio/mp4",
+    "m4a": "audio/mp4",
+    "opus": "audio/opus",
 }
 
 
@@ -81,6 +86,8 @@ def acestep_timeout_sec() -> float:
 
 def normalize_song_format(audio_format: str | None) -> str:
     fmt = str(audio_format or "").strip().lower()
+    if fmt == "m4a":
+        return "aac"
     return fmt if fmt in SONG_MEDIA_TYPES else "wav"
 
 

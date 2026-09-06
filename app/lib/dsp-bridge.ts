@@ -36,7 +36,7 @@ export function isTauriApp(): boolean {
 }
 
 /**
- * Measure EBU R128 loudness from encoded audio bytes (MP3/M4A/OGG/FLAC/WAV)
+ * Measure EBU R128 loudness from encoded audio bytes (MP3/M4A/AAC/ALAC/OGG/FLAC/WAV)
  * via dsp-core Symphonia decode — no browser-side decode required.
  */
 export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness> {
@@ -80,12 +80,12 @@ export interface ExportMasteredResult {
 }
 
 /**
- * Decode, master, and encode to WAV via the native Rust DSP core.
+ * Decode, master, and encode via the native Rust DSP core (WAV/FLAC/MP3/M4A).
  */
 export async function exportMasteredNative(
   bytes: ArrayBuffer,
   presetId: string,
-  format: "wav" | "wav24" | "wav32" | "flac" | "mp3",
+  format: "wav" | "wav24" | "wav32" | "flac" | "mp3" | "m4a",
   startSec?: number,
   endSec?: number,
 ): Promise<ExportMasteredResult> {
@@ -100,4 +100,19 @@ export async function exportMasteredNative(
     startSec: startSec ?? null,
     endSec: endSec ?? null,
   });
+}
+
+/**
+ * Symphonia decode → 16-bit stereo WAV for preview when Web Audio cannot decode
+ * (Apple Lossless / CAF, some FLAC/M4A variants).
+ */
+export async function decodePreviewWavNative(bytes: ArrayBuffer): Promise<Uint8Array> {
+  const t = tauri();
+  if (!t) {
+    throw new Error("Native decode is only available in the Tauri desktop build");
+  }
+  const out = await t.core.invoke<number[]>("decode_preview_wav_bytes", {
+    bytes: new Uint8Array(bytes),
+  });
+  return new Uint8Array(out);
 }

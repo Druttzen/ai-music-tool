@@ -15,6 +15,7 @@ const specs = [
   "tests/e2e/suno-pro-tools.spec.js",
   "tests/e2e/project-persistence.spec.js",
   "tests/e2e/reset-blank-state.spec.js",
+  "tests/e2e/preview-monitor-flac-smoke.spec.js",
 ];
 
 const r = spawnSync("npx", ["playwright", "test", ...specs, "--workers=1"], {
