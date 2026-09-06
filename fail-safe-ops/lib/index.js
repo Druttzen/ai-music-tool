@@ -22,4 +22,5 @@ export const FAIL_SAFE_OPS_PRODUCT = {
   name: "Fail-Safe Ops",
   phase: "2-3",
   docsPath: "docs/fail-safe-split.md",
+  localUi: "npm run fail-safe-ops -- ui",
 };

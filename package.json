@@ -71,6 +71,7 @@
     "fail-safe:pr-autofix": "node scripts/fail-safe-pr-autofix.cjs",
     "fail-safe-ops": "node fail-safe-ops/bin/fail-safe-ops.cjs",
     "fail-safe-ops:diagnose": "node fail-safe-ops/bin/fail-safe-ops.cjs diagnose",
+    "fail-safe-ops:ui": "node fail-safe-ops/bin/fail-safe-ops-ui.cjs",
     "fail-safe:runtime-deliver": "node scripts/fail-safe-runtime-deliver.cjs",
     "bots:install": "node scripts/install-cursor-bot-settings.cjs",
     "sidecar:maintainer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1 -Maintainer",

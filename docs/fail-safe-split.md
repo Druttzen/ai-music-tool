@@ -3,7 +3,9 @@
 Architecture plan to divide today’s monolithic fail-safe bot into two products.
 See also: [fail-safe-bot.md](fail-safe-bot.md) (current in-repo behavior).
 
-**Status:** Phases 2–3 shipped (Ops CLI + Runtime GitHub delivery + maintainer PAT/draft PR + Runtime Cursor rule). Deferred: Ops desktop shell / extract to separate repo.
+**Status:** Phases 2–3 shipped (Ops CLI + local UI shell + Runtime GitHub delivery +
+maintainer PAT/draft PR + Runtime Cursor rule). Deferred: full Ops Electron/Tauri
+app / extract to separate repo.
 
 ---
 
@@ -156,7 +158,8 @@ Ops (A) remains the only path that auto-fixes and pushes under maintainer/CI cre
 - [x] Ops CLI: `fail-safe-ops/bin/fail-safe-ops.cjs` + root `npm run fail-safe-ops`
 - [x] Runtime listeners + panel enable/consent + GitHub new-issue flush
 - [x] Maintainer `deliver-runtime` (`gh issue create`, optional `--branch`)
-- [ ] Electron/Tauri Ops desktop shell (deferred)
+- [x] Local Ops UI shell: `npm run fail-safe-ops -- ui` (paste CI log → diagnose)
+- [ ] Electron/Tauri Ops desktop shell (deferred; local UI is the interim)
 - [ ] Move workflows out of ai-music-tool into Ops repo (deferred)
 - [x] In-app Ops CLI deep-link (interim): panel **Copy Ops auto** copies
   `npm run fail-safe-ops -- auto` (full Ops desktop shell still deferred)
@@ -171,7 +174,7 @@ Ops (A) remains the only path that auto-fixes and pushes under maintainer/CI cre
 
 ## Non-goals (near term)
 
-- Full separate Electron/Tauri Ops UI
+- Full separate Electron/Tauri Ops UI (local `fail-safe-ops ui` covers paste-diagnose)
 - Moving workflows out of ai-music-tool yet
 - Auto-reporting from production user builds without consent
 - Duplicating `FAILURE_PLAYBOOKS` into two copies

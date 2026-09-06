@@ -1,10 +1,13 @@
 {
-  "name": "fail-safe-ops",
-  "version": "0.1.0",
+  "name": "@aimc/fail-safe-ops",
+  "version": "0.2.0",
   "private": true,
-  "description": "Fail-Safe Ops — GitHub CI diagnose, auto-fix playbooks, review fallback (CLI-first)",
+  "description": "Fail-Safe Ops — GitHub CI diagnose, auto-fix playbooks, review fallback (CLI + local UI shell)",
   "bin": {
     "fail-safe-ops": "./bin/fail-safe-ops.cjs"
+  },
+  "scripts": {
+    "ui": "node ./bin/fail-safe-ops-ui.cjs"
   },
   "type": "commonjs",
   "engines": {

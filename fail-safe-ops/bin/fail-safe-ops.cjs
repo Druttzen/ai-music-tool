@@ -88,11 +88,13 @@ Commands:
   fix-push            Maintainer fix, commit, push (wraps fail-safe:fix-push)
   deliver-runtime <json>  Create GitHub issue from a Runtime report payload file
                           Add --branch for local commit; --pr for push + draft PR
+  ui [--port N]       Local Ops shell (paste CI log → diagnose in browser)
 
 Examples:
   gh run view <id> --log-failed | npm run fail-safe-ops -- diagnose -
   npm run fail-safe-ops -- run -- --dry
   npm run fail-safe-ops -- deliver-runtime .fail-safe-runtime-report.json -- --pr
+  npm run fail-safe-ops -- ui
 `);
 }
 
@@ -119,6 +121,18 @@ async function main() {
     case "deliver-runtime":
       runNode("scripts/fail-safe-runtime-deliver.cjs", rest);
       break;
+    case "ui":
+    case "serve": {
+      const uiScript = path.join(opsRoot, "bin", "fail-safe-ops-ui.cjs");
+      const r = spawnSync(process.execPath, [uiScript, ...rest], {
+        cwd: repoRoot,
+        stdio: "inherit",
+        shell: false,
+        env: process.env,
+      });
+      process.exit(r.status ?? 1);
+      break;
+    }
     default:
       console.error(`Unknown command: ${cmd}`);
       printHelp();

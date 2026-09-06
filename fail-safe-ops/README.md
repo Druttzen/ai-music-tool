@@ -1,8 +1,10 @@
 # Fail-Safe Ops
 
-**CLI-first** GitHub CI diagnose / auto-fix / review-fallback service (Product A).
+**CLI-first** GitHub CI diagnose / auto-fix / review-fallback service (Product A),
+plus a **local UI shell** (`ui`) for paste-and-diagnose.
 
-Lives in the ai-music-tool monorepo for now. Not a separate Electron/Tauri shell yet.
+Lives in the ai-music-tool monorepo for now. Full Electron/Tauri Ops app and
+workflow extraction remain deferred.
 
 ## Commands
 
@@ -26,6 +28,10 @@ npm run fail-safe-ops -- fix-push
 npm run fail-safe-ops -- deliver-runtime report.json
 npm run fail-safe-ops -- deliver-runtime report.json -- --branch
 npm run fail-safe-ops -- deliver-runtime report.json -- --pr
+
+# Local Ops shell (http://127.0.0.1:8787)
+npm run fail-safe-ops -- ui
+npm run fail-safe-ops -- ui -- --port 8790
 ```
 
 Wrappers call existing `scripts/fail-safe-*.cjs` so CI workflows stay unchanged.

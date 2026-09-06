@@ -2,7 +2,7 @@
 
 Automatic build/CI failure detection, safe fallbacks, and optional auto-fix for AI Music Creator.
 
-> **Product split:** **Fail-Safe Ops** (GitHub auto-fix / review CLI) and **Fail-Safe Runtime** (in-app detector) are shipped in-repo. Panel **Copy Ops auto** copies `npm run fail-safe-ops -- auto` (interim deep-link). Deferred: Ops desktop shell / separate repo. Architecture: [fail-safe-split.md](fail-safe-split.md).
+> **Product split:** **Fail-Safe Ops** (GitHub auto-fix / review CLI + local `fail-safe-ops ui`) and **Fail-Safe Runtime** (in-app detector) are shipped in-repo. Panel **Copy Ops auto** copies `npm run fail-safe-ops -- auto` (interim deep-link). Deferred: full Ops Electron/Tauri app / separate repo. Architecture: [fail-safe-split.md](fail-safe-split.md).
 
 ## GitHub Actions (always on for this repo)
 
