@@ -51,8 +51,11 @@ function Ensure-SidecarVenv {
   if (-not (Test-Path $venv)) {
     Write-Host "Creating sidecar venv (py -$py)..."
     & py "-$py" -m venv $venv
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & "$venv\Scripts\python" -m pip install --upgrade pip
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & "$venv\Scripts\pip" install -e $sidecar
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   }
 
   return @{
@@ -107,8 +110,9 @@ function Ensure-SidecarCudaTorch {
     "https://download.pytorch.org/whl/cu126"
   }
   Write-Host "Installing CUDA torch/torchaudio from $index ..."
+  # Prefer CUDA wheels via extra-index so other deps still resolve from PyPI.
   $code = Invoke-SidecarPip -Pip $Pip -ArgumentList @(
-    "install", "--upgrade", "torch", "torchaudio", "--index-url", $index
+    "install", "--upgrade", "torch", "torchaudio", "--extra-index-url", $index
   )
   if ($code -ne 0) { exit $code }
   if (Test-SidecarTorchCuda -Python $Python) {

@@ -1,6 +1,12 @@
 """Unit tests for Mel-Band routing helpers (no model download required)."""
 
-from ai_sidecar.stems_melband import is_melband_model_name, resolve_melband_model_id
+import sys
+
+from ai_sidecar.stems_melband import (
+    _select_torch_device,
+    is_melband_model_name,
+    resolve_melband_model_id,
+)
 from ai_sidecar.stems_separate import preferred_stems_backend
 
 
@@ -24,3 +30,31 @@ def test_preferred_stems_backend(monkeypatch):
     assert preferred_stems_backend() == "demucs"
     monkeypatch.setenv("AIMC_STEMS_BACKEND", "melband")
     assert preferred_stems_backend() == "melband"
+
+
+def test_select_torch_device_prefers_cuda(monkeypatch):
+    class _FakeTorch:
+        class cuda:
+            @staticmethod
+            def is_available():
+                return True
+
+        class backends:
+            mps = None
+
+    monkeypatch.setitem(sys.modules, "torch", _FakeTorch)
+    assert _select_torch_device("cpu") == "cuda"
+
+
+def test_select_torch_device_falls_back_to_cpu(monkeypatch):
+    class _FakeTorch:
+        class cuda:
+            @staticmethod
+            def is_available():
+                return False
+
+        class backends:
+            mps = None
+
+    monkeypatch.setitem(sys.modules, "torch", _FakeTorch)
+    assert _select_torch_device("cuda") == "cpu"

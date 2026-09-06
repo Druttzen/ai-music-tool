@@ -28,9 +28,9 @@ ensure_sidecar_venv() {
 
   if [[ ! -d "$venv" ]]; then
     echo "Creating sidecar venv ($py)..."
-    "$py" -m venv "$venv"
-    "$venv/bin/pip" install --upgrade pip
-    "$venv/bin/pip" install -e "$sidecar"
+    "$py" -m venv "$venv" || exit 1
+    "$venv/bin/pip" install --upgrade pip || exit 1
+    "$venv/bin/pip" install -e "$sidecar" || exit 1
   fi
 
   SIDECAR_DIR="$sidecar"
@@ -64,7 +64,8 @@ ensure_sidecar_cuda_torch() {
   fi
   local index="${AIMC_TORCH_CUDA_INDEX:-https://download.pytorch.org/whl/cu126}"
   echo "Installing CUDA torch/torchaudio from ${index} ..."
-  "$SIDECAR_PIP" install --upgrade torch torchaudio --index-url "$index"
+  # Prefer CUDA wheels via extra-index so other deps still resolve from PyPI.
+  "$SIDECAR_PIP" install --upgrade torch torchaudio --extra-index-url "$index"
   if sidecar_torch_cuda_ok; then
     echo "CUDA torch OK (torch.cuda.is_available()=True)"
   else

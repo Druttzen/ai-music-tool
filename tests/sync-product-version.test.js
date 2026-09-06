@@ -36,6 +36,12 @@ describe("sync-product-version", () => {
     const pyproject = fs.readFileSync(path.join(root, "ai-sidecar", "pyproject.toml"), "utf8");
     expect(pyproject).toMatch(new RegExp(`^version = "${version.replace(/\./g, "\\.")}"`, "m"));
 
+    const bundledPy = fs.readFileSync(
+      path.join(root, "src-tauri", "resources", "ai-sidecar", "pyproject.toml"),
+      "utf8",
+    );
+    expect(bundledPy).toMatch(new RegExp(`^version = "${version.replace(/\./g, "\\.")}"`, "m"));
+
     const lock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
     expect(lock.version).toBe(version);
     expect(lock.packages[""].version).toBe(version);

@@ -95,7 +95,10 @@ def _load_melband(model_id: str, device: str):
     with open(config_path, encoding="utf-8") as handle:
         config = ConfigDict(yaml.load(handle, Loader=SafeLoaderWithTuple))
     model = get_model_from_config("mel_band_roformer", config)
-    state = torch.load(ckpt_path, map_location="cpu")
+    try:
+        state = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    except TypeError:
+        state = torch.load(ckpt_path, map_location="cpu")
     model.load_state_dict(state)
     model.to(device)
     model.eval()

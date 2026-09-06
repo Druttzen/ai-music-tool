@@ -15,6 +15,8 @@ const opsRoot = path.join(__dirname, "..");
 const repoRoot = path.join(opsRoot, "..");
 const uiDir = path.join(opsRoot, "ui");
 const isWin = process.platform === "win32";
+/** Max pasted CI log size for /api/diagnose (bytes). */
+const MAX_DIAGNOSE_BYTES = Number(process.env.FAIL_SAFE_OPS_UI_MAX_BYTES || 2_000_000);
 
 function parsePort(argv) {
   const i = argv.indexOf("--port");
@@ -101,7 +103,17 @@ async function main() {
       }
       if (req.method === "POST" && url.pathname === "/api/diagnose") {
         const chunks = [];
-        for await (const chunk of req) chunks.push(chunk);
+        let total = 0;
+        for await (const chunk of req) {
+          total += chunk.length;
+          if (total > MAX_DIAGNOSE_BYTES) {
+            sendJson(res, 413, {
+              error: `Log too large (max ${MAX_DIAGNOSE_BYTES} bytes)`,
+            });
+            return;
+          }
+          chunks.push(chunk);
+        }
         const body = Buffer.concat(chunks).toString("utf8");
         let log = body;
         try {

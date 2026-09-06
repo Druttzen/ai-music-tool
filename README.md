@@ -83,7 +83,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 
 - **Project actions split** — `use-project-actions` composes domain hooks (presets, export, history, lyrics, Suno, co-producer, voice, reset) under `app/hooks/project-actions/`.
 - **Analyzer testability** — `analyzers-sidecar-probe` pure logic + `use-analyzers` hook tests with mocked sidecar; 332 unit tests.
-- **Tauri-first desktop** — `docs/desktop.md`; Electron remains a deprecated maintenance build.
+- **Tauri-first desktop** — `docs/desktop.md`; Electron packaging is **retired** (Studio-only).
 - **TypeScript hooks** — `use-project-state.ts` and `use-pipeline-input.ts` typed against `ProjectState` schema.
 - **Panel inventory** — `npm run docs:panels` generates `docs/panel-inventory.md` (GUIDED_PANEL_IDS → components × guided steps).
 

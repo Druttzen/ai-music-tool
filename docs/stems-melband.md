@@ -14,8 +14,9 @@ npm run sidecar:cuda           # CUDA torch/torchaudio when NVIDIA GPU is presen
 
 `sidecar:stems` / `sidecar:stems-melband` (and other torch extras) auto-upgrade
 CPU PyPI torch to a **CUDA** wheel when `nvidia-smi` works. Skip with
-`AIMC_FORCE_CPU=1`. Override index with `AIMC_TORCH_CUDA_INDEX` (default
-`https://download.pytorch.org/whl/cu126`). Or run `npm run sidecar:cuda` alone.
+`AIMC_FORCE_CPU=1`. Override CUDA wheel index with `AIMC_TORCH_CUDA_INDEX` (default
+`https://download.pytorch.org/whl/cu126`, passed as `--extra-index-url`). Or run
+`npm run sidecar:cuda` alone.
 
 First `POST /separate` with `model_name=melband` downloads the Kim checkpoint
 (~870 MB) into `~/.cache/melband-roformer-infer/` (override with

@@ -126,4 +126,7 @@ replaceJsStringLiteral(
   (v) => `AI-Music-Creator/${v}`,
 );
 
+// Keep committed Tauri bundle seed in sync (beforeBuildCommand also refreshes this).
+require(path.join(__dirname, "build-sidecar-resources.cjs"));
+
 console.log(`Synced product version ${version} across manifests.`);

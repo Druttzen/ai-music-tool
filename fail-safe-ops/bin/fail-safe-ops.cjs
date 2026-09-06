@@ -29,16 +29,6 @@ function runNode(scriptRel, args = []) {
   process.exit(r.status ?? 1);
 }
 
-function runNpm(script, extraArgs = []) {
-  const r = spawnSync(isWin ? "npm.cmd" : "npm", ["run", script, "--", ...extraArgs], {
-    cwd: repoRoot,
-    stdio: "inherit",
-    shell: isWin,
-    env: process.env,
-  });
-  process.exit(r.status ?? 1);
-}
-
 async function diagnose(logPath) {
   let log = "";
   if (!logPath || logPath === "-") {
