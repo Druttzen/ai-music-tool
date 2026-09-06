@@ -160,7 +160,8 @@ Ops (A) remains the only path that auto-fixes and pushes under maintainer/CI cre
 - [x] Maintainer `deliver-runtime` (`gh issue create`, optional `--branch`)
 - [x] Local Ops UI shell: `npm run fail-safe-ops -- ui` (paste CI log → diagnose)
 - [ ] Electron/Tauri Ops desktop shell (deferred; local UI is the interim)
-- [ ] Move workflows out of ai-music-tool into Ops repo (deferred)
+- [ ] Move workflows out of ai-music-tool into Ops repo (deferred; checklist in
+  [`fail-safe-ops/EXTRACT.md`](../fail-safe-ops/EXTRACT.md))
 - [x] In-app Ops CLI deep-link (interim): panel **Copy Ops auto** copies
   `npm run fail-safe-ops -- auto` (full Ops desktop shell still deferred)
 

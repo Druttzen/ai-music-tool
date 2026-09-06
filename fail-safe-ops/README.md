@@ -52,3 +52,7 @@ import { classifyFailureText } from "./lib/classifier.js";
 | **B** | Fail-Safe Runtime | In-app detector (`app/lib/fail-safe-runtime-*.js`) |
 
 Plan: [`docs/fail-safe-split.md`](../docs/fail-safe-split.md).
+
+## Extract to separate repo
+
+See [`EXTRACT.md`](EXTRACT.md) for the migration checklist (workflows, classifier ownership, Studio stubs).
