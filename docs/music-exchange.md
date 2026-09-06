@@ -6,8 +6,12 @@ From **Save / Load → Export Music Exchange**, the app downloads:
 
 - `<project>.aimusicbundle.json` with the music project, prompts, presets, and available analysis
 - an audio sidecar beside the JSON when the analyzed source is still available in the local cache
+- **Studio (Tauri):** a Streaming-mastered WAV (`-mastered-streaming.wav`) when native DSP export succeeds
+- **Vocal Embed:** `<project>.vocal-handoff.json` when an align preview is stored (plan + optional OpenVPI `.ds`)
 
-The JSON uses bundle format `ai-music-creator-bundle`, version 2. Its `handoff` block declares contract `ai-music-exchange-v1` and describes which music assets are available. Existing importers remain compatible because the established intent wire values are retained.
+The JSON uses bundle format `ai-music-creator-bundle`, version 2. Its `handoff` block declares contract `ai-music-exchange-v1` and describes which music assets are available (`handoff.assets`: `sourceAudio`, `masteredAudio`, `vocalHandoff`, `stemsNote`). Existing importers remain compatible because the established intent wire values are retained.
+
+Stem zips stay a separate Analyzers download (not auto-bundled into Exchange).
 
 Music Creator does not discover, configure, or launch consuming applications. This keeps it focused on audio and music while allowing another project to import the portable files through its normal JSON workflow.
 

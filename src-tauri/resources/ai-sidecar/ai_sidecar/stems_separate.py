@@ -21,11 +21,34 @@ def stems_available() -> bool:
 
 
 def preferred_stems_backend() -> str:
-    """demucs (default) or melband when AIMC_STEMS_BACKEND=melband and installed."""
+    """Prefer Mel-Band when forced via env, or when Mel-Band is the only backend installed."""
     raw = os.environ.get("AIMC_STEMS_BACKEND", "").strip().lower()
+    if raw in {"demucs", "htdemucs"}:
+        return "demucs"
     if raw in {"melband", "melband-roformer", "mel-band"}:
         return "melband"
+    # Mel-Band-only installs (no Demucs): use Mel-Band. When both exist, keep Demucs default.
+    if not stems_available():
+        try:
+            from .stems_melband import melband_available
+
+            if melband_available():
+                return "melband"
+        except Exception:
+            pass
     return "demucs"
+
+
+def any_stems_backend_available() -> bool:
+    """Demucs and/or Mel-Band — enough for vocal-transform 2-stem path."""
+    if stems_available():
+        return True
+    try:
+        from .stems_melband import melband_available
+
+        return melband_available()
+    except Exception:
+        return False
 
 
 def _load_demucs(model_name: str, device: str | None = None):

@@ -1030,7 +1030,10 @@ export function useAnalyzers({
         }
         const health = await fetchSidecarHealth();
         if (!health?.vocal_transform_available) {
-          setStatusWithTime("Vocal transform needs Demucs — npm run sidecar:stems", "warning");
+          setStatusWithTime(
+            "Vocal transform needs Demucs or Mel-Band — npm run sidecar:stems / sidecar:stems-melband",
+            "warning",
+          );
           setSidecarVocalTransformAvailable(false);
           return;
         }
@@ -1043,15 +1046,29 @@ export function useAnalyzers({
           throw new Error("No mix loaded — drop an audio file first");
         }
 
-        const regions =
-          options.useHighlight && hasMeaningfulHighlightRange(audioAnalysis)
-            ? [
-                {
-                  start_sec: Number(audioAnalysis.highlightStart) || 0,
-                  end_sec: Number(audioAnalysis.highlightEnd) || 0,
-                },
-              ]
-            : [];
+        const scope = options.regionScope || (options.useHighlight ? "highlight" : "full");
+        let regions = [];
+        if (scope === "highlight" && hasMeaningfulHighlightRange(audioAnalysis)) {
+          regions = [
+            {
+              start_sec: Number(audioAnalysis.highlightStart) || 0,
+              end_sec: Number(audioAnalysis.highlightEnd) || 0,
+            },
+          ];
+        } else if (scope === "all") {
+          if (hasMeaningfulHighlightRange(audioAnalysis)) {
+            regions.push({
+              start_sec: Number(audioAnalysis.highlightStart) || 0,
+              end_sec: Number(audioAnalysis.highlightEnd) || 0,
+            });
+          }
+          for (const r of audioAnalysis.vocalRegions || []) {
+            regions.push({
+              start_sec: Number(r.start) || 0,
+              end_sec: Number(r.end) || 0,
+            });
+          }
+        }
 
         const { remixBlob, vocalsBlob, mode } = await transformVocalsViaSidecar({
           file: mixBlob,

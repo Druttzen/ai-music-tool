@@ -50,6 +50,26 @@ def acestep_configured() -> bool:
     return bool(acestep_api_url())
 
 
+def acestep_reachable(timeout_sec: float = 1.5) -> bool:
+    """True when AIMC_ACESTEP_API_URL responds (not merely set)."""
+    base = acestep_api_url()
+    if not base:
+        return False
+    import urllib.error
+    import urllib.request
+
+    paths = ("/docs", "/openapi.json", "/")
+    for path in paths:
+        try:
+            req = urllib.request.Request(f"{base}{path}", method="GET")
+            with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+                if 200 <= int(resp.status) < 500:
+                    return True
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            continue
+    return False
+
+
 def acestep_timeout_sec() -> float:
     raw = os.environ.get("AIMC_ACESTEP_TIMEOUT_SEC", "").strip()
     try:

@@ -138,7 +138,20 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
             {storedOpenvpiDs?.segment_count
               ? ` · OpenVPI .ds ready (${storedOpenvpiDs.segment_count} segments)`
               : ""}
-            {alignPreview.align_method === "heuristic" ? " Install MFA env vars for tighter timing." : ""}
+            {alignPreview.align_method === "heuristic" ? (
+              <>
+                {" "}
+                Still on librosa heuristic timing. For MFA: copy{" "}
+                <code className="text-white/70">ai-sidecar/env.vocal.example</code> →{" "}
+                <code className="text-white/70">ai-sidecar/.env.vocal</code>, set{" "}
+                <code className="text-white/70">AIMC_MFA_MODEL</code> +{" "}
+                <code className="text-white/70">AIMC_MFA_DICT</code> (optional{" "}
+                <code className="text-white/70">AIMC_MFA_BIN</code>), install Montreal Forced
+                Aligner, restart the sidecar.
+              </>
+            ) : (
+              ""
+            )}
           </p>
           <button
             type="button"
@@ -184,9 +197,12 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           OpenVPI: {vocalModels.diffsinger_openvpi.root || "root set"} · variance{" "}
           {vocalModels.diffsinger_openvpi.variance_exp || "—"} · acoustic{" "}
           {vocalModels.diffsinger_openvpi.acoustic_exp || "—"}.
-          Attach a guide vocal with lyrics to refine `.ds` word timing (MFA via{" "}
-          <span className="text-white/55">AIMC_MFA_MODEL</span> +{" "}
-          <span className="text-white/55">AIMC_MFA_DICT</span>, or librosa onset fallback).
+          Attach a guide vocal with lyrics to refine `.ds` word timing. Prefer MFA when configured
+          (copy <code className="text-white/55">ai-sidecar/env.vocal.example</code> →{" "}
+          <code className="text-white/55">.env.vocal</code>, set{" "}
+          <code className="text-white/55">AIMC_MFA_MODEL</code> +{" "}
+          <code className="text-white/55">AIMC_MFA_DICT</code>, restart sidecar). Without MFA the
+          aligner falls back to librosa onset heuristics.
         </p>
       ) : null}
 

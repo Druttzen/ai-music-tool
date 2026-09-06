@@ -58,9 +58,9 @@ def _probe_generate() -> bool:
 
 
 def _probe_acestep() -> bool:
-    from .acestep_bridge import acestep_configured
+    from .acestep_bridge import acestep_reachable
 
-    return acestep_configured()
+    return acestep_reachable()
 
 
 def _probe_vocal_transform() -> bool:
@@ -160,7 +160,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="acestep",
         title="ACE-Step full song",
         tasks=("generate-song",),
-        install_hint="Set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+        install_hint="Start ACE-Step API + set AIMC_ACESTEP_API_URL (docs/acestep.md)",
         license="MIT (ACE-Step 1.5)",
         commercial_use=True,
         probe=_probe_acestep,

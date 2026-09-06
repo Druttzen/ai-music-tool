@@ -125,6 +125,9 @@ export function useExportActions(deps) {
     const bundleFileName = `${base}.aimusicbundle.json`;
     let audioSidecarName = null;
     let audioBlob = null;
+    let masteredSidecarName = null;
+    let masteredBlob = null;
+    let vocalHandoffName = null;
 
     if (audioAnalysis) {
       const resolved = await resolveAudioCacheBlob(audioAnalysis);
@@ -133,7 +136,35 @@ export function useExportActions(deps) {
         const rawName = String(audioAnalysis.fileName || "track.wav");
         const ext = rawName.includes(".") ? rawName.split(".").pop() : "wav";
         audioSidecarName = `${base}.${ext}`;
+
+        try {
+          const { isTauriApp, exportMasteredNative } = await import("../../lib/dsp-bridge");
+          if (isTauriApp()) {
+            const bytes = await audioBlob.arrayBuffer();
+            const result = await exportMasteredNative(bytes, "streaming", "wav");
+            if (result?.wav_bytes) {
+              masteredBlob = new Blob([new Uint8Array(result.wav_bytes)], { type: "audio/wav" });
+              masteredSidecarName = `${base}-mastered-streaming.wav`;
+            }
+          }
+        } catch {
+          // Mastered attach is best-effort; source audio still exports.
+        }
       }
+    }
+
+    const storedAlign = readStoredVocalAlignPreview();
+    let vocalHandoffPayload = null;
+    if (storedAlign?.preview) {
+      vocalHandoffName = `${base}.vocal-handoff.json`;
+      vocalHandoffPayload = {
+        kind: "vocal_embed_plan",
+        exportedAt: new Date().toISOString(),
+        instrumentalName: storedAlign.instrumentalName || "",
+        guideName: storedAlign.guideName || "",
+        preview: storedAlign.preview,
+        openvpiDs: storedAlign.openvpiDs || null,
+      };
     }
 
     const handoff = buildMusicProjectExchangeBlock({
@@ -143,6 +174,9 @@ export function useExportActions(deps) {
       sunoPasteStyle,
       sunoPasteLyrics,
       audioSidecarName,
+      masteredAudio: masteredSidecarName,
+      vocalHandoff: vocalHandoffName,
+      stemsNote: "Export stems separately from Analyzers when needed",
       intent: resolveMusicExchangeIntent({ audioAnalysis, imageAnalysis }),
     });
     const payload = buildProjectBundleExport(currentState, customPresets, APP_VERSION, {
@@ -152,11 +186,28 @@ export function useExportActions(deps) {
     const json = JSON.stringify(payload, null, 2);
 
     downloadTextFile(json, bundleFileName);
+    let delay = 400;
     if (audioBlob && audioSidecarName) {
-      setTimeout(() => downloadBlobFile(audioBlob, audioSidecarName), 400);
+      setTimeout(() => downloadBlobFile(audioBlob, audioSidecarName), delay);
+      delay += 400;
     }
+    if (masteredBlob && masteredSidecarName) {
+      setTimeout(() => downloadBlobFile(masteredBlob, masteredSidecarName), delay);
+      delay += 400;
+    }
+    if (vocalHandoffPayload && vocalHandoffName) {
+      setTimeout(
+        () => downloadTextFile(JSON.stringify(vocalHandoffPayload, null, 2), vocalHandoffName),
+        delay,
+      );
+    }
+    const extras = [
+      audioSidecarName,
+      masteredSidecarName,
+      vocalHandoffName,
+    ].filter(Boolean);
     setStatusWithTime(
-      `Exported Music Exchange — share ${bundleFileName}${audioSidecarName ? ` + ${audioSidecarName}` : ""} with another AI Creator project`,
+      `Exported Music Exchange — share ${bundleFileName}${extras.length ? ` + ${extras.join(" + ")}` : ""} with another AI Creator project`,
     );
   }, [
     audioAnalysis,

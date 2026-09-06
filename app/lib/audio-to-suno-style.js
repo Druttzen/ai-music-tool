@@ -66,6 +66,9 @@ export function buildSunoV55StyleFromAudioAnalysis(report, options = {}) {
   const moods = uniq(report.suggestedMoods || []).slice(0, 4);
 
   const tempo = String(report.estimatedBpm || "").trim();
+  const meter =
+    String(report.meter || "").trim() ||
+    (Number(report.timeSignature) >= 2 ? `${Math.round(Number(report.timeSignature))}/4` : "");
   const key = String(report.estimatedKey || "").trim();
   const keyOk = key && key !== "Key unclear" ? key : "";
   const vocals = String(report.vocals || "").trim();
@@ -89,7 +92,7 @@ export function buildSunoV55StyleFromAudioAnalysis(report, options = {}) {
   const segments = [
     uniq([...genres, ...hfTop]).slice(0, 3).join(", "),
     moods.join(", "),
-    [tempo, keyOk].filter(Boolean).join(" "),
+    [tempo, meter, keyOk].filter(Boolean).join(" "),
     sounds.slice(0, 5).join(", "),
     rhythms.slice(0, 2).join(", "),
     production.slice(0, 2).join(", "),

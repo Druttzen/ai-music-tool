@@ -1,6 +1,6 @@
 """Vocal Embed Studio — local placement mix (guide vocal + instrumental).
 
-Phase 1 engine: time-section ducking and vocal overlay using librosa/numpy.
+Phase 2 engine: soft-edged section ducking and vocal overlay using librosa/numpy.
 Optional vocal DSP (`vocal` extra) adds guide conversion and lyrics synthesis.
 """
 
@@ -51,9 +51,19 @@ def _match_length(stereo: np.ndarray, length: int) -> np.ndarray:
     return np.concatenate([stereo, pad], axis=1)
 
 
-def _section_envelope(duration: float, sections: list[dict[str, Any]], sample_rate: int) -> np.ndarray:
+def _section_envelope(
+    duration: float,
+    sections: list[dict[str, Any]],
+    sample_rate: int,
+    *,
+    attack_sec: float = 0.08,
+    release_sec: float = 0.18,
+) -> np.ndarray:
+    """Soft-edged section mask (v2) — linear attack/release instead of hard gates."""
     n = max(1, int(duration * sample_rate))
     env = np.zeros(n, dtype=np.float32)
+    attack = max(1, int(attack_sec * sample_rate))
+    release = max(1, int(release_sec * sample_rate))
     for section in sections:
         start = float(section.get("start") or 0)
         end = float(section.get("end") or 0)
@@ -61,8 +71,18 @@ def _section_envelope(duration: float, sections: list[dict[str, Any]], sample_ra
             continue
         i0 = max(0, int(start * sample_rate))
         i1 = min(n, int(end * sample_rate))
-        if i1 > i0:
-            env[i0:i1] = 1.0
+        if i1 <= i0:
+            continue
+        env[i0:i1] = 1.0
+        a = min(attack, (i1 - i0) // 2)
+        r = min(release, (i1 - i0) // 2)
+        if a > 0:
+            env[i0 : i0 + a] = np.linspace(0.0, 1.0, a, dtype=np.float32)
+        if r > 0:
+            env[i1 - r : i1] = np.minimum(
+                env[i1 - r : i1],
+                np.linspace(1.0, 0.0, r, dtype=np.float32),
+            )
     if not np.any(env):
         env[:] = 1.0
     return env
@@ -120,7 +140,7 @@ def _prepare_vocal_track(
                 guide_vocal_raw=guide_vocal_raw,
             )
             return guide, engine
-        return guide, "placement-mix-v1"
+        return guide, "placement-mix-v2"
 
     if mode == "lyrics-to-vocal-synthesis":
         guide, engine = synthesize_lyrics_vocal(
@@ -160,12 +180,21 @@ def synthesize_vocal_embed_mix(
         sections = []
     envelope = _section_envelope(duration, sections, sr)
 
+    guide_level = float(mix_plan.get("guideLevel") or 0.92)
+    guide_level = max(0.4, min(1.2, guide_level))
+
     duck = 1.0 + (duck_gain - 1.0) * envelope
     inst_ducked = inst * duck[np.newaxis, :]
-    mixed = inst_ducked + guide * 0.92
+    # Light sidechain feel: dip instrumentals a touch more under loud guide peaks.
+    guide_mono = np.mean(np.abs(guide), axis=0)
+    peak = float(np.max(guide_mono)) or 1.0
+    side = np.clip(guide_mono / peak, 0.0, 1.0)
+    side_smooth = np.convolve(side, np.ones(max(1, int(0.02 * sr)), dtype=np.float32) / max(1, int(0.02 * sr)), mode="same")
+    inst_ducked = inst_ducked * (1.0 - 0.12 * side_smooth)[np.newaxis, :]
+    mixed = inst_ducked + guide * guide_level
     mixed = _normalize_peak(mixed)
 
-    engine = vocal_engine if vocal_engine != "placement-mix-v1" else "placement-mix-v1"
+    engine = vocal_engine if vocal_engine not in {"placement-mix-v1", "placement-mix-v2"} else "placement-mix-v2"
     meta = {
         "engine": engine,
         "mode": str(plan.get("sidecarMode") or "guide-vocal-conversion"),

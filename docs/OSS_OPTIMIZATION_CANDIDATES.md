@@ -38,12 +38,12 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 ## Integration Order
 
 1. Harden Maestro LLM JSON with Zod schemas and explicit command validation.
-2. Extend sidecar audio analysis using the existing `librosa` dependency.
+2. ~~Extend sidecar audio analysis using the existing `librosa` dependency.~~ — **done** (sonic `time_signature` / `timeline_segments` promoted into merge, Suno style, and track editor).
 3. ~~Optional image captioning via `POST /analyze-image` (vision extra)~~ — **done** (`npm run sidecar:vision`).
 4. ~~Prototype wavesurfer.js~~ — **shipped default-on** (opt out with `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or classic toggle).
 5. Evaluate DSP crates only after adding benchmark-style tests around current output.
 6. Maestro LLM catalog grounding — local retrieval from style catalog + CC0 concepts (`maestro-catalog-grounding.js`).
-7. Roadmap leftovers — tempo descriptors, negative guard packs, era/trend catalogs, metaphor surprise rolls, DistilHuBERT genre override, MFA guide-vocal alignment (CLIP vision tags: **done**).
+7. Roadmap leftovers — tempo descriptors, negative guard packs, era/trend catalogs, metaphor surprise rolls, ~~DistilHuBERT genre override~~ (document + classify install hint; set `AIMC_GENRE_MODEL`), MFA guide-vocal alignment guided setup (CLIP vision tags: **done**).
 8. ~~MusicGen opt-in endpoint (`POST /generate`)~~ — **done** (`npm run sidecar:generate`; CC-BY-NC weights not bundled).
 
 ## Current Evaluation Decisions

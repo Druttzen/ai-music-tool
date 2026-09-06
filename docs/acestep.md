@@ -24,8 +24,9 @@ own model runtime). Point the sidecar at the API instead — same pattern as
    # AIMC_ACESTEP_TIMEOUT_SEC=600
    ```
 
-3. Restart the sidecar (`npm run sidecar`). `/health` should show
-   `acestep_available: true` and an `acestep` capability row.
+3. Restart the sidecar (`npm run sidecar`). `/health` shows
+   `acestep_available: true` only when the API URL is set **and** the server
+   responds (probe hits `/docs`, `/openapi.json`, or `/`). Env alone is not enough.
 
 ## API
 

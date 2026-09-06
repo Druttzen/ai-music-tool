@@ -156,6 +156,30 @@ export function mergeSidecarAnalysis(report, sidecar) {
 }
 
 /**
+ * Format meter for UI / Suno (3 → "3/4", 4 → "4/4").
+ * @param {unknown} timeSig
+ * @returns {string|null}
+ */
+export function formatTimeSignatureMeter(timeSig) {
+  const n = Number(timeSig);
+  if (!Number.isFinite(n) || n < 2 || n > 12) return null;
+  return `${Math.round(n)}/4`;
+}
+
+/**
+ * Highest-energy timeline segment (librosa sonic signature).
+ * @param {Array<{ start_sec?: number, end_sec?: number, energy?: number }>|null|undefined} segments
+ */
+export function peakTimelineSegment(segments) {
+  if (!Array.isArray(segments) || !segments.length) return null;
+  let peak = segments[0];
+  for (const seg of segments) {
+    if (Number(seg?.energy) > Number(peak?.energy)) peak = seg;
+  }
+  return peak;
+}
+
+/**
  * Merge rich sonic signature (chords, key+mode) into analyzer report.
  * @param {object} report
  * @param {import("./sidecar-bridge").SonicSignaturePayload} sonic
@@ -166,20 +190,53 @@ export function mergeSonicSignature(report, sonic) {
   const chords = (sonic.chord_progression || []).map((c) => c.chord).filter(Boolean);
   const chordLine = chords.length ? chords.join(" → ") : "";
   const trackSummary = `${report.trackSummary || ""}${chordLine ? ` Chords: ${chordLine}.` : ""}`.trim();
-  return {
+  const timeSignature = Number(sonic.time_signature);
+  const meter = formatTimeSignatureMeter(timeSignature);
+  const timelineSegments = Array.isArray(sonic.timeline_segments) ? sonic.timeline_segments : [];
+  const suggestedRhythms = uniq([...(report.suggestedRhythms || [])]);
+  if (timeSignature === 3) {
+    if (!suggestedRhythms.includes("Waltz 3/4")) suggestedRhythms.unshift("Waltz 3/4");
+  } else if (timeSignature === 4 && !suggestedRhythms.includes("4/4")) {
+    suggestedRhythms.unshift("4/4");
+  }
+
+  const peak = peakTimelineSegment(timelineSegments);
+  let highlightStart = report.highlightStart;
+  let highlightEnd = report.highlightEnd;
+  if (peak && Number.isFinite(Number(peak.start_sec)) && Number.isFinite(Number(peak.end_sec))) {
+    const start = Math.max(0, Number(peak.start_sec));
+    const end = Math.max(start + 0.5, Number(peak.end_sec));
+    highlightStart = start;
+    highlightEnd = end;
+  }
+
+  const next = {
     ...report,
     bpm,
     estimatedBpm: `${bpm} BPM`,
     estimatedKey: sonic.key_estimate || report.estimatedKey,
     sonicSignature: sonic,
     chordProgression: chords,
+    timeSignature: Number.isFinite(timeSignature) ? Math.round(timeSignature) : report.timeSignature,
+    meter: meter || report.meter || null,
+    timelineSegments,
+    suggestedRhythms,
+    highlightStart,
+    highlightEnd,
     sidecarFeatures: {
       ...(report.sidecarFeatures || {}),
       sonicKeyConfidence: sonic.key_confidence,
       loudnessDb: sonic.loudness_db,
+      timeSignature: Number.isFinite(timeSignature) ? Math.round(timeSignature) : undefined,
     },
     trackSummary,
-    summary: buildAudioAnalysisSummary({ ...report, trackSummary, estimatedBpm: `${bpm} BPM`, estimatedKey: sonic.key_estimate || report.estimatedKey }),
     analysisEngine: report.analysisEngine ? `${report.analysisEngine}+sonic` : "sonic",
   };
+  next.summary = buildAudioAnalysisSummary({
+    ...next,
+    trackSummary,
+    estimatedBpm: `${bpm} BPM`,
+    estimatedKey: sonic.key_estimate || report.estimatedKey,
+  });
+  return next;
 }

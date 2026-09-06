@@ -12,7 +12,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   defaultLyrics = "",
   busy = false,
   available = false,
-  installHint = "Set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+  installHint = "Start ACE-Step (`uv run acestep-api`) and set AIMC_ACESTEP_API_URL — see docs/acestep.md",
   onGenerate,
   compact = false,
 }) {
@@ -41,10 +41,16 @@ export const AceStepSongControls = memo(function AceStepSongControls({
         ACE-Step full song
       </div>
       <p className="text-[10px] leading-relaxed text-white/45">
-        Local full-song generation via ACE-Step API (
-        <code className="text-white/60">{installHint}</code>
-        ). MIT weights — longer than MusicGen previews.
+        Local full-song generation via an external ACE-Step API (MIT weights — longer than MusicGen).
+        Sidecar marks ACE ready only when the API is <strong className="font-semibold text-white/70">reachable</strong>
+        at <code className="text-white/60">AIMC_ACESTEP_API_URL</code>.
       </p>
+      {!available ? (
+        <p className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-100/90">
+          Not ready: {installHint}. Env set but API down also shows unavailable — start the server, then restart
+          the sidecar.
+        </p>
+      ) : null}
       <label className="block text-[10px] text-white/50">
         Prompt
         <textarea
@@ -90,7 +96,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           }}
           className="min-w-[140px] flex-1 rounded-xl border border-emerald-400/35 bg-emerald-500/20 py-2 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30 disabled:opacity-50"
         >
-          {busy ? "Generating…" : available ? "Generate full song" : "ACE-Step not configured"}
+          {busy ? "Generating…" : available ? "Generate full song" : "ACE-Step API unreachable"}
         </button>
         <button
           type="button"

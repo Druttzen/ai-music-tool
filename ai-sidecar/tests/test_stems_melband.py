@@ -27,6 +27,12 @@ def test_resolve_melband_model_id(monkeypatch):
 
 def test_preferred_stems_backend(monkeypatch):
     monkeypatch.delenv("AIMC_STEMS_BACKEND", raising=False)
+    monkeypatch.setattr("ai_sidecar.stems_separate.stems_available", lambda: True)
+    monkeypatch.setattr("ai_sidecar.stems_melband.melband_available", lambda: True)
+    assert preferred_stems_backend() == "demucs"
+    monkeypatch.setattr("ai_sidecar.stems_separate.stems_available", lambda: False)
+    assert preferred_stems_backend() == "melband"
+    monkeypatch.setenv("AIMC_STEMS_BACKEND", "demucs")
     assert preferred_stems_backend() == "demucs"
     monkeypatch.setenv("AIMC_STEMS_BACKEND", "melband")
     assert preferred_stems_backend() == "melband"

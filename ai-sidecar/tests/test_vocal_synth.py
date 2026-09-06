@@ -57,7 +57,7 @@ def test_synthesize_vocal_embed_mix_unit():
     guide = _tone_wav(freq=880.0)
     wav_bytes, meta = synthesize_vocal_embed_mix(plan, inst, guide)
     assert len(wav_bytes) > 1000
-    expected_engine = "guide-conversion-v1" if ml_vocal_stack_available() else "placement-mix-v1"
+    expected_engine = "guide-conversion-v1" if ml_vocal_stack_available() else "placement-mix-v2"
     assert meta["engine"] == expected_engine
     assert meta["section_count"] == 1
 

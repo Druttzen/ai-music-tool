@@ -21,9 +21,30 @@ export function resolveMusicExchangeIntent({ audioAnalysis, imageAnalysis }) {
   return MUSIC_EXCHANGE_INTENTS.PROJECT_ONLY;
 }
 
+/**
+ * @param {Record<string, any>} [params]
+ * @returns {{ sourceAudio?: string|null, masteredAudio?: string|null, vocalHandoff?: string|null, stemsNote?: string|null }}
+ */
+export function buildMusicExchangeAssets(params = {}) {
+  return {
+    sourceAudio: params.sourceAudio || params.audioSidecarName || null,
+    masteredAudio: params.masteredAudio || null,
+    vocalHandoff: params.vocalHandoff || null,
+    stemsNote: params.stemsNote || null,
+  };
+}
+
 /** @param {Record<string, any>} [params] */
 export function buildMusicProjectExchangeBlock(params = {}) {
   const intent = params.intent || resolveMusicExchangeIntent(params);
+  const assets =
+    params.assets ||
+    buildMusicExchangeAssets({
+      audioSidecarName: params.audioSidecarName,
+      masteredAudio: params.masteredAudio,
+      vocalHandoff: params.vocalHandoff,
+      stemsNote: params.stemsNote,
+    });
   return {
     source: MUSIC_EXCHANGE_SOURCE,
     contract: MUSIC_EXCHANGE_CONTRACT,
@@ -35,6 +56,7 @@ export function buildMusicProjectExchangeBlock(params = {}) {
     audioSidecarName: params.audioSidecarName || null,
     sunoPasteStyle: params.sunoPasteStyle || "",
     sunoPasteLyrics: params.sunoPasteLyrics || "",
+    assets,
   };
 }
 

@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 
 from .jobs import JOBS, JobContext, register
-from .stems_separate import separate_audio, stems_available
+from .stems_separate import any_stems_backend_available, preferred_stems_backend, separate_audio, stems_available
 
 _CROSSFADE_SEC = 0.04
 _MODES = frozenset({"rvc", "pitch", "robot", "formant"})
@@ -59,13 +59,15 @@ def parse_regions(raw: Any) -> list[tuple[float, float]]:
 
 
 def vocal_transform_available(*, mode: str | None = None) -> bool:
+    from .stems_separate import any_stems_backend_available
+
     resolved = normalize_mode(mode)
     if resolved == "rvc":
         from .vocal_ml_models import rvc_ready
 
-        return stems_available() and rvc_ready()
-    # DSP modes only need stems + base librosa (always present with sidecar).
-    return stems_available()
+        return any_stems_backend_available() and rvc_ready()
+    # DSP modes need Demucs and/or Mel-Band (2-stem is enough).
+    return any_stems_backend_available()
 
 
 def _write_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
@@ -244,8 +246,12 @@ def run_vocal_transform(ctx: JobContext) -> dict[str, Any]:
     pitch_semitones = float(ctx.payload.get("pitch_semitones") or 0.0)
     formant_shift = float(ctx.payload.get("formant_shift") or 0.0)
 
-    if not stems_available():
-        raise RuntimeError("stem separation deps missing — npm run sidecar:stems")
+    from .stems_separate import any_stems_backend_available, preferred_stems_backend
+
+    if not any_stems_backend_available():
+        raise RuntimeError(
+            "stem separation deps missing — npm run sidecar:stems or npm run sidecar:stems-melband"
+        )
     if mode == "rvc":
         from .vocal_ml_models import rvc_ready
 
@@ -253,7 +259,6 @@ def run_vocal_transform(ctx: JobContext) -> dict[str, Any]:
             raise RuntimeError("RVC not configured — npm run sidecar:vocal-rvc or set AIMC_RVC_API_URL")
 
     ctx.set_progress(0.1, "separating stems")
-    from .stems_separate import preferred_stems_backend
 
     model_name = "melband" if preferred_stems_backend() == "melband" else "htdemucs"
     separated = separate_audio(raw, filename=filename, model_name=model_name)
@@ -264,7 +269,7 @@ def run_vocal_transform(ctx: JobContext) -> dict[str, Any]:
             vocals_path = path
             break
     if not vocals_path:
-        raise RuntimeError("Demucs did not return a vocals stem")
+        raise RuntimeError("Stem separation did not return a vocals stem")
 
     ctx.set_progress(0.45, f"transforming vocals ({mode})")
     vocals_mono, sr = _load_wav_mono(vocals_path)

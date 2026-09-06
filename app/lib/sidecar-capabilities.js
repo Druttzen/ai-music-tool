@@ -20,15 +20,20 @@ const LEGACY_INSTALLABLE = [
     id: "acestep",
     title: "ACE-Step full song",
     flag: "acestep_available",
-    install_hint: "Set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+    install_hint: "Start ACE-Step API + set AIMC_ACESTEP_API_URL (docs/acestep.md)",
   },
   {
     id: "vocal-transform",
     title: "Vocal region transform",
     flag: "vocal_transform_available",
-    install_hint: "npm run sidecar:stems (RVC mode also needs sidecar:vocal-rvc)",
+    install_hint: "npm run sidecar:stems or sidecar:stems-melband (RVC also needs vocal-rvc)",
   },
-  { id: "genre", title: "Genre classifier", flag: "genre_available", install_hint: "npm run sidecar:classify" },
+  {
+    id: "genre",
+    title: "Genre classifier",
+    flag: "genre_available",
+    install_hint: "npm run sidecar:classify (optional AIMC_GENRE_MODEL=DistilHuBERT id)",
+  },
   { id: "vision", title: "Image caption / CLIP", flag: "vision_available", install_hint: "npm run sidecar:vision" },
   { id: "cover", title: "Album cover (FLUX text)", flag: "cover_available", install_hint: "npm run sidecar:cover" },
   {

@@ -73,4 +73,21 @@ describe("compactAudioStyleRule musicgen", () => {
     });
     expect(rule).toMatch(/CH:Fm→Bb→C/);
   });
+
+  it("includes meter and peak timeline hint", () => {
+    const rule = compactAudioStyleRule({
+      estimatedBpm: "96 BPM",
+      meter: "3/4",
+      energy: 50,
+      aggression: 40,
+      brightness: 45,
+      suggestedGenres: ["Classical"],
+      timelineSegments: [
+        { start_sec: 0, end_sec: 10, energy: 20 },
+        { start_sec: 70, end_sec: 90, energy: 95 },
+      ],
+    });
+    expect(rule).toMatch(/3\/4/);
+    expect(rule).toMatch(/peak@1m10s/);
+  });
 });

@@ -1,7 +1,11 @@
 """Optional Hugging Face music-genre classification.
 
 Default model: dima806/music_genres_classification (GTzan wav2vec2, Apache-2.0).
-Override with AIMC_GENRE_MODEL, e.g. MarekCech/GenreVim-Music-Classification-DistilHuBERT.
+Install via ``npm run sidecar:classify``. Predictions merge into Audio DNA / Suno tags
+when the classify extra is present (no Spotify required).
+
+Override with AIMC_GENRE_MODEL, e.g. MarekCech/GenreVim-Music-Classification-DistilHuBERT
+(set in ai-sidecar/.env.vocal — see env.vocal.example).
 """
 
 from __future__ import annotations

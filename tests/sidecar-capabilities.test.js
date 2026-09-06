@@ -57,7 +57,7 @@ describe("sidecar-capabilities", () => {
       vocal_ml_available: false,
     });
     expect(hints.map((h) => h.id).sort()).toEqual(["generate", "genre", "stems", "vocal_ml"]);
-    expect(hints.find((h) => h.id === "genre")?.install_hint).toBe("npm run sidecar:classify");
+    expect(hints.find((h) => h.id === "genre")?.install_hint).toMatch(/sidecar:classify/);
     expect(hints.find((h) => h.id === "vocal_ml")?.install_hint).toBe("npm run sidecar:vocal");
   });
 

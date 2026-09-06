@@ -29,11 +29,14 @@ picker (requires `stems_melband_available` on `/health`). Mel-Band uses
 ## Use
 
 - `POST /separate` with `model_name=melband` (or `melband-roformer-kim-vocals`)
-- Or set `AIMC_STEMS_BACKEND=melband` so `/separate` defaults and
-  `/vocal-transform` prefer Mel-Band when installed
+- Or set `AIMC_STEMS_BACKEND=melband` to force Mel-Band; `demucs` / `htdemucs` to force Demucs
+- When Mel-Band is installed and Demucs is **not**, the sidecar auto-uses Mel-Band for
+  `/separate` defaults and `/vocal-transform` (Mel-Band-only installs can transform vocals).
+  When both are installed, Demucs remains the default unless `AIMC_STEMS_BACKEND=melband`.
 - Optional: `AIMC_MELBAND_MODEL=<registry-slug>`
 
-`/health` reports `stems_melband_available` and a `stems-melband` capability row.
+`/health` reports `stems_melband_available`, `vocal_transform_available` (Demucs **or** Mel-Band),
+and a `stems-melband` capability row.
 
 ## Outputs
 

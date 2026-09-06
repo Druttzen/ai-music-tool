@@ -595,6 +595,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           busy={vocalTransformBusy || stemSeparationBusy || exportBusy}
           available={sidecarVocalTransformAvailable}
           rvcAvailable={rvcAvailable}
+          melbandAvailable={sidecarStemsMelbandAvailable}
           onTransform={onTransformVocals}
         />
       ) : null}
@@ -614,21 +615,83 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             onChange={(v) => onChange({ estimatedKey: v })}
           />
         </div>
-        <TagField
-          label="Vocals"
-          value={analysis.vocals || ""}
-          onChange={(v) => onChange({ vocals: v })}
-        />
+        <div className="grid grid-cols-2 gap-2">
+          <TagField
+            label="Meter"
+            value={
+              analysis.meter ||
+              (Number(analysis.timeSignature) >= 2
+                ? `${Math.round(Number(analysis.timeSignature))}/4`
+                : "")
+            }
+            onChange={(v) => {
+              const m = String(v || "").trim();
+              const n = parseInt(m, 10);
+              onChange({
+                meter: m || null,
+                timeSignature: Number.isFinite(n) ? n : analysis.timeSignature,
+              });
+            }}
+            placeholder="4/4"
+          />
+          <TagField
+            label="Vocals"
+            value={analysis.vocals || ""}
+            onChange={(v) => onChange({ vocals: v })}
+          />
+        </div>
         <div className="grid grid-cols-3 gap-1 font-mono text-[10px] text-white/45">
           <span>E {analysis.energy}</span>
           <span>A {analysis.aggression}</span>
           <span>B {analysis.brightness}</span>
         </div>
+        {Array.isArray(analysis.timelineSegments) && analysis.timelineSegments.length > 0 ? (
+          <div className="space-y-1" data-testid="analyzer-energy-timeline">
+            <div className="text-[10px] text-white/40">Energy timeline (sonic)</div>
+            <div className="flex h-2 overflow-hidden rounded-full bg-black/40">
+              {analysis.timelineSegments.map((seg, i) => {
+                const e = clamp(Number(seg?.energy) || 0, 0, 100) / 100;
+                const widthPct = Math.max(
+                  4,
+                  ((Number(seg?.end_sec) - Number(seg?.start_sec) || 1) /
+                    Math.max(1, Number(analysis.duration) || 1)) *
+                    100,
+                );
+                return (
+                  <button
+                    key={`seg-${i}-${seg?.start_sec}`}
+                    type="button"
+                    title={`${formatTime(Number(seg?.start_sec) || 0)}–${formatTime(Number(seg?.end_sec) || 0)} · E ${e.toFixed(2)}`}
+                    className="h-full min-w-[2px] border-0 p-0"
+                    style={{
+                      width: `${widthPct}%`,
+                      backgroundColor: `rgba(52, 211, 153, ${0.25 + e * 0.75})`,
+                    }}
+                    onClick={(ev) => {
+                      ev.preventDefault();
+                      const start = Math.max(0, Number(seg?.start_sec) || 0);
+                      const end = Math.max(start + 0.5, Number(seg?.end_sec) || start + 8);
+                      onChange({ highlightStart: start, highlightEnd: end });
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         {analysis.genreModel ? (
           <p className="text-[10px] text-white/40" title="Sidecar HF genre classifier">
             Genre model: <span className="text-emerald-200/80">{analysis.genreModel}</span>
           </p>
-        ) : null}
+        ) : (
+          <p className="text-[10px] text-white/40">
+            No HF genre tags yet — install{" "}
+            <code className="text-cyan-100/80">npm run sidecar:classify</code>
+            {" "}(optional DistilHuBERT via{" "}
+            <code className="text-cyan-100/80">AIMC_GENRE_MODEL</code> in{" "}
+            <code className="text-cyan-100/80">.env.vocal</code>).
+          </p>
+        )}
       </section>
 
       <div className="flex flex-wrap gap-2">

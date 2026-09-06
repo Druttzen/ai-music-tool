@@ -112,6 +112,28 @@ describe("mergeSonicSignature", () => {
     expect(merged.analysisEngine).toBe("sidecar+sonic");
     expect(merged.trackSummary).toContain("Fm → Bb");
   });
+
+  it("promotes time signature, timeline, Waltz rhythm, and peak highlight", () => {
+    const merged = mergeSonicSignature(
+      { ...baseReport, suggestedRhythms: ["Syncopated"], highlightStart: 0, highlightEnd: 5 },
+      {
+        tempo_bpm: 96,
+        key_estimate: "C major",
+        time_signature: 3,
+        timeline_segments: [
+          { start_sec: 0, end_sec: 10, energy: 0.2 },
+          { start_sec: 40, end_sec: 55, energy: 0.9 },
+        ],
+        chord_progression: [],
+      },
+    );
+    expect(merged.timeSignature).toBe(3);
+    expect(merged.meter).toBe("3/4");
+    expect(merged.timelineSegments).toHaveLength(2);
+    expect(merged.suggestedRhythms[0]).toBe("Waltz 3/4");
+    expect(merged.highlightStart).toBe(40);
+    expect(merged.highlightEnd).toBe(55);
+  });
 });
 
 describe("getAudioAnalyzerDisclaimer", () => {

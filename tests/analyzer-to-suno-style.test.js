@@ -59,6 +59,7 @@ describe("audio-to-suno-style", () => {
     const built = buildSunoV55StyleFromAudioAnalysis({
       estimatedBpm: "128 BPM",
       estimatedKey: "Am",
+      meter: "4/4",
       energy: 80,
       aggression: 60,
       suggestedGenres: ["Techno"],
@@ -70,6 +71,7 @@ describe("audio-to-suno-style", () => {
       trackSummary: "Warehouse pressure",
     });
     expect(built.styleLine).toMatch(/Techno|128|sub/i);
+    expect(built.styleLine).toMatch(/4\/4/);
     expect(built.pillsPatch.tempo).toBe("128 BPM");
     expect(built.negativeHints).toMatch(/vocal/i);
   });

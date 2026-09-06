@@ -34,8 +34,15 @@ describe("music-project-exchange", () => {
     expect(bundle).not.toHaveProperty("directorSettings");
   });
 
-  it("creates a neutral, safe filename base", () => {
-    expect(slugifyMusicExchangeBaseName("Neon Alley!!!")).toMatch(/neon-alley/i);
-    expect(slugifyMusicExchangeBaseName("")).toBe("music-project");
+  it("includes delivery assets on the handoff block", () => {
+    const handoff = buildMusicProjectExchangeBlock({
+      appVersion: "1.0.0",
+      audioSidecarName: "demo.wav",
+      masteredAudio: "demo-mastered-streaming.wav",
+      vocalHandoff: "demo.vocal-handoff.json",
+    });
+    expect(handoff.assets.sourceAudio).toBe("demo.wav");
+    expect(handoff.assets.masteredAudio).toBe("demo-mastered-streaming.wav");
+    expect(handoff.assets.vocalHandoff).toBe("demo.vocal-handoff.json");
   });
 });

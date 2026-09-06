@@ -173,13 +173,32 @@ export function compactAudioStyleRule(a) {
     .slice(0, GUIDED_MAX_SOUNDS)
     .join(",");
 
+  const meter =
+    normalizeSpace(a.meter || "") ||
+    (Number(a.timeSignature) >= 2 ? `${Math.round(Number(a.timeSignature))}/4` : "");
+  const segments = Array.isArray(a.timelineSegments) ? a.timelineSegments : [];
+  let peakHint = "";
+  if (segments.length) {
+    let peak = segments[0];
+    for (const seg of segments) {
+      if (Number(seg?.energy) > Number(peak?.energy)) peak = seg;
+    }
+    const start = Number(peak?.start_sec);
+    if (Number.isFinite(start)) {
+      const m = Math.floor(start / 60);
+      const s = Math.round(start % 60);
+      peakHint = `peak@${m}m${String(s).padStart(2, "0")}s`;
+    }
+  }
+
   const parts = [
-    `${tempo} ${scores}`,
+    `${tempo}${meter ? ` ${meter}` : ""} ${scores}`,
     genres ? `G:${genres}` : "",
     key && key !== "Key unclear" ? key : "",
     chords ? `CH:${chords}` : "",
     rhythms || "groove",
     sounds || "textures",
+    peakHint,
   ].filter(Boolean);
 
   const core = parts.join(" │ ");
