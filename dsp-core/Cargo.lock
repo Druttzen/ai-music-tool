@@ -145,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "dsp-core"
-version = "0.50.28"
+version = "0.50.29"
 dependencies = [
  "anyhow",
  "ebur128",
