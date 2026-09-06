@@ -6,7 +6,7 @@ use serde::Serialize;
 use crate::decode::{decode_interleaved, slice_interleaved, to_stereo_interleaved};
 use crate::loudness::{
     apply_target_integrated_lufs, limit_true_peak, measure_interleaved, normalize_peak,
-    STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP,
+    BROADCAST_TARGET_LUFS, PODCAST_TARGET_LUFS, STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP,
 };
 use crate::resample::resample_interleaved_to_export_rate;
 
@@ -174,6 +174,22 @@ fn apply_haas_wide(samples: &mut [f32], sample_rate: u32, amount: f32) {
     }
 }
 
+fn loudness_target_for_preset(preset_id: &str) -> Option<f64> {
+    match preset_id {
+        "streaming" => Some(STREAMING_TARGET_LUFS),
+        "podcast" => Some(PODCAST_TARGET_LUFS),
+        "broadcast" => Some(BROADCAST_TARGET_LUFS),
+        _ => None,
+    }
+}
+
+fn is_known_preset(preset_id: &str) -> bool {
+    matches!(
+        preset_id,
+        "streaming" | "podcast" | "broadcast" | "measure" | "wide" | "punch"
+    )
+}
+
 fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32, preset: &str) -> Result<()> {
     if channels != 2 {
         return Err(anyhow!("mastering chain requires stereo"));
@@ -183,6 +199,7 @@ fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32
     let mut hpf_l = Biquad::highpass(sr, 32.0, 0.71);
     let mut hpf_r = Biquad::highpass(sr, 32.0, 0.71);
 
+    // podcast / broadcast reuse the streaming polish curve; measure skips this fn.
     let (mut shelf_l, mut shelf_r) = match preset {
         "punch" => (
             Some(Biquad::lowshelf(sr, 110.0, 3.0)),
@@ -320,8 +337,77 @@ fn encode_mp3(samples: &[f32], channels: u32, sample_rate: u32) -> Result<Vec<u8
     Ok(out)
 }
 
+fn encode_flac(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
+    use flacenc::bitsink::ByteSink;
+    use flacenc::component::BitRepr;
+    use flacenc::error::Verify;
+    use flacenc::source::MemSource;
+
+    if channels == 0 {
+        return Err(anyhow!("flac encode requires channels"));
+    }
+    let bits = if bits == 24 { 24 } else { 16 };
+    let max_pos = (1i32 << (bits - 1)) - 1;
+    let max_neg = -(1i32 << (bits - 1));
+    let scale = if bits == 24 {
+        8_388_607.0_f32
+    } else {
+        32_767.0_f32
+    };
+    let scale_neg = if bits == 24 {
+        8_388_608.0_f32
+    } else {
+        32_768.0_f32
+    };
+
+    let pcm: Vec<i32> = samples
+        .iter()
+        .map(|&s| {
+            let s = s.clamp(-1.0, 1.0);
+            let v = if s < 0.0 {
+                (s * scale_neg) as i32
+            } else {
+                (s * scale) as i32
+            };
+            v.clamp(max_neg, max_pos)
+        })
+        .collect();
+
+    let config = flacenc::config::Encoder::default()
+        .into_verified()
+        .map_err(|e| anyhow!("flac config: {e:?}"))?;
+    let source = MemSource::from_samples(&pcm, channels as usize, bits as usize, sample_rate as usize);
+    let stream = flacenc::encode_with_fixed_block_size(&config, source, config.block_size)
+        .map_err(|e| anyhow!("flac encode: {e:?}"))?;
+    let mut sink = ByteSink::new();
+    stream
+        .write(&mut sink)
+        .map_err(|e| anyhow!("flac write: {e:?}"))?;
+    Ok(sink.as_slice().to_vec())
+}
+
 fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
     use std::io::Cursor;
+    if bits == 32 {
+        let spec = hound::WavSpec {
+            channels: channels as u16,
+            sample_rate,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut cursor = Cursor::new(Vec::new());
+        let mut writer = hound::WavWriter::new(&mut cursor, spec)?;
+        let ch = channels as usize;
+        let frames = samples.len() / ch;
+        for f in 0..frames {
+            for c in 0..ch {
+                writer.write_sample(samples[f * ch + c].clamp(-1.0, 1.0))?;
+            }
+        }
+        writer.finalize()?;
+        return Ok(cursor.into_inner());
+    }
+
     let spec = hound::WavSpec {
         channels: channels as u16,
         sample_rate,
@@ -356,7 +442,7 @@ fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Re
     Ok(cursor.into_inner())
 }
 
-/// Decode, master, and encode to WAV (16- or 24-bit).
+/// Decode, master, and encode to WAV / FLAC / MP3.
 pub fn export_mastered_bytes(
     bytes: Vec<u8>,
     preset_id: &str,
@@ -364,11 +450,17 @@ pub fn export_mastered_bytes(
     start_sec: Option<f64>,
     end_sec: Option<f64>,
 ) -> Result<ExportMasteredResult> {
-    if !matches!(preset_id, "streaming" | "wide" | "punch") {
+    if !is_known_preset(preset_id) {
         return Err(anyhow!("unknown preset: {preset_id}"));
     }
     let is_mp3 = format == "mp3";
-    let bits: u16 = if format == "wav24" { 24 } else { 16 };
+    let is_flac = format == "flac";
+    let bits: u16 = match format {
+        "wav24" | "flac" => 24,
+        "wav32" => 32,
+        _ => 16,
+    };
+    let measure_only = preset_id == "measure";
 
     let (samples, channels, sample_rate) = decode_interleaved(bytes)?;
     let (mut samples, channels) = to_stereo_interleaved(samples, channels);
@@ -389,27 +481,34 @@ pub fn export_mastered_bytes(
         ));
     }
 
-    render_enhancement_chain(&mut samples, channels, sample_rate, preset_id)?;
+    if !measure_only {
+        render_enhancement_chain(&mut samples, channels, sample_rate, preset_id)?;
+    }
 
     let mut integrated_lufs = None;
     let mut target_lufs = None;
 
-    if preset_id == "streaming" {
-        target_lufs = Some(STREAMING_TARGET_LUFS);
+    if let Some(target) = loudness_target_for_preset(preset_id) {
+        target_lufs = Some(target);
         integrated_lufs = Some(apply_target_integrated_lufs(
             &mut samples,
             channels,
             sample_rate,
-            STREAMING_TARGET_LUFS,
+            target,
         )?);
-    } else {
+    } else if !measure_only {
         normalize_peak(&mut samples, 0.944);
         limit_true_peak(&mut samples, channels, sample_rate, TRUE_PEAK_CEILING_DBTP);
     }
 
     let loudness = measure_interleaved(&samples, channels, sample_rate)?;
+    if measure_only {
+        integrated_lufs = Some(loudness.integrated_lufs);
+    }
     let wav_bytes = if is_mp3 {
         encode_mp3(&samples, channels, sample_rate)?
+    } else if is_flac {
+        encode_flac(&samples, channels, sample_rate, 24)?
     } else {
         encode_wav(&samples, channels, sample_rate, bits)?
     };
@@ -428,7 +527,9 @@ pub fn export_mastered_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::loudness::{STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP};
+    use crate::loudness::{
+        BROADCAST_TARGET_LUFS, PODCAST_TARGET_LUFS, STREAMING_TARGET_LUFS, TRUE_PEAK_CEILING_DBTP,
+    };
     use std::f32::consts::PI;
 
     fn sine_wav_bytes() -> Vec<u8> {
@@ -506,10 +607,65 @@ mod tests {
     }
 
     #[test]
+    fn exports_podcast_at_minus_16() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "podcast", "wav", None, None).unwrap();
+        assert_eq!(r.target_lufs, Some(PODCAST_TARGET_LUFS));
+        let lufs = r.integrated_lufs.expect("podcast lufs");
+        assert!(
+            (lufs - PODCAST_TARGET_LUFS).abs() <= 0.3,
+            "integrated={lufs}"
+        );
+        assert!(r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.05);
+    }
+
+    #[test]
+    fn exports_broadcast_at_minus_23() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "broadcast", "wav", None, None).unwrap();
+        assert_eq!(r.target_lufs, Some(BROADCAST_TARGET_LUFS));
+        let lufs = r.integrated_lufs.expect("broadcast lufs");
+        assert!(
+            (lufs - BROADCAST_TARGET_LUFS).abs() <= 0.3,
+            "integrated={lufs}"
+        );
+        assert!(r.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.05);
+    }
+
+    #[test]
+    fn exports_measure_without_normalize() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "measure", "wav", None, None).unwrap();
+        assert!(r.target_lufs.is_none());
+        assert!(r.integrated_lufs.is_some());
+        assert_eq!(r.sample_rate, 48_000);
+        assert!(r.wav_bytes.starts_with(b"RIFF"));
+        // Quiet sine should stay well below streaming loudness after no gain stage.
+        assert!(r.true_peak_dbtp < -1.0);
+    }
+
+    #[test]
     fn exports_mp3() {
         let r = export_mastered_bytes(sine_wav_bytes(), "streaming", "mp3", None, None).unwrap();
         assert!(r.wav_bytes.len() > 128);
         assert_eq!(r.bits_per_sample, 0);
         assert!(r.wav_bytes.starts_with(b"ID3") || r.wav_bytes[0] == 0xff);
+    }
+
+    #[test]
+    fn exports_flac_has_stream_marker() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "streaming", "flac", None, None).unwrap();
+        assert!(r.wav_bytes.starts_with(b"fLaC"));
+        assert_eq!(r.bits_per_sample, 24);
+        assert_eq!(r.sample_rate, 48_000);
+        let lufs = r.integrated_lufs.expect("streaming lufs");
+        assert!((lufs - STREAMING_TARGET_LUFS).abs() <= 0.3);
+    }
+
+    #[test]
+    fn exports_wav32_float() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "measure", "wav32", None, None).unwrap();
+        assert!(r.wav_bytes.starts_with(b"RIFF"));
+        assert_eq!(r.bits_per_sample, 32);
+        let wav = hound::WavReader::new(std::io::Cursor::new(&r.wav_bytes)).unwrap();
+        assert_eq!(wav.spec().bits_per_sample, 32);
+        assert_eq!(wav.spec().sample_format, hound::SampleFormat::Float);
     }
 }

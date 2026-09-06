@@ -40,3 +40,4 @@ symphonia = { version = "0.5", features = [
 mp3lame-encoder = "0.1"
 # High-quality rate conversion for Studio export delivery at 48 kHz.
 rubato = "0.15"
+flacenc = "0.5"

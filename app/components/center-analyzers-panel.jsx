@@ -53,6 +53,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     audioPreviewUrl,
     audioLoudness,
     audioLoudnessBusy,
+    audioStereoPhase,
     audioExportBusy,
     audioExportProgress,
     imageAnalysis,
@@ -338,6 +339,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 onAnalyzeVocalCharacter={handoffTrackToVoiceCharacterStudio}
                 loudness={audioLoudness}
                 loudnessBusy={audioLoudnessBusy}
+                stereoPhase={audioStereoPhase}
                 onExportEnhanced={exportEnhancedAudio}
                 onSeparateStems={separateStems}
                 onDownloadStem={downloadStem}

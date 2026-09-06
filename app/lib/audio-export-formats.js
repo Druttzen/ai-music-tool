@@ -5,10 +5,11 @@
 import {
   audioBufferToWavBlob,
   audioBufferToWav24Blob,
+  audioBufferToWav32Blob,
   downloadAudioBlob,
 } from "./audio-enhancer";
 
-/** @typedef {"wav"|"wav24"|"mp3"} StudioExportFormat */
+/** @typedef {"wav"|"wav24"|"wav32"|"flac"|"mp3"} StudioExportFormat */
 
 /**
  * Normalize legacy/alias format ids to supported studio export formats.
@@ -19,8 +20,8 @@ export function normalizeStudioExportFormat(format) {
   const f = String(format || "wav").toLowerCase();
   if (f === "mp3") return "mp3";
   if (f === "wav24" || f === "24bit" || f === "wav-24") return "wav24";
-  // Legacy UI stored "flac" but output was always 16-bit WAV.
-  if (f === "flac" || f === "wav-lossless" || f === "lossless") return "wav";
+  if (f === "wav32" || f === "32bit" || f === "float" || f === "wav-float") return "wav32";
+  if (f === "flac" || f === "wav-lossless" || f === "lossless") return "flac";
   return "wav";
 }
 
@@ -72,13 +73,24 @@ export async function downloadAudioBufferAsFormat(buffer, format, baseFileName) 
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
   if (normalized === "mp3") {
     downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
-    return;
+    return { format: "mp3", formatFallback: false };
+  }
+  if (normalized === "flac") {
+    // Browser path has no FLAC encoder; lossless fallback is 24-bit WAV.
+    // Studio/Tauri uses native flacenc via dsp-bridge instead.
+    downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
+    return { format: "wav24", formatFallback: true };
+  }
+  if (normalized === "wav32") {
+    downloadFormatBlob(audioBufferToWav32Blob(buffer), `${base}-32float.wav`);
+    return { format: "wav32", formatFallback: false };
   }
   if (normalized === "wav24") {
     downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
-    return;
+    return { format: "wav24", formatFallback: false };
   }
   downloadFormatBlob(audioBufferToWavBlob(buffer), `${base}.wav`);
+  return { format: "wav", formatFallback: false };
 }
 
 /** @param {Float32Array} data */

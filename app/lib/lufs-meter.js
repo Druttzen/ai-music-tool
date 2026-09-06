@@ -4,6 +4,25 @@
  */
 
 export const STREAMING_TARGET_LUFS = -14;
+export const PODCAST_TARGET_LUFS = -16;
+export const BROADCAST_TARGET_LUFS = -23;
+
+/**
+ * @param {string} presetId
+ * @returns {number|undefined}
+ */
+export function targetLufsForPreset(presetId) {
+  switch (presetId) {
+    case "streaming":
+      return STREAMING_TARGET_LUFS;
+    case "podcast":
+      return PODCAST_TARGET_LUFS;
+    case "broadcast":
+      return BROADCAST_TARGET_LUFS;
+    default:
+      return undefined;
+  }
+}
 const ABSOLUTE_GATE_LUFS = -70;
 const RELATIVE_GATE_LU = 10;
 const BLOCK_SEC = 0.4;

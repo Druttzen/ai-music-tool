@@ -49,7 +49,8 @@ import {
 import { waitForSidecarExtraReady, fetchSidecarHealthAfterExtraInstall } from "../lib/sidecar-extra-install-client";
 import { musicGenInstallHint } from "../lib/sidecar-capabilities";
 import { measureIntegratedLoudness } from "../lib/lufs-meter";
-import { isTauriApp, measureLoudnessBytes } from "../lib/dsp-bridge";
+import { isTauriApp, measureLoudnessBytes, measureStereoPhaseBytes } from "../lib/dsp-bridge";
+import { measureStereoPhase } from "../lib/stereo-phase";
 import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import { exportEnhancedFromBlob } from "../lib/studio-export-client";
 import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
@@ -121,6 +122,7 @@ export function useAnalyzers({
   const [audioExportProgress, setAudioExportProgress] = useState(null);
   const [audioLoudness, setAudioLoudness] = useState(null);
   const [audioLoudnessBusy, setAudioLoudnessBusy] = useState(false);
+  const [audioStereoPhase, setAudioStereoPhase] = useState(null);
   const [imageAnalysis, setImageAnalysis] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [stemSeparationBusy, setStemSeparationBusy] = useState(false);
@@ -161,6 +163,7 @@ export function useAnalyzers({
     setAudioAnalysis(null);
     setAudioPreviewUrl(null);
     setAudioLoudness(null);
+    setAudioStereoPhase(null);
     setImageAnalysis(null);
     setImagePreview(null);
     setStemSeparationStems([]);
@@ -185,6 +188,7 @@ export function useAnalyzers({
     setAudioAnalysis(null);
     setAudioPreviewUrl(null);
     setAudioLoudness(null);
+    setAudioStereoPhase(null);
     if (audioPreviewUrlRef.current) {
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
@@ -465,12 +469,14 @@ export function useAnalyzers({
         if (!blob || cancelled || gen !== loudnessGenRef.current) return;
 
         let stats = null;
+        let phaseStats = null;
+        const arrayBuffer = await blob.arrayBuffer();
 
-        // Native DSP core (Tauri desktop): decode + EBU R128 in Rust straight
-        // from the file bytes. Falls back to the in-browser meter on any error.
+        // Native dsp-core Symphonia (Tauri): decode + EBU R128 / phase from file bytes.
+        // Falls back to Web Audio + JS meters on any error or outside Studio.
         if (isTauriApp()) {
           try {
-            const native = await measureLoudnessBytes(await blob.arrayBuffer());
+            const native = await measureLoudnessBytes(arrayBuffer.slice(0));
             stats = {
               integratedLUFS:
                 typeof native.integrated_lufs === "number" ? native.integrated_lufs : NaN,
@@ -485,13 +491,32 @@ export function useAnalyzers({
           } catch {
             stats = null;
           }
+          try {
+            const nativePhase = await measureStereoPhaseBytes(arrayBuffer.slice(0));
+            phaseStats = {
+              correlation: nativePhase.correlation,
+              leftPeak: nativePhase.left_peak,
+              rightPeak: nativePhase.right_peak,
+              monoPeak: nativePhase.mono_peak,
+              monoCancelDb: nativePhase.mono_cancel_db,
+              outOfPhase: nativePhase.out_of_phase,
+              engine: "native",
+            };
+          } catch {
+            phaseStats = null;
+          }
         }
 
-        if (!stats) {
+        if (!stats || !phaseStats) {
           const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
           try {
-            const buffer = await decodeCtx.decodeAudioData((await blob.arrayBuffer()).slice(0));
-            stats = await measureIntegratedLoudness(buffer);
+            const buffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
+            if (!stats) {
+              stats = await measureIntegratedLoudness(buffer);
+            }
+            if (!phaseStats) {
+              phaseStats = measureStereoPhase(buffer);
+            }
           } finally {
             try {
               await decodeCtx.close();
@@ -503,9 +528,13 @@ export function useAnalyzers({
 
         if (!cancelled && gen === loudnessGenRef.current) {
           setAudioLoudness(stats);
+          setAudioStereoPhase(phaseStats);
         }
       } catch {
-        if (!cancelled && gen === loudnessGenRef.current) setAudioLoudness(null);
+        if (!cancelled && gen === loudnessGenRef.current) {
+          setAudioLoudness(null);
+          setAudioStereoPhase(null);
+        }
       } finally {
         if (!cancelled && gen === loudnessGenRef.current) setAudioLoudnessBusy(false);
       }
@@ -1221,6 +1250,7 @@ export function useAnalyzers({
     audioExportProgress,
     audioLoudness,
     audioLoudnessBusy,
+    audioStereoPhase,
     audioPreviewUrl,
     canvasRef,
     exportEnhancedAudio,

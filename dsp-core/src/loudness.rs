@@ -6,6 +6,8 @@ use ebur128::{EbuR128, Mode};
 use crate::Loudness;
 
 pub const STREAMING_TARGET_LUFS: f64 = -14.0;
+pub const PODCAST_TARGET_LUFS: f64 = -16.0;
+pub const BROADCAST_TARGET_LUFS: f64 = -23.0;
 pub const TRUE_PEAK_CEILING_DBTP: f64 = -1.0;
 pub const EXPORT_SAMPLE_RATE: u32 = 48_000;
 

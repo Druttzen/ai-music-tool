@@ -163,6 +163,7 @@ export function buildProjectWorkspaceAnalyzerState(s) {
     audioExportProgress: s.audioExportProgress,
     audioLoudness: s.audioLoudness,
     audioLoudnessBusy: s.audioLoudnessBusy,
+    audioStereoPhase: s.audioStereoPhase,
     audioPreviewUrl: s.audioPreviewUrl,
     generateMusicBusy: s.generateMusicBusy,
     generateSongBusy: s.generateSongBusy,

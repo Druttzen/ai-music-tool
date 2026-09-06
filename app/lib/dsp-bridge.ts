@@ -37,7 +37,7 @@ export function isTauriApp(): boolean {
 
 /**
  * Measure EBU R128 loudness from encoded audio bytes (MP3/M4A/OGG/FLAC/WAV)
- * via the native DSP core — no browser-side decode required.
+ * via dsp-core Symphonia decode — no browser-side decode required.
  */
 export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness> {
   const t = tauri();
@@ -45,6 +45,25 @@ export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness
     throw new Error("Native DSP core is only available in the Tauri desktop build");
   }
   return t.core.invoke<Loudness>("measure_loudness_bytes", {
+    bytes: new Uint8Array(bytes),
+  });
+}
+
+export interface StereoPhase {
+  correlation: number;
+  left_peak: number;
+  right_peak: number;
+  mono_peak: number;
+  mono_cancel_db: number;
+  out_of_phase: boolean;
+}
+
+export async function measureStereoPhaseBytes(bytes: ArrayBuffer): Promise<StereoPhase> {
+  const t = tauri();
+  if (!t) {
+    throw new Error("Native DSP core is only available in the Tauri desktop build");
+  }
+  return t.core.invoke<StereoPhase>("measure_stereo_phase_bytes", {
     bytes: new Uint8Array(bytes),
   });
 }
@@ -66,7 +85,7 @@ export interface ExportMasteredResult {
 export async function exportMasteredNative(
   bytes: ArrayBuffer,
   presetId: string,
-  format: "wav" | "wav24" | "mp3",
+  format: "wav" | "wav24" | "wav32" | "flac" | "mp3",
   startSec?: number,
   endSec?: number,
 ): Promise<ExportMasteredResult> {
