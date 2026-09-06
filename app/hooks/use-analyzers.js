@@ -413,9 +413,33 @@ export function useAnalyzers({
 
       if (resolved?.blob) {
         try {
-          if (needsPreview) setAudioPreviewFromBlob(resolved.blob);
+          let previewBlob = resolved.blob;
+          let peaksBlob = resolved.blob;
+          // ALAC/CAF cache blobs need Symphonia→WAV again after reload for Web Audio playback.
+          try {
+            const arrayBuffer = await resolved.blob.arrayBuffer();
+            const decoded = await decodeAnalyzerAudioBuffer(
+              arrayBuffer,
+              audioAnalysis.fileName || "track",
+            );
+            if (decoded.previewBlob) {
+              previewBlob = decoded.previewBlob;
+              peaksBlob = decoded.previewBlob;
+            }
+            if (decoded.audioContext) {
+              try {
+                await decoded.audioContext.close();
+              } catch {
+                /* ignore */
+              }
+            }
+          } catch {
+            /* keep original blob for browser-decodable formats */
+          }
+          if (cancelled || gen !== rehydrateGenRef.current) return;
+          if (needsPreview) setAudioPreviewFromBlob(previewBlob);
           if (needsPeaks) {
-            const peaks = await decodeWaveformPeaksFromBlob(resolved.blob);
+            const peaks = await decodeWaveformPeaksFromBlob(peaksBlob);
             if (cancelled || gen !== rehydrateGenRef.current) return;
             setAudioAnalysis((prev) =>
               patchAudioAnalysis(prev, {

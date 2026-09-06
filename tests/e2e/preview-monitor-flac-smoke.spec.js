@@ -36,11 +36,14 @@ test.describe("preview monitor + flac export smoke", () => {
     await expect(panel.getByRole("button", { name: /Streaming.*LUFS/i })).toBeVisible();
 
     await panel.getByRole("button", { name: "WAV 16-bit", exact: true }).click();
+    // Tiny fixtures can finish before Playwright observes "Studio export started" — assert outcome.
     const downloadPromise = page.waitForEvent("download", { timeout: 60_000 }).catch(() => null);
     await panel.getByRole("button", { name: /Measure only/i }).click();
-    await expect(page.getByTestId("action-toast").getByText(/Studio export started/i)).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      page
+        .getByTestId("action-toast")
+        .getByText(/Studio export started|downloaded|Studio export failed|Attach the audio/i),
+    ).toBeVisible({ timeout: 30_000 });
     await expect(
       page.getByTestId("action-toast").getByText(/downloaded|Studio export failed|Attach the audio/i),
     ).toBeVisible({ timeout: 60_000 });
