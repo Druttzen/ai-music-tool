@@ -2,6 +2,9 @@
  * Preview-only monitoring utilities: A/B gain match, spectrum, headphone EQ.
  */
 
+import { measureIntegratedLoudness } from "./lufs-meter";
+import { isTauriApp, measureLoudnessBytes } from "./dsp-bridge";
+
 /**
  * Gain linear to match reference integrated LUFS to program LUFS.
  * @param {number} programLufs
@@ -10,6 +13,39 @@
 export function gainToMatchLufs(programLufs, referenceLufs) {
   if (!Number.isFinite(programLufs) || !Number.isFinite(referenceLufs)) return 1;
   return Math.pow(10, (programLufs - referenceLufs) / 20);
+}
+
+/**
+ * Integrated LUFS from encoded bytes. Studio prefers Symphonia via dsp-bridge;
+ * browser falls back to Web Audio decode + JS R128.
+ * @param {ArrayBuffer} bytes
+ * @returns {Promise<{ integratedLUFS: number, engine: "native"|"browser" }>}
+ */
+export async function measureIntegratedLufsFromBytes(bytes) {
+  if (isTauriApp()) {
+    try {
+      const native = await measureLoudnessBytes(bytes.slice(0));
+      if (typeof native.integrated_lufs === "number" && Number.isFinite(native.integrated_lufs)) {
+        return { integratedLUFS: native.integrated_lufs, engine: "native" };
+      }
+    } catch {
+      /* fall through to Web Audio */
+    }
+  }
+
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new Ctx();
+  try {
+    const buffer = await ctx.decodeAudioData(bytes.slice(0));
+    const m = await measureIntegratedLoudness(buffer);
+    return { integratedLUFS: m.integratedLUFS, engine: "browser" };
+  } finally {
+    try {
+      await ctx.close();
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export const PREVIEW_EQ_STORAGE_KEY = "aimc-preview-headphone-eq";

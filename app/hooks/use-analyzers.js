@@ -472,8 +472,8 @@ export function useAnalyzers({
         let phaseStats = null;
         const arrayBuffer = await blob.arrayBuffer();
 
-        // Native DSP core (Tauri desktop): decode + EBU R128 in Rust straight
-        // from the file bytes. Falls back to the in-browser meter on any error.
+        // Native dsp-core Symphonia (Tauri): decode + EBU R128 / phase from file bytes.
+        // Falls back to Web Audio + JS meters on any error or outside Studio.
         if (isTauriApp()) {
           try {
             const native = await measureLoudnessBytes(arrayBuffer.slice(0));

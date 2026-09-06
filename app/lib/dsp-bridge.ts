@@ -37,7 +37,7 @@ export function isTauriApp(): boolean {
 
 /**
  * Measure EBU R128 loudness from encoded audio bytes (MP3/M4A/OGG/FLAC/WAV)
- * via the native DSP core — no browser-side decode required.
+ * via dsp-core Symphonia decode — no browser-side decode required.
  */
 export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness> {
   const t = tauri();

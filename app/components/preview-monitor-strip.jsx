@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { formatLufs, measureIntegratedLoudness } from "../lib/lufs-meter";
+import { formatLufs } from "../lib/lufs-meter";
 import { formatCorrelation } from "../lib/stereo-phase";
 import {
   defaultPreviewEqState,
   gainToMatchLufs,
   loadPreviewEqState,
+  measureIntegratedLufsFromBytes,
   savePreviewEqState,
 } from "../lib/preview-monitor";
 
@@ -31,6 +32,7 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
   const [refUrl, setRefUrl] = useState(null);
   const [refName, setRefName] = useState("");
   const [refLufs, setRefLufs] = useState(null);
+  const [refEngine, setRefEngine] = useState(null);
   const [refBusy, setRefBusy] = useState(false);
   const [spectrum, setSpectrum] = useState(() => new Array(SPECTRUM_BINS).fill(0));
   const [eqState, setEqState] = useState(() =>
@@ -218,17 +220,14 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
       const url = URL.createObjectURL(file);
       setRefUrl(url);
       setRefName(file.name);
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      try {
-        const buffer = await ctx.decodeAudioData(await file.arrayBuffer());
-        const m = await measureIntegratedLoudness(buffer);
-        setRefLufs(m.integratedLUFS);
-      } finally {
-        await ctx.close();
-      }
+      // Studio: Symphonia via dsp-bridge (MP3/M4A/OGG/FLAC/WAV). Browser: Web Audio.
+      const measured = await measureIntegratedLufsFromBytes(await file.arrayBuffer());
+      setRefLufs(measured.integratedLUFS);
+      setRefEngine(measured.engine);
       setAbMode("B");
     } catch {
       setRefLufs(null);
+      setRefEngine(null);
     } finally {
       setRefBusy(false);
     }
@@ -239,6 +238,7 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
     setRefUrl(null);
     setRefName("");
     setRefLufs(null);
+    setRefEngine(null);
     setAbMode("A");
     sourceNodesRef.current.reference = null;
   };
@@ -336,10 +336,10 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
         </div>
         <p className="text-[10px] text-white/40">
           {refBusy
-            ? "Measuring reference LUFS…"
+            ? "Measuring reference LUFS (Symphonia in Studio)…"
             : refUrl
-              ? `${refName} · ref ${formatLufs(refLufs)} · matched gain ${matchGain.toFixed(2)}× (preview only)`
-              : "Drop a reference to A/B at matched integrated LUFS — honest mix check, not Atmos/DTS."}
+              ? `${refName} · ref ${formatLufs(refLufs)}${refEngine === "native" ? " · native" : ""} · matched gain ${matchGain.toFixed(2)}× (preview only)`
+              : "Drop a reference to A/B at matched integrated LUFS (Symphonia decode in Studio) — honest mix check, not Atmos/DTS."}
         </p>
       </div>
 
