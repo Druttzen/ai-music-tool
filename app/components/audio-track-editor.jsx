@@ -427,13 +427,16 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             Mastering runs in a background worker with progress. Loudness presets: Streaming{" "}
             {STREAMING_TARGET_LUFS}, Podcast {PODCAST_TARGET_LUFS}, Broadcast {BROADCAST_TARGET_LUFS}{" "}
             LUFS (gated integrated, -1 dBTP). Measure only exports without normalize. Studio
-            exports resample to 48 kHz.
+            exports resample to 48 kHz. FLAC uses native flacenc in Studio (browser falls back to
+            WAV 24-bit).
           </p>
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-white/50">
             <span>Format</span>
             {[
               ["wav", "WAV 16-bit"],
               ["wav24", "WAV 24-bit"],
+              ["wav32", "WAV 32-float"],
+              ["flac", "FLAC"],
               ["mp3", "MP3"],
             ].map(([id, label]) => (
               <button

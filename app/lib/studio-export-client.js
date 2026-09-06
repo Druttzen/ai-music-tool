@@ -51,19 +51,21 @@ function getWorker() {
 
 /**
  * @param {string} baseFileName — stem without extension (may already include -enhanced- or -highlight- suffix)
- * @param {"wav"|"mp3"|"wav24"} format
+ * @param {"wav"|"mp3"|"wav24"|"wav32"|"flac"} format
  */
 export function buildExportFileName(baseFileName, format) {
   const normalized = normalizeStudioExportFormat(format);
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
   if (normalized === "mp3") return `${base}.mp3`;
+  if (normalized === "flac") return `${base}.flac`;
   if (normalized === "wav24") return `${base}-24bit.wav`;
+  if (normalized === "wav32") return `${base}-32float.wav`;
   return `${base}.wav`;
 }
 
 /**
- * Studio export from a file/blob. Uses native Rust mastering in Tauri (WAV/WAV24);
- * falls back to Web Worker / main-thread JS for browser and Electron.
+ * Studio export from a file/blob. Uses native Rust mastering in Tauri (WAV/WAV24/WAV32/FLAC/MP3);
+ * falls back to Web Worker / main-thread JS for browser (FLAC → WAV24 fallback).
  *
  * @param {Blob} blob
  * @param {string} presetId
@@ -123,7 +125,8 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
     );
     opts.onProgress?.({ phase: "encoding", pct: 90 });
     const outBytes = new Uint8Array(result.wav_bytes);
-    const mime = format === "mp3" ? "audio/mpeg" : "audio/wav";
+    const mime =
+      format === "mp3" ? "audio/mpeg" : format === "flac" ? "audio/flac" : "audio/wav";
     const outBlob = new Blob([outBytes], { type: mime });
     const fileName = buildExportFileName(baseFileName, format);
     downloadFormatBlob(outBlob, fileName);
@@ -279,9 +282,14 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
     opts.onProgress?.({ phase: "encoding", pct: 85 });
     const format = normalizeStudioExportFormat(opts.format);
     try {
-      await downloadAudioBufferAsFormat(enhanced, format, baseFileName);
+      const encoded = await downloadAudioBufferAsFormat(enhanced, format, baseFileName);
       opts.onProgress?.({ phase: "done", pct: 100 });
-      return { format, formatFallback: false, afterLufs, targetLufs };
+      return {
+        format: encoded?.format || format,
+        formatFallback: Boolean(encoded?.formatFallback),
+        afterLufs,
+        targetLufs,
+      };
     } catch (encodeErr) {
       if (format !== "mp3") throw encodeErr;
       await downloadAudioBufferAsFormat(enhanced, "wav", baseFileName);

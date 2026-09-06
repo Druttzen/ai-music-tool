@@ -18,21 +18,31 @@ describe("buildExportFileName", () => {
       "track-enhanced-streaming-24bit.wav",
     );
   });
+  it("uses flac and wav32 filenames", () => {
+    expect(buildExportFileName("song-enhanced-streaming", "flac")).toBe(
+      "song-enhanced-streaming.flac",
+    );
+    expect(buildExportFileName("song-enhanced-streaming", "wav32")).toBe(
+      "song-enhanced-streaming-32float.wav",
+    );
+  });
 });
 
 describe("studio export format normalization", () => {
   it("normalizes aliases used by the export UI", () => {
     expect(normalizeStudioExportFormat("wav")).toBe("wav");
     expect(normalizeStudioExportFormat("wav24")).toBe("wav24");
+    expect(normalizeStudioExportFormat("wav32")).toBe("wav32");
+    expect(normalizeStudioExportFormat("flac")).toBe("flac");
     expect(normalizeStudioExportFormat("mp3")).toBe("mp3");
     expect(normalizeStudioExportFormat("WAV24")).toBe("wav24");
   });
 
   it("buildExportFileName stays aligned with normalized formats", () => {
-    for (const fmt of ["wav", "wav24", "mp3"]) {
+    for (const fmt of ["wav", "wav24", "wav32", "flac", "mp3"]) {
       const normalized = normalizeStudioExportFormat(fmt);
       const name = buildExportFileName("export-test", normalized);
-      expect(name).toMatch(/\.(wav|mp3)$/);
+      expect(name).toMatch(/\.(wav|mp3|flac)$/);
     }
   });
 });

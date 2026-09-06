@@ -85,7 +85,7 @@ export interface ExportMasteredResult {
 export async function exportMasteredNative(
   bytes: ArrayBuffer,
   presetId: string,
-  format: "wav" | "wav24" | "mp3",
+  format: "wav" | "wav24" | "wav32" | "flac" | "mp3",
   startSec?: number,
   endSec?: number,
 ): Promise<ExportMasteredResult> {

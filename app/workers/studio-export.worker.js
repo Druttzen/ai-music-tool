@@ -2,7 +2,12 @@
  * Studio mastering in a worker (OfflineAudioContext) so the UI thread stays responsive.
  */
 
-import { renderEnhancedAudioBuffer, audioBufferToWavBlob, audioBufferToWav24Blob } from "../lib/audio-enhancer";
+import {
+  renderEnhancedAudioBuffer,
+  audioBufferToWavBlob,
+  audioBufferToWav24Blob,
+  audioBufferToWav32Blob,
+} from "../lib/audio-enhancer";
 import { deserializeAudioBuffer } from "../lib/audio-buffer-serialize";
 import { audioBufferToMp3Blob, normalizeStudioExportFormat } from "../lib/audio-export-formats";
 import {
@@ -32,14 +37,24 @@ self.onmessage = async (ev) => {
     let blob;
     let outFormat = format;
     let fileName = ev.data.fileName;
+    let formatFallback = false;
     try {
       if (format === "mp3") blob = await audioBufferToMp3Blob(enhanced);
+      else if (format === "flac") {
+        // No browser FLAC encoder — lossless fallback is 24-bit WAV.
+        blob = audioBufferToWav24Blob(enhanced);
+        outFormat = "wav24";
+        formatFallback = true;
+        const base = String(fileName || "track.wav").replace(/\.[^.]+$/, "");
+        fileName = `${base}-24bit.wav`;
+      } else if (format === "wav32") blob = audioBufferToWav32Blob(enhanced);
       else if (format === "wav24") blob = audioBufferToWav24Blob(enhanced);
       else blob = audioBufferToWavBlob(enhanced);
     } catch (encodeErr) {
       if (format === "mp3") {
         blob = audioBufferToWavBlob(enhanced);
         outFormat = "wav";
+        formatFallback = true;
         const base = String(fileName || "track.wav").replace(/\.[^.]+$/, "");
         fileName = `${base}.wav`;
       } else {
@@ -56,7 +71,7 @@ self.onmessage = async (ev) => {
         mime: blob.type,
         fileName,
         outFormat,
-        formatFallback: outFormat !== format,
+        formatFallback,
         pct: 100,
         afterLufs,
         targetLufs,

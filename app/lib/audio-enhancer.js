@@ -199,6 +199,53 @@ export function audioBufferToWav24Blob(buffer) {
 }
 
 /**
+ * 32-bit IEEE float WAV (DAW re-import).
+ * @param {AudioBuffer} buffer
+ * @returns {Blob}
+ */
+export function audioBufferToWav32Blob(buffer) {
+  const channels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const bitsPerSample = 32;
+  const bytesPerSample = 4;
+  const blockAlign = channels * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const samples = buffer.length;
+  const dataBytes = samples * blockAlign;
+  const arrayBuffer = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(arrayBuffer);
+
+  const writeStr = (offset, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + dataBytes, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 3, true); // IEEE float
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeStr(36, "data");
+  view.setUint32(40, dataBytes, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples; i++) {
+    for (let ch = 0; ch < channels; ch++) {
+      const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+      view.setFloat32(offset, s, true);
+      offset += 4;
+    }
+  }
+
+  return new Blob([arrayBuffer], { type: "audio/wav" });
+}
+
+/**
  * @param {Blob} wavBlob
  * @param {string} fileName
  */

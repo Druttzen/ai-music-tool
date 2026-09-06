@@ -7,15 +7,17 @@ describe("normalizeStudioExportFormat", () => {
     expect(normalizeStudioExportFormat("mp3")).toBe("mp3");
   });
 
-  it("maps legacy flac aliases to wav", () => {
-    expect(normalizeStudioExportFormat("flac")).toBe("wav");
-    expect(normalizeStudioExportFormat("wav-lossless")).toBe("wav");
-    expect(normalizeStudioExportFormat("lossless")).toBe("wav");
+  it("maps lossless aliases to real flac", () => {
+    expect(normalizeStudioExportFormat("flac")).toBe("flac");
+    expect(normalizeStudioExportFormat("wav-lossless")).toBe("flac");
+    expect(normalizeStudioExportFormat("lossless")).toBe("flac");
   });
 
-  it("accepts wav24", () => {
+  it("accepts wav24 and wav32", () => {
     expect(normalizeStudioExportFormat("wav24")).toBe("wav24");
     expect(normalizeStudioExportFormat("24bit")).toBe("wav24");
+    expect(normalizeStudioExportFormat("wav32")).toBe("wav32");
+    expect(normalizeStudioExportFormat("float")).toBe("wav32");
   });
 
   it("defaults unknown values to wav", () => {

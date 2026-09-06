@@ -337,8 +337,77 @@ fn encode_mp3(samples: &[f32], channels: u32, sample_rate: u32) -> Result<Vec<u8
     Ok(out)
 }
 
+fn encode_flac(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
+    use flacenc::bitsink::ByteSink;
+    use flacenc::component::BitRepr;
+    use flacenc::error::Verify;
+    use flacenc::source::MemSource;
+
+    if channels == 0 {
+        return Err(anyhow!("flac encode requires channels"));
+    }
+    let bits = if bits == 24 { 24 } else { 16 };
+    let max_pos = (1i32 << (bits - 1)) - 1;
+    let max_neg = -(1i32 << (bits - 1));
+    let scale = if bits == 24 {
+        8_388_607.0_f32
+    } else {
+        32_767.0_f32
+    };
+    let scale_neg = if bits == 24 {
+        8_388_608.0_f32
+    } else {
+        32_768.0_f32
+    };
+
+    let pcm: Vec<i32> = samples
+        .iter()
+        .map(|&s| {
+            let s = s.clamp(-1.0, 1.0);
+            let v = if s < 0.0 {
+                (s * scale_neg) as i32
+            } else {
+                (s * scale) as i32
+            };
+            v.clamp(max_neg, max_pos)
+        })
+        .collect();
+
+    let config = flacenc::config::Encoder::default()
+        .into_verified()
+        .map_err(|e| anyhow!("flac config: {e:?}"))?;
+    let source = MemSource::from_samples(&pcm, channels as usize, bits as usize, sample_rate as usize);
+    let stream = flacenc::encode_with_fixed_block_size(&config, source, config.block_size)
+        .map_err(|e| anyhow!("flac encode: {e:?}"))?;
+    let mut sink = ByteSink::new();
+    stream
+        .write(&mut sink)
+        .map_err(|e| anyhow!("flac write: {e:?}"))?;
+    Ok(sink.as_slice().to_vec())
+}
+
 fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Result<Vec<u8>> {
     use std::io::Cursor;
+    if bits == 32 {
+        let spec = hound::WavSpec {
+            channels: channels as u16,
+            sample_rate,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        };
+        let mut cursor = Cursor::new(Vec::new());
+        let mut writer = hound::WavWriter::new(&mut cursor, spec)?;
+        let ch = channels as usize;
+        let frames = samples.len() / ch;
+        for f in 0..frames {
+            for c in 0..ch {
+                writer.write_sample(samples[f * ch + c].clamp(-1.0, 1.0))?;
+            }
+        }
+        writer.finalize()?;
+        return Ok(cursor.into_inner());
+    }
+
     let spec = hound::WavSpec {
         channels: channels as u16,
         sample_rate,
@@ -373,7 +442,7 @@ fn encode_wav(samples: &[f32], channels: u32, sample_rate: u32, bits: u16) -> Re
     Ok(cursor.into_inner())
 }
 
-/// Decode, master, and encode to WAV (16- or 24-bit).
+/// Decode, master, and encode to WAV / FLAC / MP3.
 pub fn export_mastered_bytes(
     bytes: Vec<u8>,
     preset_id: &str,
@@ -385,7 +454,12 @@ pub fn export_mastered_bytes(
         return Err(anyhow!("unknown preset: {preset_id}"));
     }
     let is_mp3 = format == "mp3";
-    let bits: u16 = if format == "wav24" { 24 } else { 16 };
+    let is_flac = format == "flac";
+    let bits: u16 = match format {
+        "wav24" | "flac" => 24,
+        "wav32" => 32,
+        _ => 16,
+    };
     let measure_only = preset_id == "measure";
 
     let (samples, channels, sample_rate) = decode_interleaved(bytes)?;
@@ -433,6 +507,8 @@ pub fn export_mastered_bytes(
     }
     let wav_bytes = if is_mp3 {
         encode_mp3(&samples, channels, sample_rate)?
+    } else if is_flac {
+        encode_flac(&samples, channels, sample_rate, 24)?
     } else {
         encode_wav(&samples, channels, sample_rate, bits)?
     };
@@ -571,5 +647,25 @@ mod tests {
         assert!(r.wav_bytes.len() > 128);
         assert_eq!(r.bits_per_sample, 0);
         assert!(r.wav_bytes.starts_with(b"ID3") || r.wav_bytes[0] == 0xff);
+    }
+
+    #[test]
+    fn exports_flac_has_stream_marker() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "streaming", "flac", None, None).unwrap();
+        assert!(r.wav_bytes.starts_with(b"fLaC"));
+        assert_eq!(r.bits_per_sample, 24);
+        assert_eq!(r.sample_rate, 48_000);
+        let lufs = r.integrated_lufs.expect("streaming lufs");
+        assert!((lufs - STREAMING_TARGET_LUFS).abs() <= 0.3);
+    }
+
+    #[test]
+    fn exports_wav32_float() {
+        let r = export_mastered_bytes(sine_wav_bytes(), "measure", "wav32", None, None).unwrap();
+        assert!(r.wav_bytes.starts_with(b"RIFF"));
+        assert_eq!(r.bits_per_sample, 32);
+        let wav = hound::WavReader::new(std::io::Cursor::new(&r.wav_bytes)).unwrap();
+        assert_eq!(wav.spec().bits_per_sample, 32);
+        assert_eq!(wav.spec().sample_format, hound::SampleFormat::Float);
     }
 }
