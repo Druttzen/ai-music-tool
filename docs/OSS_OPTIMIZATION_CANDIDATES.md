@@ -37,7 +37,7 @@ bundle AGPL/GPL or non-commercial model weights in core product paths.
 
 ## Integration Order
 
-1. Harden Maestro LLM JSON with Zod schemas and explicit command validation.
+1. ~~Harden Maestro LLM JSON with Zod schemas and explicit command validation.~~ — **done** (`repairMaestroLlmJson` + Zod in `maestro-chat-llm.js`).
 2. ~~Extend sidecar audio analysis using the existing `librosa` dependency.~~ — **done** (sonic `time_signature` / `timeline_segments` promoted into merge, Suno style, and track editor).
 3. ~~Optional image captioning via `POST /analyze-image` (vision extra)~~ — **done** (`npm run sidecar:vision`).
 4. ~~Prototype wavesurfer.js~~ — **shipped default-on** (opt out with `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0` or classic toggle).
