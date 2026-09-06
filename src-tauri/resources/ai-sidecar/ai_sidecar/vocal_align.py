@@ -1,13 +1,14 @@
 """Optional guide-vocal alignment for DiffSinger DS timing.
 
-Uses Montreal Forced Aligner when AIMC_MFA_MODEL is configured; otherwise falls
-back to librosa onset/energy heuristics on the guide vocal mono track.
+Uses Montreal Forced Aligner when AIMC_MFA_MODEL + AIMC_MFA_DICT are set and the
+`mfa` binary is on PATH; otherwise falls back to librosa onset/energy heuristics.
 """
 
 from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -20,6 +21,17 @@ def mfa_configured() -> bool:
     model = os.environ.get("AIMC_MFA_MODEL", "").strip()
     dictionary = os.environ.get("AIMC_MFA_DICT", "").strip()
     return bool(model and dictionary)
+
+
+def mfa_bin_name() -> str:
+    return os.environ.get("AIMC_MFA_BIN", "mfa").strip() or "mfa"
+
+
+def mfa_ready() -> bool:
+    """Env configured and MFA executable discoverable on PATH."""
+    if not mfa_configured():
+        return False
+    return bool(shutil.which(mfa_bin_name()))
 
 
 def _clean_word(token: str) -> str:
@@ -107,10 +119,10 @@ def _align_with_mfa(
     transcript: str,
     words: list[str],
 ) -> list[float] | None:
-    if not mfa_configured():
+    if not mfa_ready():
         return None
 
-    mfa_bin = os.environ.get("AIMC_MFA_BIN", "mfa").strip() or "mfa"
+    mfa_bin = mfa_bin_name()
     model = os.environ.get("AIMC_MFA_MODEL", "").strip()
     dictionary = os.environ.get("AIMC_MFA_DICT", "").strip()
     if not model or not dictionary:
@@ -160,10 +172,10 @@ def align_section_words(
     *,
     section_start: float,
     section_end: float,
-) -> list[dict[str, Any]]:
-    """Return [{word, start, end}] for a vocal section."""
+) -> tuple[list[dict[str, Any]], str]:
+    """Return ([{word, start, end}], method) where method is ``mfa`` or ``heuristic``."""
     if not words:
-        return []
+        return [], "heuristic"
 
     i0 = max(0, int(section_start * sample_rate))
     i1 = min(guide_mono.shape[0], int(section_end * sample_rate))
@@ -171,7 +183,9 @@ def align_section_words(
 
     transcript = " ".join(words)
     starts = _align_with_mfa(segment, sample_rate, transcript, words)
+    method = "mfa"
     if starts is None:
+        method = "heuristic"
         starts = _heuristic_word_starts(
             segment,
             sample_rate,
@@ -185,28 +199,27 @@ def align_section_words(
         start = float(starts[i]) if i < len(starts) else section_start
         if i + 1 < len(starts):
             end = float(starts[i + 1])
-        elif i + 1 < len(words) and i + 1 < len(starts):
-            end = float(starts[i + 1])
         else:
             end = section_end
         if end <= start:
             end = min(section_end, start + 0.12)
         aligned.append({"word": word, "start": start, "end": end})
-    return aligned
+    return aligned, method
 
 
 def align_plan_with_guide(
     plan: dict[str, Any],
     guide_mono: np.ndarray,
     sample_rate: int,
-) -> dict[str, Any]:
-    """Attach per-section word timings derived from a guide vocal."""
+) -> tuple[dict[str, Any], str]:
+    """Attach per-section word timings. Returns (plan, align_method used)."""
     sections = plan.get("sections") or []
     if not isinstance(sections, list) or guide_mono.size == 0:
-        return plan
+        return plan, "heuristic"
 
     lyrics = str(plan.get("lyrics") or "")
     enriched: list[dict[str, Any]] = []
+    methods: list[str] = []
     for section in sections:
         if not isinstance(section, dict):
             continue
@@ -225,17 +238,22 @@ def align_plan_with_guide(
             enriched.append(section)
             continue
 
-        aligned = align_section_words(
+        aligned, method = align_section_words(
             guide_mono,
             sample_rate,
             words,
             section_start=start,
             section_end=end,
         )
+        methods.append(method)
         copy = dict(section)
         copy["alignedWords"] = aligned
+        copy["alignMethod"] = method
         enriched.append(copy)
 
     out = dict(plan)
     out["sections"] = enriched
-    return out
+    used_mfa = any(m == "mfa" for m in methods)
+    align_method = "mfa" if used_mfa else "heuristic"
+    out["alignMethod"] = align_method
+    return out, align_method

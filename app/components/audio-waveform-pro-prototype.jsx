@@ -3,6 +3,16 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { formatTime } from "../lib/audio-analyzer";
 
+const SPECTROGRAM_LS_KEY = "aimc-ws-spectrogram";
+
+function readSpectrogramPref() {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(SPECTROGRAM_LS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Normalize analysis.vocalRegions + highlight into a list for WaveSurfer.
  * @param {object|null|undefined} analysis
@@ -37,7 +47,7 @@ export function buildWaveformRegionSpecs(analysis) {
 
 /**
  * WaveSurfer.js highlight + multi-region editor (default). Classic canvas via toggle.
- * Boot only on audioUrl / duration — highlight drag must not destroy/recreate the instance.
+ * Boot only on audioUrl / duration / spectrogram — highlight drag must not destroy/recreate.
  */
 export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype({
   audioUrl,
@@ -45,11 +55,14 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
   onHighlightChange,
 }) {
   const containerRef = useRef(null);
+  const minimapRef = useRef(null);
+  const spectrogramRef = useRef(null);
   const waveRef = useRef(null);
   const regionsRef = useRef(null);
   const onHighlightChangeRef = useRef(onHighlightChange);
   const regionSeqRef = useRef(1);
   const [status, setStatus] = useState("loading");
+  const [showSpectrogram, setShowSpectrogram] = useState(() => readSpectrogramPref());
 
   useEffect(() => {
     onHighlightChangeRef.current = onHighlightChange;
@@ -84,16 +97,24 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
     let regionsPlugin = null;
 
     async function boot() {
-      if (!audioUrl || !containerRef.current) return;
+      if (!audioUrl || !containerRef.current || !minimapRef.current) return;
       setStatus("loading");
       try {
-        const [{ default: WaveSurfer }, { default: RegionsPlugin }, { default: TimelinePlugin }] =
-          await Promise.all([
-            import("wavesurfer.js"),
-            import("wavesurfer.js/dist/plugins/regions.esm.js"),
-            import("wavesurfer.js/dist/plugins/timeline.esm.js"),
-          ]);
-        if (cancelled || !containerRef.current) return;
+        const imports = [
+          import("wavesurfer.js"),
+          import("wavesurfer.js/dist/plugins/regions.esm.js"),
+          import("wavesurfer.js/dist/plugins/timeline.esm.js"),
+          import("wavesurfer.js/dist/plugins/minimap.esm.js"),
+        ];
+        if (showSpectrogram) {
+          imports.push(import("wavesurfer.js/dist/plugins/spectrogram.esm.js"));
+        }
+        const mods = await Promise.all(imports);
+        if (cancelled || !containerRef.current || !minimapRef.current) return;
+
+        const [{ default: WaveSurfer }, { default: RegionsPlugin }, { default: TimelinePlugin }, { default: MinimapPlugin }] =
+          mods;
+        const SpectrogramPlugin = showSpectrogram ? mods[4]?.default : null;
 
         const wavesurfer = WaveSurfer.create({
           container: containerRef.current,
@@ -107,6 +128,25 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
           normalize: true,
         });
         const timeline = wavesurfer.registerPlugin(TimelinePlugin.create());
+        wavesurfer.registerPlugin(
+          MinimapPlugin.create({
+            container: minimapRef.current,
+            height: 36,
+            waveColor: "rgba(103, 232, 249, 0.35)",
+            progressColor: "rgba(251, 146, 60, 0.65)",
+            overlayColor: "rgba(255, 255, 255, 0.08)",
+          }),
+        );
+        if (SpectrogramPlugin && spectrogramRef.current) {
+          wavesurfer.registerPlugin(
+            SpectrogramPlugin.create({
+              container: spectrogramRef.current,
+              labels: false,
+              height: 96,
+              splitChannels: false,
+            }),
+          );
+        }
         regionsPlugin = wavesurfer.registerPlugin(RegionsPlugin.create());
         waveRef.current = { wavesurfer, timeline };
         regionsRef.current = regionsPlugin;
@@ -153,7 +193,7 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
     };
     // Intentionally omit highlightStart/End and onHighlightChange — remounting on drag was the bug.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- analysis duration used only for initial region seed
-  }, [audioUrl, analysis?.duration]);
+  }, [audioUrl, analysis?.duration, showSpectrogram]);
 
   // Sync highlight region when it changes from outside (classic presets / energy strip).
   useEffect(() => {
@@ -203,6 +243,18 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
     emitRegions(regionsPlugin, wavesurfer);
   };
 
+  const toggleSpectrogram = () => {
+    setShowSpectrogram((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SPECTROGRAM_LS_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
   if (!audioUrl) return null;
 
   const extraCount = Array.isArray(analysis?.vocalRegions) ? analysis.vocalRegions.length : 0;
@@ -219,6 +271,20 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
         </div>
       </div>
       <div ref={containerRef} className="overflow-hidden rounded-xl bg-black/35" />
+      <div
+        ref={minimapRef}
+        className="mt-1 overflow-hidden rounded-lg bg-black/40"
+        data-testid="wavesurfer-minimap"
+      />
+      {showSpectrogram ? (
+        <div
+          ref={spectrogramRef}
+          className="mt-1 overflow-hidden rounded-lg bg-black/50"
+          data-testid="wavesurfer-spectrogram"
+        />
+      ) : (
+        <div ref={spectrogramRef} className="hidden" />
+      )}
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           type="button"
@@ -242,10 +308,21 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
         >
           Clear extra regions
         </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            toggleSpectrogram();
+          }}
+          className="rounded-lg border border-violet-400/35 bg-violet-500/15 px-2 py-1 text-[10px] font-bold text-violet-50 hover:bg-violet-500/25"
+        >
+          {showSpectrogram ? "Hide spectrogram" : "Show spectrogram"}
+        </button>
       </div>
       <p className="mt-2 text-[10px] leading-relaxed text-white/45">
-        Amber = merge highlight. Violet = extra vocal-transform regions. Toggle classic via the
-        Highlight section button or set `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0`.
+        Amber = merge highlight. Violet = extra vocal-transform regions. Minimap always on;
+        spectrogram is opt-in (heavier). Toggle classic via the Highlight section button or set{" "}
+        `NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0`.
       </p>
       {status !== "ready" ? <p className="mt-1 text-[10px] text-white/35">{status}</p> : null}
     </section>

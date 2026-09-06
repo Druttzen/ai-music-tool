@@ -120,12 +120,26 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           </span>
           <span
             className={`rounded-full px-2 py-1 font-bold ${
-              vocalModels?.align?.mfa_configured
-                ? "bg-amber-500/15 text-amber-100"
-                : "bg-white/10 text-white/45"
+              vocalModels?.align?.mfa_ready
+                ? "bg-emerald-500/15 text-emerald-100"
+                : vocalModels?.align?.mfa_configured
+                  ? "bg-amber-500/15 text-amber-100"
+                  : "bg-white/10 text-white/45"
             }`}
+            title={
+              vocalModels?.align?.mfa_ready
+                ? "MFA env set and mfa binary on PATH"
+                : vocalModels?.align?.mfa_configured
+                  ? "Env set but mfa binary not found — see docs/mfa.md"
+                  : "Using librosa heuristic until MFA is configured"
+            }
           >
-            MFA {vocalModels?.align?.mfa_configured ? "configured" : "heuristic"}
+            MFA{" "}
+            {vocalModels?.align?.mfa_ready
+              ? "ready"
+              : vocalModels?.align?.mfa_configured
+                ? "env only"
+                : "heuristic"}
           </span>
         </div>
       ) : null}
@@ -138,20 +152,25 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
             {storedOpenvpiDs?.segment_count
               ? ` · OpenVPI .ds ready (${storedOpenvpiDs.segment_count} segments)`
               : ""}
-            {alignPreview.align_method === "heuristic" ? (
+            {alignPreview.align_method === "heuristic" && vocalModels?.align?.mfa_configured ? (
               <>
                 {" "}
-                Still on librosa heuristic timing. For MFA: copy{" "}
-                <code className="text-white/70">ai-sidecar/env.vocal.example</code> →{" "}
-                <code className="text-white/70">ai-sidecar/.env.vocal</code>, set{" "}
-                <code className="text-white/70">AIMC_MFA_MODEL</code> +{" "}
-                <code className="text-white/70">AIMC_MFA_DICT</code> (optional{" "}
-                <code className="text-white/70">AIMC_MFA_BIN</code>), install Montreal Forced
-                Aligner, restart the sidecar.
+                MFA was configured but align fell back to heuristic (binary missing or MFA
+                failed) — see <code className="text-white/70">docs/mfa.md</code>.
               </>
-            ) : (
-              ""
-            )}
+            ) : null}
+            {alignPreview.align_method === "heuristic" && !vocalModels?.align?.mfa_configured ? (
+              <>
+                {" "}
+                Still on librosa heuristic timing. Setup:{" "}
+                <code className="text-white/70">docs/mfa.md</code> (copy{" "}
+                <code className="text-white/70">env.vocal.example</code> →{" "}
+                <code className="text-white/70">.env.vocal</code>).
+              </>
+            ) : null}
+            {alignPreview.align_method === "mfa" ? (
+              <> MFA timing used for this preview.</>
+            ) : null}
           </p>
           <button
             type="button"
@@ -197,12 +216,9 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
           OpenVPI: {vocalModels.diffsinger_openvpi.root || "root set"} · variance{" "}
           {vocalModels.diffsinger_openvpi.variance_exp || "—"} · acoustic{" "}
           {vocalModels.diffsinger_openvpi.acoustic_exp || "—"}.
-          Attach a guide vocal with lyrics to refine `.ds` word timing. Prefer MFA when configured
-          (copy <code className="text-white/55">ai-sidecar/env.vocal.example</code> →{" "}
-          <code className="text-white/55">.env.vocal</code>, set{" "}
-          <code className="text-white/55">AIMC_MFA_MODEL</code> +{" "}
-          <code className="text-white/55">AIMC_MFA_DICT</code>, restart sidecar). Without MFA the
-          aligner falls back to librosa onset heuristics.
+          Attach a guide vocal with lyrics to refine `.ds` word timing. Prefer MFA when ready
+          (see <code className="text-white/55">docs/mfa.md</code>). Without MFA the aligner falls
+          back to librosa onset heuristics.
         </p>
       ) : null}
 

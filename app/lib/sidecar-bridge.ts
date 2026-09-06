@@ -886,6 +886,7 @@ export async function generateCoverRefViaSidecar(options: {
 export interface VocalAlignPreviewResponse {
   align_method: string;
   mfa_configured: boolean;
+  mfa_ready?: boolean;
   word_count: number;
   sections: object[];
 }
