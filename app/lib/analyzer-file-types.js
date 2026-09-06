@@ -50,7 +50,7 @@ export function isSupportedImageFile(file) {
 }
 
 export const SUPPORTED_AUDIO_ACCEPT =
-  ".wav,.mp3,.ogg,.m4a,.flac,.caf,audio/wav,audio/wave,audio/mpeg,audio/ogg,audio/mp4,audio/m4a,audio/flac,audio/x-caf";
+  ".wav,.mp3,.ogg,.m4a,.flac,.caf,.alac,audio/wav,audio/wave,audio/mpeg,audio/ogg,audio/mp4,audio/m4a,audio/flac,audio/x-caf,audio/alac";
 
 export const SUPPORTED_IMAGE_ACCEPT = ".jpg,.jpeg,.png,image/jpeg,image/png";
 
