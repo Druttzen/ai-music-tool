@@ -40,7 +40,7 @@ from .vocal_ml_models import (
     vocal_model_status,
 )
 from .diffsinger_openvpi import export_ds_bundle_from_plan
-from .vocal_align import align_plan_with_guide, mfa_configured
+from .vocal_align import align_plan_with_guide, mfa_configured, mfa_ready
 from .vocal_synth import (
     parse_plan_envelope,
     synthesis_stack_available,
@@ -906,13 +906,13 @@ async def vocal_embed_align_preview(
         raise HTTPException(status_code=503, detail=f"alignment deps missing: {exc}") from exc
 
     y, sr = librosa.load(io.BytesIO(guide_raw), sr=None, mono=True)
-    aligned_plan = align_plan_with_guide(plan, np.asarray(y, dtype=np.float32), int(sr))
-    method = "mfa" if mfa_configured() else "heuristic"
+    aligned_plan, method = align_plan_with_guide(plan, np.asarray(y, dtype=np.float32), int(sr))
     sections = aligned_plan.get("sections") or []
     word_count = sum(len(s.get("alignedWords") or []) for s in sections if isinstance(s, dict))
     return {
         "align_method": method,
         "mfa_configured": mfa_configured(),
+        "mfa_ready": mfa_ready(),
         "word_count": word_count,
         "sections": sections,
     }

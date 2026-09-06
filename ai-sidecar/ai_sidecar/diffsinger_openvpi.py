@@ -146,7 +146,7 @@ def build_ds_segments_from_plan(
     if guide_mono is not None and guide_mono.size > 0:
         from .vocal_align import align_plan_with_guide  # noqa: PLC0415
 
-        plan = align_plan_with_guide(plan, guide_mono, sample_rate)
+        plan, _align_method = align_plan_with_guide(plan, guide_mono, sample_rate)
 
     sections = plan.get("sections") or []
     if not isinstance(sections, list):
@@ -271,10 +271,9 @@ def export_ds_bundle_from_plan(
     """Export OpenVPI `.ds` segment JSON for external DiffSinger workflows."""
     align_method = None
     if guide_mono is not None and guide_mono.size > 0:
-        from .vocal_align import align_plan_with_guide, mfa_configured  # noqa: PLC0415
+        from .vocal_align import align_plan_with_guide  # noqa: PLC0415
 
-        plan = align_plan_with_guide(plan, guide_mono, sample_rate)
-        align_method = "mfa" if mfa_configured() else "heuristic"
+        plan, align_method = align_plan_with_guide(plan, guide_mono, sample_rate)
     elif any(
         isinstance(s, dict) and s.get("alignedWords")
         for s in (plan.get("sections") or [])

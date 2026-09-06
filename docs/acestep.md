@@ -28,6 +28,9 @@ own model runtime). Point the sidecar at the API instead — same pattern as
    `acestep_available: true` only when the API URL is set **and** the server
    responds (probe hits `/docs`, `/openapi.json`, or `/`). Env alone is not enough.
 
+In Studio, ACE-Step controls show numbered setup steps, **Copy env snippet**, and a
+link to this doc when the API is unreachable.
+
 ## API
 
 `POST /generate/song` (JSON):

@@ -63,6 +63,12 @@ def _probe_acestep() -> bool:
     return acestep_reachable()
 
 
+def _probe_mfa() -> bool:
+    from .vocal_align import mfa_ready
+
+    return mfa_ready()
+
+
 def _probe_vocal_transform() -> bool:
     from .vocal_transform import vocal_transform_available
 
@@ -165,6 +171,16 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         commercial_use=True,
         probe=_probe_acestep,
         prompt_install=False,  # external API server, not an npm pip extra
+    ),
+    CapabilitySpec(
+        id="mfa-align",
+        title="MFA vocal align",
+        tasks=("vocal-align",),
+        install_hint="Install MFA + set AIMC_MFA_MODEL/DICT (docs/mfa.md)",
+        license="MIT (MFA)",
+        commercial_use=True,
+        probe=_probe_mfa,
+        prompt_install=False,  # external MFA install, not an npm pip extra
     ),
     CapabilitySpec(
         id="vocal-transform",

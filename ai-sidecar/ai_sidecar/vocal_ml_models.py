@@ -72,7 +72,7 @@ def full_ml_vocal_models_available() -> bool:
 
 
 def vocal_model_status() -> dict[str, Any]:
-    from .vocal_align import mfa_configured as mfa_align_ready  # noqa: PLC0415
+    from .vocal_align import mfa_configured, mfa_ready  # noqa: PLC0415
     from .vocal_tts import vocal_tts_engine_ready  # noqa: PLC0415
 
     model_path = _env_path("AIMC_RVC_MODEL")
@@ -96,7 +96,8 @@ def vocal_model_status() -> dict[str, Any]:
         "transformers_tts": vocal_tts_ready,
         "models_ready": full_ml_vocal_models_available(),
         "align": {
-            "mfa_configured": mfa_align_ready(),
+            "mfa_configured": mfa_configured(),
+            "mfa_ready": mfa_ready(),
         },
     }
 
