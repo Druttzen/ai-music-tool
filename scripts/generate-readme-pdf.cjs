@@ -221,7 +221,7 @@ function addCover(doc, version) {
   doc.moveDown(1.2);
   doc.fillColor("#1e293b").fontSize(10);
   doc.text(
-    "Dense Suno-oriented prompts, local track and image analyzers, EBU R128 loudness metering, and studio WAV export. Runs in the browser or as a Windows desktop app.",
+    "Dense Suno-oriented prompts, local track and image analyzers, EBU R128 loudness metering, Preview monitor, and studio WAV/FLAC/MP3/M4A export. Runs in the browser or as a Windows desktop app.",
     { align: "center", width: w - 120 },
   );
   doc.addPage();

@@ -58,8 +58,9 @@ export function AppHeader({ appVersion, avgScore, saveStatus, statusPulseKey = 0
         </h1>
         <p className="mt-2 max-w-2xl text-white/55">
           Level 2 prompt engine: Suno guided path, local track and image analyzers (waveforms,
-          highlight, merge), EBU R128 loudness readout, studio WAV/MP3 export (16- and 24-bit), presets, variations,
-          history, and Pro Mode.
+          highlight, merge), EBU R128 loudness (short-term / momentary in Studio), Preview monitor
+          (A/B, spectrum, preview EQ), studio export WAV16/24/32 · FLAC · MP3 · AAC/M4A with ALAC/CAF
+          decode, presets, variations, history, and Pro Mode.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wider text-white/45">
           <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1">

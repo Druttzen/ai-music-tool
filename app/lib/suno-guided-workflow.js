@@ -77,7 +77,7 @@ export const SUNO_GUIDED_STEPS = [
   {
     id: 6,
     name: "Polish",
-    line: "Polish before export — Voice Character Studio (optional vocal trait map), Voice Style, Genre Anchors, Co-Producer, variations. Optional: drop a reference track (LUFS meter, studio WAV export, merge into Suno).",
+    line: "Polish before export — Voice Character Studio (optional vocal trait map), Voice Style, Genre Anchors, Co-Producer, variations. Optional: drop a reference track (Preview monitor, EBU R128, studio WAV/FLAC/MP3/M4A export, merge into Suno).",
     where: "Center column: Voice Character Studio (below Voice Style), Drag & Drop Analyzers, Co-Producer, Variation Engine. Right column: Suno Language Index — all optional.",
     next: "When satisfied (with or without analyzers), open the final step and copy Style + Lyrics into Suno.",
     optimal: "You can press Next and go straight to the copy step without ever opening the analyzers — they’re extra tools, not a gate.",
