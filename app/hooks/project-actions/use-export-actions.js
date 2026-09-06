@@ -64,7 +64,7 @@ export function useExportActions(deps) {
     setStatusWithTime("Saved");
   }, [currentState, lastAutosavePayloadRef, setStatusWithTime]);
 
-  const exportProject = useCallback(() => {
+  const exportProject = useCallback(async () => {
     const storedAlign = readStoredVocalAlignPreview();
     let openvpiDs = storedAlign?.openvpiDs;
     if (!openvpiDs?.segments?.length && storedAlign?.preview && audioAnalysis) {
@@ -97,19 +97,19 @@ export function useExportActions(deps) {
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
       type: "application/json",
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "ai-music-bundle.json";
-    a.click();
-    URL.revokeObjectURL(url);
+    const { saveOrDownloadBlob } = await import("../../lib/studio-file-save");
+    const saved = await saveOrDownloadBlob(blob, "ai-music-bundle.json");
     const credNote = hasStoredCredentials() ? ` ${CREDENTIAL_STORAGE_NOTICE}` : "";
+    const where =
+      saved.mode === "studio" && saved.path
+        ? ` Saved to Studio exports (${saved.path}).`
+        : "";
     setStatusWithTime(
       vocalEmbed
         ? openvpiDs
-          ? `Exported project bundle (vocal align + OpenVPI .ds).${credNote}`
-          : `Exported project bundle (includes vocal align preview).${credNote}`
-        : `Exported project bundle (project + style presets + voice profile).${credNote}`,
+          ? `Exported project bundle (vocal align + OpenVPI .ds).${where}${credNote}`
+          : `Exported project bundle (includes vocal align preview).${where}${credNote}`
+        : `Exported project bundle (project + style presets + voice profile).${where}${credNote}`,
     );
   }, [
     audioAnalysis,

@@ -12,7 +12,7 @@ describe("Studio updater release contract", () => {
     expect(config.plugins.updater.endpoints).toEqual([
       "https://github.com/Druttzen/ai-music-tool/releases/latest/download/latest.json",
     ]);
-    expect(config.plugins.updater.windows.installMode).toBe("passive");
+    expect(config.plugins.updater.windows.installMode).toBe("quiet");
   });
 
   it("requires signing and verifies updater assets before publishing", () => {

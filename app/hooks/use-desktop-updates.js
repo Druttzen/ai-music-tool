@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkForDesktopUpdates,
   getDesktopUpdateRuntime,
@@ -8,14 +8,26 @@ import {
   subscribeToDesktopUpdateStatus,
 } from "../lib/desktop-update-bridge";
 
+const PHASE_PCT = {
+  sidecar: 12,
+  canvas: 28,
+  archives: 42,
+  plugins: 55,
+  plugin: 65,
+  studio: 85,
+  "studio-download": 90,
+  "studio-install": 99,
+};
+
 export function useDesktopUpdates() {
   // Always start as null so SSR HTML matches the first client paint (window.__TAURI__
   // exists in Studio but not during Next SSR). Detect the host after mount.
   const [runtime, setRuntime] = useState(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [downloaded, setDownloaded] = useState(false);
+  const [progressPct, setProgressPct] = useState(null);
+  const startedRef = useRef(false);
+  const hideTimerRef = useRef(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -24,79 +36,93 @@ export function useDesktopUpdates() {
     return () => clearTimeout(timer);
   }, []);
 
-  const checkUpdates = useCallback(async ({ automatic = false } = {}) => {
-    if (!runtime) return;
-    setBusy(true);
-    if (!automatic) setStatus("Checking for updates…");
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const hideStatus = useCallback(() => {
+    clearHideTimer();
+    setBusy(false);
+    setProgressPct(null);
+    setStatus("");
+  }, [clearHideTimer]);
+
+  const showErrorBriefly = useCallback(
+    (message) => {
+      clearHideTimer();
+      setBusy(false);
+      setProgressPct(null);
+      setStatus(message);
+      hideTimerRef.current = setTimeout(() => {
+        setStatus("");
+        hideTimerRef.current = null;
+      }, 2800);
+    },
+    [clearHideTimer],
+  );
+
+  const runSilentUpdate = useCallback(async () => {
+    if (!runtime || startedRef.current) return;
+    startedRef.current = true;
     try {
-      const result = await checkForDesktopUpdates();
-      if (!result?.ok) {
-        setStatus(result?.error || "Update check failed");
+      const check = await checkForDesktopUpdates();
+      if (!check?.ok) {
+        // Stay silent on check failures (offline, etc.) — no popup, no bar.
         return;
       }
-      setUpdateAvailable(Boolean(result.available));
+      if (!check.available) {
+        return;
+      }
+
+      clearHideTimer();
+      setBusy(true);
+      setProgressPct(8);
       setStatus(
-        result.available
-          ? `Studio update available: v${result.version}. Update all also refreshes addons, plugins, tools, and archives.`
-          : "Studio is current. Update all still refreshes addons, plugins, tools, and archives.",
+        check.version
+          ? `Downloading Studio update v${check.version}…`
+          : "Downloading Studio update…",
       );
+
+      const result = await installDesktopUpdate();
+      if (!result?.ok) {
+        showErrorBriefly(result?.error || "Update failed");
+        return;
+      }
+      hideStatus();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Update check failed");
-    } finally {
-      setBusy(false);
+      showErrorBriefly(error instanceof Error ? error.message : "Update failed");
     }
-  }, [runtime]);
+  }, [clearHideTimer, hideStatus, runtime, showErrorBriefly]);
 
   useEffect(() => {
     if (!runtime) return undefined;
     const unsubscribe = subscribeToDesktopUpdateStatus((payload) => {
-      if (payload?.status === "available") {
-        setUpdateAvailable(true);
-        setStatus("Studio update available — downloading…");
+      if (!payload) return;
+      const message = typeof payload.message === "string" ? payload.message.trim() : "";
+      if (message) setStatus(message);
+      if (typeof payload.pct === "number" && Number.isFinite(payload.pct)) {
+        setProgressPct(Math.max(0, Math.min(100, Math.round(payload.pct))));
+      } else if (payload.phase && PHASE_PCT[payload.phase] != null) {
+        setProgressPct(PHASE_PCT[payload.phase]);
       }
-      if (payload?.status === "downloaded") {
-        setDownloaded(true);
-        setStatus(payload.message || "Studio update ready — restart to install.");
-      }
-      if (payload?.message && payload?.phase) {
-        setStatus(payload.message);
-      }
+      if (message || payload.phase) setBusy(true);
     });
-    const timer = setTimeout(() => void checkUpdates({ automatic: true }), 1500);
+    const timer = setTimeout(() => void runSilentUpdate(), 1500);
     return () => {
       clearTimeout(timer);
       unsubscribe();
+      clearHideTimer();
     };
-  }, [checkUpdates, runtime]);
-
-  const restartToUpdate = useCallback(async () => {
-    setBusy(true);
-    setStatus(
-      runtime === "tauri"
-        ? "Updating addons, plugins, tools, archives, and Studio…"
-        : "Restarting to install…",
-    );
-    try {
-      const result = await installDesktopUpdate();
-      if (!result?.ok) setStatus(result?.error || "Update installation failed");
-      else {
-        setUpdateAvailable(Boolean(result.available));
-        setStatus(result.summary || (result.available ? "Studio update installed." : "Addons, plugins, tools, and archives are current."));
-      }
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Update installation failed");
-    } finally {
-      setBusy(false);
-    }
-  }, [runtime]);
+  }, [clearHideTimer, runSilentUpdate, runtime]);
 
   return {
     available: Boolean(runtime),
+    visible: Boolean(runtime) && (busy || Boolean(status)),
     status,
     busy,
-    installReady: runtime === "tauri",
-    installLabel: "Update all",
-    checkUpdates,
-    restartToUpdate,
+    progressPct,
   };
 }

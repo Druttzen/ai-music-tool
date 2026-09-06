@@ -42,29 +42,29 @@ export function SearchablePillGrid({ label, options, groups, selected, onToggle,
   }, [options, groups, groupFilter, query]);
 
   return (
-    <div className="mb-4">
-      <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-        <div>
+    <div className="mb-4 min-w-0 max-w-full">
+      <div className="mb-2 flex min-w-0 flex-wrap items-end justify-between gap-2">
+        <div className="min-w-0">
           <div className="text-xs font-bold uppercase tracking-wider text-white/45">{label}</div>
-          {hint && <p className="mt-0.5 text-[10px] text-white/35">{hint}</p>}
+          {hint && <p className="mt-0.5 break-words text-[10px] text-white/35">{hint}</p>}
         </div>
-        <span className="text-[10px] text-white/35">
+        <span className="shrink-0 text-[10px] text-white/35">
           {selected.length} selected · {filtered.length} shown
         </span>
       </div>
-      <div className="mb-2 flex flex-wrap gap-2">
+      <div className="mb-2 flex min-w-0 flex-wrap gap-2">
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`Search ${label.toLowerCase()}…`}
-          className="min-w-[140px] flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-cyan-300"
+          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-cyan-300"
         />
         {groups?.length ? (
           <select
             value={groupFilter}
             onChange={(e) => setGroupFilter(e.target.value)}
-            className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none"
+            className="max-w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none"
           >
             <option value="all">All groups</option>
             {groups.map((g) => (
@@ -75,7 +75,7 @@ export function SearchablePillGrid({ label, options, groups, selected, onToggle,
           </select>
         ) : null}
       </div>
-      <div className="max-h-44 overflow-y-auto rounded-2xl border border-white/5 bg-black/10 p-2">
+      <div className="max-h-44 overflow-x-hidden overflow-y-auto rounded-2xl border border-white/5 bg-black/10 p-2">
         <div className="flex flex-wrap gap-2">
           {filtered.map((x) => (
             <Pill key={x} active={selected.includes(x)} onClick={() => onToggle(x)}>
@@ -91,17 +91,17 @@ export function SearchablePillGrid({ label, options, groups, selected, onToggle,
   );
 }
 
-export function Panel({ title, hint, children, ...rest }) {
+export function Panel({ title, hint, children, className = "", ...rest }) {
   return (
     <section
-      className="rounded-3xl border border-white/10 bg-white/[0.065] p-4 shadow-2xl shadow-black/30 backdrop-blur"
+      className={`min-w-0 max-w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.065] p-4 shadow-2xl shadow-black/30 backdrop-blur ${className}`}
       {...rest}
     >
-      <div className="mb-3">
-        <h2 className="text-lg font-black">{title}</h2>
-        {hint && <p className="mt-1 text-xs text-white/45">{hint}</p>}
+      <div className="mb-3 min-w-0">
+        <h2 className="break-words text-lg font-black">{title}</h2>
+        {hint && <p className="mt-1 break-words text-xs leading-relaxed text-white/45">{hint}</p>}
       </div>
-      {children}
+      <div className="min-w-0 max-w-full">{children}</div>
     </section>
   );
 }

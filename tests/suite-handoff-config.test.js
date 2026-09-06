@@ -7,9 +7,28 @@ import {
 } from "../lib/suite-handoff-config.cjs";
 
 describe("suite-handoff-config", () => {
-  it("suiteDir uses Documents/AI Suite under home", () => {
-    const dir = suiteDir();
-    expect(dir.replace(/\\/g, "/")).toMatch(/Documents\/AI Suite$/);
+  it("suiteDir prefers STUDIO_DATA_DIR when set", () => {
+    const prev = process.env.STUDIO_DATA_DIR;
+    process.env.STUDIO_DATA_DIR = "C:/studio-data-fixture";
+    try {
+      const dir = suiteDir();
+      expect(dir.replace(/\\/g, "/")).toMatch(/studio-data-fixture$/);
+    } finally {
+      if (prev === undefined) delete process.env.STUDIO_DATA_DIR;
+      else process.env.STUDIO_DATA_DIR = prev;
+    }
+  });
+
+  it("suiteDir falls back to temp suite when STUDIO_DATA_DIR is unset", () => {
+    const prev = process.env.STUDIO_DATA_DIR;
+    delete process.env.STUDIO_DATA_DIR;
+    try {
+      const dir = suiteDir();
+      expect(dir.replace(/\\/g, "/")).toMatch(/ai-music-creator-studio-suite$/);
+    } finally {
+      if (prev === undefined) delete process.env.STUDIO_DATA_DIR;
+      else process.env.STUDIO_DATA_DIR = prev;
+    }
   });
 
   it("expandPathTemplate replaces HOME placeholder", () => {

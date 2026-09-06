@@ -3,6 +3,7 @@
  */
 
 import { safeLocalStorage } from "./safe-local-storage";
+import { saveOrDownloadBlob } from "./studio-file-save";
 
 export const VOCAL_ALIGN_PREVIEW_STORAGE_KEY = "ai_music_creator_vocal_align_preview";
 
@@ -46,12 +47,7 @@ export function buildVocalEmbedBundleSession(
 }
 
 function triggerDownload(blob, fileName) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
+  return saveOrDownloadBlob(blob, fileName);
 }
 
 /**
@@ -75,9 +71,12 @@ export async function exportVocalEmbedHandoffPack({
 }) {
   const stamp = Date.now();
   const base = `vocal-embed-handoff-${stamp}`;
-  triggerDownload(
-    new Blob([JSON.stringify(planEnvelope, null, 2)], { type: "application/json" }),
-    `${base}-plan.json`,
+  const pending = [];
+  pending.push(
+    triggerDownload(
+      new Blob([JSON.stringify(planEnvelope, null, 2)], { type: "application/json" }),
+      `${base}-plan.json`,
+    ),
   );
   const readme = [
     "Vocal Embed handoff pack",
@@ -104,27 +103,32 @@ export async function exportVocalEmbedHandoffPack({
   ]
     .filter(Boolean)
     .join("\n");
-  triggerDownload(new Blob([readme], { type: "text/plain" }), `${base}-README.txt`);
+  pending.push(triggerDownload(new Blob([readme], { type: "text/plain" }), `${base}-README.txt`));
   if (alignPreview) {
-    triggerDownload(
-      new Blob([JSON.stringify(alignPreview, null, 2)], { type: "application/json" }),
-      `${base}-align-preview.json`,
+    pending.push(
+      triggerDownload(
+        new Blob([JSON.stringify(alignPreview, null, 2)], { type: "application/json" }),
+        `${base}-align-preview.json`,
+      ),
     );
     await new Promise((r) => setTimeout(r, 120));
   }
   if (openvpiDs?.segments?.length) {
-    triggerDownload(
-      new Blob([JSON.stringify(openvpiDs, null, 2)], { type: "application/json" }),
-      `${base}-openvpi-ds.json`,
+    pending.push(
+      triggerDownload(
+        new Blob([JSON.stringify(openvpiDs, null, 2)], { type: "application/json" }),
+        `${base}-openvpi-ds.json`,
+      ),
     );
     await new Promise((r) => setTimeout(r, 120));
   }
   if (instrumental) {
     await new Promise((r) => setTimeout(r, 120));
-    triggerDownload(instrumental, `${base}-instrumental.wav`);
+    pending.push(triggerDownload(instrumental, `${base}-instrumental.wav`));
   }
   if (guideVocal) {
     await new Promise((r) => setTimeout(r, 120));
-    triggerDownload(guideVocal, `${base}-guide-vocal.wav`);
+    pending.push(triggerDownload(guideVocal, `${base}-guide-vocal.wav`));
   }
+  await Promise.all(pending);
 }

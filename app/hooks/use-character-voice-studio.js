@@ -432,7 +432,7 @@ export function useCharacterVoiceStudio() {
     setStatusWithTime("Voice character studio cleared");
   }, [setStatusWithTime]);
 
-  const exportCharacterPresets = useCallback(() => {
+  const exportCharacterPresets = useCallback(async () => {
     const count = Object.keys(characterPresets).length;
     if (!count) {
       setStatusWithTime("No character presets to export", "warning");
@@ -440,12 +440,8 @@ export function useCharacterVoiceStudio() {
     }
     const payload = serializeCharacterPresetsExport(characterPresets, APP_VERSION);
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "character-voice-presets.json";
-    a.click();
-    URL.revokeObjectURL(url);
+    const { saveOrDownloadBlob } = await import("../lib/studio-file-save");
+    await saveOrDownloadBlob(blob, "character-voice-presets.json");
     setStatusWithTime(`Exported ${count} character preset${count === 1 ? "" : "s"} JSON`);
   }, [characterPresets, setStatusWithTime]);
 

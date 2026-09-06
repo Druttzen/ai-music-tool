@@ -19,8 +19,9 @@ CPU PyPI torch to a **CUDA** wheel when `nvidia-smi` works. Skip with
 `npm run sidecar:cuda` alone.
 
 First `POST /separate` with `model_name=melband` downloads the Kim checkpoint
-(~870 MB) into `~/.cache/melband-roformer-infer/` (override with
-`MELBAND_ROFORMER_MODELS_PATH`).
+(~870 MB) into `MELBAND_ROFORMER_MODELS_PATH` when set (Studio forces
+`{data}/sidecar/cache/melband` or checkout `ai-sidecar/cache/melband`); otherwise
+`~/.cache/melband-roformer-infer/`.
 
 In Studio, choose **Mel-Band RoFormer** in the Analyzers stem-separation model
 picker (requires `stems_melband_available` on `/health`). Mel-Band uses

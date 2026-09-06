@@ -46,7 +46,7 @@ export const PageSidebarLeft = memo(function PageSidebarLeft() {
   } = useProjectWorkspaceActions();
 
   return (
-    <aside className="space-y-4">
+    <aside className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.failSafeBot} column="left">
         <FailSafeErrorBoundary name="fail-safe bot">
           <FailSafeBotPanel />

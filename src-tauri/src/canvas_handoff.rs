@@ -18,6 +18,8 @@ const CONFIG_JSON: &str = include_str!("../../lib/suite-handoff-paths.json");
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SuiteHandoffConfig {
+    /// Legacy Documents/AI Suite segments (JSON compat only; Studio uses `data_dir`).
+    #[allow(dead_code)]
     suite_path_from_home: Vec<String>,
     exports_subdir: String,
     handoff_file: String,
@@ -105,6 +107,7 @@ fn canvas_addon_config() -> Option<&'static CanvasAddonConfig> {
     Some(&config().canvas)
 }
 
+#[allow(dead_code)]
 fn user_home() -> PathBuf {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
@@ -112,16 +115,10 @@ fn user_home() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
-fn suite_dir() -> PathBuf {
-    if let Ok(exports) = app_layout::exports_dir(None) {
-        let _ = fs::create_dir_all(&exports);
-        return exports;
-    }
-    let mut dir = user_home();
-    for segment in &config().suite_path_from_home {
-        dir.push(segment);
-    }
-    dir
+fn suite_dir() -> Result<PathBuf, String> {
+    let data = app_layout::data_dir(None)?;
+    let _ = fs::create_dir_all(&data);
+    Ok(data)
 }
 
 fn expand_path_template(template: &str) -> PathBuf {
@@ -228,7 +225,11 @@ fn resolve_canvas_installer() -> Option<PathBuf> {
 }
 
 fn canvas_install_dest() -> PathBuf {
-    app_layout::canvas_addon_dir(None).unwrap_or_else(|_| user_home().join("AI Canvas Tool"))
+    app_layout::canvas_addon_dir(None).unwrap_or_else(|_| {
+        app_layout::data_dir(None)
+            .map(|d| d.join("addons").join("canvas"))
+            .unwrap_or_else(|_| PathBuf::from("addons").join("canvas"))
+    })
 }
 
 fn run_installer_into(installer: &Path, dest: &Path) -> bool {
@@ -367,7 +368,20 @@ fn canvas_releases_fallback_url(addon: &CanvasAddonConfig) -> String {
 
 #[tauri::command]
 pub fn launch_canvas_addon() -> CanvasAddonActionResult {
-    let handoff_path = suite_dir().join(&config().handoff_file);
+    let handoff_path = match suite_dir() {
+        Ok(suite) => suite.join(&config().handoff_file),
+        Err(_) => {
+            return CanvasAddonActionResult {
+                ok: false,
+                launched: false,
+                already_installed: resolve_canvas_executable().is_some(),
+                mode: Some("missing".to_string()),
+                path: resolve_canvas_executable().map(|p| p.to_string_lossy().into_owned()),
+                url: None,
+                error: Some("Studio data directory unavailable".to_string()),
+            };
+        }
+    };
     let handoff = if handoff_path.is_file() {
         Some(handoff_path.as_path())
     } else {
@@ -723,7 +737,18 @@ pub fn export_canvas_handoff(
         };
     }
 
-    let suite = suite_dir();
+    let suite = match suite_dir() {
+        Ok(dir) => dir,
+        Err(err) => {
+            return CanvasHandoffResult {
+                ok: false,
+                launched: false,
+                album_art_path: None,
+                handoff_path: None,
+                error: Some(format!("Studio data directory unavailable: {err}")),
+            };
+        }
+    };
     let exports = suite.join(&config().exports_subdir);
     if fs::create_dir_all(&exports).is_err() {
         return CanvasHandoffResult {

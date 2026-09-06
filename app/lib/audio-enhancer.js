@@ -248,19 +248,13 @@ export function audioBufferToWav32Blob(buffer) {
 /**
  * @param {Blob} wavBlob
  * @param {string} fileName
+ * @returns {Promise<{ mode: "studio"|"browser", path?: string }>}
  */
 export function downloadAudioBlob(wavBlob, fileName) {
-  const url = URL.createObjectURL(wavBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.rel = "noopener";
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Keep the blob URL alive long enough for the browser/WebView2 download to start.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  // Dynamic import avoids circular deps with studio export helpers.
+  return import("./studio-file-save").then(({ saveOrDownloadBlob }) =>
+    saveOrDownloadBlob(wavBlob, fileName),
+  );
 }
 
 /**

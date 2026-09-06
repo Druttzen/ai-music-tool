@@ -25,12 +25,14 @@ Existing Electron installs stay on their last published `v*` build. Migrate to S
 
 ### Studio updates
 
-Tauri Studio checks the latest GitHub Release automatically after startup. **Check for updates** reports whether a newer signed `studio-v*` build exists. **Update all** (always available in Studio) refreshes:
+Tauri Studio checks the latest GitHub Release automatically after startup. When a newer signed `studio-v*` build exists, Studio downloads and installs it silently (quiet Windows installer — no update popup dialogs). A bottom-center status pill (same style as the version badge) shows live progress and disappears when nothing is downloading or installing.
+
+Silent update-all also refreshes:
 
 - Installed sidecar plugins / extras (already installed stacks only — it does not download Cover/FLUX if you never installed it)
 - Canvas addon, when it is already present
 - Usable `.zip` archives in `{install}/data/{addons,tools,archives}`
-- Then the Studio app itself, when a newer signed release exists
+- Then the Studio app itself
 
 Packages are verified with the updater public key before installation.
 
@@ -54,7 +56,9 @@ Left sidebar **Addons**:
 - **Canvas** — Download / Install and Open work in Tauri Studio. The web UI alone cannot install Canvas.
 - **Sidecar extras** (MusicGen, cover, stems, vision, …) —
   - **Dev / checkout:** **Install** runs `scripts/install-sidecar-*.ps1|.sh` when `ai-sidecar/.venv` exists.
-  - **Packaged Studio:** **Install** bootstraps a writable venv **next to the app** (`{install}/data/sidecar`), overlays bundled `ai-sidecar` sources onto `pkg/` (never wipes a locked dir), installs the selected extra, then restarts the sidecar from that venv (not the frozen binary). Canvas, profile, extras, and tools share that same `{install}/data` folder (`profile/`, `addons/`, `tools/`, `exports/`). Requires **Python 3.10–3.12** on PATH for first-time setup. Windows generate / vocal-rvc extras may use a pip fallback when strict pins fail. If the install folder is not writable (Program Files), Studio falls back to the OS app-data directory. If Python or package sources are missing, the UI copies the `npm run sidecar:*` hint instead.
+  - **Packaged Studio:** **Install** bootstraps a writable venv **next to the app** (`{install}/data/sidecar`), overlays bundled `ai-sidecar` sources onto `pkg/` (never wipes a locked dir), installs the selected extra, then restarts the sidecar from that venv (not the frozen binary). Canvas, profile, extras, tools, and user exports share that same `{install}/data` folder (`profile/`, `addons/`, `tools/`, `archives/`, `exports/`, `sidecar/cache|tmp`). Hugging Face, Torch, pip, Mel-Band, and sidecar job temps are forced under `sidecar/cache` + `sidecar/tmp` for every spawn path (including `tauri:dev`). Studio product downloads (WAV/FLAC/MP3/M4A, stems, Music Exchange, covers) write into `exports/` instead of the OS Downloads folder. Requires **Python 3.10–3.12** on PATH for first-time setup. Windows generate / vocal-rvc extras may use a pip fallback when strict pins fail. If the install folder is not writable (Program Files), Studio falls back to the OS app-data directory. If Python or package sources are missing, the UI copies the `npm run sidecar:*` hint instead.
+
+**Exception:** the signed Studio app updater / NSIS installer still uses OS install paths (Programs / current-user install). Model roots set explicitly via `AIMC_*` env vars remain user-controlled.
 
 ## Development
 

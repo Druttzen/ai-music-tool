@@ -17,7 +17,9 @@
         "width": 1400,
         "height": 900,
         "minWidth": 1100,
-        "minHeight": 700
+        "minHeight": 700,
+        "maximized": true,
+        "fullscreen": true
       }
     ],
     "security": {
@@ -55,7 +57,7 @@
         "https://github.com/Druttzen/ai-music-tool/releases/latest/download/latest.json"
       ],
       "windows": {
-        "installMode": "passive"
+        "installMode": "quiet"
       }
     },
     "shell": {

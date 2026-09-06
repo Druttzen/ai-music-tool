@@ -294,15 +294,11 @@ export function useVocalEmbedStudio() {
     [alignPreview, plan, storedOpenvpiDs],
   );
 
-  const exportPlan = () => {
+  const exportPlan = async () => {
     const payload = buildSidecarEnvelope(true);
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "vocal-embed-plan.json";
-    a.click();
-    URL.revokeObjectURL(url);
+    const { saveOrDownloadBlob } = await import("../lib/studio-file-save");
+    await saveOrDownloadBlob(blob, "vocal-embed-plan.json");
     setStatusWithTime(
       alignPreview
         ? storedOpenvpiDs?.segment_count
@@ -312,18 +308,14 @@ export function useVocalEmbedStudio() {
     );
   };
 
-  const exportAlignJson = () => {
+  const exportAlignJson = async () => {
     if (!alignPreview) {
       setStatusWithTime("Run alignment preview first", "warning");
       return;
     }
     const blob = new Blob([JSON.stringify(alignPreview, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `vocal-embed-align-preview-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const { saveOrDownloadBlob } = await import("../lib/studio-file-save");
+    await saveOrDownloadBlob(blob, `vocal-embed-align-preview-${Date.now()}.json`);
     setStatusWithTime(`Alignment JSON downloaded (${alignPreview.align_method})`, "success");
   };
 
@@ -353,12 +345,8 @@ export function useVocalEmbedStudio() {
       return;
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `openvpi-ds-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const { saveOrDownloadBlob } = await import("../lib/studio-file-save");
+    await saveOrDownloadBlob(blob, `openvpi-ds-${Date.now()}.json`);
     setStatusWithTime(
       `OpenVPI .ds JSON downloaded (${payload.segment_count} segments${payload.align_method ? ` · ${payload.align_method}` : ""})`,
       "success",
@@ -529,12 +517,11 @@ export function useVocalEmbedStudio() {
         guideVocalFile,
         guideVocalFile?.name || "guide-vocal.wav",
       );
-      const url = URL.createObjectURL(mixBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `vocal-embed-mix-${(audioAnalysis?.fileName || "track").replace(/\.[^.]+$/, "")}.wav`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const { saveOrDownloadBlob } = await import("../lib/studio-file-save");
+      await saveOrDownloadBlob(
+        mixBlob,
+        `vocal-embed-mix-${(audioAnalysis?.fileName || "track").replace(/\.[^.]+$/, "")}.wav`,
+      );
       const engineLabel = resolveVocalEmbedEngineLabel({
         responseEngine,
         guideVocalFile,

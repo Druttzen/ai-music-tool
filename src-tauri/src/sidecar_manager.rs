@@ -452,7 +452,7 @@ fn find_sidecar_binary_in_dir(dir: &Path) -> Option<PathBuf> {
         .find(|path| path.is_file())
 }
 
-fn spawn_sidecar_exe(path: &Path, token: &str) -> Result<SidecarChild, String> {
+fn spawn_sidecar_exe(path: &Path, token: &str, cache_root: &Path) -> Result<SidecarChild, String> {
     let port = SIDECAR_PORT.to_string();
     let mut cmd = Command::new(path);
     cmd.args([
@@ -464,6 +464,7 @@ fn spawn_sidecar_exe(path: &Path, token: &str) -> Result<SidecarChild, String> {
         SIDECAR_IDLE_EXIT_SEC,
     ])
     .env("AIMC_SIDECAR_TOKEN", token);
+    crate::sidecar_userdata::apply_runtime_cache_env(&mut cmd, cache_root);
     apply_spawn_stdio(&mut cmd);
     let child = cmd
         .spawn()
@@ -471,19 +472,36 @@ fn spawn_sidecar_exe(path: &Path, token: &str) -> Result<SidecarChild, String> {
     Ok(SidecarChild::Process(child))
 }
 
+fn bundled_sidecar_cache_root(app: &AppHandle) -> PathBuf {
+    use crate::sidecar_userdata::{user_sidecar_root_fallback, user_sidecar_runtime_root};
+    user_sidecar_runtime_root(app)
+        .or_else(|_| crate::app_layout::sidecar_dir(Some(app)))
+        .ok()
+        .or_else(user_sidecar_root_fallback)
+        .unwrap_or_else(|| {
+            std::env::temp_dir().join("ai-music-creator-studio-sidecar")
+        })
+}
+
 fn spawn_bundled_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, String> {
     let port = SIDECAR_PORT.to_string();
+    let cache_root = bundled_sidecar_cache_root(app);
+    let cache_envs = crate::sidecar_userdata::runtime_cache_env_map(&cache_root);
     let shell_result = app.shell().sidecar("ai-sidecar").and_then(|cmd| {
-        cmd.args([
-            "--host",
-            "127.0.0.1",
-            "--port",
-            &port,
-            "--idle-exit-sec",
-            SIDECAR_IDLE_EXIT_SEC,
-        ])
-        .env("AIMC_SIDECAR_TOKEN", token)
-        .spawn()
+        let mut cmd = cmd
+            .args([
+                "--host",
+                "127.0.0.1",
+                "--port",
+                &port,
+                "--idle-exit-sec",
+                SIDECAR_IDLE_EXIT_SEC,
+            ])
+            .env("AIMC_SIDECAR_TOKEN", token);
+        for (key, value) in &cache_envs {
+            cmd = cmd.env(key, value);
+        }
+        cmd.spawn()
     });
     match shell_result {
         Ok((_rx, child)) => Ok(SidecarChild::Bundled(child)),
@@ -493,7 +511,7 @@ fn spawn_bundled_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, S
                 .and_then(|exe| exe.parent().map(Path::to_path_buf));
             let adjacent = dir.as_deref().and_then(find_sidecar_binary_in_dir);
             match adjacent {
-                Some(path) => spawn_sidecar_exe(&path, token),
+                Some(path) => spawn_sidecar_exe(&path, token, &cache_root),
                 None => Err(format!("bundled sidecar missing: {shell_err}")),
             }
         }
@@ -545,6 +563,7 @@ fn spawn_dev_sidecar(token: &str) -> Result<SidecarChild, String> {
     })?;
 
     let has_venv = sidecar_dir.join(".venv").exists();
+    let cache_root = crate::sidecar_userdata::checkout_sidecar_cache_root(&sidecar_dir);
     let mut cmd = Command::new(&python);
     cmd.args([
         "-m",
@@ -558,6 +577,7 @@ fn spawn_dev_sidecar(token: &str) -> Result<SidecarChild, String> {
     .env("SIDECAR_IDLE_EXIT_SEC", SIDECAR_IDLE_EXIT_SEC)
     .env("AIMC_SIDECAR_TOKEN", token)
     .current_dir(&sidecar_dir);
+    crate::sidecar_userdata::apply_runtime_cache_env(&mut cmd, &cache_root);
     apply_spawn_stdio(&mut cmd);
 
     if !has_venv {
@@ -572,7 +592,7 @@ fn spawn_dev_sidecar(token: &str) -> Result<SidecarChild, String> {
 
 fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild, String> {
     use crate::sidecar_userdata::{
-        user_cache_dir, user_pkg_dir, user_sidecar_root_fallback, user_sidecar_runtime_root,
+        apply_runtime_cache_env, user_pkg_dir, user_sidecar_root_fallback, user_sidecar_runtime_root,
         user_venv_python,
     };
 
@@ -584,7 +604,6 @@ fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild,
     if !pkg.join("ai_sidecar/main.py").is_file() {
         return Err("user-data sidecar pkg incomplete".to_string());
     }
-    let cache = user_cache_dir(&root);
 
     let mut cmd = Command::new(&python);
     cmd.args([
@@ -598,10 +617,9 @@ fn spawn_user_data_sidecar(app: &AppHandle, token: &str) -> Result<SidecarChild,
     ])
     .env("SIDECAR_IDLE_EXIT_SEC", SIDECAR_IDLE_EXIT_SEC)
     .env("AIMC_SIDECAR_TOKEN", token)
-    .env("HF_HOME", cache.join("huggingface"))
-    .env("TORCH_HOME", cache.join("torch"))
     .env("PYTHONPATH", &pkg)
     .current_dir(&pkg);
+    apply_runtime_cache_env(&mut cmd, &root);
     apply_spawn_stdio(&mut cmd);
 
     let child = cmd

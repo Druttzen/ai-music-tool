@@ -60,11 +60,13 @@ describe("Canvas integration", () => {
     expect(formatCanvasInstallStatus({ ok: false, mode: "desktop-required" })).toBe(CANVAS_DESKTOP_REQUIRED);
   });
 
-  it("lists dotted GitHub Setup names among Windows installer candidates", () => {
+  it("lists Studio-data installer candidates for Windows (no Downloads)", () => {
     const meta = canvasAddonMeta();
     expect(meta.releasesUrl).toContain("/releases");
     const windows = require("../lib/suite-handoff-paths.json").canvas.installerCandidates.windows;
-    expect(windows.some((p) => p.includes("AI.Canvas.Tool-1.1.1-Setup.exe"))).toBe(true);
+    expect(windows.every((p) => !/Downloads/i.test(p))).toBe(true);
+    expect(windows.some((p) => p.includes("$STUDIO_DATA/addons/canvas"))).toBe(true);
+    expect(windows.some((p) => p.includes("AI.Canvas.Tool-Setup.exe"))).toBe(true);
   });
 
   it("describes GitHub release download in the install hint", () => {

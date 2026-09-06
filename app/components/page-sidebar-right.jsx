@@ -49,7 +49,7 @@ export const PageSidebarRight = memo(function PageSidebarRight() {
   } = useProjectWorkspaceActions();
 
   return (
-    <aside className="space-y-4">
+    <aside className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.promptPreview} column="right">
         <Panel title="Prompt Preview" hint="Paste-ready Style and Lyrics — no internal labels or tips.">
           {sunoSlices ? (

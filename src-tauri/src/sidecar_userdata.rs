@@ -4,8 +4,11 @@
 //! - `pkg/` — installable ai-music-sidecar sources (from bundle resources or checkout)
 //! - `.venv/` — writable venv used for uvicorn + pip extras
 //! - `version.txt` — package version stamp for pkg refresh
-//! - `cache/` — HF_HOME / TORCH_HOME
+//! - `cache/` — HF / Torch / pip / Mel-Band / transformers
+//! - `tmp/` — TEMP / TMP / TMPDIR for sidecar jobs
 
+use std::collections::HashMap;
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -59,6 +62,72 @@ pub fn user_venv_dir(root: &Path) -> PathBuf {
 
 pub fn user_cache_dir(root: &Path) -> PathBuf {
     root.join("cache")
+}
+
+pub fn user_tmp_dir(root: &Path) -> PathBuf {
+    root.join("tmp")
+}
+
+/// Create HF/Torch/pip/Mel-Band/tmp dirs under a sidecar root.
+pub fn ensure_runtime_cache_dirs(root: &Path) {
+    let cache = user_cache_dir(root);
+    for dir in [
+        cache.join("huggingface"),
+        cache.join("torch"),
+        cache.join("pip"),
+        cache.join("melband"),
+        cache.join("transformers"),
+        user_tmp_dir(root),
+    ] {
+        let _ = fs::create_dir_all(&dir);
+    }
+}
+
+/// Env vars that force model/pip/temp downloads into `{sidecar_root}/cache|tmp`.
+pub fn runtime_cache_env_map(root: &Path) -> HashMap<String, OsString> {
+    ensure_runtime_cache_dirs(root);
+    let cache = user_cache_dir(root);
+    let hf = cache.join("huggingface");
+    let torch = cache.join("torch");
+    let pip = cache.join("pip");
+    let melband = cache.join("melband");
+    let transformers = cache.join("transformers");
+    let tmp = user_tmp_dir(root);
+    HashMap::from([
+        ("HF_HOME".into(), hf.as_os_str().to_os_string()),
+        ("HF_HUB_CACHE".into(), hf.as_os_str().to_os_string()),
+        (
+            "TRANSFORMERS_CACHE".into(),
+            transformers.as_os_str().to_os_string(),
+        ),
+        ("TORCH_HOME".into(), torch.as_os_str().to_os_string()),
+        ("PIP_CACHE_DIR".into(), pip.as_os_str().to_os_string()),
+        (
+            "MELBAND_ROFORMER_MODELS_PATH".into(),
+            melband.as_os_str().to_os_string(),
+        ),
+        ("TEMP".into(), tmp.as_os_str().to_os_string()),
+        ("TMP".into(), tmp.as_os_str().to_os_string()),
+        ("TMPDIR".into(), tmp.as_os_str().to_os_string()),
+    ])
+}
+
+/// Apply cache/tmp env to a `std::process::Command`.
+pub fn apply_runtime_cache_env(cmd: &mut Command, root: &Path) {
+    for (key, value) in runtime_cache_env_map(root) {
+        cmd.env(key, value);
+    }
+}
+
+/// Checkout / tauri:dev cache root: `{STUDIO_DATA_DIR}/sidecar` when set, else `ai-sidecar/`.
+pub fn checkout_sidecar_cache_root(sidecar_dir: &Path) -> PathBuf {
+    if let Ok(raw) = std::env::var("STUDIO_DATA_DIR") {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return PathBuf::from(trimmed).join("sidecar");
+        }
+    }
+    sidecar_dir.to_path_buf()
 }
 
 pub fn user_venv_python(root: &Path) -> Option<PathBuf> {
@@ -320,15 +389,13 @@ pub fn run_pip_with_progress(
     root: &Path,
     progress: Option<(&AppHandle, &str)>,
 ) -> Result<String, String> {
-    let cache = user_cache_dir(root);
     let mut cmd = Command::new(python);
     cmd.arg("-m").arg("pip");
     for a in args {
         cmd.arg(a);
     }
-    cmd.env("HF_HOME", cache.join("huggingface"))
-        .env("TORCH_HOME", cache.join("torch"))
-        .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
+    apply_runtime_cache_env(&mut cmd, root);
+    cmd.env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
         .env("PYTHONUNBUFFERED", "1")
         .env("PIP_PROGRESS_BAR", "on")
         .current_dir(root);
@@ -591,12 +658,43 @@ mod tests {
     }
 
     #[test]
-    fn user_venv_python_missing_on_empty_root() {
-        let tmp = std::env::temp_dir().join("aimc-sidecar-userdata-test-empty");
-        let _ = fs::remove_dir_all(&tmp);
-        fs::create_dir_all(&tmp).unwrap();
-        assert!(user_venv_python(&tmp).is_none());
-        let _ = fs::remove_dir_all(&tmp);
+    fn runtime_cache_env_map_points_under_sidecar_root() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("aimc-sidecar-cache-env-{stamp}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let envs = runtime_cache_env_map(&root);
+        let hf = PathBuf::from(envs.get("HF_HOME").unwrap());
+        let pip = PathBuf::from(envs.get("PIP_CACHE_DIR").unwrap());
+        let melband = PathBuf::from(envs.get("MELBAND_ROFORMER_MODELS_PATH").unwrap());
+        let tmp = PathBuf::from(envs.get("TMPDIR").unwrap());
+        assert_eq!(hf, root.join("cache/huggingface"));
+        assert_eq!(pip, root.join("cache/pip"));
+        assert_eq!(melband, root.join("cache/melband"));
+        assert_eq!(tmp, root.join("tmp"));
+        assert!(hf.is_dir());
+        assert!(tmp.is_dir());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn checkout_sidecar_cache_root_prefers_studio_data_dir() {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let data = std::env::temp_dir().join(format!("aimc-studio-data-{stamp}"));
+        let sidecar = std::env::temp_dir().join(format!("aimc-checkout-sidecar-{stamp}"));
+        std::env::set_var("STUDIO_DATA_DIR", &data);
+        assert_eq!(
+            checkout_sidecar_cache_root(&sidecar),
+            data.join("sidecar")
+        );
+        std::env::remove_var("STUDIO_DATA_DIR");
+        assert_eq!(checkout_sidecar_cache_root(&sidecar), sidecar);
     }
 
     #[test]

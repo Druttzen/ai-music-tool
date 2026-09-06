@@ -181,6 +181,7 @@ pub fn prepare_app_layout() {
     let Ok(layout) = studio_layout(None) else {
         return;
     };
+    let sidecar_cache = layout.sidecar.join("cache");
     for dir in [
         &layout.data,
         &layout.profile,
@@ -190,6 +191,12 @@ pub fn prepare_app_layout() {
         &layout.archives,
         &layout.exports,
         &layout.addons.join("canvas"),
+        &layout.sidecar.join("tmp"),
+        &sidecar_cache.join("huggingface"),
+        &sidecar_cache.join("torch"),
+        &sidecar_cache.join("pip"),
+        &sidecar_cache.join("melband"),
+        &sidecar_cache.join("transformers"),
     ] {
         let _ = fs::create_dir_all(dir);
     }

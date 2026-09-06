@@ -14,12 +14,35 @@ sidecar_pick_python() {
   return 1
 }
 
+sidecar_export_runtime_cache_env() {
+  local sidecar_dir="$1"
+  local cache_root cache tmp
+  if [[ -n "${STUDIO_DATA_DIR:-}" ]]; then
+    cache_root="${STUDIO_DATA_DIR%/}/sidecar"
+  else
+    cache_root="$sidecar_dir"
+  fi
+  cache="$cache_root/cache"
+  tmp="$cache_root/tmp"
+  mkdir -p "$cache/huggingface" "$cache/torch" "$cache/pip" "$cache/melband" "$cache/transformers" "$tmp"
+  export HF_HOME="$cache/huggingface"
+  export HF_HUB_CACHE="$cache/huggingface"
+  export TRANSFORMERS_CACHE="$cache/transformers"
+  export TORCH_HOME="$cache/torch"
+  export PIP_CACHE_DIR="$cache/pip"
+  export MELBAND_ROFORMER_MODELS_PATH="$cache/melband"
+  export TEMP="$tmp"
+  export TMP="$tmp"
+  export TMPDIR="$tmp"
+}
+
 ensure_sidecar_venv() {
   local root sidecar venv py
   # This file: scripts/lib/sidecar-venv.sh → repo root is ../..
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   sidecar="$root/ai-sidecar"
   venv="$sidecar/.venv"
+  sidecar_export_runtime_cache_env "$sidecar"
 
   if ! py="$(sidecar_pick_python)"; then
     echo "Need Python 3.10-3.12 (python3.12 / python3.11 / python3.10 on PATH)." >&2

@@ -64,9 +64,10 @@ export async function audioBufferToMp3Blob(buffer) {
 /**
  * @param {Blob} blob
  * @param {string} fileName
+ * @returns {Promise<{ mode: "studio"|"browser", path?: string }>}
  */
 export function downloadFormatBlob(blob, fileName) {
-  downloadAudioBlob(blob, fileName);
+  return downloadAudioBlob(blob, fileName);
 }
 
 /**
@@ -78,31 +79,31 @@ export async function downloadAudioBufferAsFormat(buffer, format, baseFileName) 
   const normalized = normalizeStudioExportFormat(format);
   const base = String(baseFileName || "track").replace(/\.[^.]+$/, "");
   if (normalized === "mp3") {
-    downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
-    return { format: "mp3", formatFallback: false };
+    const saved = await downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
+    return { format: "mp3", formatFallback: false, saveMode: saved?.mode, savePath: saved?.path };
   }
   if (normalized === "flac") {
     // Browser path has no FLAC encoder; lossless fallback is 24-bit WAV.
     // Studio/Tauri uses native flacenc via dsp-bridge instead.
-    downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
-    return { format: "wav24", formatFallback: true };
+    const saved = await downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
+    return { format: "wav24", formatFallback: true, saveMode: saved?.mode, savePath: saved?.path };
   }
   if (normalized === "m4a") {
     // Browser path has no AAC/M4A encoder; fall back to MP3 for delivery.
     // Studio/Tauri uses rusty_aac + custom ISOBMFF muxer via dsp-bridge instead.
-    downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
-    return { format: "mp3", formatFallback: true };
+    const saved = await downloadFormatBlob(await audioBufferToMp3Blob(buffer), `${base}.mp3`);
+    return { format: "mp3", formatFallback: true, saveMode: saved?.mode, savePath: saved?.path };
   }
   if (normalized === "wav32") {
-    downloadFormatBlob(audioBufferToWav32Blob(buffer), `${base}-32float.wav`);
-    return { format: "wav32", formatFallback: false };
+    const saved = await downloadFormatBlob(audioBufferToWav32Blob(buffer), `${base}-32float.wav`);
+    return { format: "wav32", formatFallback: false, saveMode: saved?.mode, savePath: saved?.path };
   }
   if (normalized === "wav24") {
-    downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
-    return { format: "wav24", formatFallback: false };
+    const saved = await downloadFormatBlob(audioBufferToWav24Blob(buffer), `${base}-24bit.wav`);
+    return { format: "wav24", formatFallback: false, saveMode: saved?.mode, savePath: saved?.path };
   }
-  downloadFormatBlob(audioBufferToWavBlob(buffer), `${base}.wav`);
-  return { format: "wav", formatFallback: false };
+  const saved = await downloadFormatBlob(audioBufferToWavBlob(buffer), `${base}.wav`);
+  return { format: "wav", formatFallback: false, saveMode: saved?.mode, savePath: saved?.path };
 }
 
 /** @param {Float32Array} data */

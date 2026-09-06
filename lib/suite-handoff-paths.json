@@ -6,15 +6,13 @@
     "windows": [
       "$STUDIO_DATA/addons/canvas/AI Canvas Tool.exe",
       "$STUDIO_DATA/addons/canvas/ai-canvas-tool.exe",
+      "$APPDIR/data/addons/canvas/AI Canvas Tool.exe",
       "$APPDIR/addons/canvas/AI Canvas Tool.exe",
       "$APPDIR/tools/canvas/AI Canvas Tool.exe",
       "$LOCALAPPDATA/AI/AI Canvas Tool.exe",
       "$LOCALAPPDATA/Programs/ai-canvas-tool/AI Canvas Tool.exe",
       "$LOCALAPPDATA/Programs/AI Canvas Tool/AI Canvas Tool.exe",
-      "$ProgramFiles/AI Canvas Tool/AI Canvas Tool.exe",
-      "$USERPROFILE/ai-canvas-tool/release/win-unpacked/AI Canvas Tool.exe",
-      "$USERPROFILE/ai-canvas-tool/electron-dist/win-unpacked/AI Canvas Tool.exe",
-      "$USERPROFILE/ai-suite/ai-canvas-tool/release/win-unpacked/AI Canvas Tool.exe"
+      "$ProgramFiles/AI Canvas Tool/AI Canvas Tool.exe"
     ],
     "macos": [
       "/Applications/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool",
@@ -32,27 +30,15 @@
     "githubOwner": "Druttzen",
     "githubRepo": "ai-canvas-tool",
     "installerCandidates": {
-    "windows": [
-      "$STUDIO_DATA/addons/canvas/AI.Canvas.Tool-Setup.exe",
-      "$APPDIR/addons/canvas/AI.Canvas.Tool-Setup.exe",
-      "$USERPROFILE/Downloads/AI.Canvas.Tool-1.1.1-Setup.exe",
-        "$USERPROFILE/Downloads/AI.Canvas.Tool-1.1.0-Setup.exe",
-        "$USERPROFILE/Downloads/AI Canvas Tool Setup.exe",
-        "$USERPROFILE/Downloads/AI Canvas Tool-1.1.1-Setup.exe",
-        "$USERPROFILE/Downloads/AI Canvas Tool-1.1.0-Setup.exe",
-        "$USERPROFILE/ai-canvas-tool/release/AI.Canvas.Tool-1.1.1-Setup.exe",
-        "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
-        "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.1-Setup.exe",
-        "$USERPROFILE/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe",
-        "$USERPROFILE/ai-canvas-tool/electron-dist/AI Canvas Tool Setup.exe",
-        "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool Setup.exe",
-        "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI.Canvas.Tool-1.1.1-Setup.exe",
-        "$USERPROFILE/ai-suite/ai-canvas-tool/release/AI Canvas Tool-1.1.0-Setup.exe"
+      "windows": [
+        "$STUDIO_DATA/addons/canvas/AI.Canvas.Tool-Setup.exe",
+        "$STUDIO_DATA/addons/canvas/AI Canvas Tool Setup.exe",
+        "$APPDIR/data/addons/canvas/AI.Canvas.Tool-Setup.exe",
+        "$APPDIR/addons/canvas/AI.Canvas.Tool-Setup.exe"
       ],
       "macos": [
-        "$HOME/Downloads/AI.Canvas.Tool.dmg",
-        "$HOME/Downloads/AI Canvas Tool.dmg",
-        "$HOME/ai-canvas-tool/release/AI Canvas Tool.dmg"
+        "$STUDIO_DATA/addons/canvas/AI.Canvas.Tool.dmg",
+        "$STUDIO_DATA/addons/canvas/AI Canvas Tool.dmg"
       ],
       "linux": []
     }

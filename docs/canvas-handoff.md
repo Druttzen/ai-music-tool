@@ -18,19 +18,19 @@ npm install
 npm run dist:setup
 ```
 
-Then run `release/AI Canvas Tool Setup.exe` / `AI.Canvas.Tool-*-Setup.exe`, or place it in your Downloads folder and use **Download / Install Canvas** again.
+Then run `release/AI Canvas Tool Setup.exe` / `AI.Canvas.Tool-*-Setup.exe`, or copy the Setup.exe into `{Studio data}/addons/canvas/` and use **Download / Install Canvas** again.
 
-When a track is analyzed in Music Creator, **Open in Canvas Tool** also exports `track-audio-*` to the suite folder and sets `audioPath` in `handoff.json` for preview sync in Canvas Tool.
+When a track is analyzed in Music Creator, **Open in Canvas Tool** also exports `track-audio-*` to the suite exports folder and sets `audioPath` in `handoff.json` for preview sync in Canvas Tool.
 
-Status shows **Installed** when an executable from [`lib/suite-handoff-paths.json`](../lib/suite-handoff-paths.json) `canvasCandidates` is found.
+Status shows **Installed** when an executable from [`lib/suite-handoff-paths.json`](../lib/suite-handoff-paths.json) `canvasCandidates` is found (preferring `{STUDIO_DATA}/addons/canvas/`).
 
 ## How handoff works
 
-1. Artwork is saved to `Documents/AI Suite/exports/`
-2. `handoff.json` is written with track title, artist, and art path
+1. Artwork (and optional audio) is saved under `{install}/data/exports/` (or `STUDIO_DATA_DIR/exports/`)
+2. `handoff.json` is written at `{install}/data/handoff.json` with track title, artist, and art path
 3. **AI Canvas Tool** launches and imports the handoff automatically (when installed)
 
-Shared paths, executable candidates, and Canvas install metadata live in `lib/suite-handoff-paths.json` (used by Tauri; also archived Electron shell).
+Shared paths, executable candidates, and Canvas install metadata live in `lib/suite-handoff-paths.json` (used by Tauri Studio). Installer discovery is limited to Studio data / app-dir candidates; already-installed Canvas under Program Files / LOCALAPPDATA remains discoverable read-only.
 
 ## Desktop builds
 

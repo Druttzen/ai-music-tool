@@ -249,12 +249,20 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
     strength,
   ]);
 
-  const onDownloadCover = useCallback(() => {
+  const onDownloadCover = useCallback(async () => {
     if (!coverUrl) return;
-    const a = document.createElement("a");
-    a.href = coverUrl;
-    a.download = "album-cover.png";
-    a.click();
+    try {
+      const res = await fetch(coverUrl);
+      if (!res.ok) throw new Error(`cover fetch failed (${res.status})`);
+      const blob = await res.blob();
+      const { saveOrDownloadBlob } = await import("../lib/studio-file-save");
+      await saveOrDownloadBlob(blob, "album-cover.png");
+    } catch {
+      const a = document.createElement("a");
+      a.href = coverUrl;
+      a.download = "album-cover.png";
+      a.click();
+    }
   }, [coverUrl]);
 
   return (

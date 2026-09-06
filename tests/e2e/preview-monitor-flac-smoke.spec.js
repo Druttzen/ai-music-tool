@@ -20,7 +20,7 @@ test.describe("preview monitor + flac export smoke", () => {
 
     await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, "e2e-analyzer-tone.wav");
 
-    await expect(panel.getByText("Preview monitor")).toBeVisible({ timeout: 30_000 });
+    await expect(panel.getByText("Preview monitor", { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByText("Live spectrum")).toBeVisible();
     await expect(panel.getByText("Attach A/B reference")).toBeVisible();
     await expect(panel.getByText("Preview EQ — not Atmos / not DTS")).toBeVisible();

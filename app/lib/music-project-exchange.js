@@ -73,15 +73,12 @@ export function slugifyMusicExchangeBaseName(idea) {
 /** @param {string} json @param {string} filename */
 export function downloadTextFile(json, filename) {
   const blob = new Blob([json], { type: "application/json" });
-  downloadBlobFile(blob, filename);
+  return downloadBlobFile(blob, filename);
 }
 
 /** @param {Blob} blob @param {string} filename */
 export function downloadBlobFile(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  return import("./studio-file-save").then(({ saveOrDownloadBlob }) =>
+    saveOrDownloadBlob(blob, filename),
+  );
 }

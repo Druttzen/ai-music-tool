@@ -1,8 +1,12 @@
 //! Signed Tauri Studio updates from the latest GitHub release.
 
 use serde::Serialize;
-use tauri::AppHandle;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
+
+const STUDIO_UPDATE_PROGRESS_EVENT: &str = "studio-component-update-progress";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,6 +17,15 @@ pub struct StudioUpdateCheckResult {
     pub current_version: String,
     pub notes: Option<String>,
     pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgressPayload {
+    phase: String,
+    item: String,
+    message: String,
+    pct: Option<u32>,
 }
 
 impl StudioUpdateCheckResult {
@@ -81,7 +94,47 @@ pub async fn install_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
 
     let version = update.version.clone();
     let notes = update.body.clone();
-    if let Err(error) = update.download_and_install(|_, _| {}, || {}).await {
+    let app_progress = app.clone();
+    let downloaded = Arc::new(AtomicU64::new(0));
+    let downloaded_cb = Arc::clone(&downloaded);
+    if let Err(error) = update
+        .download_and_install(
+            move |chunk_len, content_len| {
+                let total_downloaded =
+                    downloaded_cb.fetch_add(chunk_len as u64, Ordering::Relaxed) + chunk_len as u64;
+                let pct = content_len
+                    .filter(|total| *total > 0)
+                    .map(|total| ((total_downloaded.min(total) * 100) / total) as u32);
+                let message = match content_len {
+                    Some(total) if total > 0 => {
+                        format!("Downloading Studio update… {total_downloaded}/{total} bytes")
+                    }
+                    _ => format!("Downloading Studio update… {total_downloaded} bytes"),
+                };
+                let _ = app_progress.emit(
+                    STUDIO_UPDATE_PROGRESS_EVENT,
+                    DownloadProgressPayload {
+                        phase: "studio-download".to_string(),
+                        item: "studio".to_string(),
+                        message,
+                        pct: pct.map(|p| 85 + (p.min(100) * 14 / 100)),
+                    },
+                );
+            },
+            || {
+                let _ = app.emit(
+                    STUDIO_UPDATE_PROGRESS_EVENT,
+                    DownloadProgressPayload {
+                        phase: "studio-install".to_string(),
+                        item: "studio".to_string(),
+                        message: "Installing Studio update…".to_string(),
+                        pct: Some(99),
+                    },
+                );
+            },
+        )
+        .await
+    {
         return StudioUpdateCheckResult::error(current_version, error);
     }
 

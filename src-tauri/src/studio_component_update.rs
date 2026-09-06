@@ -48,15 +48,22 @@ struct ProgressPayload {
     phase: String,
     item: String,
     message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pct: Option<u32>,
 }
 
 fn emit_progress(app: &AppHandle, phase: &str, item: &str, message: &str) {
+    emit_progress_pct(app, phase, item, message, None);
+}
+
+fn emit_progress_pct(app: &AppHandle, phase: &str, item: &str, message: &str, pct: Option<u32>) {
     let _ = app.emit(
         STUDIO_COMPONENT_UPDATE_PROGRESS_EVENT,
         ProgressPayload {
             phase: phase.to_string(),
             item: item.to_string(),
             message: message.to_string(),
+            pct,
         },
     );
 }
@@ -271,7 +278,7 @@ fn update_components_blocking(
 ) -> Vec<ComponentUpdateItem> {
     let mut components = Vec::new();
 
-    emit_progress(&app, "sidecar", "sidecar", "Refreshing sidecar package…");
+    emit_progress_pct(&app, "sidecar", "sidecar", "Refreshing sidecar package…", Some(12));
     match ensure_user_sidecar_pkg(&app) {
         Ok(pkg) => components.push(ComponentUpdateItem {
             kind: "sidecar".to_string(),
@@ -289,7 +296,7 @@ fn update_components_blocking(
         }),
     }
 
-    emit_progress(&app, "canvas", "canvas", "Refreshing Canvas addon…");
+    emit_progress_pct(&app, "canvas", "canvas", "Refreshing Canvas addon…", Some(28));
     let canvas = refresh_canvas_addon_blocking();
     components.push(ComponentUpdateItem {
         kind: "canvas".to_string(),
@@ -303,7 +310,13 @@ fn update_components_blocking(
             .unwrap_or_else(|| "Canvas checked".to_string()),
     });
 
-    emit_progress(&app, "archives", "archives", "Refreshing usable archives…");
+    emit_progress_pct(
+        &app,
+        "archives",
+        "archives",
+        "Refreshing usable archives…",
+        Some(42),
+    );
     let archives = refresh_archives(Some(&app));
     if archives.is_empty() {
         components.push(ComponentUpdateItem {
@@ -329,19 +342,23 @@ fn update_components_blocking(
         return components;
     }
 
-    emit_progress(
+    emit_progress_pct(
         &app,
         "plugins",
         "plugins",
         "Updating installed sidecar plugins…",
+        Some(55),
     );
     manager.stop();
-    for extra_id in extras {
-        emit_progress(
+    let total = extras.len().max(1);
+    for (index, extra_id) in extras.into_iter().enumerate() {
+        let pct = 55 + ((index as u32 * 25) / total as u32);
+        emit_progress_pct(
             &app,
             "plugin",
             &extra_id,
             &format!("Updating {extra_id}…"),
+            Some(pct.min(80)),
         );
         let result = upgrade_one_sidecar_extra(&app, &extra_id);
         components.push(ComponentUpdateItem {
@@ -402,7 +419,13 @@ pub async fn update_studio_all(
     .await
     .map_err(|err| format!("Component update task failed: {err}"))?;
 
-    emit_progress(&app, "studio", "studio", "Checking Studio app update…");
+    emit_progress_pct(
+        &app,
+        "studio",
+        "studio",
+        "Checking Studio app update…",
+        Some(85),
+    );
     let studio = install_studio_update(app.clone()).await;
     let failed = components.iter().any(|item| !item.ok);
     let summary = summarize(&components, &studio);

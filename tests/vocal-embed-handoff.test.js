@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment happy-dom
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("vocal-embed-handoff align export", () => {
@@ -7,7 +10,7 @@ describe("vocal-embed-handoff align export", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("exportVocalEmbedHandoffPack accepts alignPreview in options", async () => {
@@ -18,18 +21,13 @@ describe("vocal-embed-handoff align export", () => {
 
   it("triggers plan, readme, align-preview, and openvpi-ds downloads", async () => {
     const downloads = [];
-    vi.stubGlobal("URL", {
-      createObjectURL: vi.fn(() => "blob:mock"),
-      revokeObjectURL: vi.fn(),
-    });
-    vi.stubGlobal("document", {
-      createElement: vi.fn(() => {
-        const anchor = { href: "", download: "", click: vi.fn() };
-        anchor.click = vi.fn(() => {
-          downloads.push(anchor.download);
-        });
-        return anchor;
-      }),
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag) => {
+      const el = origCreate(tag);
+      if (tag === "a") {
+        el.click = () => downloads.push(el.download);
+      }
+      return el;
     });
 
     const { exportVocalEmbedHandoffPack } = await import("../app/lib/vocal-embed-handoff.js");

@@ -82,10 +82,7 @@ export async function enrichMusicGenReportWithSidecar(file, report) {
 
 /** @param {Blob|File} blob @param {string} [fileName] */
 export function downloadMusicGenBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName || `musicgen-preview-${Date.now()}.wav`;
-  a.click();
-  URL.revokeObjectURL(url);
+  return import("./studio-file-save").then(({ saveOrDownloadBlob }) =>
+    saveOrDownloadBlob(blob, fileName || `musicgen-preview-${Date.now()}.wav`),
+  );
 }

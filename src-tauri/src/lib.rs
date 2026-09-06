@@ -7,6 +7,7 @@ mod sidecar_extra_install;
 mod sidecar_manager;
 mod sidecar_userdata;
 mod studio_component_update;
+mod studio_exports;
 mod studio_updater;
 mod workspace_reset;
 
@@ -20,6 +21,7 @@ use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness, StereoPhas
 use sidecar_extra_install::{install_sidecar_extra, probe_sidecar_extra_install_env};
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use studio_component_update::update_studio_all;
+use studio_exports::save_bytes_to_exports;
 use studio_updater::{check_studio_update, install_studio_update};
 use tauri::{Manager, RunEvent};
 use workspace_reset::{consume_workspace_reset_flag, workspace_reset_pending};
@@ -87,6 +89,14 @@ pub fn run() {
             let sidecar_setup = Arc::clone(&sidecar);
             move |app| {
                 sidecar_setup.set_app_handle(app.handle().clone());
+                // Always open filling the screen (config maximized/fullscreen + runtime enforce).
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_fullscreen(true);
+                    let _ = window.maximize();
+                } else if let Some(window) = app.webview_windows().into_values().next() {
+                    let _ = window.set_fullscreen(true);
+                    let _ = window.maximize();
+                }
                 Ok(())
             }
         })
@@ -117,6 +127,7 @@ pub fn run() {
             check_studio_update,
             install_studio_update,
             update_studio_all,
+            save_bytes_to_exports,
             workspace_reset_pending,
             consume_workspace_reset_flag,
         ])

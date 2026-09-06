@@ -818,15 +818,19 @@ export function useAnalyzers({
             ? " (native format fallback)"
             : " (browser format fallback)"
           : "";
+        const where =
+          result?.saveMode === "studio" && result?.savePath
+            ? ` · Studio exports`
+            : "";
         if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
           setStatusWithTime(
-            `${fmtLabel} downloaded${fallbackNote} · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
+            `${fmtLabel} downloaded${fallbackNote}${where} · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
           );
         } else {
           setStatusWithTime(
             scope === "highlight"
-              ? `Highlight ${fmtLabel} downloaded${fallbackNote}`
-              : `Enhanced ${fmtLabel} downloaded${fallbackNote}`,
+              ? `Highlight ${fmtLabel} downloaded${fallbackNote}${where}`
+              : `Enhanced ${fmtLabel} downloaded${fallbackNote}${where}`,
           );
         }
       } catch (err) {

@@ -12,6 +12,7 @@ import { PageSidebarRight } from "./components/page-sidebar-right";
 import { GuidedStepCoachBanner } from "./components/guided-step-coach-banner";
 import { FailSafeErrorBoundary } from "./components/fail-safe-error-boundary";
 import { useProjectWorkspaceProvider } from "./hooks/use-project-workspace";
+import { DesktopUpdateStatusBar } from "./components/desktop-update-status-bar";
 import { APP_VERSION, AUTHOR } from "./lib/music-config";
 
 export default function Page() {
@@ -29,7 +30,7 @@ export default function Page() {
   const startupInstall = useStartupAddonInstall();
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#0b0d10] p-4 text-white md:p-8">
+    <main className="min-h-screen overflow-x-hidden overflow-y-auto bg-[#0b0d10] p-4 text-white md:p-8">
       <StartupInstallOverlay {...startupInstall} />
       {showSplash && !startupInstall.open && (
         <SplashOverlay
@@ -59,15 +60,21 @@ export default function Page() {
             <FailSafeErrorBoundary name="guided coach">
               <GuidedStepCoachBanner />
             </FailSafeErrorBoundary>
-            <div className="grid gap-4 lg:grid-cols-[300px_1fr_380px]">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,380px)]">
               <FailSafeErrorBoundary name="left tools">
-                <PageSidebarLeft />
+                <div className="min-w-0 max-w-full overflow-x-hidden">
+                  <PageSidebarLeft />
+                </div>
               </FailSafeErrorBoundary>
               <FailSafeErrorBoundary name="center workspace">
-                <PageWorkspaceCenter />
+                <div className="min-w-0 max-w-full overflow-x-hidden">
+                  <PageWorkspaceCenter />
+                </div>
               </FailSafeErrorBoundary>
               <FailSafeErrorBoundary name="right tools">
-                <PageSidebarRight />
+                <div className="min-w-0 max-w-full overflow-x-hidden">
+                  <PageSidebarRight />
+                </div>
               </FailSafeErrorBoundary>
             </div>
           </GuidedFocusProvider>
@@ -75,6 +82,7 @@ export default function Page() {
 
       </div>
       <div className="fixed bottom-3 left-6 z-50 rounded-full border border-orange-400/30 bg-black/50 px-3 py-1 text-xs font-bold text-orange-300 backdrop-blur">Version {APP_VERSION}</div>
+      <DesktopUpdateStatusBar />
       <div className="fixed bottom-3 right-6 z-50 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-xs text-white/60 backdrop-blur">Created by <span className="font-bold text-orange-300">{AUTHOR}</span></div>
     </main>
   );

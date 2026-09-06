@@ -416,11 +416,8 @@ export async function downloadSidecarStem(relativeUrl: string, saveAs: string): 
     throw new Error(`stem download failed (${res.status})`);
   }
   const blob = await res.blob();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = saveAs;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const { saveOrDownloadBlob } = await import("./studio-file-save");
+  await saveOrDownloadBlob(blob, saveAs);
 }
 
 export interface SidecarVocalEmbedPlanResponse {

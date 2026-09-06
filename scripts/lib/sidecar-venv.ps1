@@ -2,6 +2,40 @@
 .SYNOPSIS
   Ensure ai-sidecar/.venv exists (Python 3.10–3.12).
 #>
+
+function Set-SidecarRuntimeCacheEnv {
+  param(
+    [Parameter(Mandatory = $true)][string]$SidecarDir
+  )
+  $cacheRoot = if ($env:STUDIO_DATA_DIR -and $env:STUDIO_DATA_DIR.Trim()) {
+    Join-Path $env:STUDIO_DATA_DIR.Trim() "sidecar"
+  } else {
+    $SidecarDir
+  }
+  $cache = Join-Path $cacheRoot "cache"
+  $tmp = Join-Path $cacheRoot "tmp"
+  foreach ($dir in @(
+      (Join-Path $cache "huggingface"),
+      (Join-Path $cache "torch"),
+      (Join-Path $cache "pip"),
+      (Join-Path $cache "melband"),
+      (Join-Path $cache "transformers"),
+      $tmp
+    )) {
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  }
+  $hf = Join-Path $cache "huggingface"
+  $env:HF_HOME = $hf
+  $env:HF_HUB_CACHE = $hf
+  $env:TRANSFORMERS_CACHE = (Join-Path $cache "transformers")
+  $env:TORCH_HOME = (Join-Path $cache "torch")
+  $env:PIP_CACHE_DIR = (Join-Path $cache "pip")
+  $env:MELBAND_ROFORMER_MODELS_PATH = (Join-Path $cache "melband")
+  $env:TEMP = $tmp
+  $env:TMP = $tmp
+  $env:TMPDIR = $tmp
+}
+
 function Invoke-SidecarPip {
   param(
     [Parameter(Mandatory = $true)][string]$Pip,
@@ -34,6 +68,7 @@ function Ensure-SidecarVenv {
   if ($root.StartsWith('\\?\')) { $root = $root.Substring(4) }
   $sidecar = Join-Path $root "ai-sidecar"
   $venv = Join-Path $sidecar ".venv"
+  Set-SidecarRuntimeCacheEnv -SidecarDir $sidecar
   $py = $null
 
   foreach ($v in @("3.12", "3.11", "3.10")) {

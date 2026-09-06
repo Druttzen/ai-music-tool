@@ -325,27 +325,28 @@ export function AddonsPanel() {
       <Panel
         title="Plugins"
         hint="Left-menu catalog: Canvas plus sidecar extras. Each row has Install. Browser copies the npm command; Studio installs into the app data folder (profile, addons, extras, tools)."
+        className="max-w-full"
       >
         {desktop ? null : (
-          <p className="mb-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
+          <p className="mb-3 break-words rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
             {CANVAS_DESKTOP_REQUIRED}. In the browser, each plugin’s Install copies its npm command.
           </p>
         )}
 
         <div
           data-testid="addons-status-strip"
-          className="mb-3 space-y-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2"
+          className="mb-3 min-w-0 space-y-2 overflow-hidden rounded-xl border border-white/10 bg-black/25 px-3 py-2"
         >
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span
               data-testid="addons-sidecar-process"
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusChipClass(processChip.tone)}`}
+              className={`max-w-full truncate rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusChipClass(processChip.tone)}`}
             >
               {processChip.label}
             </span>
             <span
               data-testid="addons-install-env"
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusChipClass(envChip.tone)}`}
+              className={`max-w-full truncate rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${statusChipClass(envChip.tone)}`}
               title={envChip.detail || undefined}
             >
               {envChip.label}
@@ -353,29 +354,29 @@ export function AddonsPanel() {
             {capabilityCounts.total > 0 ? (
               <span
                 data-testid="addons-sidecar-capabilities"
-                className="rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white/65"
+                className="max-w-full truncate rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white/65"
               >
                 {capabilityCounts.available}/{capabilityCounts.total} ready
               </span>
             ) : null}
           </div>
           {deviceSummary ? (
-            <p className="text-[11px] text-white/65">
+            <p className="break-words text-[11px] text-white/65">
               Device: <span className="text-white/80">{deviceSummary}</span>
             </p>
           ) : null}
           {envChip.detail ? (
-            <p data-testid="addons-install-env-detail" className="text-[11px] leading-relaxed text-white/55">
+            <p data-testid="addons-install-env-detail" className="break-words text-[11px] leading-relaxed text-white/55">
               {envChip.detail}
             </p>
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <div className="text-sm font-bold text-emerald-50">{canvasStatus?.title || CANVAS_ADDON.title}</div>
-              <p className="mt-1 text-[11px] leading-relaxed text-emerald-100/75">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="break-words text-sm font-bold text-emerald-50">{canvasStatus?.title || CANVAS_ADDON.title}</div>
+              <p className="mt-1 break-words text-[11px] leading-relaxed text-emerald-100/75">
                 {canvasStatus?.description || CANVAS_ADDON.description}
               </p>
             </div>
@@ -390,12 +391,12 @@ export function AddonsPanel() {
               {canvasStatus?.installed ? "Installed" : "Not installed"}
             </span>
           </div>
-          <div className="mt-3 grid gap-2">
+          <div className="mt-3 grid min-w-0 gap-2">
             <button
               type="button"
               disabled={busy || !desktop}
               onClick={() => void onInstallCanvas()}
-              className="rounded-2xl bg-emerald-300 px-4 py-2 font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
+              className="w-full max-w-full break-words rounded-2xl bg-emerald-300 px-3 py-2 text-sm font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
             >
               {canvasStatus?.installed ? "Re-check Canvas" : "Download / Install Canvas"}
             </button>
@@ -403,16 +404,18 @@ export function AddonsPanel() {
               type="button"
               disabled={busy || !desktop}
               onClick={() => void onOpenCanvas()}
-              className="rounded-2xl border border-emerald-300/40 bg-black/25 px-4 py-2 font-bold text-emerald-50 hover:bg-emerald-500/20 disabled:opacity-50"
+              className="w-full max-w-full break-words rounded-2xl border border-emerald-300/40 bg-black/25 px-3 py-2 text-sm font-bold text-emerald-50 hover:bg-emerald-500/20 disabled:opacity-50"
             >
               Open AI Canvas Tool
             </button>
           </div>
         </div>
 
-        <div className="mt-4 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Sidecar plugins</div>
+        <div className="mt-4 min-w-0 space-y-2">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="min-w-0 truncate text-[10px] font-bold uppercase tracking-wider text-white/45">
+              Sidecar plugins
+            </div>
             <button
               type="button"
               data-testid="addons-refresh-status"
@@ -421,15 +424,18 @@ export function AddonsPanel() {
                 void refreshExtras();
                 void refreshInstallEnv();
               }}
-              className="rounded-md border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/55 hover:bg-white/10 disabled:opacity-50"
+              className="shrink-0 rounded-md border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/55 hover:bg-white/10 disabled:opacity-50"
             >
               Refresh
             </button>
           </div>
           {capabilityRows.length === 0 ? (
-            <p className="text-[11px] text-white/40">{extrasEmptyHint}</p>
+            <p className="break-words text-[11px] text-white/40">{extrasEmptyHint}</p>
           ) : (
-            <ul className="space-y-2" data-testid="addons-capability-list">
+            <ul
+              className="max-h-[min(52vh,28rem)] space-y-2 overflow-x-hidden overflow-y-auto pr-1"
+              data-testid="addons-capability-list"
+            >
               {sortSidecarCapabilityRows(capabilityRows, extraErrors, normalizeSidecarExtraId).map((cap) => {
                 const id = normalizeSidecarExtraId(cap.extraId || cap.id);
                 const hint = cap.install_hint || sidecarExtraNpmHint(id);
@@ -460,67 +466,76 @@ export function AddonsPanel() {
                     data-testid={`addons-cap-${id}`}
                     data-available={installed ? "true" : "false"}
                     data-status={rowStatus.label.toLowerCase()}
-                    className={`rounded-xl border px-3 py-2 ${rowStatus.borderClass}`}
+                    className={`min-w-0 overflow-hidden rounded-xl border px-3 py-2 ${rowStatus.borderClass}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <div className="text-xs font-bold text-white/90">{cap.title}</div>
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          <div className="min-w-0 break-words text-xs font-bold text-white/90">{cap.title}</div>
                           <span
-                            className={`rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${statusChipClass(rowStatus.tone)}`}
+                            className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${statusChipClass(rowStatus.tone)}`}
                           >
                             {rowStatus.label}
                           </span>
                           {cap.commercial_use === false ? (
-                            <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-100/80">
+                            <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-100/80">
                               Non-commercial
                             </span>
                           ) : null}
                         </div>
                         {cap.blurb ? (
-                          <p className="mt-1 text-[11px] leading-snug text-white/55">{cap.blurb}</p>
+                          <p className="mt-1 break-words text-[11px] leading-snug text-white/55">{cap.blurb}</p>
                         ) : null}
                         {tasks.length > 0 ? (
-                          <p className="mt-1 flex flex-wrap gap-1">
+                          <p className="mt-1 flex max-w-full flex-wrap gap-1 overflow-hidden">
                             {tasks.map((task) => (
                               <span
                                 key={task}
-                                className="rounded border border-white/10 bg-black/25 px-1.5 py-0.5 font-mono text-[9px] text-white/45"
+                                className="max-w-full truncate rounded border border-white/10 bg-black/25 px-1.5 py-0.5 font-mono text-[9px] text-white/45"
+                                title={task}
                               >
                                 {task}
                               </span>
                             ))}
                           </p>
                         ) : null}
-                        <code className="mt-1 block truncate font-mono text-[10px] text-cyan-100/70">{hint}</code>
+                        <code
+                          className="mt-1 block max-w-full truncate font-mono text-[10px] text-cyan-100/70"
+                          title={hint}
+                        >
+                          {hint}
+                        </code>
                         {cap.license ? (
-                          <p className="mt-0.5 truncate text-[10px] text-white/40">{cap.license}</p>
+                          <p className="mt-0.5 max-w-full truncate text-[10px] text-white/40" title={cap.license}>
+                            {cap.license}
+                          </p>
                         ) : null}
                         {err ? (
-                          <p className="mt-1 text-[10px] leading-snug text-rose-200/90">{err}</p>
+                          <p className="mt-1 break-words text-[10px] leading-snug text-rose-200/90">{err}</p>
                         ) : null}
                         {rowBusy ? (
-                          <div data-testid={`addons-install-progress-${id}`} className="mt-1 space-y-1">
+                          <div data-testid={`addons-install-progress-${id}`} className="mt-1 min-w-0 space-y-1">
                             <div className="h-1 overflow-hidden rounded-full bg-white/10">
                               <div
                                 className="h-full bg-cyan-400/80 transition-[width] duration-300"
                                 style={{ width: `${progressPercent ?? 8}%` }}
                               />
                             </div>
-                            <p className="text-[10px] leading-snug text-cyan-100/75">
+                            <p className="break-words text-[10px] leading-snug text-cyan-100/75">
                               {progressText ||
                                 "Pip install in progress — large extras can take several minutes."}
                             </p>
                           </div>
                         ) : null}
                       </div>
-                      <div className="flex w-[7.5rem] shrink-0 flex-col">
+                      <div className="flex w-full shrink-0 flex-col sm:w-[7.5rem]">
                         <button
                           type="button"
                           data-testid={`addons-install-${id}`}
                           disabled={busy}
+                          title={actionLabel}
                           onClick={() => void onInstallExtra(id)}
-                          className="rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-3 py-1.5 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"
+                          className="w-full max-w-full truncate rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-2 py-1.5 text-center text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"
                         >
                           {actionLabel}
                         </button>

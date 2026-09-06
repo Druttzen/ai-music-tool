@@ -146,7 +146,7 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
             : "audio/wav";
     const outBlob = new Blob([outBytes], { type: mime });
     const fileName = buildExportFileName(baseFileName, format);
-    downloadFormatBlob(outBlob, fileName);
+    const saved = await downloadFormatBlob(outBlob, fileName);
     opts.onProgress?.({ phase: "done", pct: 100 });
     return {
       format,
@@ -154,6 +154,8 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
       afterLufs: result.integrated_lufs ?? undefined,
       targetLufs: result.target_lufs ?? undefined,
       engine: "native",
+      saveMode: saved?.mode,
+      savePath: saved?.path,
     };
   } finally {
     exportInFlight = false;
@@ -255,13 +257,16 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
       }
       if (msg.type === "done") {
         const blob = new Blob([msg.blobBuffer], { type: msg.mime });
-        downloadFormatBlob(blob, msg.fileName || fileName);
-        settle(resolve, {
-          format: msg.outFormat || format,
-          formatFallback: !!msg.formatFallback,
-          afterLufs: msg.afterLufs,
-          targetLufs: msg.targetLufs,
-        });
+        void downloadFormatBlob(blob, msg.fileName || fileName).then((saved) => {
+          settle(resolve, {
+            format: msg.outFormat || format,
+            formatFallback: !!msg.formatFallback,
+            afterLufs: msg.afterLufs,
+            targetLufs: msg.targetLufs,
+            saveMode: saved?.mode,
+            savePath: saved?.path,
+          });
+        }).catch((err) => settle(reject, err instanceof Error ? err : new Error(String(err))));
       }
     };
 
@@ -312,12 +317,21 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
         formatFallback: Boolean(encoded?.formatFallback),
         afterLufs,
         targetLufs,
+        saveMode: encoded?.saveMode,
+        savePath: encoded?.savePath,
       };
     } catch (encodeErr) {
       if (format !== "mp3") throw encodeErr;
-      await downloadAudioBufferAsFormat(enhanced, "wav", baseFileName);
+      const encoded = await downloadAudioBufferAsFormat(enhanced, "wav", baseFileName);
       opts.onProgress?.({ phase: "done", pct: 100 });
-      return { format: "wav", formatFallback: true, afterLufs, targetLufs };
+      return {
+        format: "wav",
+        formatFallback: true,
+        afterLufs,
+        targetLufs,
+        saveMode: encoded?.saveMode,
+        savePath: encoded?.savePath,
+      };
     }
   } finally {
     exportInFlight = false;
