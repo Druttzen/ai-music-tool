@@ -27,7 +27,8 @@ function lazyCenter(loader, title, hint = "Loading…") {
 
 function DeferredCenterPanel({ title, children }) {
   const hostRef = useRef(null);
-  const [ready, setReady] = useState(false);
+  const eager = process.env.NEXT_PUBLIC_E2E === "1";
+  const [ready, setReady] = useState(eager);
 
   useEffect(() => {
     const host = hostRef.current;
