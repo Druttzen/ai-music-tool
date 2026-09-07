@@ -104,7 +104,6 @@ jobs:
           PR_NUMBER: ${{ needs.diagnose-pr.outputs.pr_number }}
           FAIL_SAFE_MODE: fix
         run: node scripts/fail-safe-pr-autofix.cjs
-        continue-on-error: true
 
   diagnose-master:
     if: >-

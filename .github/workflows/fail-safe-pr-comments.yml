@@ -32,8 +32,8 @@ jobs:
         id: trig
         env:
           GH_TOKEN: ${{ github.token }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_USER: ${{ github.event.comment.user.login }}
+          COMMENT_BODY: ${{ github.event.comment.body || github.event.review.body }}
+          COMMENT_USER: ${{ github.event.comment.user.login || github.event.review.user.login }}
         run: |
           if [ "${{ github.event_name }}" = "issue_comment" ]; then
             PR="${{ github.event.issue.number }}"
@@ -126,4 +126,3 @@ jobs:
           PR_NUMBER: ${{ steps.trig.outputs.pr_number }}
           FAIL_SAFE_MODE: fix
         run: node scripts/fail-safe-pr-autofix.cjs
-        continue-on-error: true

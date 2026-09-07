@@ -63,6 +63,19 @@ function commentBody({ ok, changed, branch, commit, message, details }) {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
+function extractJsonResult(output) {
+  const lines = String(output || "").trim().split(/\r?\n/).reverse();
+  for (const line of lines) {
+    try {
+      const value = JSON.parse(line);
+      if (value && typeof value === "object" && ("ok" in value || "stage" in value)) return value;
+    } catch {
+      // The fixer also emits human-readable logs; only the final JSON line is structured.
+    }
+  }
+  return null;
+}
+
 async function main() {
   ensureIdentity();
   const branch = git(["branch", "--show-current"]);
@@ -79,19 +92,27 @@ async function main() {
     process.exit(0);
   }
 
-  const fix = run(process.execPath, [path.join(__dirname, "fail-safe-bot.cjs")], {
-    stdio: "inherit",
+  const fix = run(process.execPath, [path.join(__dirname, "fail-safe-bot.cjs"), "--json"], {
+    stdio: ["ignore", "pipe", "pipe"],
   });
   const fixOk = (fix.status ?? 1) === 0;
+  const fixOutput = `${fix.stdout || ""}\n${fix.stderr || ""}`.trim();
+  if (fixOutput) process.stderr.write(`${fixOutput}\n`);
   const dirty = git(["status", "--porcelain"]);
 
   if (!fixOk) {
+    const result = extractJsonResult(fix.stdout);
+    const failedIssues = result?.issues?.map((issue) => issue.title || issue.id).filter(Boolean) || [];
     const body = commentBody({
       ok: false,
       changed: false,
       branch,
-      message: "fail-safe:run did not pass after safe auto-fixes.",
-      details: "Run `npm run fail-safe:auto` and paste into Cursor Agent, or comment `@fail-safe fix` after pushing manual fixes.",
+      message: `fail-safe:run did not pass after safe auto-fixes (exit ${fix.status ?? 1}).`,
+      details: [
+        failedIssues.length ? `Detected: ${failedIssues.join(", ")}.` : "",
+        "No commit or push was made.",
+        "Run `npm run fail-safe:auto` for an agent-ready diagnosis, or fix the reported stage and comment `@fail-safe fix` again.",
+      ].filter(Boolean).join(" "),
     });
     if (outFile) fs.writeFileSync(outFile, body);
     if (prNumber) {
