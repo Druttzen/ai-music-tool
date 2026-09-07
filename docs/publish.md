@@ -42,6 +42,11 @@ npm run tauri:dev
 
 Or install the local build from `src-tauri/target/release/bundle/` after `--tauri` / `npm run tauri:build`.
 
+Local `npm run tauri:build` runs unsigned when `TAURI_SIGNING_PRIVATE_KEY` is
+not set, so it produces installable MSI/NSIS packages without updater
+artifacts. Release CI supplies both signing secrets and produces the signed
+updater artifacts.
+
 Minimum click-through:
 
 - [ ] Sidecar comes up (analyze a track)
