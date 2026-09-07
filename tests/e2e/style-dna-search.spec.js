@@ -22,6 +22,14 @@ test.describe("Style-DNA search panel e2e", () => {
         body: JSON.stringify(MB_FIXTURE),
       });
     });
+    // Optional AcousticBrainz enrich via sidecar — stub so slow/down AB cannot stall search toasts.
+    await page.route("**/acousticbrainz/**", async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "no AcousticBrainz data for this recording" }),
+      });
+    });
     await clearProjectStorage(page);
   });
 

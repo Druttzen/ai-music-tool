@@ -19,6 +19,10 @@
 /.next/
 /out/
 
+# Generated Tauri sidecar package copy (npm run build:sidecar-resources)
+/src-tauri/resources/ai-sidecar/*
+!/src-tauri/resources/ai-sidecar/.gitkeep
+
 # production
 /build/*
 !/build/

@@ -206,5 +206,6 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libmp3lame-dev
       - run: npm ci
       - run: npm run build
+      - run: npm run build:sidecar-resources
       - run: npm run build:sidecar
       - run: cd src-tauri && cargo build --locked

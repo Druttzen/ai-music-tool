@@ -354,14 +354,22 @@ export async function fetchSonicSignatureViaSidecar(
 /** GET AcousticBrainz archive features by MusicBrainz recording MBID. */
 export async function fetchAcousticBrainzViaSidecar(
   recordingMbid: string,
+  timeoutMs = 8_000,
 ): Promise<AcousticBrainzPayload> {
-  const res = await fetch(`${sidecarBaseUrl()}/acousticbrainz/${encodeURIComponent(recordingMbid)}`, {
-    headers: await sidecarAuthHeaders(),
-  });
-  if (!res.ok) {
-    throw new Error(`AcousticBrainz lookup failed (${res.status})`);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${sidecarBaseUrl()}/acousticbrainz/${encodeURIComponent(recordingMbid)}`, {
+      headers: await sidecarAuthHeaders(),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`AcousticBrainz lookup failed (${res.status})`);
+    }
+    return res.json() as Promise<AcousticBrainzPayload>;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json() as Promise<AcousticBrainzPayload>;
 }
 
 export interface SidecarStemFile {

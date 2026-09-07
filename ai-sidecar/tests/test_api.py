@@ -81,6 +81,49 @@ def test_job_manager_register_inline():
     assert JOBS.get(job.job_id) is job
 
 
+def test_job_manager_serializes_inline_workers():
+    """Two concurrent run_inline calls must not overlap on the worker lock."""
+    import threading
+    import time
+
+    active = 0
+    max_active = 0
+    gate = threading.Barrier(2)
+    counter_lock = threading.Lock()
+
+    @register("test.hold")
+    def _hold(ctx: JobContext):
+        nonlocal active, max_active
+        with counter_lock:
+            active += 1
+            max_active = max(max_active, active)
+        time.sleep(0.15)
+        with counter_lock:
+            active -= 1
+        return {"held": True}
+
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def worker():
+        try:
+            gate.wait(timeout=5)
+            results.append(JOBS.run_inline("test.hold", {}, label="hold"))
+        except BaseException as exc:  # noqa: BLE001 — collect for assertion
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    assert not errors, errors
+    assert len(results) == 2
+    assert all(j.status == "done" for j in results)
+    assert max_active == 1
+
+
 def test_health_allows_local_dev_cors():
     res = client.get("/health", headers={"Origin": "http://localhost:3000"})
     assert res.status_code == 200

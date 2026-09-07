@@ -13,17 +13,24 @@ def test_fetch_acousticbrainz_none_when_empty_mbid():
     assert fetch_acousticbrainz_features("") is None
 
 
+def test_fetch_acousticbrainz_none_when_non_uuid_mbid():
+    # E2E fixtures and typos must not hit AcousticBrainz (slow timeouts).
+    assert fetch_acousticbrainz_features("e2e-mb-recording-1") is None
+
+
 def test_get_json_sets_accept_header_without_nameerror(monkeypatch):
     captured = {}
 
-    def fake_urlopen(req, timeout=12):
+    def fake_urlopen(req, timeout=4.0):
         assert isinstance(req, Request)
         captured["accept"] = req.get_header("Accept")
+        captured["timeout"] = timeout
         raise URLError("offline")
 
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
     assert _get_json("https://example.invalid/ab") is None
     assert captured["accept"] == "application/json"
+    assert captured["timeout"] == 4.0
 
 
 @patch("ai_sidecar.acousticbrainz._get_json")

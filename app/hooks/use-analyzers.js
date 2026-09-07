@@ -1,45 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  buildAudioAnalyzerPatch,
-} from "../lib/analyzer-guided-merge";
-import { buildAudioSunoV55Patch, buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
-import { buildImageSunoV55Patch, buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
-import { refineSunoStyleWithLlmOrHeuristic } from "../lib/analyzer-suno-style-llm";
-import {
-  isSupportedAudioFile,
-  isSupportedImageFile,
-  SUPPORTED_AUDIO_LABEL,
-  SUPPORTED_IMAGE_LABEL,
-} from "../lib/analyzer-file-types";
-import {
-  audioFileMatchesAnalysis,
-  deleteAudioCacheEntries,
-  getAudioCacheKeysForAnalysis,
-  makeAudioCacheKey,
-  putAudioCacheEntries,
-  resolveAudioCacheBlob,
-} from "../lib/audio-cache";
-import {
-  analysisNeedsWaveformPeaks,
-  analyzeAudioBuffer,
-  decodeWaveformPeaksFromBlob,
-  formatTime,
-  normalizeAudioAnalysis,
-  patchAudioAnalysis,
-  synthesizeWaveformPeaksFromAnalysis,
-} from "../lib/audio-analyzer";
-import { getAudioAnalyzerReadyMessage } from "../lib/analyzer-disclaimer";
-import { mergeSidecarAnalysis, buildSidecarFallbackReport, mergeSonicSignature } from "../lib/audio-analyzer-sidecar";
-import { buildMusicGenAnalysisReport, downloadMusicGenBlob, enrichMusicGenReportWithSidecar } from "../lib/musicgen-preview";
-import {
-  hasMeaningfulHighlightRange,
-  sliceAudioBlobToHighlightRange,
-} from "../lib/audio-highlight-slice";
-import { analyzeImagePixelData } from "../lib/image-analyzer";
-import { mergeSidecarImageAnalysis } from "../lib/image-analyzer-sidecar";
-import { analyzeAudioViaSidecar, analyzeImageViaSidecar, downloadSidecarStem, fetchSidecarHealth, fetchSonicSignatureViaSidecar, generateMusicViaSidecar, generateMusicWithMelodyViaSidecar, generateSongViaSidecar, separateStemsViaSidecar, transformVocalsViaSidecar, waitForSidecar } from "../lib/sidecar-bridge";
+import { useCallback } from "react";
 import {
   resolveSidecarAcestepAvailable,
   resolveSidecarGenerateAvailable,
@@ -47,23 +8,14 @@ import {
   resolveSidecarVocalTransformAvailable,
 } from "../lib/analyzers-sidecar-probe";
 import { waitForSidecarExtraReady, fetchSidecarHealthAfterExtraInstall } from "../lib/sidecar-extra-install-client";
-import { musicGenInstallHint } from "../lib/sidecar-capabilities";
-import { measureIntegratedLoudness } from "../lib/lufs-meter";
-import { isTauriApp, measureLoudnessBytes, measureStereoPhaseBytes } from "../lib/dsp-bridge";
-import { decodeAnalyzerAudioBuffer } from "../lib/decode-analyzer-audio";
-import { measureStereoPhase } from "../lib/stereo-phase";
-import { normalizeStudioExportFormat } from "../lib/audio-export-formats";
-import { exportEnhancedFromBlob } from "../lib/studio-export-client";
-import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { useAnalyzerRefs } from "./analyzers/use-analyzer-refs";
-import { useE2eAudioFixtures } from "./analyzers/use-e2e-audio-fixtures";
 import { useSidecarStatus } from "./analyzers/use-sidecar-status";
-import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
-import {
-  deriveCanvasMotionHint,
-  deriveCanvasTrackMeta,
-  openImageInCanvasTool,
-} from "../lib/suite-canvas-client";
+import { useAnalyzerMedia } from "./analyzers/use-analyzer-media";
+import { useAnalyzerExport } from "./analyzers/use-analyzer-export";
+import { useAnalyzerStems } from "./analyzers/use-analyzer-stems";
+import { useAnalyzerGenerate } from "./analyzers/use-analyzer-generate";
+import { useAnalyzerVocals } from "./analyzers/use-analyzer-vocals";
+import { useAnalyzerCanvas } from "./analyzers/use-analyzer-canvas";
 
 export function useAnalyzers({
   promptEngine,
@@ -75,20 +27,6 @@ export function useAnalyzers({
   coProducerLlmSettings = null,
 }) {
   const refs = useAnalyzerRefs();
-  const analyzerMergeGenerationRef = useRef(0);
-  const analyzerMergeAbortRef = useRef(null);
-  const {
-    audioAnalysisRef,
-    audioCacheKeyRef,
-    audioCacheKeysRef,
-    audioPreviewUrlRef,
-    canvasRef,
-    imagePreviewUrlRef,
-    loudnessGenRef,
-    rehydrateGenRef,
-    setAudioPreviewFromBlob: setPreviewFromBlob,
-  } = refs;
-
   const {
     sidecarAiStatus,
     sidecarGenerateAvailable,
@@ -117,1225 +55,118 @@ export function useAnalyzers({
     setSidecarVocalTransformAvailable,
   ]);
 
-  const [audioAnalysis, setAudioAnalysis] = useState(null);
-  const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
-  const [audioExportBusy, setAudioExportBusy] = useState(false);
-  const [audioExportProgress, setAudioExportProgress] = useState(null);
-  const [audioLoudness, setAudioLoudness] = useState(null);
-  const [audioLoudnessBusy, setAudioLoudnessBusy] = useState(false);
-  const [audioStereoPhase, setAudioStereoPhase] = useState(null);
-  const [imageAnalysis, setImageAnalysis] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [stemSeparationBusy, setStemSeparationBusy] = useState(false);
-  const [stemSeparationStems, setStemSeparationStems] = useState([]);
-  const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
-  const [generateSongBusy, setGenerateSongBusy] = useState(false);
-  const [vocalTransformBusy, setVocalTransformBusy] = useState(false);
-  const [analyzeAudioBusy, setAnalyzeAudioBusy] = useState(false);
-  const [analyzeImageBusy, setAnalyzeImageBusy] = useState(false);
-
-  const cancelAnalyzerStyleMerge = useCallback(() => {
-    analyzerMergeGenerationRef.current += 1;
-    analyzerMergeAbortRef.current?.abort();
-    analyzerMergeAbortRef.current = null;
-  }, []);
-
-  useEffect(() => cancelAnalyzerStyleMerge, [cancelAnalyzerStyleMerge]);
-
-  useE2eAudioFixtures(setAudioAnalysis);
-
-  const setAudioPreviewFromBlob = useCallback(
-    (blob) => {
-      setAudioPreviewUrl(setPreviewFromBlob(blob));
-    },
-    [setPreviewFromBlob],
-  );
-
-  const syncCacheKeysRef = useCallback((report) => {
-    audioCacheKeysRef.current = report ? getAudioCacheKeysForAnalysis(report) : [];
-    audioCacheKeyRef.current = report?.audioCacheKey || null;
-  }, [audioCacheKeyRef, audioCacheKeysRef]);
-
-  const resetAnalyzers = useCallback(() => {
-    cancelAnalyzerStyleMerge();
-    deleteAudioCacheEntries(audioCacheKeysRef.current);
-    audioCacheKeysRef.current = [];
-    audioCacheKeyRef.current = null;
-    setAudioAnalysis(null);
-    setAudioPreviewUrl(null);
-    setAudioLoudness(null);
-    setAudioStereoPhase(null);
-    setImageAnalysis(null);
-    setImagePreview(null);
-    setStemSeparationStems([]);
-    if (imagePreviewUrlRef.current) {
-      URL.revokeObjectURL(imagePreviewUrlRef.current);
-      imagePreviewUrlRef.current = null;
-    }
-    if (audioPreviewUrlRef.current) {
-      URL.revokeObjectURL(audioPreviewUrlRef.current);
-      audioPreviewUrlRef.current = null;
-    }
-  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, cancelAnalyzerStyleMerge, imagePreviewUrlRef]);
-
-  const updateAudioAnalysis = useCallback((patch) => {
-    setAudioAnalysis((prev) => patchAudioAnalysis(prev, patch));
-  }, []);
-
-  const clearAudioAnalysis = useCallback(() => {
-    deleteAudioCacheEntries(audioCacheKeysRef.current);
-    audioCacheKeysRef.current = [];
-    audioCacheKeyRef.current = null;
-    setAudioAnalysis(null);
-    setAudioPreviewUrl(null);
-    setAudioLoudness(null);
-    setAudioStereoPhase(null);
-    if (audioPreviewUrlRef.current) {
-      URL.revokeObjectURL(audioPreviewUrlRef.current);
-      audioPreviewUrlRef.current = null;
-    }
-  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef]);
-
-  const clearImageAnalysis = useCallback(() => {
-    setImageAnalysis(null);
-    setImagePreview(null);
-    if (imagePreviewUrlRef.current) {
-      URL.revokeObjectURL(imagePreviewUrlRef.current);
-      imagePreviewUrlRef.current = null;
-    }
-  }, [imagePreviewUrlRef]);
-
-  const attachAudioFile = useCallback(
-    async (file) => {
-      if (!audioAnalysis) {
-        setStatusWithTime("No track report to attach audio to");
-        return;
-      }
-      if (!isSupportedAudioFile(file)) {
-        setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} only`);
-        return;
-      }
-
-      let audioContext = null;
-      try {
-        setStatusWithTime("Attaching audio...");
-        const arrayBuffer = await file.arrayBuffer();
-        const decoded = await decodeAnalyzerAudioBuffer(arrayBuffer, file.name);
-        audioContext = decoded.audioContext;
-        const buffer = decoded.buffer;
-
-        if (!audioFileMatchesAnalysis(file, audioAnalysis, buffer.duration)) {
-          setStatusWithTime("File name/duration does not match this report — drop as new analysis instead");
-          return;
-        }
-
-        const cacheKey = makeAudioCacheKey(file);
-        const keys = await putAudioCacheEntries(file, cacheKey, buffer.duration);
-        const peaksBlob = decoded.previewBlob || file;
-        const peaks = await decodeWaveformPeaksFromBlob(peaksBlob);
-
-        setAudioPreviewFromBlob(decoded.previewBlob || file);
-        setAudioAnalysis((prev) => {
-          const next = patchAudioAnalysis(prev, {
-            audioCacheKey: keys.audioCacheKey,
-            audioLookupKey: keys.audioLookupKey,
-            waveformPeaks: peaks,
-            waveformSource: "sample",
-            duration: buffer.duration,
-          });
-          syncCacheKeysRef(next);
-          return next;
-        });
-        setStatusWithTime(
-          decoded.engine === "native"
-            ? "Audio attached via Symphonia (ALAC/CAF/codec unsupported in Web Audio)"
-            : "Audio attached — sample-accurate waveform and playback restored",
-        );
-      } catch (err) {
-        reportCaughtError("analyzers.attachAudioFile", err);
-        const msg = err instanceof Error ? err.message : "";
-        setStatusWithTime(msg ? msg.slice(0, 100) : "Could not attach audio file");
-      } finally {
-        if (audioContext) {
-          try {
-            await audioContext.close();
-          } catch {}
-        }
-      }
-    },
-    [audioAnalysis, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
-  );
-
-  const analyzeAudioFile = useCallback(
-    async (file) => {
-      if (analyzeAudioBusy) {
-        setStatusWithTime("Audio analysis already in progress", "info");
-        return;
-      }
-      if (!isSupportedAudioFile(file)) {
-        setStatusWithTime(`Use ${SUPPORTED_AUDIO_LABEL} only for audio analysis`);
-        applyAnalyzerPatch({
-          notes: `Audio analyzer accepts ${SUPPORTED_AUDIO_LABEL} (check file extension or MIME type).`,
-        });
-        return;
-      }
-
-      let audioContext = null;
-      setAnalyzeAudioBusy(true);
-      try {
-        setStatusWithTime("Analyzing audio...");
-        const arrayBuffer = await file.arrayBuffer();
-        const decoded = await decodeAnalyzerAudioBuffer(arrayBuffer, file.name);
-        audioContext = decoded.audioContext;
-        const buffer = decoded.buffer;
-        const cacheKey = makeAudioCacheKey(file);
-        const report = analyzeAudioBuffer(buffer, file.name);
-        try {
-          const keys = await putAudioCacheEntries(file, cacheKey, buffer.duration);
-          report.audioCacheKey = keys.audioCacheKey;
-          report.audioLookupKey = keys.audioLookupKey;
-        } catch {
-          report.audioCacheKey = cacheKey;
-        }
-        syncCacheKeysRef(report);
-
-        let finalReport = report;
-        let sidecarReady = await waitForSidecar(45_000);
-        let sidecarStatusMsg = null;
-        let sidecarStatusType = "success";
-        if (sidecarReady) {
-          try {
-            const sidecar = await analyzeAudioViaSidecar(file, file.name);
-            finalReport = mergeSidecarAnalysis(report, sidecar);
-            try {
-              const sonic = await fetchSonicSignatureViaSidecar(file, file.name);
-              finalReport = mergeSonicSignature(finalReport, sonic);
-            } catch {
-              /* sonic signature optional */
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : "Sidecar analyze failed";
-            sidecarStatusMsg = `Heuristic report only — ${msg.slice(0, 80)}`;
-            sidecarStatusType = "warning";
-          }
-        } else {
-          sidecarStatusMsg = "Heuristic BPM/key — librosa sidecar unavailable";
-          sidecarStatusType = "warning";
-        }
-
-        if (decoded.engine === "native" && !sidecarStatusMsg) {
-          sidecarStatusMsg = "Decoded via Symphonia (browser codec missing) — track report ready";
-          sidecarStatusType = "success";
-        } else if (decoded.engine === "native" && sidecarStatusMsg) {
-          sidecarStatusMsg = `${sidecarStatusMsg} · Symphonia preview decode`;
-        }
-
-        setAudioPreviewFromBlob(decoded.previewBlob || file);
-        setAudioAnalysis(finalReport);
-        setStatusWithTime(
-          sidecarStatusMsg ?? getAudioAnalyzerReadyMessage(finalReport),
-          sidecarStatusType,
-        );
-      } catch (decodeErr) {
-        const sidecarReady = await waitForSidecar(45_000);
-        if (sidecarReady) {
-          try {
-            const sidecar = await analyzeAudioViaSidecar(file, file.name);
-            const fallback = buildSidecarFallbackReport(file.name, sidecar);
-            let finalReport = mergeSidecarAnalysis(fallback, sidecar);
-            try {
-              const sonic = await fetchSonicSignatureViaSidecar(file, file.name);
-              finalReport = mergeSonicSignature(finalReport, sonic);
-            } catch {
-              /* optional */
-            }
-            const cacheKey = makeAudioCacheKey(file);
-            try {
-              const keys = await putAudioCacheEntries(
-                file,
-                cacheKey,
-                finalReport.duration || sidecar.duration_sec || 0,
-              );
-              finalReport.audioCacheKey = keys.audioCacheKey;
-              finalReport.audioLookupKey = keys.audioLookupKey;
-            } catch {
-              finalReport.audioCacheKey = cacheKey;
-            }
-            syncCacheKeysRef(finalReport);
-            setAudioPreviewFromBlob(file);
-            setAudioAnalysis(finalReport);
-            setStatusWithTime(
-              "Track report ready via librosa sidecar (browser could not decode this codec)",
-              "warning",
-            );
-            return;
-          } catch (sidecarErr) {
-            reportCaughtError("analyzers.analyzeAudioFile", sidecarErr);
-            const msg = sidecarErr instanceof Error ? sidecarErr.message : "Sidecar analyze failed";
-            setStatusWithTime(`Audio analysis failed — ${msg.slice(0, 80)}`, "error");
-            applyAnalyzerPatch({
-              notes: `Decode failed (${decodeErr instanceof Error ? decodeErr.message : "unknown"}). Sidecar fallback also failed.`,
-            });
-            return;
-          }
-        }
-        setStatusWithTime(
-          decodeErr instanceof Error ? decodeErr.message.slice(0, 100) : "Audio analysis failed",
-        );
-        applyAnalyzerPatch({
-          notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL}. ALAC/CAF needs Studio Symphonia decode; FLAC may need the librosa sidecar in browser.`,
-        });
-      } finally {
-        setAnalyzeAudioBusy(false);
-        if (audioContext) {
-          try {
-            await audioContext.close();
-          } catch {}
-        }
-      }
-    },
-    [analyzeAudioBusy, applyAnalyzerPatch, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
-  );
-
-  useEffect(() => {
-    if (!audioAnalysis) return undefined;
-
-    const needsPeaks = analysisNeedsWaveformPeaks(audioAnalysis);
-    const needsPreview = !audioPreviewUrlRef.current;
-    if (!needsPeaks && !needsPreview) return undefined;
-
-    const gen = ++rehydrateGenRef.current;
-    let cancelled = false;
-
-    (async () => {
-      const resolved = await resolveAudioCacheBlob(audioAnalysis);
-      if (cancelled || gen !== rehydrateGenRef.current) return;
-
-      if (resolved?.blob) {
-        try {
-          let previewBlob = resolved.blob;
-          let peaksBlob = resolved.blob;
-          // ALAC/CAF cache blobs need Symphonia→WAV again after reload for Web Audio playback.
-          try {
-            const arrayBuffer = await resolved.blob.arrayBuffer();
-            const decoded = await decodeAnalyzerAudioBuffer(
-              arrayBuffer,
-              audioAnalysis.fileName || "track",
-            );
-            if (decoded.previewBlob) {
-              previewBlob = decoded.previewBlob;
-              peaksBlob = decoded.previewBlob;
-            }
-            if (decoded.audioContext) {
-              try {
-                await decoded.audioContext.close();
-              } catch {
-                /* ignore */
-              }
-            }
-          } catch {
-            /* keep original blob for browser-decodable formats */
-          }
-          if (cancelled || gen !== rehydrateGenRef.current) return;
-          if (needsPreview) setAudioPreviewFromBlob(previewBlob);
-          if (needsPeaks) {
-            const peaks = await decodeWaveformPeaksFromBlob(peaksBlob);
-            if (cancelled || gen !== rehydrateGenRef.current) return;
-            setAudioAnalysis((prev) =>
-              patchAudioAnalysis(prev, {
-                waveformPeaks: peaks,
-                waveformSource: "cached",
-                audioCacheKey: prev?.audioCacheKey || resolved.matchedKey,
-              }),
-            );
-          }
-          return;
-        } catch {
-          /* fall through */
-        }
-      }
-
-      if (!needsPeaks) return;
-
-      const peaks = synthesizeWaveformPeaksFromAnalysis(audioAnalysis);
-      if (cancelled || gen !== rehydrateGenRef.current) return;
-      setAudioAnalysis((prev) =>
-        patchAudioAnalysis(prev, { waveformPeaks: peaks, waveformSource: "estimated" }),
-      );
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    audioAnalysis,
-    audioAnalysis?.audioCacheKey,
-    audioAnalysis?.audioLookupKey,
-    audioAnalysis?.duration,
-    audioAnalysis?.fileName,
-    audioAnalysis?.waveformPeaks,
-    audioPreviewUrlRef,
-    rehydrateGenRef,
-    setAudioPreviewFromBlob,
-  ]);
-
-  useEffect(() => {
-    audioAnalysisRef.current = audioAnalysis;
-  }, [audioAnalysis, audioAnalysisRef]);
-
-  // Re-measure loudness only when the underlying audio source changes — keyed
-  // on cache/lookup keys + preview url, NOT on the whole analysis object. This
-  // prevents a full blob decode + EBU R128 re-measurement when an unrelated
-  // patch (e.g. rehydrated waveform peaks) changes the analysis object identity.
-  const loudnessSourceKey = audioAnalysis
-    ? `${audioAnalysis.audioCacheKey || ""}|${audioAnalysis.audioLookupKey || ""}|${audioPreviewUrl || ""}`
-    : "";
-
-  useEffect(() => {
-    if (!loudnessSourceKey) return undefined;
-    const analysis = audioAnalysisRef.current;
-    if (!analysis) return undefined;
-
-    const gen = ++loudnessGenRef.current;
-    let cancelled = false;
-
-    (async () => {
-      setAudioLoudnessBusy(true);
-      try {
-        const resolved = await resolveAudioCacheBlob(analysis);
-        let blob = resolved?.blob;
-        if (!blob && audioPreviewUrlRef.current) {
-          const res = await fetch(audioPreviewUrlRef.current);
-          if (res.ok) blob = await res.blob();
-        }
-        if (!blob || cancelled || gen !== loudnessGenRef.current) return;
-
-        let stats = null;
-        let phaseStats = null;
-        const arrayBuffer = await blob.arrayBuffer();
-
-        // Native dsp-core Symphonia (Tauri): decode + EBU R128 / phase from file bytes.
-        // Falls back to Web Audio + JS meters on any error or outside Studio.
-        if (isTauriApp()) {
-          try {
-            const native = await measureLoudnessBytes(arrayBuffer.slice(0));
-            stats = {
-              integratedLUFS:
-                typeof native.integrated_lufs === "number" ? native.integrated_lufs : NaN,
-              truePeakDbTP: native.true_peak_dbtp,
-              samplePeakDbFS: native.sample_peak_dbfs,
-              shortTermLUFS:
-                typeof native.short_term_lufs === "number" ? native.short_term_lufs : null,
-              momentaryLUFS:
-                typeof native.momentary_lufs === "number" ? native.momentary_lufs : null,
-              engine: "native",
-            };
-          } catch {
-            stats = null;
-          }
-          try {
-            const nativePhase = await measureStereoPhaseBytes(arrayBuffer.slice(0));
-            phaseStats = {
-              correlation: nativePhase.correlation,
-              leftPeak: nativePhase.left_peak,
-              rightPeak: nativePhase.right_peak,
-              monoPeak: nativePhase.mono_peak,
-              monoCancelDb: nativePhase.mono_cancel_db,
-              outOfPhase: nativePhase.out_of_phase,
-              engine: "native",
-            };
-          } catch {
-            phaseStats = null;
-          }
-        }
-
-        if (!stats || !phaseStats) {
-          const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
-          try {
-            const buffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
-            if (!stats) {
-              stats = await measureIntegratedLoudness(buffer);
-            }
-            if (!phaseStats) {
-              phaseStats = measureStereoPhase(buffer);
-            }
-          } finally {
-            try {
-              await decodeCtx.close();
-            } catch {
-              /* ignore */
-            }
-          }
-        }
-
-        if (!cancelled && gen === loudnessGenRef.current) {
-          setAudioLoudness(stats);
-          setAudioStereoPhase(phaseStats);
-        }
-      } catch {
-        if (!cancelled && gen === loudnessGenRef.current) {
-          setAudioLoudness(null);
-          setAudioStereoPhase(null);
-        }
-      } finally {
-        if (!cancelled && gen === loudnessGenRef.current) setAudioLoudnessBusy(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loudnessSourceKey, audioAnalysisRef, audioPreviewUrlRef, loudnessGenRef]);
-
-  const navigateToPolishStep = useCallback(() => {
-    setGuidedStep(resolvePolishStepIndex());
-  }, [setGuidedStep]);
-
-  const refineCurrentAnalyzerStyle = useCallback(
-    async (kind, heuristic, report) => {
-      analyzerMergeAbortRef.current?.abort();
-      const controller = new AbortController();
-      const generation = analyzerMergeGenerationRef.current + 1;
-      analyzerMergeGenerationRef.current = generation;
-      analyzerMergeAbortRef.current = controller;
-
-      const built = await refineSunoStyleWithLlmOrHeuristic(
-        kind,
-        heuristic,
-        report,
-        coProducerLlmSettings,
-        { signal: controller.signal },
-      );
-      if (controller.signal.aborted || generation !== analyzerMergeGenerationRef.current) {
-        return null;
-      }
-      if (analyzerMergeAbortRef.current === controller) {
-        analyzerMergeAbortRef.current = null;
-      }
-      return built;
-    },
-    [coProducerLlmSettings],
-  );
-
-  const applyAudioToSunoStyle = useCallback(async ({ announce = true, navigate = true } = {}) => {
-    if (!audioAnalysis) {
-      setStatusWithTime("No audio analysis yet");
-      return;
-    }
-    const heuristic = buildSunoV55StyleFromAudioAnalysis(audioAnalysis);
-    const built = await refineCurrentAnalyzerStyle(
-      "audio",
-      heuristic,
-      audioAnalysis,
-    );
-    if (!built) return;
-    applyAnalyzerPatch(buildAudioSunoV55Patch(audioAnalysis, formatTime, built));
-
-    const via = built.source === "llm" ? " (LLM refined)" : "";
-    if (promptEngine === "Suno-like") {
-      if (navigate) navigateToPolishStep();
-      if (announce) {
-        setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — guided path: Polish`);
-      }
-    } else if (announce) {
-      setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — Style buffer filled`);
-    }
-  }, [
-    audioAnalysis,
-    applyAnalyzerPatch,
-    navigateToPolishStep,
+  const media = useAnalyzerMedia({
     promptEngine,
-    refineCurrentAnalyzerStyle,
-    setStatusWithTime,
-  ]);
-
-  const applyImageToSunoStyle = useCallback(async () => {
-    if (!imageAnalysis) {
-      setStatusWithTime("No image analysis yet");
-      return;
-    }
-    const heuristic = buildSunoV55StyleFromImageAnalysis(imageAnalysis);
-    const built = await refineCurrentAnalyzerStyle(
-      "image",
-      heuristic,
-      imageAnalysis,
-    );
-    if (!built) return;
-    applyAnalyzerPatch(buildImageSunoV55Patch(imageAnalysis, built));
-
-    const via = built.source === "llm" ? " (LLM refined)" : "";
-    if (promptEngine === "Suno-like") {
-      navigateToPolishStep();
-      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — guided path: Polish`);
-    } else {
-      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — Style buffer filled`);
-    }
-  }, [
+    setGuidedStep,
     applyAnalyzerPatch,
-    imageAnalysis,
-    navigateToPolishStep,
-    promptEngine,
-    refineCurrentAnalyzerStyle,
     setStatusWithTime,
-  ]);
+    coProducerLlmSettings,
+    refs,
+  });
 
-  const analyzeImageFile = useCallback(
-    async (file) => {
-      if (analyzeImageBusy) {
-        setStatusWithTime("Image analysis already in progress", "info");
-        return;
-      }
-      if (!isSupportedImageFile(file)) {
-        setStatusWithTime(`Use ${SUPPORTED_IMAGE_LABEL} only for image analysis`);
-        applyAnalyzerPatch({
-          notes: `Image analyzer accepts ${SUPPORTED_IMAGE_LABEL} (check file extension or MIME type).`,
-        });
-        return;
-      }
-      setAnalyzeImageBusy(true);
-      try {
-        setStatusWithTime("Analyzing image...");
-        const url = URL.createObjectURL(file);
-        if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
-        imagePreviewUrlRef.current = url;
-        setImagePreview(url);
-
-        const pixelReport = await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const canvas = canvasRef.current || document.createElement("canvas");
-              const ctx = canvas.getContext("2d");
-              const w = 160;
-              const h = Math.max(1, Math.round((img.height / img.width) * w));
-              canvas.width = w;
-              canvas.height = h;
-              ctx.drawImage(img, 0, 0, w, h);
-              const data = ctx.getImageData(0, 0, w, h).data;
-              resolve(analyzeImagePixelData(data, file.name));
-            } catch (err) {
-              reject(err);
-            }
-          };
-          img.onerror = () => reject(new Error("image decode failed"));
-          img.src = url;
-        });
-
-        let finalReport = pixelReport;
-        let sidecarStatusMsg = null;
-        let sidecarStatusType = "success";
-        const sidecarReady = await waitForSidecar(45_000);
-        const health = sidecarReady ? await fetchSidecarHealth() : null;
-        if (sidecarReady && health?.vision_available) {
-          try {
-            const sidecar = await analyzeImageViaSidecar(file, file.name, { caption: true });
-            finalReport = mergeSidecarImageAnalysis(pixelReport, sidecar);
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : "Sidecar image analyze failed";
-            sidecarStatusMsg = `Palette report only — ${msg.slice(0, 80)}`;
-            sidecarStatusType = "warning";
-          }
-        } else if (!sidecarReady) {
-          sidecarStatusMsg = "Palette-only — vision sidecar unavailable";
-          sidecarStatusType = "warning";
-        } else if (!health?.vision_available) {
-          sidecarStatusMsg = "Palette-only — npm run sidecar:vision for BLIP captions";
-          sidecarStatusType = "warning";
-        }
-
-        setImageAnalysis(finalReport);
-        setStatusWithTime(
-          sidecarStatusMsg ??
-            (finalReport.analysisEngine === "pixel+blip"
-              ? "Image ready (palette + BLIP caption) — add to style below when you want it in Suno fields"
-              : "Image ready — add to style below when you want it in Suno fields"),
-          sidecarStatusType,
-        );
-      } catch {
-        setStatusWithTime("Image analysis failed");
-      } finally {
-        setAnalyzeImageBusy(false);
-      }
-    },
-    [analyzeImageBusy, applyAnalyzerPatch, canvasRef, imagePreviewUrlRef, setStatusWithTime],
-  );
-
-  const exportEnhancedAudio = useCallback(
-    async (presetId, opts = {}) => {
-      if (!audioAnalysis) {
-        setStatusWithTime("No track loaded to export");
-        return;
-      }
-      if (audioExportBusy) return;
-
-      const format = normalizeStudioExportFormat(opts.format);
-      const scope = opts.scope === "highlight" ? "highlight" : "full";
-
-      setAudioExportBusy(true);
-      setAudioExportProgress({ phase: "preparing", pct: 0 });
-      setStatusWithTime("Studio export started…");
-
-      try {
-        // Prefer live preview blob (avoids IndexedDB stalls in e2e / private mode).
-        let blob = null;
-        if (audioPreviewUrlRef.current) {
-          try {
-            const res = await fetch(audioPreviewUrlRef.current);
-            if (res.ok) blob = await res.blob();
-          } catch {
-            /* fall through to cache */
-          }
-        }
-        if (!blob) {
-          const resolved = await resolveAudioCacheBlob(audioAnalysis);
-          blob = resolved?.blob ?? null;
-        }
-        if (!blob) {
-          setStatusWithTime("Attach the audio file before studio export");
-          return;
-        }
-
-        const baseName = String(audioAnalysis.fileName || "track").replace(/\.[^.]+$/, "");
-        const suffix =
-          scope === "highlight" ? `-highlight-${presetId}` : `-enhanced-${presetId}`;
-
-        const startSec = scope === "highlight" ? Number(audioAnalysis.highlightStart) || 0 : undefined;
-        const endSec =
-          scope === "highlight"
-            ? Number(audioAnalysis.highlightEnd) || audioAnalysis.duration || startSec + 1
-            : undefined;
-
-        const result = await exportEnhancedFromBlob(blob, presetId, `${baseName}${suffix}`, {
-          format,
-          startSec,
-          endSec,
-          onProgress: (p) => setAudioExportProgress(p),
-        });
-
-        const fmtLabel = (result?.format || format).toUpperCase();
-        const fallbackNote = result?.formatFallback
-          ? result?.engine === "native"
-            ? " (native format fallback)"
-            : " (browser format fallback)"
-          : "";
-        const where =
-          result?.saveMode === "studio" && result?.savePath
-            ? ` · Studio exports`
-            : "";
-        if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
-          setStatusWithTime(
-            `${fmtLabel} downloaded${fallbackNote}${where} · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
-          );
-        } else {
-          setStatusWithTime(
-            scope === "highlight"
-              ? `Highlight ${fmtLabel} downloaded${fallbackNote}${where}`
-              : `Enhanced ${fmtLabel} downloaded${fallbackNote}${where}`,
-          );
-        }
-      } catch (err) {
-        reportCaughtError("analyzers.exportEnhancedAudio", err);
-        const msg = err instanceof Error ? err.message : "";
-        setStatusWithTime(msg ? msg.slice(0, 80) : "Studio export failed");
-      } finally {
-        setAudioExportBusy(false);
-        setAudioExportProgress(null);
-      }
-    },
-    [audioAnalysis, audioExportBusy, audioPreviewUrlRef, setStatusWithTime],
-  );
-
-  const separateStems = useCallback(
-    async (modelName = "htdemucs") => {
-      if (!audioAnalysis) {
-        setStatusWithTime("No track loaded for stem separation");
-        return;
-      }
-      if (stemSeparationBusy) return;
-
-      const model = String(modelName || "htdemucs").trim() || "htdemucs";
-      const isMelband = model.toLowerCase().startsWith("melband");
-      setStemSeparationBusy(true);
-      setStemSeparationStems([]);
-      try {
-        setStatusWithTime(
-          isMelband ? "Mel-Band RoFormer separation started…" : "Demucs stem separation started…",
-        );
-        const resolved = await resolveAudioCacheBlob(audioAnalysis);
-        const blob = resolved?.blob;
-        if (!blob) {
-          setStatusWithTime("Re-attach the audio file before stem separation", "warning");
-          return;
-        }
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
-        if (!sidecarReady) {
-          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
-          return;
-        }
-        const result = await separateStemsViaSidecar(
-          blob,
-          audioAnalysis.fileName || "track.wav",
-          model,
-        );
-        setStemSeparationStems(result.stems || []);
-        const device = result.device ? ` on ${result.device}` : "";
-        setStatusWithTime(
-          `Stems ready (${result.sources.join(", ")})${device} — ${result.model || model}`,
-        );
-      } catch (err) {
-        reportCaughtError("analyzers.separateStems", err);
-        const msg = err instanceof Error ? err.message : "Stem separation failed";
-        setStatusWithTime(msg.slice(0, 100), "warning");
-      } finally {
-        setStemSeparationBusy(false);
-      }
-    },
-    [audioAnalysis, setStatusWithTime, stemSeparationBusy],
-  );
-
-  const generateMusicFromPrompt = useCallback(
-    async (prompt, durationSec = 10, options = {}) => {
-      const text = String(prompt || "").trim();
-      if (!text) {
-        setStatusWithTime("Enter a MusicGen prompt first", "warning");
-        return;
-      }
-      if (generateMusicBusy) return;
-
-      const attach = options.attach !== false;
-      const download = !!options.download;
-
-      setGenerateMusicBusy(true);
-      try {
-        setStatusWithTime("MusicGen generation started (this may take a minute)…");
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
-        if (!sidecarReady) {
-          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
-          return;
-        }
-        const health = await fetchSidecarHealth();
-        if (!health?.generate_available) {
-          setStatusWithTime(
-            `MusicGen not installed — run ${musicGenInstallHint(health)} (CC-BY-NC weights)`,
-            "warning",
-          );
-          setSidecarGenerateAvailable(false);
-          return;
-        }
-        const { blob, model, durationSec: dur, mode } = options.useMelodyReference
-          ? await (async () => {
-              let melodyBlob = options.melodyBlob;
-              if (!melodyBlob && audioPreviewUrlRef.current) {
-                const res = await fetch(audioPreviewUrlRef.current);
-                if (res.ok) melodyBlob = await res.blob();
-              }
-              if (!melodyBlob) {
-                throw new Error("No melody reference — load a track in the analyzer first");
-              }
-              if (
-                options.useHighlightMelody &&
-                audioAnalysis &&
-                hasMeaningfulHighlightRange(audioAnalysis)
-              ) {
-                melodyBlob = await sliceAudioBlobToHighlightRange(
-                  melodyBlob,
-                  audioAnalysis.highlightStart,
-                  audioAnalysis.highlightEnd,
-                  `highlight-${audioAnalysis.fileName || "melody.wav"}`,
-                );
-              }
-              return generateMusicWithMelodyViaSidecar(
-                text,
-                durationSec,
-                melodyBlob,
-                audioAnalysis?.fileName || "melody-reference.wav",
-              );
-            })()
-          : await generateMusicViaSidecar(text, durationSec);
-        const resolvedDuration = dur || durationSec;
-        const fileName = `musicgen-preview-${Date.now()}.wav`;
-        const file =
-          blob instanceof File ? blob : new File([blob], fileName, { type: blob.type || "audio/wav" });
-
-        if (attach) {
-          let report = await buildMusicGenAnalysisReport(file, {
-            prompt: text,
-            model,
-            durationSec: resolvedDuration,
-            fileName,
-            mode: mode || (options.useMelodyReference ? "melody" : "text"),
-            highlightMelody:
-              !!options.useHighlightMelody &&
-              !!audioAnalysis &&
-              hasMeaningfulHighlightRange(audioAnalysis),
-          });
-          report = await enrichMusicGenReportWithSidecar(file, report);
-          setAudioPreviewFromBlob(file);
-          setAudioAnalysis(report);
-          syncCacheKeysRef(report);
-
-          if (options.mergeAfterGenerate !== false) {
-            applyAnalyzerPatch(buildAudioAnalyzerPatch(report, formatTime));
-            if (promptEngine === "Suno-like") {
-              navigateToPolishStep();
-            }
-            const highlightNote =
-              options.useHighlightMelody &&
-              audioAnalysis &&
-              hasMeaningfulHighlightRange(audioAnalysis)
-                ? " · highlight"
-                : "";
-            const melodyNote =
-              mode === "melody" || options.useMelodyReference ? " · melody" : "";
-            setStatusWithTime(
-              `MusicGen preview merged into Suno fields (${model || "musicgen"} · ${resolvedDuration}s${melodyNote}${highlightNote})`,
-              "success",
-            );
-          } else {
-            setStatusWithTime(
-              `MusicGen preview loaded in player (${model || "musicgen"} · ${resolvedDuration}s) — merge when ready`,
-              "success",
-            );
-          }
-        }
-
-        if (download) {
-          downloadMusicGenBlob(file, fileName);
-          if (!attach) {
-            setStatusWithTime(
-              `MusicGen preview downloaded (${model || "musicgen"} · ${resolvedDuration}s)`,
-              "success",
-            );
-          }
-        }
-      } catch (err) {
-        reportCaughtError("analyzers.generateMusicFromPrompt", err);
-        const msg = err instanceof Error ? err.message : "MusicGen generation failed";
-        setStatusWithTime(msg.slice(0, 120), "warning");
-      } finally {
-        setGenerateMusicBusy(false);
-      }
-    },
-    [applyAnalyzerPatch, generateMusicBusy, navigateToPolishStep, promptEngine, audioAnalysis, audioPreviewUrlRef, setAudioPreviewFromBlob, setSidecarGenerateAvailable, setStatusWithTime, syncCacheKeysRef],
-  );
-
-  const generateSongFromPrompt = useCallback(
-    async (prompt, options = {}) => {
-      const text = String(prompt || "").trim();
-      if (!text || generateSongBusy) return;
-      const attach = options.attach !== false;
-      const download = !!options.download;
-      const durationSec = Number(options.durationSec) || 60;
-      const lyrics = String(options.lyrics || "").trim();
-
-      setGenerateSongBusy(true);
-      try {
-        setStatusWithTime("ACE-Step full-song generation started (this can take a few minutes)…");
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
-        if (!sidecarReady) {
-          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
-          return;
-        }
-        const health = await fetchSidecarHealth();
-        if (!health?.acestep_available) {
-          setStatusWithTime(
-            "ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
-            "warning",
-          );
-          setSidecarAcestepAvailable(false);
-          return;
-        }
-        const { blob, model, durationSec: dur } = await generateSongViaSidecar({
-          prompt: text,
-          lyrics,
-          durationSec,
-        });
-        const resolvedDuration = dur || durationSec;
-        const fileName = `acestep-song-${Date.now()}.wav`;
-        const file =
-          blob instanceof File ? blob : new File([blob], fileName, { type: blob.type || "audio/wav" });
-
-        if (attach) {
-          let report = await buildMusicGenAnalysisReport(file, {
-            prompt: text,
-            model: model || "acestep",
-            durationSec: resolvedDuration,
-            fileName,
-            mode: "acestep-song",
-          });
-          report = {
-            ...(await enrichMusicGenReportWithSidecar(file, report)),
-            sourceEngine: "acestep",
-            trackSummary: `ACE-Step song (${model || "acestep"}, ${resolvedDuration}s): ${text.slice(0, 160)}`,
-            vocals: lyrics ? "Vocals (ACE-Step)" : report.vocals,
-          };
-          setAudioPreviewFromBlob(file);
-          setAudioAnalysis(report);
-          syncCacheKeysRef(report);
-          setStatusWithTime(
-            `ACE-Step song loaded (${model || "acestep"} · ${resolvedDuration}s)`,
-            "success",
-          );
-        }
-
-        if (download) {
-          downloadMusicGenBlob(file, fileName);
-          if (!attach) {
-            setStatusWithTime(
-              `ACE-Step song downloaded (${model || "acestep"} · ${resolvedDuration}s)`,
-              "success",
-            );
-          }
-        }
-      } catch (err) {
-        reportCaughtError("analyzers.generateSongFromPrompt", err);
-        const msg = err instanceof Error ? err.message : "ACE-Step generation failed";
-        setStatusWithTime(msg.slice(0, 120), "warning");
-      } finally {
-        setGenerateSongBusy(false);
-      }
-    },
-    [
-      generateSongBusy,
-      setAudioPreviewFromBlob,
-      setSidecarAcestepAvailable,
-      setStatusWithTime,
-      syncCacheKeysRef,
-    ],
-  );
-
-  const transformVocalsOnTrack = useCallback(
-    async (options = {}) => {
-      if (vocalTransformBusy || !audioAnalysis) return;
-      setVocalTransformBusy(true);
-      try {
-        setStatusWithTime("Vocal transform started (separate → rewrite → remix)…");
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
-        if (!sidecarReady) {
-          setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
-          return;
-        }
-        const health = await fetchSidecarHealth();
-        if (!health?.vocal_transform_available) {
-          setStatusWithTime(
-            "Vocal transform needs Demucs or Mel-Band — npm run sidecar:stems / sidecar:stems-melband",
-            "warning",
-          );
-          setSidecarVocalTransformAvailable(false);
-          return;
-        }
-        let mixBlob = null;
-        if (audioPreviewUrlRef.current) {
-          const res = await fetch(audioPreviewUrlRef.current);
-          if (res.ok) mixBlob = await res.blob();
-        }
-        if (!mixBlob) {
-          throw new Error("No mix loaded — drop an audio file first");
-        }
-
-        const scope = options.regionScope || (options.useHighlight ? "highlight" : "full");
-        let regions = [];
-        if (scope === "highlight" && hasMeaningfulHighlightRange(audioAnalysis)) {
-          regions = [
-            {
-              start_sec: Number(audioAnalysis.highlightStart) || 0,
-              end_sec: Number(audioAnalysis.highlightEnd) || 0,
-            },
-          ];
-        } else if (scope === "all") {
-          if (hasMeaningfulHighlightRange(audioAnalysis)) {
-            regions.push({
-              start_sec: Number(audioAnalysis.highlightStart) || 0,
-              end_sec: Number(audioAnalysis.highlightEnd) || 0,
-            });
-          }
-          for (const r of audioAnalysis.vocalRegions || []) {
-            regions.push({
-              start_sec: Number(r.start) || 0,
-              end_sec: Number(r.end) || 0,
-            });
-          }
-        }
-
-        const { remixBlob, vocalsBlob, mode } = await transformVocalsViaSidecar({
-          file: mixBlob,
-          fileName: audioAnalysis.fileName || "mix.wav",
-          mode: options.mode || "pitch",
-          regions,
-          pitchSemitones: options.pitchSemitones ?? 0,
-          formantShift: options.formantShift ?? options.pitchSemitones ?? 0,
-          output: options.downloadVocals === false ? "remix" : "both",
-        });
-
-        if (remixBlob) {
-          const fileName = `remix-transformed-${Date.now()}.wav`;
-          const file = new File([remixBlob], fileName, { type: "audio/wav" });
-          let report = await buildMusicGenAnalysisReport(file, {
-            prompt: `vocal-transform:${mode || options.mode || "pitch"}`,
-            model: mode || options.mode || "pitch",
-            fileName,
-            mode: "vocal-transform",
-          });
-          report = await enrichMusicGenReportWithSidecar(file, report);
-          report = {
-            ...report,
-            sourceEngine: "vocal-transform",
-            trackSummary: `Vocal transform (${mode || options.mode || "pitch"})`,
-            vocals: "Transformed vocals",
-          };
-          setAudioPreviewFromBlob(file);
-          setAudioAnalysis(report);
-          syncCacheKeysRef(report);
-        }
-
-        if (options.downloadVocals !== false && vocalsBlob) {
-          downloadMusicGenBlob(vocalsBlob, `vocals-transformed-${Date.now()}.wav`);
-        }
-
-        setStatusWithTime(
-          `Vocal transform done (${mode || options.mode || "pitch"}${
-            vocalsBlob ? " · acapella downloaded" : ""
-          })`,
-          "success",
-        );
-      } catch (err) {
-        reportCaughtError("analyzers.transformVocalsOnTrack", err);
-        const msg = err instanceof Error ? err.message : "Vocal transform failed";
-        setStatusWithTime(msg.slice(0, 120), "warning");
-      } finally {
-        setVocalTransformBusy(false);
-      }
-    },
-    [
-      audioAnalysis,
-      audioPreviewUrlRef,
-      setAudioPreviewFromBlob,
-      setSidecarVocalTransformAvailable,
-      setStatusWithTime,
-      syncCacheKeysRef,
-      vocalTransformBusy,
-    ],
-  );
-
-  const downloadStem = useCallback(
-    async (stem) => {
-      if (!stem?.download_url || !audioAnalysis) return;
-      const base = String(audioAnalysis.fileName || "track").replace(/\.[^.]+$/, "");
-      try {
-        await downloadSidecarStem(stem.download_url, `${base}-${stem.filename}`);
-        setStatusWithTime(`Downloaded ${stem.name} stem`);
-      } catch (err) {
-        reportCaughtError("analyzers.downloadStem", err);
-        const msg = err instanceof Error ? err.message : "Stem download failed";
-        setStatusWithTime(msg.slice(0, 80), "warning");
-      }
-    },
-    [audioAnalysis, setStatusWithTime],
-  );
-
-  const openInCanvasTool = useCallback(async () => {
-    if (!imagePreview) {
-      setStatusWithTime("Drop an image first to open in Canvas Tool");
-      return;
-    }
-    try {
-      setStatusWithTime("Opening AI Canvas Tool…");
-      const { title, artist } = deriveCanvasTrackMeta({
-        idea,
-        lyricTheme,
-        audioAnalysis,
-        imageAnalysis,
-      });
-      const motionHint = deriveCanvasMotionHint(imageAnalysis);
-      const ext = (imageAnalysis?.fileName || "").split(".").pop() || "png";
-      const audioExt = (audioAnalysis?.fileName || "").split(".").pop() || "mp3";
-      const result = await openImageInCanvasTool({
-        imagePreviewUrl: imagePreview,
-        audioPreviewUrl: audioPreviewUrl || undefined,
-        title,
-        artist,
-        motionHint,
-        ext,
-        audioExt,
-      });
-      if (result?.ok) {
-        setStatusWithTime(
-          result.launched
-            ? audioPreviewUrl
-              ? "AI Canvas Tool opened — artwork + track imported"
-              : "AI Canvas Tool opened — artwork imported"
-            : "Artwork exported — exports opened. Install AI Canvas Tool to launch automatically",
-        );
-      } else {
-        setStatusWithTime(result?.error || "Could not open Canvas Tool", "error");
-      }
-    } catch (err) {
-      reportCaughtError("analyzers.openInCanvasTool", err);
-      setStatusWithTime(
-        err instanceof Error ? err.message : "Could not open Canvas Tool",
-        "error",
-      );
-    }
-  }, [
-    audioAnalysis,
-    audioPreviewUrl,
-    idea,
-    imageAnalysis,
-    imagePreview,
-    lyricTheme,
-    setStatusWithTime,
-  ]);
-
-  const setAudioAnalysisNormalized = useCallback((value) => {
-    if (!value) {
-      syncCacheKeysRef(null);
-      setAudioAnalysis(null);
-      return;
-    }
-    const normalized = normalizeAudioAnalysis(value);
-    syncCacheKeysRef(normalized);
-    setAudioAnalysis(normalized);
-  }, [syncCacheKeysRef]);
-
-  return {
-    attachAudioFile,
-    analyzeAudioFile,
-    analyzeImageFile,
-    applyAudioToSunoStyle,
-    applyImageToSunoStyle,
-    audioAnalysis,
+  const {
     audioExportBusy,
     audioExportProgress,
-    audioLoudness,
-    audioLoudnessBusy,
-    audioStereoPhase,
-    audioPreviewUrl,
-    canvasRef,
     exportEnhancedAudio,
-    clearAudioAnalysis,
-    clearImageAnalysis,
-    downloadStem,
+  } = useAnalyzerExport({
+    audioAnalysis: media.audioAnalysis,
+    audioPreviewUrlRef: media.audioPreviewUrlRef,
+    setStatusWithTime,
+  });
+
+  const stems = useAnalyzerStems({
+    audioAnalysis: media.audioAnalysis,
+    setStatusWithTime,
+  });
+
+  const {
+    generateMusicBusy,
+    generateMusicFromPrompt,
+    generateSongBusy,
+    generateSongFromPrompt,
+  } = useAnalyzerGenerate({
+    audioAnalysis: media.audioAnalysis,
+    setAudioAnalysis: media.setAudioAnalysis,
+    setAudioPreviewFromBlob: media.setAudioPreviewFromBlob,
+    syncCacheKeysRef: media.syncCacheKeysRef,
+    audioPreviewUrlRef: media.audioPreviewUrlRef,
+    applyAnalyzerPatch,
+    promptEngine,
+    setGuidedStep,
+    setSidecarGenerateAvailable,
+    setSidecarAcestepAvailable,
+    setStatusWithTime,
+  });
+
+  const {
+    vocalTransformBusy,
+    transformVocalsOnTrack,
+  } = useAnalyzerVocals({
+    audioAnalysis: media.audioAnalysis,
+    setAudioAnalysis: media.setAudioAnalysis,
+    setAudioPreviewFromBlob: media.setAudioPreviewFromBlob,
+    syncCacheKeysRef: media.syncCacheKeysRef,
+    audioPreviewUrlRef: media.audioPreviewUrlRef,
+    setSidecarVocalTransformAvailable,
+    setStatusWithTime,
+  });
+
+  const { openInCanvasTool } = useAnalyzerCanvas({
+    imagePreview: media.imagePreview,
+    audioPreviewUrl: media.audioPreviewUrl,
+    audioAnalysis: media.audioAnalysis,
+    imageAnalysis: media.imageAnalysis,
+    idea,
+    lyricTheme,
+    setStatusWithTime,
+  });
+
+  const { reset: resetMedia } = media;
+  const { clearStems } = stems;
+  const resetAnalyzers = useCallback(() => {
+    resetMedia();
+    clearStems();
+  }, [resetMedia, clearStems]);
+
+  return {
+    attachAudioFile: media.attachAudioFile,
+    analyzeAudioFile: media.analyzeAudioFile,
+    analyzeImageFile: media.analyzeImageFile,
+    applyAudioToSunoStyle: media.applyAudioToSunoStyle,
+    applyImageToSunoStyle: media.applyImageToSunoStyle,
+    audioAnalysis: media.audioAnalysis,
+    audioExportBusy,
+    audioExportProgress,
+    audioLoudness: media.audioLoudness,
+    audioLoudnessBusy: media.audioLoudnessBusy,
+    audioStereoPhase: media.audioStereoPhase,
+    audioPreviewUrl: media.audioPreviewUrl,
+    canvasRef: media.canvasRef,
+    exportEnhancedAudio,
+    clearAudioAnalysis: media.clearAudioAnalysis,
+    clearImageAnalysis: media.clearImageAnalysis,
+    downloadStem: stems.downloadStem,
     generateMusicBusy,
     generateMusicFromPrompt,
     generateSongBusy,
     generateSongFromPrompt,
     vocalTransformBusy,
     transformVocalsOnTrack,
-    imageAnalysis,
-    imagePreview,
+    imageAnalysis: media.imageAnalysis,
+    imagePreview: media.imagePreview,
     openInCanvasTool,
     refreshSidecarCapabilities,
     resetAnalyzers,
-    setAudioAnalysis: setAudioAnalysisNormalized,
-    setImageAnalysis,
-    separateStems,
+    setAudioAnalysis: media.setAudioAnalysisNormalized,
+    setImageAnalysis: media.setImageAnalysis,
+    separateStems: stems.separateStems,
     sidecarAiStatus,
     sidecarGenerateAvailable,
     sidecarAcestepAvailable,
     sidecarStemsMelbandAvailable,
     sidecarVocalTransformAvailable,
-    stemSeparationBusy,
-    stemSeparationStems,
-    updateAudioAnalysis,
+    stemSeparationBusy: stems.stemSeparationBusy,
+    stemSeparationStems: stems.stemSeparationStems,
+    updateAudioAnalysis: media.updateAudioAnalysis,
   };
 }

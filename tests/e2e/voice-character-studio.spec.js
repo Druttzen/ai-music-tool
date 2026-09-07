@@ -95,6 +95,13 @@ test.describe("Voice Character Studio e2e", () => {
         }),
       });
     });
+    await page.route("**/acousticbrainz/**", async (route) => {
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "no AcousticBrainz data for this recording" }),
+      });
+    });
 
     await dismissSplash(page);
 

@@ -69,6 +69,8 @@ class JobManager:
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
+        # Serialize long GPU/CPU jobs across FastAPI threadpool workers.
+        self._worker_lock = threading.Lock()
         self._ttl_sec = 3600.0
 
     def prune(self) -> None:
@@ -84,7 +86,7 @@ class JobManager:
             return self._jobs.get(job_id)
 
     def run_inline(self, kind: str, payload: dict[str, Any] | None = None, *, label: str = "") -> Job:
-        """Run a registered kind synchronously on the calling thread."""
+        """Run a registered kind on the calling thread, one job at a time."""
         runner = _RUNNERS.get(kind)
         if not runner:
             raise KeyError(f"unknown job kind: {kind}")
@@ -92,28 +94,30 @@ class JobManager:
         job = Job(
             job_id=uuid.uuid4().hex[:16],
             kind=kind,
+            status="queued",
             message=label or kind,
             payload=dict(payload or {}),
         )
         with self._lock:
             self._jobs[job.job_id] = job
 
-        job.status = "running"
-        ctx = JobContext(job)
-        try:
-            result = runner(ctx)
-            if job.cancel:
-                job.status = "cancelled"
-            else:
-                job.status = "done"
-                job.progress = 1.0
-                job.result = result or {}
-                job.message = job.message or "done"
-        except Exception as exc:
-            job.status = "error"
-            job.error = str(exc)
-            job.message = str(exc)
-            raise
+        with self._worker_lock:
+            job.status = "running"
+            ctx = JobContext(job)
+            try:
+                result = runner(ctx)
+                if job.cancel:
+                    job.status = "cancelled"
+                else:
+                    job.status = "done"
+                    job.progress = 1.0
+                    job.result = result or {}
+                    job.message = job.message or "done"
+            except Exception as exc:
+                job.status = "error"
+                job.error = str(exc)
+                job.message = str(exc)
+                raise
         return job
 
 
