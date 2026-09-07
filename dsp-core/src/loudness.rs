@@ -2,6 +2,7 @@
 
 use anyhow::{anyhow, Context, Result};
 use ebur128::{EbuR128, Mode};
+use std::collections::VecDeque;
 
 use crate::Loudness;
 
@@ -132,11 +133,33 @@ pub fn limit_true_peak(
     }
 
     let mut target = vec![1.0f32; frames];
+    let mut window = VecDeque::new();
+    let initial_end = lookahead.min(frames - 1);
+    for index in 0..=initial_end {
+        while window
+            .back()
+            .is_some_and(|&back| peaks[back] <= peaks[index])
+        {
+            window.pop_back();
+        }
+        window.push_back(index);
+    }
     for frame in 0..frames {
-        let end = (frame + lookahead).min(frames - 1);
-        let mut max_p = 0.0f32;
-        for f in frame..=end {
-            max_p = max_p.max(peaks[f]);
+        while window.front().is_some_and(|&front| front < frame) {
+            window.pop_front();
+        }
+        let max_p = peaks[*window
+            .front()
+            .expect("lookahead window always contains the current frame")];
+        let next = frame + lookahead + 1;
+        if next < frames {
+            while window
+                .back()
+                .is_some_and(|&back| peaks[back] <= peaks[next])
+            {
+                window.pop_back();
+            }
+            window.push_back(next);
         }
         if max_p > ceiling {
             target[frame] = ceiling / max_p;
@@ -251,5 +274,14 @@ mod tests {
         );
         assert!(m.short_term_lufs.is_some());
         assert!(m.momentary_lufs.is_some());
+    }
+
+    #[test]
+    fn limiter_handles_lookahead_window_at_buffer_end() {
+        let sr = 48_000u32;
+        let mut samples = loud_stereo_tone(0.02, 0.95, sr);
+        limit_true_peak(&mut samples, 2, sr, TRUE_PEAK_CEILING_DBTP);
+        let measured = measure_interleaved(&samples, 2, sr).unwrap();
+        assert!(measured.true_peak_dbtp <= TRUE_PEAK_CEILING_DBTP + 0.15);
     }
 }

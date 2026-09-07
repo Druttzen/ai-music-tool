@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from threading import Lock
+from time import monotonic
 from typing import Callable
 
 
@@ -276,14 +278,38 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
     ),
 )
 
+_CAPABILITY_CACHE_TTL_SEC = 5.0
+_capability_cache_lock = Lock()
+_capability_cache: tuple[float, list[dict]] | None = None
 
-def list_capabilities() -> list[dict]:
-    return [spec.snapshot() for spec in CAPABILITIES]
+
+def list_capabilities(*, force_refresh: bool = False) -> list[dict]:
+    global _capability_cache
+    now = monotonic()
+    with _capability_cache_lock:
+        if (
+            not force_refresh
+            and _capability_cache is not None
+            and now - _capability_cache[0] < _CAPABILITY_CACHE_TTL_SEC
+        ):
+            return _capability_cache[1]
+        snapshot = [spec.snapshot() for spec in CAPABILITIES]
+        _capability_cache = (now, snapshot)
+        return snapshot
 
 
-def capability_flags() -> dict[str, bool]:
+def invalidate_capability_cache() -> None:
+    global _capability_cache
+    with _capability_cache_lock:
+        _capability_cache = None
+
+
+def capability_flags(capabilities: list[dict] | None = None) -> dict[str, bool]:
     """Legacy boolean flags for Health / older clients."""
-    snaps = {c["id"]: c["available"] for c in list_capabilities()}
+    snaps = {
+        c["id"]: c["available"]
+        for c in (capabilities if capabilities is not None else list_capabilities())
+    }
     return {
         "stems_available": snaps.get("stems", False),
         "stems_melband_available": snaps.get("stems-melband", False),

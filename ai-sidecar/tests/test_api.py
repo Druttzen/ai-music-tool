@@ -13,7 +13,12 @@ from fastapi.testclient import TestClient
 
 from ai_sidecar.main import app, _stems_available
 from ai_sidecar.device import detect_device, select_device
-from ai_sidecar.registry import list_capabilities, missing_install_hints
+from ai_sidecar.registry import (
+    CAPABILITIES,
+    invalidate_capability_cache,
+    list_capabilities,
+    missing_install_hints,
+)
 from ai_sidecar.jobs import JOBS, register, JobContext
 from ai_sidecar.vision_analyzer import vision_analysis_available
 
@@ -67,6 +72,24 @@ def test_health_ok():
     assert detect_device().device == body["device"]
     assert list_capabilities()
     assert isinstance(missing_install_hints(), list)
+
+
+def test_health_reuses_cached_capability_snapshot(monkeypatch):
+    import ai_sidecar.registry as registry
+
+    invalidate_capability_cache()
+    calls = 0
+    original_snapshot = registry.CapabilitySpec.snapshot
+
+    def counted_snapshot(spec):
+        nonlocal calls
+        calls += 1
+        return original_snapshot(spec)
+
+    monkeypatch.setattr(registry.CapabilitySpec, "snapshot", counted_snapshot)
+    assert client.get("/health").status_code == 200
+    assert client.get("/health").status_code == 200
+    assert calls == len(CAPABILITIES)
 
 
 def test_job_manager_register_inline():

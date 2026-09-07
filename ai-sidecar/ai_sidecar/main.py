@@ -21,6 +21,7 @@ import io
 import os
 import tempfile
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
@@ -170,6 +171,7 @@ class Health(BaseModel):
     owned: bool = False
 
 
+@lru_cache(maxsize=1)
 def _librosa_available() -> bool:
     try:
         import librosa  # noqa: F401, PLC0415
@@ -292,7 +294,8 @@ def health(request: Request) -> Health:
     from .device import build_policy
 
     info = detect_device()
-    flags = capability_flags()
+    capabilities = list_capabilities()
+    flags = capability_flags(capabilities)
     header = request.headers.get(_SIDECAR_AUTH_HEADER) or ""
     owned = bool(_SIDECAR_TOKEN) and header == _SIDECAR_TOKEN
     return Health(
@@ -318,7 +321,7 @@ def health(request: Request) -> Health:
         fix_push_available=maintainer_enabled() and bool(repo_root()),
         maintainer_mode=maintainer_enabled(),
         device_info=info.as_dict(),
-        capabilities=list_capabilities(),
+        capabilities=capabilities,
         policy=build_policy(info).as_dict(),
         owned=owned,
     )

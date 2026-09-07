@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { memo } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Panel } from "./ui-blocks";
 import { GuidedFocusPanel } from "./guided-focus-panel";
 import { GUIDED_PANEL_IDS } from "../lib/suno-guided-step-focus";
@@ -23,6 +23,43 @@ function lazyCenter(loader, title, hint = "Loading…") {
       </Panel>
     ),
   });
+}
+
+function DeferredCenterPanel({ title, children }) {
+  const hostRef = useRef(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || ready) return undefined;
+    if (typeof IntersectionObserver === "undefined") {
+      const timer = window.setTimeout(() => setReady(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setReady(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "900px 0px" },
+    );
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [ready]);
+
+  return (
+    <div ref={hostRef} className="min-h-[1px]">
+      {ready ? (
+        children
+      ) : (
+        <Panel title={title} hint="Loads when this workspace area is nearby.">
+          <p className="text-xs text-white/45">Panel ready when selected…</p>
+        </Panel>
+      )}
+    </div>
+  );
 }
 
 const CenterGuidedPathPanel = lazyCenter(
@@ -183,23 +220,33 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.lyricStyle} column="center">
         <CenterLyricStylePanel />
-        <CenterSectionDawLite />
+        <DeferredCenterPanel title="Section DAW (lite)">
+          <CenterSectionDawLite />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.voiceStyle} column="center">
         <CenterVoiceStylePanel />
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.voiceCharacter} column="center">
-        <CenterVoiceCharacterStudio />
+        <DeferredCenterPanel title="Voice Character Studio">
+          <CenterVoiceCharacterStudio />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.vocalEmbed} column="center">
-        <CenterVocalEmbedStudio />
+        <DeferredCenterPanel title="Vocal Embed Studio">
+          <CenterVocalEmbedStudio />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.analyzers} column="center">
-        <CenterAnalyzersPanel />
-        <CenterCoverToolsPanel />
+        <DeferredCenterPanel title="Drag & Drop Analyzers">
+          <CenterAnalyzersPanel />
+          <CenterCoverToolsPanel />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.styleDna} column="center">
-        <CenterStyleDnaSearchPanel />
+        <DeferredCenterPanel title="Style-DNA Search">
+          <CenterStyleDnaSearchPanel />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.mood} column="center">
         <CenterMoodPanel />
@@ -211,14 +258,20 @@ export const PageWorkspaceCenter = memo(function PageWorkspaceCenter() {
         <CenterCoProducerQuickPanel />
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.coProducer} column="center">
-        <CenterCoProducerPanel />
+        <DeferredCenterPanel title="Co-Producer AI">
+          <CenterCoProducerPanel />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.sunoReimport} column="center">
-        <CenterSunoReimportPanel />
+        <DeferredCenterPanel title="Suno Re-import">
+          <CenterSunoReimportPanel />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.variations} column="center">
-        <CenterVariationsPanel />
-        <CenterSunoProToolsPanel />
+        <DeferredCenterPanel title="Variation Engine">
+          <CenterVariationsPanel />
+          <CenterSunoProToolsPanel />
+        </DeferredCenterPanel>
       </GuidedFocusPanel>
       <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.proMode} column="center">
         <CenterProModePanel />

@@ -128,7 +128,9 @@ export function useProjectPersistence({
   }, [loadState, patch, resetAnalyzers, resetBlank, setCustomPresets, setHistory, setStatusWithTime]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
+    let idleId = null;
+    let fallbackId = null;
+    const persist = () => {
       if (!hydratedRef.current || shouldSkipWorkspaceAutosave()) return;
       try {
         const payload = JSON.stringify(
@@ -145,8 +147,22 @@ export function useProjectPersistence({
       } catch {
         setStatusWithTime("Autosave failed", "error");
       }
-    }, 2000);
-    return () => window.clearTimeout(timeoutId);
+    };
+    const scheduleIdlePersist = () => {
+      if (typeof window.requestIdleCallback === "function") {
+        idleId = window.requestIdleCallback(persist, { timeout: 1000 });
+      } else {
+        fallbackId = window.setTimeout(persist, 0);
+      }
+    };
+    const timeoutId = window.setTimeout(scheduleIdlePersist, 2000);
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (idleId !== null && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (fallbackId !== null) window.clearTimeout(fallbackId);
+    };
   }, [currentState, setStatusMessage, setStatusWithTime]);
 
   useEffect(() => {
