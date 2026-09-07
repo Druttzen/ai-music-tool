@@ -15,6 +15,15 @@ def test_parse_video_id_watch_and_short():
     assert parse_video_id("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
 
+def test_resolve_rejects_non_youtube_hosts():
+    try:
+        resolve_youtube_url("https://127.0.0.1/watch?v=abc12345678")
+    except ValueError as exc:
+        assert "YouTube" in str(exc)
+    else:
+        raise AssertionError("non-YouTube URL should be rejected")
+
+
 def test_parse_music_title_splits_artist_track():
     parsed = parse_music_title("Daft Punk - Harder Better Faster Stronger (Official Video)")
     assert parsed["artist"] == "Daft Punk"

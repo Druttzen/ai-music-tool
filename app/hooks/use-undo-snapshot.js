@@ -22,7 +22,13 @@ export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
         const json = JSON.stringify(slim);
         snapshotRef.current = { label, json, at: Date.now() };
         if (typeof sessionStorage !== "undefined") {
-          sessionStorage.setItem(SESSION_KEY, json);
+          window.setTimeout(() => {
+            try {
+              sessionStorage.setItem(SESSION_KEY, json);
+            } catch {
+              // The in-memory snapshot remains available for the current session.
+            }
+          }, 0);
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";

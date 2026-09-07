@@ -7,7 +7,7 @@ import tempfile
 from typing import Any
 
 from .sonic_signature import extract_sonic_signature
-from .youtube_resolve import parse_video_id
+from .youtube_resolve import _validated_watch_url, parse_video_id
 
 
 def _download_audio_bytes(watch_url: str, max_sec: float = 120.0) -> bytes:
@@ -58,10 +58,9 @@ def _download_audio_bytes(watch_url: str, max_sec: float = 120.0) -> bytes:
 
 
 def resolve_youtube_audio_sonic(url: str) -> dict[str, Any]:
-    video_id = parse_video_id(url)
-    if not video_id:
-        raise ValueError("Invalid YouTube URL")
-    watch_url = f"https://www.youtube.com/watch?v={video_id}"
+    watch_url = _validated_watch_url(url)
+    video_id = parse_video_id(watch_url)
+    assert video_id is not None
     audio_bytes = _download_audio_bytes(watch_url)
     sig = extract_sonic_signature(audio_bytes)
     sig["video_id"] = video_id

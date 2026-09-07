@@ -24,6 +24,16 @@ _OFFICIAL_SUFFIX = re.compile(
     re.I,
 )
 
+def _validated_watch_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(str(url or "").strip())
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme != "https" or host not in {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}:
+        raise ValueError("Only HTTPS YouTube URLs are allowed")
+    video_id = parse_video_id(url)
+    if not video_id:
+        raise ValueError("Invalid YouTube URL")
+    return f"https://www.youtube.com/watch?v={video_id}"
+
 
 def parse_video_id(url: str) -> str | None:
     raw = str(url or "").strip()
@@ -64,7 +74,7 @@ def _fetch_oembed(watch_url: str) -> dict[str, Any] | None:
     req = urllib.request.Request(endpoint, headers={"User-Agent": _USER_AGENT, "Accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=12) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            return json.loads(resp.read(256 * 1024).decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
         return None
 
@@ -90,11 +100,9 @@ def _fetch_yt_dlp_info(watch_url: str) -> dict[str, Any] | None:
 
 
 def resolve_youtube_url(url: str) -> dict[str, Any]:
-    video_id = parse_video_id(url)
-    if not video_id:
-        raise ValueError("Invalid YouTube URL")
-
-    watch_url = f"https://www.youtube.com/watch?v={video_id}"
+    watch_url = _validated_watch_url(url)
+    video_id = parse_video_id(watch_url)
+    assert video_id is not None
     oembed = _fetch_oembed(watch_url) or {}
     ytdlp = _fetch_yt_dlp_info(watch_url) or {}
 

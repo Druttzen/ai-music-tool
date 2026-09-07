@@ -56,6 +56,7 @@ export function useAnalyzerMedia({
 }) {
   const analyzerMergeGenerationRef = useRef(0);
   const analyzerMergeAbortRef = useRef(null);
+  const imageAnalysisGenerationRef = useRef(0);
   const {
     audioAnalysisRef,
     audioCacheKeyRef,
@@ -85,6 +86,17 @@ export function useAnalyzerMedia({
   }, []);
 
   useEffect(() => cancelAnalyzerStyleMerge, [cancelAnalyzerStyleMerge]);
+
+  useEffect(
+    () => () => {
+      imageAnalysisGenerationRef.current += 1;
+      if (imagePreviewUrlRef.current) {
+        URL.revokeObjectURL(imagePreviewUrlRef.current);
+        imagePreviewUrlRef.current = null;
+      }
+    },
+    [imagePreviewUrlRef],
+  );
 
   useE2eAudioFixtures(setAudioAnalysis);
 
@@ -635,6 +647,8 @@ export function useAnalyzerMedia({
         });
         return;
       }
+      const generation = ++imageAnalysisGenerationRef.current;
+      const isCurrent = () => imageAnalysisGenerationRef.current === generation;
       setAnalyzeImageBusy(true);
       try {
         setStatusWithTime("Analyzing image...");
@@ -663,15 +677,19 @@ export function useAnalyzerMedia({
           img.onerror = () => reject(new Error("image decode failed"));
           img.src = url;
         });
+        if (!isCurrent()) return;
 
         let finalReport = pixelReport;
         let sidecarStatusMsg = null;
         let sidecarStatusType = "success";
         const sidecarReady = await waitForSidecar(45_000);
+        if (!isCurrent()) return;
         const health = sidecarReady ? await fetchSidecarHealth() : null;
+        if (!isCurrent()) return;
         if (sidecarReady && health?.vision_available) {
           try {
             const sidecar = await analyzeImageViaSidecar(file, file.name, { caption: true });
+            if (!isCurrent()) return;
             finalReport = mergeSidecarImageAnalysis(pixelReport, sidecar);
           } catch (err) {
             const msg = err instanceof Error ? err.message : "Sidecar image analyze failed";
@@ -700,7 +718,13 @@ export function useAnalyzerMedia({
         setAnalyzeImageBusy(false);
       }
     },
-    [analyzeImageBusy, applyAnalyzerPatch, canvasRef, imagePreviewUrlRef, setStatusWithTime],
+    [
+      analyzeImageBusy,
+      applyAnalyzerPatch,
+      canvasRef,
+      imagePreviewUrlRef,
+      setStatusWithTime,
+    ],
   );
 
   const setAudioAnalysisNormalized = useCallback((value) => {

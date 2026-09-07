@@ -11,8 +11,17 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 
+const MAX_DECODE_BYTES: usize = 512 * 1024 * 1024;
+const MAX_DECODE_DURATION_SEC: u64 = 4 * 60 * 60;
+
 /// Decode arbitrary audio bytes (MP3/M4A/AAC/ALAC/OGG/FLAC/WAV) into interleaved f32.
 pub fn decode_interleaved(bytes: Vec<u8>) -> Result<(Vec<f32>, u32, u32)> {
+    if bytes.is_empty() {
+        return Err(anyhow!("audio input is empty"));
+    }
+    if bytes.len() > MAX_DECODE_BYTES {
+        return Err(anyhow!("audio input exceeds the 512 MiB limit"));
+    }
     let mss = MediaSourceStream::new(Box::new(Cursor::new(bytes)), Default::default());
     let probed = symphonia::default::get_probe()
         .format(
@@ -39,6 +48,7 @@ pub fn decode_interleaved(bytes: Vec<u8>) -> Result<(Vec<f32>, u32, u32)> {
     let mut channels = 0u32;
     let mut sample_rate = 0u32;
     let mut sbuf: Option<SampleBuffer<f32>> = None;
+    let mut decode_errors = 0u32;
 
     loop {
         let packet = match format.next_packet() {
@@ -62,6 +72,8 @@ pub fn decode_interleaved(bytes: Vec<u8>) -> Result<(Vec<f32>, u32, u32)> {
                 if sample_rate == 0 {
                     sample_rate = spec.rate;
                     channels = spec.channels.count() as u32;
+                } else if spec.rate != sample_rate || spec.channels.count() as u32 != channels {
+                    return Err(anyhow!("audio stream specification changed during decode"));
                 }
                 if sbuf.is_none() {
                     sbuf = Some(SampleBuffer::<f32>::new(decoded.capacity() as u64, spec));
@@ -71,13 +83,22 @@ pub fn decode_interleaved(bytes: Vec<u8>) -> Result<(Vec<f32>, u32, u32)> {
                     samples.extend_from_slice(buf.samples());
                 }
             }
-            Err(SymphoniaError::DecodeError(_)) => continue,
+            Err(SymphoniaError::DecodeError(_)) => {
+                decode_errors += 1;
+                if decode_errors > 3 {
+                    return Err(anyhow!("audio stream contains too many decode errors"));
+                }
+            }
             Err(e) => return Err(e).context("decoding packet"),
         }
     }
 
     if sample_rate == 0 || channels == 0 {
         return Err(anyhow!("decoded no audio frames"));
+    }
+    let frames = samples.len() / channels as usize;
+    if (frames as u64) > MAX_DECODE_DURATION_SEC * sample_rate as u64 {
+        return Err(anyhow!("audio duration exceeds the 4 hour limit"));
     }
     Ok((samples, channels, sample_rate))
 }

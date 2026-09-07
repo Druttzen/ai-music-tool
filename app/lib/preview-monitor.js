@@ -34,6 +34,9 @@ export async function measureIntegratedLufsFromBytes(bytes) {
   }
 
   const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) {
+    throw new Error("Web Audio is not supported in this environment");
+  }
   const ctx = new Ctx();
   try {
     const buffer = await ctx.decodeAudioData(bytes.slice(0));
@@ -74,15 +77,17 @@ export function loadPreviewEqState() {
     if (!raw) return defaultPreviewEqState();
     const parsed = JSON.parse(raw);
     const base = defaultPreviewEqState();
+    const bands = Array.isArray(parsed?.bands) ? parsed.bands.slice(0, 5) : [];
     return {
       enabled: Boolean(parsed?.enabled),
-      bands: Array.isArray(parsed?.bands) && parsed.bands.length
-        ? parsed.bands.map((b, i) => ({
-            freq: Number(b.freq) || base.bands[i]?.freq || 1000,
-            gain: Number(b.gain) || 0,
-            q: Number(b.q) || 0.9,
-          }))
-        : base.bands,
+      bands: base.bands.map((fallback, i) => {
+        const b = bands[i] || {};
+        return {
+          freq: Math.min(20_000, Math.max(20, Number(b.freq) || fallback.freq)),
+          gain: Math.min(24, Math.max(-24, Number(b.gain) || 0)),
+          q: Math.min(20, Math.max(0.1, Number(b.q) || fallback.q)),
+        };
+      }),
     };
   } catch {
     return defaultPreviewEqState();

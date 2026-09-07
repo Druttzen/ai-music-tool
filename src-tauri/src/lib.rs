@@ -26,18 +26,33 @@ use studio_updater::{check_studio_update, install_studio_update};
 use tauri::{Manager, RunEvent};
 use workspace_reset::{consume_workspace_reset_flag, workspace_reset_pending};
 
+const MAX_DSP_INPUT_BYTES: usize = 512 * 1024 * 1024;
+
+fn validate_dsp_input(bytes: &[u8]) -> Result<(), String> {
+    if bytes.is_empty() {
+        return Err("audio input is empty".to_string());
+    }
+    if bytes.len() > MAX_DSP_INPUT_BYTES {
+        return Err("audio input exceeds the 512 MiB limit".to_string());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn measure_loudness_bytes(bytes: Vec<u8>) -> Result<Loudness, String> {
+    validate_dsp_input(&bytes)?;
     dsp_core::measure_loudness_bytes(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn measure_stereo_phase_bytes(bytes: Vec<u8>) -> Result<StereoPhase, String> {
+    validate_dsp_input(&bytes)?;
     dsp_core::measure_stereo_phase_bytes(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn decode_preview_wav_bytes(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+    validate_dsp_input(&bytes)?;
     dsp_core::decode_preview_wav_bytes(bytes).map_err(|e| e.to_string())
 }
 
@@ -49,6 +64,7 @@ fn export_mastered(
     start_sec: Option<f64>,
     end_sec: Option<f64>,
 ) -> Result<ExportMasteredResult, String> {
+    validate_dsp_input(&bytes)?;
     export_mastered_bytes(bytes, &preset_id, &format, start_sec, end_sec).map_err(|e| e.to_string())
 }
 

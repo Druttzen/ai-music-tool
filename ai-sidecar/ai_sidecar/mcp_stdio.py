@@ -12,6 +12,7 @@ import urllib.request
 SIDECAR = "http://127.0.0.1:8723"
 _SIDECAR_TOKEN = os.environ.get("AIMC_SIDECAR_TOKEN", "").strip()
 _AUTH_HEADER = "x-aimc-sidecar-token"
+_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
 def _sidecar_headers(extra: dict | None = None) -> dict:
@@ -30,12 +31,13 @@ def _post_json(path: str, payload: dict) -> dict:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310
-        return json.loads(resp.read().decode("utf-8"))
+        return json.loads(resp.read(_MAX_RESPONSE_BYTES).decode("utf-8"))
 
 
 def _get(path: str) -> dict:
-    with urllib.request.urlopen(f"{SIDECAR}{path}", timeout=30) as resp:  # noqa: S310
-        return json.loads(resp.read().decode("utf-8"))
+    req = urllib.request.Request(f"{SIDECAR}{path}", headers=_sidecar_headers())
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+        return json.loads(resp.read(_MAX_RESPONSE_BYTES).decode("utf-8"))
 
 
 def handle_request(req: dict) -> dict:

@@ -131,7 +131,7 @@ export function useVocalEmbedStudio() {
     return () => {
       cancelled = true;
     };
-  }, [sidecarBusy]);
+  }, []);
 
   const [voiceCompactMounted, setVoiceCompactMounted] = useState(false);
 
