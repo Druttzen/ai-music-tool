@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 _AB_BASE = "https://acousticbrainz.org/api/v1"
 _USER_AGENT = "AI-Music-Creator/0.42.0 (acousticbrainz; local-sidecar)"
+# Optional enrich — keep short so Style DNA search stays snappy when AB is slow/down.
+_AB_TIMEOUT_SEC = 4.0
+_MBID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
 
 
 def _get_json(url: str) -> dict[str, Any] | None:
@@ -17,7 +25,7 @@ def _get_json(url: str) -> dict[str, Any] | None:
         headers={"User-Agent": _USER_AGENT, "Accept": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=12) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=_AB_TIMEOUT_SEC) as resp:  # noqa: S310
             return json.loads(resp.read().decode("utf-8"))
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, TimeoutError):
         return None
@@ -26,11 +34,16 @@ def _get_json(url: str) -> dict[str, Any] | None:
 def fetch_acousticbrainz_features(recording_mbid: str) -> dict[str, Any] | None:
     """Return low-level + high-level AB features when available for a recording MBID."""
     mbid = str(recording_mbid or "").strip()
-    if not mbid:
+    if not mbid or not _MBID_RE.match(mbid):
         return None
 
-    low = _get_json(f"{_AB_BASE}/{mbid}/low-level")
-    high = _get_json(f"{_AB_BASE}/{mbid}/high-level")
+    low_url = f"{_AB_BASE}/{mbid}/low-level"
+    high_url = f"{_AB_BASE}/{mbid}/high-level"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        low_fut = pool.submit(_get_json, low_url)
+        high_fut = pool.submit(_get_json, high_url)
+        low = low_fut.result()
+        high = high_fut.result()
 
     if not low and not high:
         return None
