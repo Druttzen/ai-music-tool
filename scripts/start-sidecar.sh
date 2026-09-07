@@ -33,8 +33,9 @@ if [[ ! -d "$VENV" ]]; then
 fi
 
 if command -v lsof >/dev/null 2>&1 && lsof -tiTCP:8723 -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "AI sidecar already running on http://127.0.0.1:8723"
-  exit 0
+  listener="$(lsof -tiTCP:8723 -sTCP:LISTEN | head -n1)"
+  echo "Port 8723 is already in use (PID ${listener:-unknown}). Stop the owning sidecar manually before starting." >&2
+  exit 1
 fi
 
 UVICORN=("$VENV/bin/uvicorn" ai_sidecar.main:app --host 127.0.0.1 --port 8723 --app-dir "$SIDECAR")

@@ -12,6 +12,7 @@ import {
   shouldHardResetProjectOnVersionChange,
   slimStateForPersistence,
 } from "../lib/project-persistence";
+import { ProjectStateSchema } from "../lib/project-schema";
 import {
   attachCharacterVoiceFieldsToProjectExport,
   extractCharacterVoiceStudioSessionFromProject,
@@ -70,12 +71,20 @@ export function useProjectPersistence({
             if (presets) setCustomPresets(presets);
             setStatusWithTime("Workspaces reset to default");
             hydratedRef.current = true;
+            setSkipWorkspaceAutosave(false);
             return;
           }
           setSkipWorkspaceAutosave(false);
           const saved = safeLocalStorage.get(STORAGE_KEY, null);
           if (saved) {
             const parsed = JSON.parse(saved);
+            const validation = ProjectStateSchema.partial().safeParse(parsed);
+            if (!validation.success) {
+              const recoveryKey = `${STORAGE_KEY}_corrupt_${Date.now()}`;
+              safeLocalStorage.set(recoveryKey, saved);
+              safeLocalStorage.remove(STORAGE_KEY);
+              throw new Error("Saved project failed schema validation");
+            }
             let hardReset = false;
             if (parsed?.appVersion !== APP_VERSION) {
               if (shouldHardResetProjectOnVersionChange(parsed.appVersion, APP_VERSION)) {

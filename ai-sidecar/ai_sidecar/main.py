@@ -84,6 +84,8 @@ from .idle import (
 
 _SIDECAR_TOKEN = os.environ.get("AIMC_SIDECAR_TOKEN", "").strip()
 _SIDECAR_AUTH_HEADER = "x-aimc-sidecar-token"
+MAX_AUDIO_UPLOAD_BYTES = 512 * 1024 * 1024
+MAX_IMAGE_UPLOAD_BYTES = 32 * 1024 * 1024
 
 _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -169,6 +171,18 @@ class Health(BaseModel):
     capabilities: list[dict[str, Any]] | None = None
     policy: dict[str, Any] | None = None
     owned: bool = False
+
+
+async def _read_upload_limited(file: UploadFile, limit: int) -> bytes:
+    """Read an upload without allowing an unbounded request body into memory."""
+    raw = await file.read(limit + 1)
+    await file.close()
+    if len(raw) > limit:
+        raise HTTPException(
+            status_code=413,
+            detail=f"upload exceeds the {limit // (1024 * 1024)} MiB limit",
+        )
+    return raw
 
 
 @lru_cache(maxsize=1)
@@ -376,7 +390,7 @@ def youtube_sonic_signature(body: YoutubeSonicRequest) -> SonicSignatureResponse
 @app.post("/sonic-signature", response_model=SonicSignatureResponse)
 async def sonic_signature(file: UploadFile = File(...)) -> SonicSignatureResponse:
     """Rich librosa sonic signature — BPM, key+mode, chord progression, timeline."""
-    raw = await file.read()
+    raw = await _read_upload_limited(file, MAX_AUDIO_UPLOAD_BYTES)
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
     try:
@@ -427,11 +441,15 @@ async def vocal_embed_synthesize(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    inst_raw = await instrumental.read()
+    inst_raw = await _read_upload_limited(instrumental, MAX_AUDIO_UPLOAD_BYTES)
     if not inst_raw:
         raise HTTPException(status_code=400, detail="empty instrumental upload")
 
-    guide_raw = await guide_vocal.read() if guide_vocal is not None else None
+    guide_raw = (
+        await _read_upload_limited(guide_vocal, MAX_AUDIO_UPLOAD_BYTES)
+        if guide_vocal is not None
+        else None
+    )
     try:
         wav_bytes, meta = synthesize_vocal_embed_mix(plan, inst_raw, guide_raw)
     except ValueError as exc:
@@ -471,7 +489,7 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
     except Exception as exc:  # pragma: no cover - depends on optional install
         raise HTTPException(status_code=503, detail=f"analysis deps missing: {exc}") from exc
 
-    raw = await file.read()
+    raw = await _read_upload_limited(file, MAX_AUDIO_UPLOAD_BYTES)
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
 
@@ -541,7 +559,7 @@ async def analyze_image(
             detail="vision deps missing — npm run sidecar:vision",
         )
 
-    raw = await file.read()
+    raw = await _read_upload_limited(file, MAX_IMAGE_UPLOAD_BYTES)
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
 
@@ -625,7 +643,7 @@ async def generate_music_with_melody(
     if not text:
         raise HTTPException(status_code=400, detail="prompt is required")
 
-    melody_raw = await melody.read()
+    melody_raw = await _read_upload_limited(melody, MAX_AUDIO_UPLOAD_BYTES)
     if not melody_raw:
         raise HTTPException(status_code=400, detail="empty melody upload")
 
@@ -724,7 +742,7 @@ async def vocal_transform_mix(
         )
         raise HTTPException(status_code=503, detail=detail)
 
-    raw = await file.read()
+    raw = await _read_upload_limited(file, MAX_AUDIO_UPLOAD_BYTES)
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
 
@@ -909,7 +927,7 @@ async def vocal_embed_align_preview(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    guide_raw = await guide_vocal.read()
+    guide_raw = await _read_upload_limited(guide_vocal, MAX_AUDIO_UPLOAD_BYTES)
     if not guide_raw:
         raise HTTPException(status_code=400, detail="empty guide vocal upload")
 
@@ -946,7 +964,7 @@ async def vocal_embed_ds_export(
     guide_mono = None
     sample_rate = 44100
     if guide_vocal is not None:
-        guide_raw = await guide_vocal.read()
+        guide_raw = await _read_upload_limited(guide_vocal, MAX_AUDIO_UPLOAD_BYTES)
         if guide_raw:
             try:
                 import librosa  # noqa: PLC0415
@@ -1005,7 +1023,7 @@ async def separate(file: UploadFile = File(...), model_name: str = Form("htdemuc
             detail="stem separation unavailable — install the 'stems' extra",
         )
 
-    raw = await file.read()
+    raw = await _read_upload_limited(file, MAX_AUDIO_UPLOAD_BYTES)
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
 

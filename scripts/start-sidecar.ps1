@@ -53,9 +53,8 @@ if ($existing) {
     Write-Host "AI sidecar already running (PID $owningPid) on http://127.0.0.1:8723"
     exit 0
   }
-  Write-Host "Replacing non-venv process on port 8723 (PID $owningPid)"
-  Stop-Process -Id $owningPid -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Seconds 1
+  Write-Error "Port 8723 is already owned by an unknown process (PID $owningPid). Stop it manually before starting the AI sidecar."
+  exit 1
 }
 
 $python = Join-Path $venv "Scripts\python.exe"

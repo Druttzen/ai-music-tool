@@ -1,7 +1,7 @@
 //! AI Music Tool → AI Canvas Tool suite handoff (Tauri native).
 
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
@@ -10,6 +10,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 use crate::app_layout;
 
@@ -610,31 +611,35 @@ pub fn launch_canvas_addon() -> CanvasAddonActionResult {
     }
 }
 
-fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, String)> {
-    let mapped: Vec<(String, String)> = assets
+fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, String, String)> {
+    let mapped: Vec<(String, String, String)> = assets
         .iter()
         .filter_map(|a| {
             let name = a.get("name")?.as_str()?.to_string();
             let url = a.get("browser_download_url")?.as_str()?.to_string();
-            Some((name, url))
+            let digest = a.get("digest")?.as_str()?.strip_prefix("sha256:")?.to_string();
+            if digest.len() != 64 || !digest.chars().all(|c| c.is_ascii_hexdigit()) {
+                return None;
+            }
+            Some((name, url, digest))
         })
         .collect();
 
     #[cfg(target_os = "windows")]
     let prefer = mapped
         .iter()
-        .find(|(n, _)| {
+        .find(|(n, _, _)| {
             let lower = n.to_ascii_lowercase();
             lower.contains("setup") && lower.ends_with(".exe")
         })
         .or_else(|| {
             mapped
                 .iter()
-                .find(|(n, _)| n.to_ascii_lowercase().ends_with(".exe"))
+                .find(|(n, _, _)| n.to_ascii_lowercase().ends_with(".exe"))
         });
 
     #[cfg(target_os = "macos")]
-    let prefer = mapped.iter().find(|(n, _)| {
+    let prefer = mapped.iter().find(|(n, _, _)| {
         let lower = n.to_ascii_lowercase();
         lower.ends_with(".dmg") || lower.ends_with(".pkg")
     });
@@ -648,7 +653,10 @@ fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, Strin
     prefer.cloned().or_else(|| mapped.first().cloned())
 }
 
-fn download_url_to_file(url: &str, dest: &Path) -> Result<(), String> {
+fn download_url_to_file(url: &str, dest: &Path, expected_sha256: &str) -> Result<(), String> {
+    if !url.starts_with("https://github.com/") {
+        return Err("Refusing Canvas installer URL outside github.com".to_string());
+    }
     let client = reqwest::blocking::Client::builder()
         .user_agent("ai-music-tool-suite-addon")
         .redirect(reqwest::redirect::Policy::limited(10))
@@ -663,8 +671,23 @@ fn download_url_to_file(url: &str, dest: &Path) -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let mut file = fs::File::create(dest).map_err(|e| e.to_string())?;
-    std::io::copy(&mut response, &mut file).map_err(|e| e.to_string())?;
+    let mut hasher = Sha256::new();
+    let mut limited = response.take(512 * 1024 * 1024);
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let read = limited.read(&mut buffer).map_err(|e| e.to_string())?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        file.write_all(&buffer[..read]).map_err(|e| e.to_string())?;
+    }
     file.flush().map_err(|e| e.to_string())?;
+    let actual = format!("{:x}", hasher.finalize());
+    if actual != expected_sha256 {
+        let _ = fs::remove_file(dest);
+        return Err("Downloaded Canvas installer failed SHA-256 verification".to_string());
+    }
     Ok(())
 }
 
@@ -816,22 +839,25 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
     let Some(assets) = body.get("assets").and_then(|a| a.as_array()) else {
         return open_fallback_page(canvas_releases_fallback_url(addon), "no-release-assets");
     };
-    let Some((name, url)) = pick_release_asset_url(assets) else {
+    let Some((name, url, digest)) = pick_release_asset_url(assets) else {
         return open_fallback_page(canvas_releases_fallback_url(addon), "no-release-assets");
     };
 
     let cache_dir = canvas_installer_cache_dir();
     let _ = fs::create_dir_all(&cache_dir);
     let dest = cache_dir.join(&name);
+    let digest_path = dest.with_extension(format!(
+        "{}.sha256",
+        dest.extension().and_then(|e| e.to_str()).unwrap_or_default()
+    ));
     let reuse_cache = dest.is_file()
-        && dest
-            .metadata()
-            .map(|m| m.len() > 1_000_000)
+        && fs::read_to_string(&digest_path)
+            .map(|cached| cached.trim() == digest)
             .unwrap_or(false);
     if reuse_cache {
         // Keep cached Setup; avoid re-downloading ~80MB on every install attempt.
     } else {
-        if let Err(err) = download_url_to_file(&url, &dest) {
+        if let Err(err) = download_url_to_file(&url, &dest, &digest) {
             return CanvasAddonActionResult {
                 ok: false,
                 launched: false,
@@ -842,6 +868,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 error: Some(err),
             };
         }
+        let _ = fs::write(&digest_path, &digest);
     }
 
     let (ok, mode, err) = install_or_open_canvas_setup(&dest);
