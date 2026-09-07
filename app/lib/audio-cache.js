@@ -104,11 +104,31 @@ export async function putAudioCacheEntries(file, primaryKey, durationSec) {
  */
 export async function getAudioCacheBlob(key) {
   if (!key) return null;
+  const blobs = await getAudioCacheBlobs([key]);
+  return blobs.get(key) ?? null;
+}
+
+/**
+ * Read several cache keys in one IndexedDB transaction.
+ * @param {string[]} keys
+ * @returns {Promise<Map<string, Blob>>}
+ */
+export async function getAudioCacheBlobs(keys) {
+  const list = uniq((keys || []).filter(Boolean));
+  const result = new Map();
+  if (!list.length) return result;
   try {
     const db = await openDb();
-    const blob = await new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).get(key);
+      const store = tx.objectStore(STORE);
+      for (const key of list) {
+        const req = store.get(key);
+        req.onsuccess = () => {
+          if (req.result) result.set(key, req.result);
+        };
+        req.onerror = () => reject(req.error);
+      }
       const timer = setTimeout(() => {
         try {
           db.close();
@@ -117,20 +137,21 @@ export async function getAudioCacheBlob(key) {
         }
         reject(new Error("IndexedDB audio cache read timed out"));
       }, 8_000);
-      req.onsuccess = () => {
+      tx.oncomplete = () => {
         clearTimeout(timer);
         db.close();
-        resolve(req.result ?? null);
+        resolve();
       };
-      req.onerror = () => {
+      tx.onerror = () => {
         clearTimeout(timer);
-        reject(req.error);
+        db.close();
+        reject(tx.error);
       };
     });
-    return blob;
   } catch {
-    return null;
+    return new Map();
   }
+  return result;
 }
 
 /**
@@ -139,8 +160,9 @@ export async function getAudioCacheBlob(key) {
  */
 export async function resolveAudioCacheBlob(analysis) {
   const keys = getAudioCacheKeysForAnalysis(analysis);
+  const blobs = await getAudioCacheBlobs(keys);
   for (const key of keys) {
-    const blob = await getAudioCacheBlob(key);
+    const blob = blobs.get(key);
     if (blob) return { blob, matchedKey: key };
   }
   return null;

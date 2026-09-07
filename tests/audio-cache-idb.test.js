@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   getAudioCacheBlob,
+  getAudioCacheBlobs,
   makeAudioCacheKey,
   putAudioCache,
   putAudioCacheEntries,
@@ -43,5 +44,14 @@ describe("audio-cache indexeddb", () => {
     });
     expect(resolved?.matchedKey).toBeTruthy();
     expect(await resolved.blob.text()).toBe("loop");
+  });
+
+  it("reads multiple cache keys in one logical lookup", async () => {
+    await putAudioCache("first", new Blob(["one"]));
+    await putAudioCache("second", new Blob(["two"]));
+    const blobs = await getAudioCacheBlobs(["missing", "first", "second"]);
+    expect(await blobs.get("first").text()).toBe("one");
+    expect(await blobs.get("second").text()).toBe("two");
+    expect(blobs.has("missing")).toBe(false);
   });
 });
