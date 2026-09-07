@@ -645,7 +645,7 @@ fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, Strin
     });
 
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let prefer = mapped.iter().find(|(n, _)| {
+    let prefer = mapped.iter().find(|(n, _, _)| {
         let lower = n.to_ascii_lowercase();
         lower.ends_with(".appimage") || lower.ends_with(".deb")
     });
@@ -663,7 +663,7 @@ fn download_url_to_file(url: &str, dest: &Path, expected_sha256: &str) -> Result
         .timeout(std::time::Duration::from_secs(180))
         .build()
         .map_err(|e| e.to_string())?;
-    let mut response = client.get(url).send().map_err(|e| e.to_string())?;
+    let response = client.get(url).send().map_err(|e| e.to_string())?;
     if !response.status().is_success() {
         return Err(format!("Download failed ({})", response.status()));
     }
