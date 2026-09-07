@@ -15,6 +15,11 @@ def run_musicgen(ctx: JobContext) -> dict[str, Any]:
     prompt = str(ctx.payload.get("prompt") or "").strip()
     duration_sec = float(ctx.payload.get("duration_sec") or 10.0)
     melody_wav = ctx.payload.get("melody_wav")
+    generation_options = {
+        key: ctx.payload.get(key)
+        for key in ("temperature", "top_k", "top_p", "cfg_coef", "seed")
+        if ctx.payload.get(key) is not None
+    }
     policy = build_policy()
     device = policy.device or select_device()
     ctx.set_progress(0.2, f"loading MusicGen ({device}, {policy.dtype})")
@@ -23,6 +28,7 @@ def run_musicgen(ctx: JobContext) -> dict[str, Any]:
         duration_sec=duration_sec,
         melody_wav=melody_wav,
         device=device,
+        **generation_options,
     )
     ctx.set_progress(0.9, "writing wav")
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
@@ -71,6 +77,11 @@ def generate_via_jobs(
     *,
     duration_sec: float = 10.0,
     melody_wav: bytes | None = None,
+    temperature: float | None = None,
+    top_k: int | None = None,
+    top_p: float | None = None,
+    cfg_coef: float | None = None,
+    seed: int | None = None,
 ) -> dict[str, Any]:
     if not generation_available():
         raise RuntimeError("MusicGen deps missing — npm run sidecar:generate")
@@ -79,7 +90,16 @@ def generate_via_jobs(
         raise ValueError("prompt is required")
     job = JOBS.run_inline(
         "generate.musicgen",
-        {"prompt": text, "duration_sec": duration_sec, "melody_wav": melody_wav},
+        {
+            "prompt": text,
+            "duration_sec": duration_sec,
+            "melody_wav": melody_wav,
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_p": top_p,
+            "cfg_coef": cfg_coef,
+            "seed": seed,
+        },
         label="musicgen",
     )
     assert job.result is not None

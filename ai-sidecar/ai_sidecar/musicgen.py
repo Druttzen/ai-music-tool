@@ -91,6 +91,11 @@ def generate_music_wav(
     duration_sec: float = 10.0,
     melody_wav: bytes | None = None,
     device: str = "cpu",
+    temperature: float | None = None,
+    top_k: int | None = None,
+    top_p: float | None = None,
+    cfg_coef: float | None = None,
+    seed: int | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Return WAV bytes and metadata for a text prompt."""
     if not generation_available():
@@ -104,11 +109,22 @@ def generate_music_wav(
     wants_melody = bool(melody_wav)
     model_id = resolve_musicgen_model_id(wants_melody=wants_melody)
     model, model_id = _get_model(device, model_id)
-    model.set_generation_params(duration=duration)
+    generation_params: dict[str, Any] = {"duration": duration}
+    if temperature is not None:
+        generation_params["temperature"] = max(0.1, min(float(temperature), 2.0))
+    if top_k is not None:
+        generation_params["top_k"] = max(0, min(int(top_k), 500))
+    if top_p is not None:
+        generation_params["top_p"] = max(0.0, min(float(top_p), 1.0))
+    if cfg_coef is not None:
+        generation_params["cfg_coef"] = max(0.0, min(float(cfg_coef), 10.0))
+    model.set_generation_params(**generation_params)
 
     import torch  # noqa: PLC0415
 
     with torch.inference_mode():
+        if seed is not None:
+            torch.manual_seed(max(0, min(int(seed), 2**31 - 1)))
         if melody_wav:
             import io as _io  # noqa: PLC0415
 
@@ -148,5 +164,10 @@ def generate_music_wav(
         "sample_rate": _TARGET_SR,
         "device": _select_torch_device(device),
         "mode": mode,
+        "temperature": generation_params.get("temperature"),
+        "top_k": generation_params.get("top_k"),
+        "top_p": generation_params.get("top_p"),
+        "cfg_coef": generation_params.get("cfg_coef"),
+        "seed": seed,
     }
     return buf.getvalue(), meta

@@ -603,6 +603,11 @@ async def analyze_image(
 class GenerateRequest(BaseModel):
     prompt: str
     duration_sec: float = 10.0
+    temperature: float | None = None
+    top_k: int | None = None
+    top_p: float | None = None
+    cfg_coef: float | None = None
+    seed: int | None = None
 
 
 @app.post("/generate")
@@ -620,7 +625,14 @@ async def generate_music(body: GenerateRequest):
 
     try:
         result = await asyncio.to_thread(
-            generate_via_jobs, prompt, duration_sec=body.duration_sec
+            generate_via_jobs,
+            prompt,
+            duration_sec=body.duration_sec,
+            temperature=body.temperature,
+            top_k=body.top_k,
+            top_p=body.top_p,
+            cfg_coef=body.cfg_coef,
+            seed=body.seed,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -645,6 +657,11 @@ async def generate_music(body: GenerateRequest):
 async def generate_music_with_melody(
     prompt: str = Form(...),
     duration_sec: float = Form(10.0),
+    temperature: float | None = Form(None),
+    top_k: int | None = Form(None),
+    top_p: float | None = Form(None),
+    cfg_coef: float | None = Form(None),
+    seed: int | None = Form(None),
     melody: UploadFile = File(...),
 ):
     """MusicGen with melody conditioning from a reference WAV/MP3 clip."""
@@ -668,6 +685,11 @@ async def generate_music_with_melody(
             text,
             duration_sec=duration_sec,
             melody_wav=melody_raw,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            cfg_coef=cfg_coef,
+            seed=seed,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -621,11 +621,20 @@ export async function analyzeImageViaSidecar(
 export async function generateMusicViaSidecar(
   prompt: string,
   durationSec = 10,
+  options: { temperature?: number; topK?: number; topP?: number; cfgCoef?: number; seed?: number } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const res = await fetch(`${sidecarBaseUrl()}/generate`, {
     method: "POST",
     headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ prompt, duration_sec: durationSec }),
+    body: JSON.stringify({
+      prompt,
+      duration_sec: durationSec,
+      temperature: options.temperature,
+      top_k: options.topK,
+      top_p: options.topP,
+      cfg_coef: options.cfgCoef,
+      seed: options.seed,
+    }),
   });
 
   if (!res.ok) {
@@ -653,11 +662,17 @@ export async function generateMusicWithMelodyViaSidecar(
   durationSec: number,
   melody: Blob,
   melodyName = "melody-reference.wav",
+  options: { temperature?: number; topK?: number; topP?: number; cfgCoef?: number; seed?: number } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const form = new FormData();
   form.append("prompt", prompt);
   form.append("duration_sec", String(durationSec));
   form.append("melody", melody, melodyName);
+  if (options.temperature != null) form.append("temperature", String(options.temperature));
+  if (options.topK != null) form.append("top_k", String(options.topK));
+  if (options.topP != null) form.append("top_p", String(options.topP));
+  if (options.cfgCoef != null) form.append("cfg_coef", String(options.cfgCoef));
+  if (options.seed != null) form.append("seed", String(options.seed));
 
   const res = await fetch(`${sidecarBaseUrl()}/generate/melody`, {
     method: "POST",

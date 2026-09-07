@@ -98,9 +98,10 @@ export function useAnalyzerGenerate({
                 durationSec,
                 melodyBlob,
                 audioAnalysis?.fileName || "melody-reference.wav",
+                options,
               );
             })()
-          : await generateMusicViaSidecar(text, durationSec);
+          : await generateMusicViaSidecar(text, durationSec, options);
         const resolvedDuration = dur || durationSec;
         const fileName = `musicgen-preview-${Date.now()}.wav`;
         const file =

@@ -5,7 +5,7 @@ import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 
 /**
  * Shared MusicGen prompt + duration controls.
- * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, installHint?: string, canUseMelodyReference?: boolean, canUseHighlightMelody?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: { attach?: boolean, download?: boolean, mergeAfterGenerate?: boolean, useMelodyReference?: boolean, useHighlightMelody?: boolean }) => void, compact?: boolean }} props
+ * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, installHint?: string, canUseMelodyReference?: boolean, canUseHighlightMelody?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: object) => void, compact?: boolean }} props
  */
 export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   defaultPrompt = "",
@@ -22,6 +22,11 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   const [mergeAfterGenerate, setMergeAfterGenerate] = useState(true);
   const [useMelodyReference, setUseMelodyReference] = useState(false);
   const [useHighlightMelody, setUseHighlightMelody] = useState(false);
+  const [temperature, setTemperature] = useState(1);
+  const [cfgCoef, setCfgCoef] = useState(3);
+  const [topK, setTopK] = useState(250);
+  const [topP, setTopP] = useState(0);
+  const [seed, setSeed] = useState("");
 
   useWorkspaceResetEffect(() => {
     setPromptOverride(null);
@@ -29,6 +34,11 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
     setMergeAfterGenerate(true);
     setUseMelodyReference(false);
     setUseHighlightMelody(false);
+    setTemperature(1);
+    setCfgCoef(3);
+    setTopK(250);
+    setTopP(0);
+    setSeed("");
   });
 
   const prompt = promptOverride ?? defaultPrompt ?? "";
@@ -40,6 +50,11 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
     useMelodyReference: canUseMelodyReference && useMelodyReference,
     useHighlightMelody:
       canUseMelodyReference && useMelodyReference && canUseHighlightMelody && useHighlightMelody,
+    temperature,
+    cfgCoef,
+    topK,
+    topP,
+    ...(seed.trim() ? { seed: Number(seed) } : {}),
     ...extra,
   });
 
@@ -66,6 +81,41 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           placeholder="Electronic, 128 bpm, dark mood…"
           className="mt-1 w-full resize-y rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-xs text-white outline-none focus:border-violet-400/50"
         />
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-[10px] text-white/50">
+          Temperature
+          <input type="number" min="0.1" max="2" step="0.1" value={temperature} disabled={busy}
+            onChange={(e) => setTemperature(Number(e.target.value) || 1)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
+        </label>
+        <label className="block text-[10px] text-white/50">
+          Guidance
+          <input type="number" min="0" max="10" step="0.5" value={cfgCoef} disabled={busy}
+            onChange={(e) => setCfgCoef(Number(e.target.value) || 0)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-[10px] text-white/50">
+          Top-k
+          <input type="number" min="0" max="500" step="10" value={topK} disabled={busy}
+            onChange={(e) => setTopK(Number(e.target.value) || 0)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
+        </label>
+        <label className="block text-[10px] text-white/50">
+          Top-p (0 = off)
+          <input type="number" min="0" max="1" step="0.05" value={topP} disabled={busy}
+            onChange={(e) => setTopP(Number(e.target.value) || 0)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
+        </label>
+      </div>
+      <label className="block text-[10px] text-white/50">
+        Seed (optional, reproducible)
+        <input type="number" min="0" max="2147483647" value={seed} disabled={busy}
+          onChange={(e) => setSeed(e.target.value)}
+          placeholder="Random"
+          className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
       </label>
       <label className="block text-[10px] text-white/50">
         Duration
