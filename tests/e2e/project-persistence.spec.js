@@ -9,6 +9,7 @@ import {
   skipSplashIfVisible,
   voiceCharacterStudioPanel,
   waitForAutosavedMarker,
+  waitForAppReady,
 } from "./helpers.js";
 
 const IMPORT_FIXTURE = "tests/fixtures/e2e-import-project.json";
@@ -72,7 +73,7 @@ test.describe("Project persistence e2e", () => {
     await waitForAutosavedMarker(page, marker);
 
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await waitForAppReady(page);
     await skipSplashIfVisible(page);
 
     await expect(ideaInput(page)).toHaveValue(marker, { timeout: 5000 });
@@ -93,7 +94,7 @@ test.describe("Project persistence e2e", () => {
     await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible();
 
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await waitForAppReady(page);
     await skipSplashIfVisible(page);
 
     await expect(studio.getByText("E2E Narrator", { exact: true })).toBeVisible({ timeout: 5000 });
@@ -139,7 +140,7 @@ test.describe("Project persistence e2e", () => {
     );
 
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await waitForAppReady(page);
     await skipSplashIfVisible(page);
 
     await expect(studio.locator(".font-bold.text-cyan-200")).toContainText(/baritone register/i, {

@@ -8,6 +8,7 @@ import {
   musicControlsPanel,
   saveLoadPanel,
   skipSplashIfVisible,
+  waitForAppReady,
 } from "./helpers.js";
 
 const BUNDLE_FIXTURE = "tests/fixtures/e2e-import-project-bundle.json";
@@ -43,7 +44,7 @@ test.describe("project bundle e2e", () => {
     await expect(page.locator("header").getByText(/Autosaved at/i)).toBeVisible({ timeout: 8000 });
 
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await waitForAppReady(page);
     await skipSplashIfVisible(page);
 
     await expect(presetsPanel.getByRole("button", { name: "E2E Bundle Preset", exact: true })).toBeVisible({

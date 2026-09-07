@@ -8,6 +8,7 @@ import {
   maestroChatPanel,
   saveLoadPanel,
   selectSunoEngine,
+  waitForAppReady,
 } from "./helpers.js";
 
 const BUNDLE_FIXTURE = "tests/fixtures/e2e-import-project-bundle-vocal-align.json";
@@ -18,7 +19,7 @@ test.describe("Maestro step coach MusicGen", () => {
     await selectSunoEngine(page);
     await enableGuidedStepCoach(page);
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await waitForAppReady(page);
 
     const panel = saveLoadPanel(page);
     await panel.locator('input[type="file"][accept="application/json"]').setInputFiles(BUNDLE_FIXTURE);

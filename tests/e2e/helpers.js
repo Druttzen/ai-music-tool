@@ -50,6 +50,22 @@ export async function dismissFailSafeDialog(page) {
   }
 }
 
+/**
+ * Studio keeps long-lived fetches (Fail-Safe, updates, sidecar health), so
+ * `networkidle` often never settles. Wait for document load + a stable shell marker.
+ */
+export async function waitForAppReady(page, timeout = 30_000) {
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForLoadState("load").catch(() => {});
+  await expect(page.locator("body")).toBeVisible({ timeout });
+  // Prefer Save/Load (always in left rail when show-all or default shell mounts).
+  const saveLoad = page.locator("section").filter({ hasText: "Save / Load" });
+  if (await saveLoad.count()) {
+    await expect(saveLoad.first()).toBeVisible({ timeout });
+  }
+  await dismissFailSafeDialog(page);
+}
+
 export async function dismissSplash(page) {
   await page.addInitScript(() => {
     try {
@@ -59,7 +75,7 @@ export async function dismissSplash(page) {
     }
   });
   await page.goto("/");
-  await page.waitForLoadState("networkidle");
+  await waitForAppReady(page);
   await skipSplashIfVisible(page);
   await dismissFailSafeDialog(page);
 }
