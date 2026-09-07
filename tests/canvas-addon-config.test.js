@@ -65,7 +65,7 @@ describe("Canvas integration", () => {
     expect(meta.releasesUrl).toContain("/releases");
     const windows = require("../lib/suite-handoff-paths.json").canvas.installerCandidates.windows;
     expect(windows.every((p) => !/Downloads/i.test(p))).toBe(true);
-    expect(windows.some((p) => p.includes("$STUDIO_DATA/addons/canvas"))).toBe(true);
+    expect(windows.some((p) => p.includes("$STUDIO_DATA/archives/canvas-setup"))).toBe(true);
     expect(windows.some((p) => p.includes("AI.Canvas.Tool-Setup.exe"))).toBe(true);
   });
 

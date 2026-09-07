@@ -289,7 +289,11 @@ fn install_one_sidecar_extra_inner(
 
     emit_install_progress(app, &id, "start", Some("Starting extra install"), None);
 
-    let result = if skip_checkout {
+    // Prefer the Studio app-data venv whenever STUDIO_DATA_DIR is set (canonical install root).
+    let force_app_data = std::env::var("STUDIO_DATA_DIR")
+        .map(|v| !v.trim().is_empty())
+        .unwrap_or(false);
+    let result = if skip_checkout || force_app_data {
         install_into_user_venv_result(app, &id, &hint)
     } else if let Some(result) = install_via_checkout_scripts(app, &id, stem, &hint) {
         result

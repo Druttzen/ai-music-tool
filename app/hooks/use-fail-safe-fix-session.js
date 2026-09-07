@@ -11,18 +11,22 @@ import { remediateRuntimeIssues } from "../lib/fail-safe-local-remediate";
  *   fixPushAvailable: boolean,
  *   autoStartFix: boolean,
  *   autoStartLocal?: boolean,
+ *   autoConfirmOnSuccess?: boolean,
  *   onAfterLocalFix?: Function,
+ *   onAutoConfirm?: Function,
  * }} params
  */
 export function useFailSafeFixSession({
   actionableIssues = [],
   fixAndPush,
   fixPushAvailable = false,
-    autoStartFix: _autoStartFix = true,
+  autoStartFix: _autoStartFix = true,
   autoStartLocal = true,
   autoNotify = true,
   includeWarn = false,
+  autoConfirmOnSuccess = true,
   onAfterLocalFix,
+  onAutoConfirm,
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState("idle");
@@ -32,6 +36,7 @@ export function useFailSafeFixSession({
   const [sessionIssues, setSessionIssues] = useState([]);
   const notifiedRef = useRef("");
   const tickRef = useRef(null);
+  const autoConfirmRef = useRef(null);
 
   const clearTick = useCallback(() => {
     if (tickRef.current) {
@@ -40,9 +45,45 @@ export function useFailSafeFixSession({
     }
   }, []);
 
+  const clearAutoConfirm = useCallback(() => {
+    if (autoConfirmRef.current) {
+      clearTimeout(autoConfirmRef.current);
+      autoConfirmRef.current = null;
+    }
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    if (phase === "running") return;
+    clearAutoConfirm();
+    setOpen(false);
+    setPhase("idle");
+    setStepIndex(0);
+    setResult(null);
+  }, [clearAutoConfirm, phase]);
+
+  const scheduleAutoConfirm = useCallback(
+    (message) => {
+      if (!autoConfirmOnSuccess) return;
+      clearAutoConfirm();
+      autoConfirmRef.current = setTimeout(() => {
+        autoConfirmRef.current = null;
+        if (typeof onAutoConfirm === "function") {
+          onAutoConfirm(message || "Fail-safe repairs complete");
+        }
+        setOpen(false);
+        setPhase("idle");
+        setStepIndex(0);
+        setResult(null);
+        notifiedRef.current = "";
+      }, 1200);
+    },
+    [autoConfirmOnSuccess, clearAutoConfirm, onAutoConfirm],
+  );
+
   const startFix = useCallback(
     async (mode = "local") => {
       clearTick();
+      clearAutoConfirm();
       setPhase("running");
       setStepIndex(3);
       setStatusLine(
@@ -63,7 +104,10 @@ export function useFailSafeFixSession({
         setResult(res);
         if (res?.ok) {
           setPhase("done");
-          setStatusLine(res.message || "Fix pushed — merge & publish studio-v* for users to install.");
+          const msg =
+            res.message || "Fix pushed — merge & publish studio-v* for users to install.";
+          setStatusLine(msg);
+          scheduleAutoConfirm(msg);
         } else {
           setPhase("error");
           setStatusLine(res?.message || "Fix & push did not complete.");
@@ -78,13 +122,14 @@ export function useFailSafeFixSession({
         throw err;
       }
     },
-    [clearTick, fixAndPush],
+    [clearAutoConfirm, clearTick, fixAndPush, scheduleAutoConfirm],
   );
 
   const startLocalRepair = useCallback(
     async (issues) => {
       const list = issues?.length ? issues : sessionIssues;
       clearTick();
+      clearAutoConfirm();
       setPhase("running");
       setStepIndex(1);
       setStatusLine("Applying local repairs (no git push)…");
@@ -104,7 +149,9 @@ export function useFailSafeFixSession({
         setResult(res);
         if (res.ok) {
           setPhase("done");
-          setStatusLine(res.message || "Local repair complete.");
+          const msg = res.message || "Local repair complete.";
+          setStatusLine(msg);
+          scheduleAutoConfirm(msg);
         } else {
           setPhase("error");
           setStatusLine(res.message || "Local repair did not finish.");
@@ -119,7 +166,7 @@ export function useFailSafeFixSession({
         throw err;
       }
     },
-    [clearTick, onAfterLocalFix, sessionIssues],
+    [clearAutoConfirm, clearTick, onAfterLocalFix, scheduleAutoConfirm, sessionIssues],
   );
 
   const startLocalThenMaybePush = useCallback(
@@ -131,6 +178,7 @@ export function useFailSafeFixSession({
     (issues, { autoFix = false, mode = "local" } = {}) => {
       const list = issues?.length ? issues : actionableIssues;
       if (!list.length) return;
+      clearAutoConfirm();
       setSessionIssues(list);
       setOpen(true);
       setPhase("bug-found");
@@ -143,7 +191,7 @@ export function useFailSafeFixSession({
         void startLocalThenMaybePush(mode, list);
       }
     },
-    [actionableIssues, startLocalThenMaybePush],
+    [actionableIssues, clearAutoConfirm, startLocalThenMaybePush],
   );
 
   useEffect(() => {
@@ -151,7 +199,13 @@ export function useFailSafeFixSession({
     const critical = includeWarn
       ? actionableIssues.filter((i) => i.severity === "fail" || i.severity === "warn")
       : actionableIssues.filter((i) => i.severity === "fail");
-    if (!critical.length) return undefined;
+    if (!critical.length) {
+      // Issues cleared while dialog open — auto-confirm success.
+      if (open && phase !== "running" && phase !== "idle") {
+        scheduleAutoConfirm("All detected issues are resolved.");
+      }
+      return undefined;
+    }
     const fp = critical.map((i) => i.id).join("|");
     if (notifiedRef.current === fp || phase === "running") return undefined;
     notifiedRef.current = fp;
@@ -167,19 +221,19 @@ export function useFailSafeFixSession({
     autoNotify,
     autoStartLocal,
     includeWarn,
+    open,
     openBugDialog,
     phase,
+    scheduleAutoConfirm,
   ]);
 
-  useEffect(() => () => clearTick(), [clearTick]);
-
-  const closeDialog = useCallback(() => {
-    if (phase === "running") return;
-    setOpen(false);
-    setPhase("idle");
-    setStepIndex(0);
-    setResult(null);
-  }, [phase]);
+  useEffect(
+    () => () => {
+      clearTick();
+      clearAutoConfirm();
+    },
+    [clearAutoConfirm, clearTick],
+  );
 
   return {
     open,

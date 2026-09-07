@@ -38,10 +38,13 @@ describe("suite-handoff-config", () => {
     expect(expanded).toContain(".local");
   });
 
-  it("canvasExecutableCandidates returns paths for current platform", () => {
+  it("canvasExecutableCandidates stays inside Studio app data / app dir templates", () => {
     const candidates = canvasExecutableCandidates();
     expect(Array.isArray(candidates)).toBe(true);
     expect(candidates.length).toBeGreaterThan(0);
+    const joined = candidates.join("\n").toLowerCase();
+    expect(joined).not.toMatch(/program files/);
+    expect(joined).not.toMatch(/localappdata[/\\]programs/);
   });
 
   it("sanitizeArtworkExt whitelists safe image extensions", () => {

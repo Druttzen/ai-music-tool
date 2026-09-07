@@ -37,12 +37,18 @@ sidecar_export_runtime_cache_env() {
 }
 
 ensure_sidecar_venv() {
-  local root sidecar venv py
+  local root sidecar_pkg sidecar_runtime venv py
   # This file: scripts/lib/sidecar-venv.sh → repo root is ../..
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-  sidecar="$root/ai-sidecar"
-  venv="$sidecar/.venv"
-  sidecar_export_runtime_cache_env "$sidecar"
+  sidecar_pkg="$root/ai-sidecar"
+  if [[ -n "${STUDIO_DATA_DIR:-}" ]]; then
+    sidecar_runtime="${STUDIO_DATA_DIR%/}/sidecar"
+  else
+    sidecar_runtime="$sidecar_pkg"
+  fi
+  mkdir -p "$sidecar_runtime"
+  venv="$sidecar_runtime/.venv"
+  sidecar_export_runtime_cache_env "$sidecar_runtime"
 
   if ! py="$(sidecar_pick_python)"; then
     echo "Need Python 3.10-3.12 (python3.12 / python3.11 / python3.10 on PATH)." >&2
@@ -50,13 +56,14 @@ ensure_sidecar_venv() {
   fi
 
   if [[ ! -d "$venv" ]]; then
-    echo "Creating sidecar venv ($py)..."
+    echo "Creating sidecar venv ($py) at $venv..."
     "$py" -m venv "$venv" || exit 1
     "$venv/bin/pip" install --upgrade pip || exit 1
-    "$venv/bin/pip" install -e "$sidecar" || exit 1
+    "$venv/bin/pip" install -e "$sidecar_pkg" || exit 1
   fi
 
-  SIDECAR_DIR="$sidecar"
+  SIDECAR_DIR="$sidecar_pkg"
+  SIDECAR_VENV="$venv"
   SIDECAR_PIP="$venv/bin/pip"
 }
 
@@ -65,7 +72,7 @@ nvidia_gpu_present() {
 }
 
 sidecar_torch_cuda_ok() {
-  local py="${SIDECAR_DIR}/.venv/bin/python"
+  local py="${SIDECAR_VENV:-${SIDECAR_DIR}/.venv}/bin/python"
   [[ -x "$py" ]] || return 1
   "$py" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" >/dev/null 2>&1
 }

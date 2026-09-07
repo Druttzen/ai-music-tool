@@ -248,7 +248,11 @@ export function buildRuntimeHealthReport(input = {}) {
     });
   }
 
-  if (sidecarAiStatus === "ready" && sidecarHealth && !sidecarHealth.librosa_available) {
+  if (
+    sidecarAiStatus === "ready" &&
+    sidecarHealth &&
+    sidecarHealth.librosa_available === false
+  ) {
     issues.push({
       id: "sidecar_librosa_missing",
       severity: "warn",

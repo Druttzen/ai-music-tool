@@ -84,7 +84,7 @@ export async function resolveYoutubeReference(url) {
   const ref = parseYoutubeReference(url);
   if (!ref) return null;
 
-  const ready = await waitForSidecar(8_000);
+  const ready = await waitForSidecar(45_000);
   if (ready) {
     try {
       const payload = await resolveYoutubeViaSidecar(ref.watchUrl);

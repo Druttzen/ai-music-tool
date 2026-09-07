@@ -52,10 +52,6 @@ struct ProgressPayload {
     pct: Option<u32>,
 }
 
-fn emit_progress(app: &AppHandle, phase: &str, item: &str, message: &str) {
-    emit_progress_pct(app, phase, item, message, None);
-}
-
 fn emit_progress_pct(app: &AppHandle, phase: &str, item: &str, message: &str, pct: Option<u32>) {
     let _ = app.emit(
         STUDIO_COMPONENT_UPDATE_PROGRESS_EVENT,

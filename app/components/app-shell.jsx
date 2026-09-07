@@ -1,5 +1,7 @@
 "use client";
 
+import { DesktopUpdateControls } from "./desktop-update-controls";
+
 const LOGO_WEBP = "./bones-logo.webp?v=djmad-alpha";
 
 function AppLogo({ className, alt = "DJ M@D MUSIC TOOL logo" }) {
@@ -83,6 +85,7 @@ export function AppHeader({ appVersion, avgScore, saveStatus, statusPulseKey = 0
         <div className="text-sm font-bold text-cyan-100">{saveStatus}</div>
         <div className="mt-2 text-xs text-white/50">Average score</div>
         <div className="text-3xl font-black text-cyan-200">{avgScore}/5</div>
+        <DesktopUpdateControls />
       </div>
     </header>
   );

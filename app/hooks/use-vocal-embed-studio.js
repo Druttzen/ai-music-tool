@@ -89,10 +89,11 @@ export function useVocalEmbedStudio() {
     setGuideForLyricTiming(true);
     draftLyricsRef.current = "";
     guideVocalRef.current = null;
-    effectiveLyricsRef.current = resolveEffectiveVocalEmbedLyrics("", generatedLyrics);
-    lyricsRef.current = generatedLyrics;
+    // Do not re-seed from stale generatedLyrics — Reset clears project state asynchronously.
+    effectiveLyricsRef.current = "";
+    lyricsRef.current = "";
     if (guideInputRef.current) guideInputRef.current.value = "";
-  }, [generatedLyrics]);
+  }, []);
 
   useEffect(() => {
     const stored = readStoredVocalAlignPreview();
@@ -328,7 +329,7 @@ export function useVocalEmbedStudio() {
     let payload = buildOpenvpiDsExport(mergedPlan, alignPreview);
     if (guideVocalFile) {
       try {
-        const ready = await waitForSidecar(10_000);
+        const ready = await waitForSidecar(45_000);
         if (ready) {
           payload = await exportOpenvpiDsViaSidecar(
             buildSidecarEnvelope(true),
@@ -398,7 +399,7 @@ export function useVocalEmbedStudio() {
     }
     setSidecarBusy(true);
     try {
-      const ready = await waitForSidecar(20_000);
+      const ready = await waitForSidecar(45_000);
       if (!ready) {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;
@@ -444,7 +445,7 @@ export function useVocalEmbedStudio() {
     }
     setSidecarBusy(true);
     try {
-      const ready = await waitForSidecar(15_000);
+      const ready = await waitForSidecar(45_000);
       if (!ready) {
         setStatusWithTime("Start the sidecar first", "warning");
         return;
@@ -474,7 +475,7 @@ export function useVocalEmbedStudio() {
     }
     setSidecarBusy(true);
     try {
-      const ready = await waitForSidecar(15_000);
+      const ready = await waitForSidecar(45_000);
       if (!ready) {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;
@@ -550,7 +551,7 @@ export function useVocalEmbedStudio() {
     }
     setSidecarBusy(true);
     try {
-      const ready = await waitForSidecar(20_000);
+      const ready = await waitForSidecar(45_000);
       if (!ready) {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;
@@ -581,7 +582,7 @@ export function useVocalEmbedStudio() {
     }
     setSidecarBusy(true);
     try {
-      const ready = await waitForSidecar(20_000);
+      const ready = await waitForSidecar(45_000);
       if (!ready) {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;
@@ -623,7 +624,7 @@ export function useVocalEmbedStudio() {
 
     setSidecarBusy(true);
     try {
-      const ready = await waitForSidecar(20_000);
+      const ready = await waitForSidecar(45_000);
       if (!ready) {
         setStatusWithTime("Start the librosa sidecar (npm run sidecar) first", "warning");
         return;

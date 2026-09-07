@@ -376,8 +376,11 @@ export const CenterVocalEmbedStudio = memo(function CenterVocalEmbedStudio() {
         <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-white/45">
           Sidecar synthesis / mix brief
         </div>
-        <pre className="max-h-64 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-white/70">
-          {plan.sidecarBrief}
+        <pre
+          data-testid="vocal-embed-sidecar-brief"
+          className="max-h-64 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-white/70"
+        >
+          {plan.sidecarBrief || "No brief yet — add an instrumental and lyrics (or reset cleared this)."}
         </pre>
       </div>
 

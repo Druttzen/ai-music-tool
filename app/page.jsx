@@ -13,6 +13,7 @@ import { GuidedStepCoachBanner } from "./components/guided-step-coach-banner";
 import { FailSafeErrorBoundary } from "./components/fail-safe-error-boundary";
 import { useProjectWorkspaceProvider } from "./hooks/use-project-workspace";
 import { DesktopUpdateStatusBar } from "./components/desktop-update-status-bar";
+import { DesktopWindowControls } from "./components/desktop-window-controls";
 import { APP_VERSION, AUTHOR } from "./lib/music-config";
 
 export default function Page() {
@@ -31,6 +32,7 @@ export default function Page() {
 
   return (
     <main className="min-h-screen overflow-x-hidden overflow-y-auto bg-[#0b0d10] p-4 text-white md:p-8">
+      <DesktopWindowControls />
       <StartupInstallOverlay {...startupInstall} />
       {showSplash && !startupInstall.open && (
         <SplashOverlay

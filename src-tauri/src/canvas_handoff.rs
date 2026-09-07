@@ -150,7 +150,14 @@ fn looks_like_canvas_exe(path: &Path) -> bool {
         .and_then(|n| n.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    name.ends_with(".exe") && name.contains("canvas")
+    if !name.ends_with(".exe") || !name.contains("canvas") {
+        return false;
+    }
+    // Never treat the downloaded Setup/installer as the app binary.
+    if name.contains("setup") || name.contains("installer") || name.contains("uninstall") {
+        return false;
+    }
+    true
 }
 
 fn find_exe_in_dir(dir: &Path, depth: u8) -> Option<PathBuf> {
@@ -161,6 +168,15 @@ fn find_exe_in_dir(dir: &Path, depth: u8) -> Option<PathBuf> {
     let mut nested = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        // Skip installer cache / hidden staging folders.
+        if path.is_dir() && (name == ".cache" || name == "cache" || name.starts_with('.')) {
+            continue;
+        }
         if path.is_file() && looks_like_canvas_exe(&path) {
             return Some(path);
         }
@@ -215,6 +231,35 @@ fn resolve_canvas_executable() -> Option<PathBuf> {
 }
 
 fn resolve_canvas_installer() -> Option<PathBuf> {
+    let mut roots = vec![canvas_installer_cache_dir()];
+    // Legacy: Setup.exe previously landed inside the Canvas app folder.
+    roots.push(canvas_install_dest());
+    roots.push(canvas_install_dest().join(".cache"));
+    for root in roots {
+        if let Ok(entries) = fs::read_dir(&root) {
+            let mut setups: Vec<PathBuf> = entries
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| {
+                    if !p.is_file() {
+                        return false;
+                    }
+                    let name = p
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_ascii_lowercase();
+                    name.ends_with(".exe")
+                        && name.contains("canvas")
+                        && (name.contains("setup") || name.contains("installer"))
+                })
+                .collect();
+            setups.sort();
+            if let Some(last) = setups.pop() {
+                return Some(last);
+            }
+        }
+    }
     let Some(addon) = canvas_addon_config() else {
         return None;
     };
@@ -232,43 +277,201 @@ fn canvas_install_dest() -> PathBuf {
     })
 }
 
-fn run_installer_into(installer: &Path, dest: &Path) -> bool {
-    let _ = fs::create_dir_all(dest);
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let dest_str = dest.to_string_lossy().replace('/', "\\");
-        // NSIS: /D= must be last and unquoted (even with spaces).
-        let nsis = Command::new(installer)
-            .arg("/S")
-            .raw_arg(format!("/D={dest_str}"))
-            .status();
-        if nsis.map(|s| s.success()).unwrap_or(false) && colocated_canvas_executable().is_some() {
-            return true;
-        }
-        let inno = Command::new(installer)
-            .args(["/VERYSILENT", "/NORESTART"])
-            .arg(format!("/DIR={dest_str}"))
-            .status();
-        if inno.map(|s| s.success()).unwrap_or(false) && colocated_canvas_executable().is_some() {
-            return true;
-        }
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = installer;
-        let _ = dest;
-    }
-    false
+/// Keep Setup.exe outside the Canvas app folder so NSIS `/D=` can own that tree.
+fn canvas_installer_cache_dir() -> PathBuf {
+    app_layout::archives_dir(None)
+        .unwrap_or_else(|_| canvas_install_dest().join("..").join("archives"))
+        .join("canvas-setup")
 }
 
-fn install_or_open_canvas_setup(installer: &Path) -> (bool, &'static str) {
-    let dest = canvas_install_dest();
-    if run_installer_into(installer, &dest) {
-        return (true, "installed-local");
+fn stage_installer_outside_dest(installer: &Path, dest: &Path) -> Result<PathBuf, String> {
+    let cache = canvas_installer_cache_dir();
+    fs::create_dir_all(&cache).map_err(|e| format!("canvas installer cache: {e}"))?;
+    let Some(name) = installer.file_name() else {
+        return Err("Installer path has no file name".to_string());
+    };
+    let staged = cache.join(name);
+    if installer == staged || installer.starts_with(&cache) {
+        return Ok(if installer.starts_with(&cache) {
+            installer.to_path_buf()
+        } else {
+            staged
+        });
     }
-    let opened = open::that(installer).is_ok();
-    (opened, "local-installer")
+    if staged.exists() {
+        let _ = fs::remove_file(&staged);
+    }
+    fs::copy(installer, &staged).map_err(|e| format!("stage installer: {e}"))?;
+    // Remove in-dest copy so silent /D= can own the app folder.
+    if installer.starts_with(dest) {
+        let _ = fs::remove_file(installer);
+    }
+    Ok(staged)
+}
+
+fn find_foreign_canvas_install() -> Option<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        roots.push(PathBuf::from(&local).join("Programs"));
+        roots.push(PathBuf::from(local));
+    }
+    if let Ok(pf) = std::env::var("ProgramFiles") {
+        roots.push(PathBuf::from(pf));
+    }
+    for root in roots {
+        if let Some(exe) = find_exe_in_dir(&root, 3) {
+            // Only accept installs that are clearly Canvas and outside Studio data.
+            if !exe.starts_with(canvas_install_dest()) {
+                return exe.parent().map(|p| p.to_path_buf());
+            }
+        }
+    }
+    None
+}
+
+fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
+    fs::create_dir_all(dest).map_err(|e| format!("mkdir {}: {e}", dest.display()))?;
+    for entry in fs::read_dir(src).map_err(|e| format!("read {}: {e}", src.display()))? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let from = entry.path();
+        let to = dest.join(entry.file_name());
+        if from.is_dir() {
+            copy_dir_recursive(&from, &to)?;
+        } else {
+            fs::copy(&from, &to).map_err(|e| format!("copy {} → {}: {e}", from.display(), to.display()))?;
+        }
+    }
+    Ok(())
+}
+
+fn relocate_foreign_canvas_into(dest: &Path) -> Option<PathBuf> {
+    let foreign = find_foreign_canvas_install()?;
+    if copy_dir_recursive(&foreign, dest).is_err() {
+        return None;
+    }
+    find_exe_in_dir(dest, 4)
+}
+
+fn looks_like_inno_installer(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    // electron-builder / NSIS Setup must never get Inno flags (hangs on a GUI).
+    name.contains("inno") || name.ends_with("-installer.exe")
+}
+
+fn cleanup_setup_exes_in_dest(dest: &Path) {
+    let Ok(entries) = fs::read_dir(dest) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if name.ends_with(".exe")
+            && name.contains("canvas")
+            && (name.contains("setup") || name.contains("installer"))
+        {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
+#[cfg(windows)]
+fn run_silent_nsis(installer: &Path, dest: &Path) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let dest_str = dest.to_string_lossy().replace('/', "\\");
+    // NSIS: /D= must be last and unquoted (even with spaces).
+    let status = Command::new(installer)
+        .arg("/S")
+        .raw_arg(format!("/D={dest_str}"))
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|e| format!("NSIS spawn failed: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("NSIS silent install exited with {status}"))
+    }
+}
+
+#[cfg(windows)]
+fn run_silent_inno(installer: &Path, dest: &Path) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let dest_str = dest.to_string_lossy().replace('/', "\\");
+    let status = Command::new(installer)
+        .args(["/VERYSILENT", "/NORESTART", "/SP-"])
+        .arg(format!("/DIR={dest_str}"))
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|e| format!("Inno spawn failed: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("Inno silent install exited with {status}"))
+    }
+}
+
+fn run_installer_into(installer: &Path, dest: &Path) -> Result<PathBuf, String> {
+    fs::create_dir_all(dest).map_err(|e| format!("create canvas dest: {e}"))?;
+    let staged = stage_installer_outside_dest(installer, dest)?;
+
+    #[cfg(windows)]
+    {
+        let mut errors = Vec::new();
+        match run_silent_nsis(&staged, dest) {
+            Ok(()) => {
+                if let Some(exe) = find_exe_in_dir(dest, 4) {
+                    cleanup_setup_exes_in_dest(dest);
+                    return Ok(exe);
+                }
+                errors.push("NSIS reported success but no Canvas exe under app data dir".into());
+            }
+            Err(err) => errors.push(err),
+        }
+        // Never run Inno flags on electron-builder NSIS Setup.exe — that hangs a GUI.
+        if looks_like_inno_installer(&staged) {
+            match run_silent_inno(&staged, dest) {
+                Ok(()) => {
+                    if let Some(exe) = find_exe_in_dir(dest, 4) {
+                        cleanup_setup_exes_in_dest(dest);
+                        return Ok(exe);
+                    }
+                    errors.push("Inno reported success but no Canvas exe under app data dir".into());
+                }
+                Err(err) => errors.push(err),
+            }
+        }
+        if let Some(exe) = relocate_foreign_canvas_into(dest) {
+            cleanup_setup_exes_in_dest(dest);
+            return Ok(exe);
+        }
+        return Err(errors.join("; "));
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = staged;
+        Err("Silent Canvas install is only supported on Windows".to_string())
+    }
+}
+
+fn install_or_open_canvas_setup(installer: &Path) -> (bool, &'static str, Option<String>) {
+    let dest = canvas_install_dest();
+    match run_installer_into(installer, &dest) {
+        Ok(_) => (true, "installed-local", None),
+        Err(err) => (false, "install-failed", Some(err)),
+    }
 }
 
 fn launch_canvas_tool(handoff_file: Option<&Path>) -> bool {
@@ -497,7 +700,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
         }
 
         if let Some(installer) = resolve_canvas_installer() {
-            let (ok, mode) = install_or_open_canvas_setup(&installer);
+            let (ok, mode, err) = install_or_open_canvas_setup(&installer);
             return CanvasAddonActionResult {
                 ok,
                 launched: false,
@@ -510,7 +713,12 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 error: if ok {
                     None
                 } else {
-                    Some("Could not install Canvas into the app folder".to_string())
+                    Some(
+                        err.unwrap_or_else(|| {
+                            "Could not silently install Canvas into the Studio app data folder"
+                                .to_string()
+                        }),
+                    )
                 },
             };
         }
@@ -612,22 +820,31 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
         return open_fallback_page(canvas_releases_fallback_url(addon), "no-release-assets");
     };
 
-    let dest_dir = canvas_install_dest();
-    let _ = fs::create_dir_all(&dest_dir);
-    let dest = dest_dir.join(&name);
-    if let Err(err) = download_url_to_file(&url, &dest) {
-        return CanvasAddonActionResult {
-            ok: false,
-            launched: false,
-            already_installed: false,
-            mode: Some("download-failed".to_string()),
-            path: None,
-            url: Some(url),
-            error: Some(err),
-        };
+    let cache_dir = canvas_installer_cache_dir();
+    let _ = fs::create_dir_all(&cache_dir);
+    let dest = cache_dir.join(&name);
+    let reuse_cache = dest.is_file()
+        && dest
+            .metadata()
+            .map(|m| m.len() > 1_000_000)
+            .unwrap_or(false);
+    if reuse_cache {
+        // Keep cached Setup; avoid re-downloading ~80MB on every install attempt.
+    } else {
+        if let Err(err) = download_url_to_file(&url, &dest) {
+            return CanvasAddonActionResult {
+                ok: false,
+                launched: false,
+                already_installed: false,
+                mode: Some("download-failed".to_string()),
+                path: None,
+                url: Some(url),
+                error: Some(err),
+            };
+        }
     }
 
-    let (ok, mode) = install_or_open_canvas_setup(&dest);
+    let (ok, mode, err) = install_or_open_canvas_setup(&dest);
     CanvasAddonActionResult {
         ok,
         launched: false,
@@ -635,7 +852,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
         mode: Some(if mode == "installed-local" {
             "installed".to_string()
         } else {
-            "downloaded".to_string()
+            mode.to_string()
         }),
         path: colocated_canvas_executable()
             .or(Some(dest))
@@ -644,60 +861,60 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
         error: if ok {
             None
         } else {
-            Some("Downloaded installer but could not install it into the app folder".to_string())
+            Some(err.unwrap_or_else(|| {
+                "Downloaded installer but silent install into the Studio app data folder failed"
+                    .to_string()
+            }))
         },
     }
 }
 
-/// Refresh Canvas when it is already installed (or a local installer is waiting).
+/// Refresh Canvas for Update all: keep an existing app-data install; only silent-install
+/// when the exe is missing (never force-redownload Setup on every update — that freezes
+/// the progress bar at the Canvas phase for minutes).
 pub fn refresh_canvas_addon_blocking() -> CanvasAddonActionResult {
-    if resolve_canvas_executable().is_none() && resolve_canvas_installer().is_none() {
+    if let Some(exe) = resolve_canvas_executable() {
         return CanvasAddonActionResult {
             ok: true,
             launched: false,
-            already_installed: false,
-            mode: Some("skipped".to_string()),
-            path: None,
+            already_installed: true,
+            mode: Some("kept".to_string()),
+            path: Some(exe.to_string_lossy().into_owned()),
             url: None,
             error: None,
         };
     }
-    let force = resolve_canvas_executable().is_some();
-    let result = install_canvas_addon_blocking(force);
-    if force && !result.ok {
-        if let Some(installer) = resolve_canvas_installer() {
-            let (ok, mode) = install_or_open_canvas_setup(&installer);
-            if ok {
-                return CanvasAddonActionResult {
-                    ok: true,
-                    launched: false,
-                    already_installed: true,
-                    mode: Some(mode.to_string()),
-                    path: colocated_canvas_executable()
-                        .or(Some(installer))
-                        .map(|p| p.to_string_lossy().into_owned()),
-                    url: None,
-                    error: None,
-                };
-            }
-        }
-        if let Some(exe) = resolve_canvas_executable() {
-            return CanvasAddonActionResult {
-                ok: true,
-                launched: false,
-                already_installed: true,
-                mode: Some("kept".to_string()),
-                path: Some(exe.to_string_lossy().into_owned()),
-                url: None,
-                error: Some(
-                    result
-                        .error
-                        .unwrap_or_else(|| "Could not refresh Canvas; keeping the installed copy".to_string()),
-                ),
-            };
-        }
+
+    if let Some(installer) = resolve_canvas_installer() {
+        let (ok, mode, err) = install_or_open_canvas_setup(&installer);
+        return CanvasAddonActionResult {
+            ok,
+            launched: false,
+            already_installed: colocated_canvas_executable().is_some(),
+            mode: Some(mode.to_string()),
+            path: colocated_canvas_executable()
+                .or(Some(installer))
+                .map(|p| p.to_string_lossy().into_owned()),
+            url: None,
+            error: if ok {
+                None
+            } else {
+                Some(err.unwrap_or_else(|| {
+                    "Could not silently install Canvas into the Studio app data folder".to_string()
+                }))
+            },
+        };
     }
-    result
+
+    CanvasAddonActionResult {
+        ok: true,
+        launched: false,
+        already_installed: false,
+        mode: Some("skipped".to_string()),
+        path: None,
+        url: None,
+        error: None,
+    }
 }
 
 #[tauri::command]
@@ -828,5 +1045,45 @@ pub fn export_canvas_handoff(
         album_art_path: Some(art_path.to_string_lossy().into_owned()),
         handoff_path: Some(handoff_path.to_string_lossy().into_owned()),
         error: None,
+    }
+}
+
+#[cfg(all(test, windows))]
+mod silent_install_tests {
+    use super::*;
+
+    #[test]
+    fn nsis_silent_installs_into_dest_without_inno() {
+        let staged = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target/debug/data/archives/canvas-setup/AI.Canvas.Tool-1.1.1-Setup.exe");
+        let alt = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target/debug/data/addons/canvas/AI.Canvas.Tool-1.1.1-Setup.exe");
+        let installer = if staged.is_file() {
+            staged
+        } else if alt.is_file() {
+            alt
+        } else {
+            eprintln!("skip: Canvas Setup.exe not present for silent install test");
+            return;
+        };
+        let dest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target/debug/data/addons/canvas-silent-verify");
+        let _ = fs::remove_dir_all(&dest);
+        let exe = run_installer_into(&installer, &dest).expect("silent NSIS install");
+        assert!(exe.is_file(), "expected Canvas exe at {}", exe.display());
+        assert!(
+            exe.starts_with(&dest),
+            "exe must live under app data dest: {}",
+            exe.display()
+        );
+        // Setup must not remain in the app folder.
+        let leftover = fs::read_dir(&dest)
+            .unwrap()
+            .flatten()
+            .any(|e| {
+                let n = e.file_name().to_string_lossy().to_ascii_lowercase();
+                n.contains("setup") && n.ends_with(".exe")
+            });
+        assert!(!leftover, "Setup.exe must not remain in Canvas app dir");
     }
 }

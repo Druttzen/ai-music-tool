@@ -66,9 +66,16 @@ function Ensure-SidecarVenv {
   $local:ErrorActionPreference = "Stop"
   $root = $RepoRoot
   if ($root.StartsWith('\\?\')) { $root = $root.Substring(4) }
-  $sidecar = Join-Path $root "ai-sidecar"
-  $venv = Join-Path $sidecar ".venv"
-  Set-SidecarRuntimeCacheEnv -SidecarDir $sidecar
+  $sidecarPkg = Join-Path $root "ai-sidecar"
+  # When Studio data dir is set, install the writable venv there (canonical app-dir rule).
+  $sidecarRuntime = if ($env:STUDIO_DATA_DIR -and $env:STUDIO_DATA_DIR.Trim()) {
+    Join-Path $env:STUDIO_DATA_DIR.Trim() "sidecar"
+  } else {
+    $sidecarPkg
+  }
+  New-Item -ItemType Directory -Force -Path $sidecarRuntime | Out-Null
+  $venv = Join-Path $sidecarRuntime ".venv"
+  Set-SidecarRuntimeCacheEnv -SidecarDir $sidecarRuntime
   $py = $null
 
   foreach ($v in @("3.12", "3.11", "3.10")) {
@@ -84,17 +91,17 @@ function Ensure-SidecarVenv {
   }
 
   if (-not (Test-Path $venv)) {
-    Write-Host "Creating sidecar venv (py -$py)..."
+    Write-Host "Creating sidecar venv (py -$py) at $venv..."
     & py "-$py" -m venv $venv
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & "$venv\Scripts\python" -m pip install --upgrade pip
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    & "$venv\Scripts\pip" install -e $sidecar
+    & "$venv\Scripts\pip" install -e $sidecarPkg
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   }
 
   return @{
-    Sidecar = $sidecar
+    Sidecar = $sidecarPkg
     Venv = $venv
     Pip = (Join-Path $venv "Scripts\pip.exe")
   }

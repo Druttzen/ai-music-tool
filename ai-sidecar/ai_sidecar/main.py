@@ -146,6 +146,7 @@ class Health(BaseModel):
     status: str
     device: str
     version: str
+    librosa_available: bool = True
     stems_available: bool
     stems_melband_available: bool = False
     genre_available: bool
@@ -167,6 +168,15 @@ class Health(BaseModel):
     capabilities: list[dict[str, Any]] | None = None
     policy: dict[str, Any] | None = None
     owned: bool = False
+
+
+def _librosa_available() -> bool:
+    try:
+        import librosa  # noqa: F401, PLC0415
+
+        return True
+    except Exception:
+        return False
 
 
 class GenrePrediction(BaseModel):
@@ -289,6 +299,7 @@ def health(request: Request) -> Health:
         status="ok",
         device=info.device,
         version=__version__,
+        librosa_available=_librosa_available(),
         stems_available=flags["stems_available"],
         stems_melband_available=flags["stems_melband_available"],
         genre_available=flags["genre_available"],

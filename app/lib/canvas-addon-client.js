@@ -58,6 +58,12 @@ export function formatCanvasInstallStatus(result) {
   if (result.message) return result.message;
   if (result.alreadyInstalled || result.mode === "installed") return "AI Canvas Tool is already installed";
   if (result.mode === "local-installer") return "Opened local Canvas installer — finish setup, then Open";
+  if (result.mode === "install-failed") {
+    return (
+      result.error ||
+      "Canvas silent install into Studio app data failed — retry Install"
+    );
+  }
   if (result.mode === "downloaded") return "Downloaded Canvas installer — finish setup, then Open";
   if (result.mode === "no-release") return "Could not find a latest Canvas release — opened releases page";
   if (result.mode === "no-release-assets") return "Release has no installer assets — opened Canvas releases page";

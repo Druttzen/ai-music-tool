@@ -19,6 +19,14 @@ const PHASE_PCT = {
   "studio-install": 99,
 };
 
+/** Shared across hook instances (status bar + header controls). */
+let silentUpdateStarted = false;
+
+/** @internal vitest only */
+export function resetDesktopUpdateSilentFlagForTests() {
+  silentUpdateStarted = false;
+}
+
 export function useDesktopUpdates() {
   // Always start as null so SSR HTML matches the first client paint (window.__TAURI__
   // exists in Studio but not during Next SSR). Detect the host after mount.
@@ -26,7 +34,6 @@ export function useDesktopUpdates() {
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [progressPct, setProgressPct] = useState(null);
-  const startedRef = useRef(false);
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
@@ -64,19 +71,86 @@ export function useDesktopUpdates() {
     [clearHideTimer],
   );
 
+  const checkUpdates = useCallback(
+    async ({ automatic = false } = {}) => {
+      if (!runtime) return null;
+      clearHideTimer();
+      setBusy(true);
+      if (!automatic) {
+        setProgressPct(5);
+        setStatus("Checking for updates…");
+      }
+      try {
+        const result = await checkForDesktopUpdates();
+        if (!result?.ok) {
+          if (!automatic) showErrorBriefly(result?.error || "Update check failed");
+          else hideStatus();
+          return result;
+        }
+        if (result.available) {
+          setStatus(
+            result.version
+              ? `Studio update available: v${result.version}`
+              : "Studio update available",
+          );
+          setProgressPct(null);
+          setBusy(false);
+        } else if (!automatic) {
+          setStatus("Studio is current. Update all still refreshes addons, plugins, tools, and archives.");
+          setBusy(false);
+          setProgressPct(null);
+        } else {
+          hideStatus();
+        }
+        return result;
+      } catch (error) {
+        if (!automatic) {
+          showErrorBriefly(error instanceof Error ? error.message : "Update check failed");
+        } else {
+          hideStatus();
+        }
+        return null;
+      }
+    },
+    [clearHideTimer, hideStatus, runtime, showErrorBriefly],
+  );
+
+  const updateAll = useCallback(async () => {
+    if (!runtime) return null;
+    clearHideTimer();
+    setBusy(true);
+    setProgressPct(8);
+    setStatus("Updating addons, plugins, tools, archives, and Studio…");
+    try {
+      const result = await installDesktopUpdate();
+      if (!result?.ok) {
+        showErrorBriefly(result?.error || "Update installation failed");
+        return result;
+      }
+      setStatus(
+        result.summary ||
+          (result.available
+            ? "Studio update installed."
+            : "Addons, plugins, tools, and archives are current."),
+      );
+      setProgressPct(100);
+      setBusy(false);
+      hideTimerRef.current = setTimeout(() => {
+        hideStatus();
+      }, 2200);
+      return result;
+    } catch (error) {
+      showErrorBriefly(error instanceof Error ? error.message : "Update installation failed");
+      return null;
+    }
+  }, [clearHideTimer, hideStatus, runtime, showErrorBriefly]);
+
   const runSilentUpdate = useCallback(async () => {
-    if (!runtime || startedRef.current) return;
-    startedRef.current = true;
+    if (!runtime || silentUpdateStarted) return;
+    silentUpdateStarted = true;
     try {
       const check = await checkForDesktopUpdates();
-      if (!check?.ok) {
-        // Stay silent on check failures (offline, etc.) — no popup, no bar.
-        return;
-      }
-      if (!check.available) {
-        return;
-      }
-
+      if (!check?.ok || !check.available) return;
       clearHideTimer();
       setBusy(true);
       setProgressPct(8);
@@ -85,7 +159,6 @@ export function useDesktopUpdates() {
           ? `Downloading Studio update v${check.version}…`
           : "Downloading Studio update…",
       );
-
       const result = await installDesktopUpdate();
       if (!result?.ok) {
         showErrorBriefly(result?.error || "Update failed");
@@ -124,5 +197,9 @@ export function useDesktopUpdates() {
     status,
     busy,
     progressPct,
+    installReady: runtime === "tauri",
+    installLabel: "Update all",
+    checkUpdates,
+    updateAll,
   };
 }

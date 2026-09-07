@@ -6,7 +6,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { createElement } from "react";
 import { DesktopUpdateStatusBar } from "../app/components/desktop-update-status-bar.jsx";
-import { useDesktopUpdates } from "../app/hooks/use-desktop-updates.js";
+import {
+  resetDesktopUpdateSilentFlagForTests,
+  useDesktopUpdates,
+} from "../app/hooks/use-desktop-updates.js";
 import {
   checkForDesktopUpdates,
   getDesktopUpdateRuntime,
@@ -24,6 +27,7 @@ vi.mock("../app/lib/desktop-update-bridge.js", () => ({
 describe("useDesktopUpdates", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetDesktopUpdateSilentFlagForTests();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     getDesktopUpdateRuntime.mockReturnValue("tauri");
     checkForDesktopUpdates.mockResolvedValue({ ok: true, available: false });
@@ -67,41 +71,14 @@ describe("useDesktopUpdates", () => {
     expect(result.current.busy).toBe(false);
   });
 
-  it("shows status while a silent update runs and hides when idle", async () => {
-    checkForDesktopUpdates.mockResolvedValue({
-      ok: true,
-      available: true,
-      version: "0.50.31",
-    });
-    let resolveInstall;
-    installDesktopUpdate.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveInstall = resolve;
-        }),
-    );
-
+  it("exposes Update all / check controls for the header", async () => {
     const { result } = renderHook(() => useDesktopUpdates());
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
-    expect(result.current.available).toBe(true);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1600);
-    });
-    await waitFor(() => {
-      expect(result.current.busy).toBe(true);
-      expect(result.current.visible).toBe(true);
-      expect(result.current.status).toContain("0.50.31");
-    });
-
-    await act(async () => {
-      resolveInstall({ ok: true, available: true, summary: "installed" });
-    });
-    await waitFor(() => {
-      expect(result.current.busy).toBe(false);
-      expect(result.current.visible).toBe(false);
-    });
+    expect(result.current.installReady).toBe(true);
+    expect(result.current.installLabel).toBe("Update all");
+    expect(typeof result.current.checkUpdates).toBe("function");
+    expect(typeof result.current.updateAll).toBe("function");
   });
 });

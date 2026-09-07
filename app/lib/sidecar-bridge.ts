@@ -32,6 +32,7 @@ export interface SidecarHealth {
   status: string;
   device: string;
   version: string;
+  librosa_available?: boolean;
   stems_available?: boolean;
   stems_melband_available?: boolean;
   genre_available?: boolean;
@@ -184,7 +185,7 @@ export async function ensureManagedSidecar(timeoutMs = 30_000): Promise<boolean>
 }
 
 /** Poll /health until available or timeout. */
-export async function waitForSidecar(timeoutMs = 15_000): Promise<boolean> {
+export async function waitForSidecar(timeoutMs = 45_000): Promise<boolean> {
   resetSidecarHealthCache();
   if (isTauriApp()) {
     const ok = await ensureManagedSidecar(timeoutMs);
@@ -198,7 +199,7 @@ export async function waitForSidecar(timeoutMs = 15_000): Promise<boolean> {
   return false;
 }
 
-/** True when the sidecar responds to GET /health within 2s. */
+/** True when the sidecar responds to GET /health (cold ML imports can take several seconds). */
 export async function isSidecarAvailable(): Promise<boolean> {
   const health = await fetchSidecarHealth();
   return health !== null;
@@ -207,7 +208,8 @@ export async function isSidecarAvailable(): Promise<boolean> {
 async function requestSidecarHealthJson(): Promise<SidecarHealth | null> {
   try {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 2000);
+    // Cold /health with optional ML extras can exceed 2s (torch/capability imports).
+    const timer = setTimeout(() => ctrl.abort(), 30_000);
     const headers = await sidecarAuthHeaders();
     const res = await fetch(`${sidecarBaseUrl()}/health`, { signal: ctrl.signal, headers });
     clearTimeout(timer);

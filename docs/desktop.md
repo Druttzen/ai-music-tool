@@ -25,16 +25,16 @@ Existing Electron installs stay on their last published `v*` build. Migrate to S
 
 ### Studio updates
 
-Tauri Studio checks the latest GitHub Release automatically after startup. When a newer signed `studio-v*` build exists, Studio downloads and installs it silently (quiet Windows installer — no update popup dialogs). A bottom-center status pill (same style as the version badge) shows live progress and disappears when nothing is downloading or installing.
+Tauri Studio checks the latest GitHub Release automatically after startup. When a newer signed `studio-v*` build exists, Studio downloads and installs it silently (quiet Windows installer — no update popup dialogs). A bottom-center status pill shows live progress and disappears when idle.
 
-Silent update-all also refreshes:
+**Check for updates** and **Update all** remain in the Project status card. Update all refreshes:
 
-- Installed sidecar plugins / extras (already installed stacks only — it does not download Cover/FLUX if you never installed it)
+- Installed sidecar plugins / extras (already installed stacks only)
 - Canvas addon, when it is already present
 - Usable `.zip` archives in `{install}/data/{addons,tools,archives}`
-- Then the Studio app itself
+- Then the Studio app itself, when a newer signed release exists
 
-Packages are verified with the updater public key before installation.
+Packages are verified with the updater public key before installation. Addon/extra installs always target the Studio app data directory (`{install}/data` or `STUDIO_DATA_DIR`).
 
 Closing Studio resets project and session workspaces to defaults on the next launch (presets and API credentials are kept).
 

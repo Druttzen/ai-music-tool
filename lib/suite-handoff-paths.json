@@ -8,17 +8,16 @@
       "$STUDIO_DATA/addons/canvas/ai-canvas-tool.exe",
       "$APPDIR/data/addons/canvas/AI Canvas Tool.exe",
       "$APPDIR/addons/canvas/AI Canvas Tool.exe",
-      "$APPDIR/tools/canvas/AI Canvas Tool.exe",
-      "$LOCALAPPDATA/AI/AI Canvas Tool.exe",
-      "$LOCALAPPDATA/Programs/ai-canvas-tool/AI Canvas Tool.exe",
-      "$LOCALAPPDATA/Programs/AI Canvas Tool/AI Canvas Tool.exe",
-      "$ProgramFiles/AI Canvas Tool/AI Canvas Tool.exe"
+      "$APPDIR/tools/canvas/AI Canvas Tool.exe"
     ],
     "macos": [
-      "/Applications/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool",
-      "$HOME/Applications/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool"
+      "$STUDIO_DATA/addons/canvas/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool",
+      "$APPDIR/data/addons/canvas/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool"
     ],
-    "linux": ["$HOME/.local/bin/ai-canvas-tool"]
+    "linux": [
+      "$STUDIO_DATA/addons/canvas/ai-canvas-tool",
+      "$APPDIR/data/addons/canvas/ai-canvas-tool"
+    ]
   },
   "canvas": {
     "id": "canvas",
@@ -31,14 +30,15 @@
     "githubRepo": "ai-canvas-tool",
     "installerCandidates": {
       "windows": [
-        "$STUDIO_DATA/addons/canvas/AI.Canvas.Tool-Setup.exe",
-        "$STUDIO_DATA/addons/canvas/AI Canvas Tool Setup.exe",
-        "$APPDIR/data/addons/canvas/AI.Canvas.Tool-Setup.exe",
-        "$APPDIR/addons/canvas/AI.Canvas.Tool-Setup.exe"
+        "$STUDIO_DATA/archives/canvas-setup/AI.Canvas.Tool-Setup.exe",
+        "$STUDIO_DATA/archives/canvas-setup/AI Canvas Tool Setup.exe",
+        "$APPDIR/data/archives/canvas-setup/AI.Canvas.Tool-Setup.exe",
+        "$STUDIO_DATA/addons/canvas/.cache/AI.Canvas.Tool-Setup.exe",
+        "$STUDIO_DATA/addons/canvas/.cache/AI Canvas Tool Setup.exe"
       ],
       "macos": [
-        "$STUDIO_DATA/addons/canvas/AI.Canvas.Tool.dmg",
-        "$STUDIO_DATA/addons/canvas/AI Canvas Tool.dmg"
+        "$STUDIO_DATA/archives/canvas-setup/AI.Canvas.Tool.dmg",
+        "$STUDIO_DATA/archives/canvas-setup/AI Canvas Tool.dmg"
       ],
       "linux": []
     }

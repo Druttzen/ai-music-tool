@@ -51,7 +51,12 @@ function formatTime(seconds) {
 
 function buildSections({ lyrics, lyricStructure, duration }) {
   const blocks = splitLyricBlocks(lyrics);
-  const fallbackTags = structureToSectionTags(lyricStructure || "verse -> chorus -> verse -> chorus");
+  // Only invent a default structure when lyrics exist; blank reset must stay empty.
+  const structureFallback = lyrics
+    ? lyricStructure || "verse -> chorus -> verse -> chorus"
+    : lyricStructure || "";
+  const fallbackTags = structureToSectionTags(structureFallback);
+  if (!blocks.length && !fallbackTags.length) return [];
   const sectionCount = Math.max(blocks.length, fallbackTags.length, 1);
   const source = blocks.length ? blocks : fallbackTags.map((tag) => `[${tag}]`);
 
@@ -126,29 +131,33 @@ export function buildVocalEmbedPlan(input = {}) {
     exportFormat: "wav",
   };
 
-  const sidecarBrief = [
-    "Vocal Embed Studio local engine brief",
-    `Mode: ${sidecarMode}`,
-    hasGuide && sidecarMode === "lyrics-to-vocal-synthesis"
-      ? "Guide vocal: refines lyric word timing (MFA when configured, onset fallback otherwise)"
-      : hasGuide
-        ? "Guide vocal: conversion + placement-mix overlay"
-        : "",
-    `Instrumental: ${input.audioAnalysis?.fileName || "missing"}`,
-    `Duration: ${duration ? formatTime(duration) : "unknown"}`,
-    `Tempo: ${bpm}`,
-    `Key: ${key}`,
-    `Genres: ${(input.selectedGenres || []).join(", ") || "unspecified"}`,
-    `Voice style: ${voiceStyle}`,
-    input.voiceStyleCompact?.lyricTag ? `Lyric voice tag: ${input.voiceStyleCompact.lyricTag}` : "",
-    "Sections:",
-    ...sections.map((s) => `- ${formatTime(s.start)}-${formatTime(s.end)} ${s.name}: ${s.lineCount} lyric lines`),
-    "Mix:",
-    `- Vocal target ${mixPlan.vocalTargetLufs} LUFS, duck instrumental ${mixPlan.instrumentalDuckDb} dB under vocal`,
-    `- HPF ${mixPlan.vocalHighPassHz} Hz, presence ${mixPlan.vocalPresenceBoost}, ${mixPlan.sendFx}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  // After Reset to Default (no track, no lyrics) the brief must clear — do not keep a stub plan.
+  const sidecarBrief =
+    !hasInstrumental && !hasLyrics
+      ? ""
+      : [
+          "Vocal Embed Studio local engine brief",
+          `Mode: ${sidecarMode}`,
+          hasGuide && sidecarMode === "lyrics-to-vocal-synthesis"
+            ? "Guide vocal: refines lyric word timing (MFA when configured, onset fallback otherwise)"
+            : hasGuide
+              ? "Guide vocal: conversion + placement-mix overlay"
+              : "",
+          `Instrumental: ${input.audioAnalysis?.fileName || "missing"}`,
+          `Duration: ${duration ? formatTime(duration) : "unknown"}`,
+          `Tempo: ${bpm}`,
+          `Key: ${key}`,
+          `Genres: ${(input.selectedGenres || []).join(", ") || "unspecified"}`,
+          `Voice style: ${voiceStyle}`,
+          input.voiceStyleCompact?.lyricTag ? `Lyric voice tag: ${input.voiceStyleCompact.lyricTag}` : "",
+          "Sections:",
+          ...sections.map((s) => `- ${formatTime(s.start)}-${formatTime(s.end)} ${s.name}: ${s.lineCount} lyric lines`),
+          "Mix:",
+          `- Vocal target ${mixPlan.vocalTargetLufs} LUFS, duck instrumental ${mixPlan.instrumentalDuckDb} dB under vocal`,
+          `- HPF ${mixPlan.vocalHighPassHz} Hz, presence ${mixPlan.vocalPresenceBoost}, ${mixPlan.sendFx}`,
+        ]
+          .filter(Boolean)
+          .join("\n");
 
   return {
     stage,

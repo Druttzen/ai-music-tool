@@ -95,11 +95,16 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     autoStartFix: fixPushAvailable,
     autoStartLocal: !e2e,
     autoNotify: !e2e,
+    autoConfirmOnSuccess: !e2e,
     includeWarn:
       lastProbeReason === "fault" ||
       lastProbeReason === "sidecar" ||
       lastProbeReason === "launch",
     onAfterLocalFix: probe,
+    onAutoConfirm: (message) => {
+      setStatusWithTime(message || "Fail-safe repairs complete", "success");
+      void probe();
+    },
   });
 
   useEffect(() => {
@@ -113,13 +118,14 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
     ? SEVERITY_STYLES.checking
     : SEVERITY_STYLES[overall] || SEVERITY_STYLES.ok;
 
+  const botOnline = mounted && !checking;
   const statusLabel = checking
     ? "checking…"
     : topIssue
       ? topIssue.title
       : hibernating
-        ? "hibernating — watching for errors"
-        : "runtime health OK";
+        ? "online · watching for errors"
+        : "online · runtime health OK";
 
   const handleCopy = async () => {
     const ok = await copyFixCommands();
@@ -280,19 +286,33 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
         className={`rounded-2xl border px-3 py-2 font-mono text-[11px] leading-snug ${statusClass}`}
         data-testid="fail-safe-bot-panel"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
           >
-            <span className="shrink-0 rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-              Fail-safe bot
+            <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-black/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+              <span
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                  botOnline
+                    ? overall === "fail"
+                      ? "bg-red-400"
+                      : overall === "warn"
+                        ? "bg-amber-300"
+                        : "bg-emerald-400"
+                    : "bg-cyan-300 animate-pulse"
+                }`}
+                aria-hidden
+              />
+              <span className="min-w-0 break-words">
+                Fail-safe bot{botOnline ? " · online" : ""}
+              </span>
             </span>
-            <span className="truncate text-white/85">{statusLabel}</span>
+            <span className="w-full break-words text-white/85">{statusLabel}</span>
             {scanAge ? (
-              <span className="shrink-0 text-[10px] text-white/40">· {scanAge}</span>
+              <span className="w-full break-words text-[10px] text-white/40">{scanAge}</span>
             ) : null}
           </button>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">

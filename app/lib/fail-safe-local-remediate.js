@@ -19,7 +19,7 @@ const SAFE_SCRATCH_KEYS = new Set([
   VOCAL_ALIGN_PREVIEW_STORAGE_KEY,
 ]);
 
-const SIDECAR_WAIT_MS = 20_000;
+const SIDECAR_WAIT_MS = 45_000;
 
 /**
  * @param {string} key
@@ -107,20 +107,30 @@ export async function remediateRuntimeIssues(issues = [], deps = {}) {
   const ids = [...new Set(issueIds(issues))];
 
   for (const id of ids) {
-    if (id === "sidecar_offline") {
+    if (id === "sidecar_offline" || id === "sidecar_librosa_missing") {
       let ok = false;
       try {
         ok = await waitForSidecar(SIDECAR_WAIT_MS);
+        if (ok && id === "sidecar_librosa_missing") {
+          const { fetchSidecarHealth, resetSidecarHealthCache } = await import("./sidecar-bridge");
+          resetSidecarHealthCache();
+          const health = await fetchSidecarHealth();
+          ok = health?.librosa_available !== false;
+        }
       } catch {
         ok = false;
       }
       steps.push({
         id,
-        action: "ensure-sidecar",
+        action: id === "sidecar_librosa_missing" ? "ensure-librosa" : "ensure-sidecar",
         ok,
         detail: ok
-          ? "Sidecar is responding again."
-          : "Sidecar still offline — start it with npm run sidecar, or retry Analyze in Studio.",
+          ? id === "sidecar_librosa_missing"
+            ? "Sidecar reports librosa available again."
+            : "Sidecar is responding again."
+          : id === "sidecar_librosa_missing"
+            ? "Librosa still missing — reinstall with npm run sidecar into the Studio app data dir."
+            : "Sidecar still offline — start it with npm run sidecar, or retry Analyze in Studio.",
       });
       (ok ? repaired : remaining).push(id);
       continue;

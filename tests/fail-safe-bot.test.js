@@ -56,6 +56,24 @@ describe("fail-safe-bot", () => {
     expect(report.overall).toBe("ok");
   });
 
+  it("buildRuntimeHealthReport does not false-flag when librosa_available is omitted", () => {
+    const report = buildRuntimeHealthReport({
+      sidecarAiStatus: "ready",
+      sidecarGenerateAvailable: true,
+      sidecarHealth: { status: "ok", version: "0.50.31" },
+    });
+    expect(report.issues.some((i) => i.id === "sidecar_librosa_missing")).toBe(false);
+  });
+
+  it("buildRuntimeHealthReport warns when librosa_available is explicitly false", () => {
+    const report = buildRuntimeHealthReport({
+      sidecarAiStatus: "ready",
+      sidecarGenerateAvailable: true,
+      sidecarHealth: { librosa_available: false },
+    });
+    expect(report.issues.some((i) => i.id === "sidecar_librosa_missing")).toBe(true);
+  });
+
   it("buildRuntimeHealthReport warns on storage and local faults", () => {
     const report = buildRuntimeHealthReport({
       sidecarAiStatus: "ready",

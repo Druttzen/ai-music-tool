@@ -69,6 +69,29 @@ describe("vocal-embed-engine", () => {
     expect(plan.warnings).toContain("Analyze or load a Voice Character preset for custom vocal style.");
   });
 
+  it("clears sidecar brief and sections when blank (Reset to Default)", () => {
+    const plan = buildVocalEmbedPlan({
+      lyricStructure: "",
+      lyricTheme: "",
+      generatedLyrics: "",
+      vocalEmbedLyrics: "",
+      selectedGenres: [],
+      voiceStyleLine: "",
+      voiceStyleCompact: { style: "", lyricTag: "" },
+    });
+    expect(plan.sidecarBrief).toBe("");
+    expect(plan.sections).toEqual([]);
+    expect(plan.hasLyrics).toBe(false);
+    expect(plan.hasInstrumental).toBe(false);
+  });
+
+  it("does not invent default sections when structure is blank and lyrics are empty", () => {
+    const plan = buildVocalEmbedPlan({ audioAnalysis: AUDIO, lyricStructure: "" });
+    expect(plan.hasLyrics).toBe(false);
+    expect(plan.sections).toEqual([]);
+    expect(plan.sidecarBrief).toContain("suno-instrumental.wav");
+  });
+
   it("exports a stable plan envelope", () => {
     vi.setSystemTime(new Date("2026-07-09T00:00:00Z"));
     const envelope = buildVocalEmbedExport(buildVocalEmbedPlan({ audioAnalysis: AUDIO }));

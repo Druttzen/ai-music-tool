@@ -300,7 +300,7 @@ export function useAnalyzers({
         syncCacheKeysRef(report);
 
         let finalReport = report;
-        let sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        let sidecarReady = await waitForSidecar(45_000);
         let sidecarStatusMsg = null;
         let sidecarStatusType = "success";
         if (sidecarReady) {
@@ -337,7 +337,7 @@ export function useAnalyzers({
           sidecarStatusType,
         );
       } catch (decodeErr) {
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        const sidecarReady = await waitForSidecar(45_000);
         if (sidecarReady) {
           try {
             const sidecar = await analyzeAudioViaSidecar(file, file.name);
@@ -724,7 +724,7 @@ export function useAnalyzers({
         let finalReport = pixelReport;
         let sidecarStatusMsg = null;
         let sidecarStatusType = "success";
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 20_000 : 15_000);
+        const sidecarReady = await waitForSidecar(45_000);
         const health = sidecarReady ? await fetchSidecarHealth() : null;
         if (sidecarReady && health?.vision_available) {
           try {
