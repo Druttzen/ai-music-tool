@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import sys
 from threading import Lock
 from time import monotonic
 from typing import Callable
@@ -280,21 +281,30 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
 
 _CAPABILITY_CACHE_TTL_SEC = 5.0
 _capability_cache_lock = Lock()
-_capability_cache: tuple[float, list[dict]] | None = None
+_capability_cache: tuple[float, tuple[bool, ...], list[dict]] | None = None
+
+
+def _optional_module_fingerprint() -> tuple[bool, ...]:
+    return tuple(
+        name in sys.modules
+        for name in ("demucs", "torch", "transformers", "diffusers", "scipy", "rvc_python")
+    )
 
 
 def list_capabilities(*, force_refresh: bool = False) -> list[dict]:
     global _capability_cache
     now = monotonic()
+    fingerprint = _optional_module_fingerprint()
     with _capability_cache_lock:
         if (
             not force_refresh
             and _capability_cache is not None
             and now - _capability_cache[0] < _CAPABILITY_CACHE_TTL_SEC
+            and fingerprint == _capability_cache[1]
         ):
-            return _capability_cache[1]
+            return _capability_cache[2]
         snapshot = [spec.snapshot() for spec in CAPABILITIES]
-        _capability_cache = (now, snapshot)
+        _capability_cache = (now, fingerprint, snapshot)
         return snapshot
 
 
