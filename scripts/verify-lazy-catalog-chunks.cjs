@@ -18,6 +18,16 @@ const LAZY_MARKERS = [
   { id: "suno-catalog-sync", needle: "stayen-tag-reference" },
 ];
 
+/**
+ * Center panel titles that must live in async chunks (not only the main shell).
+ * page-workspace-center.jsx lazy-loads these via next/dynamic.
+ */
+const LAZY_CENTER_TITLES = [
+  { id: "vocal-embed-studio", needle: "Vocal Embed Studio" },
+  { id: "maestro-chat", needle: "Maestro — AI Chat Music Creator" },
+  { id: "analyzers-panel", needle: "Drag & Drop Analyzers" },
+];
+
 function listJsFiles(dir, acc = []) {
   if (!fs.existsSync(dir)) return acc;
   for (const name of fs.readdirSync(dir)) {
@@ -63,6 +73,18 @@ for (const { id, needle } of LAZY_MARKERS) {
       `verify-lazy-catalog-chunks: ${id} marker found in main-like chunks: ${inlinedInMain
         .map((f) => f.base)
         .join(", ")}`,
+    );
+    failed = true;
+  } else {
+    console.log(`verify-lazy-catalog-chunks: ${id} OK (${dedicated.length} chunk(s))`);
+  }
+}
+
+for (const { id, needle } of LAZY_CENTER_TITLES) {
+  const dedicated = fileContents.filter(({ text }) => text.includes(needle));
+  if (dedicated.length < 2) {
+    console.error(
+      `verify-lazy-catalog-chunks: ${id} expected in >=2 chunks (shell loading fallback + panel); found ${dedicated.length}`,
     );
     failed = true;
   } else {

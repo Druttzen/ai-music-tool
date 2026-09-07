@@ -63,6 +63,9 @@ export async function waitForAppReady(page, timeout = 30_000) {
   if (await saveLoad.count()) {
     await expect(saveLoad.first()).toBeVisible({ timeout });
   }
+  // Center panels use next/dynamic — wait until loading fallbacks remount as real panels
+  // so locators are not detached mid-scroll (Gate 1 lazy center panels).
+  await expect(page.getByText("Loading panel…")).toHaveCount(0, { timeout });
   await dismissFailSafeDialog(page);
 }
 

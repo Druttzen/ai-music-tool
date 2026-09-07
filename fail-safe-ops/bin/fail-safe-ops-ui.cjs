@@ -35,7 +35,7 @@ function openBrowser(url) {
 }
 
 async function diagnoseLog(log) {
-  const classifierUrl = pathToFileURL(path.join(repoRoot, "app/lib/fail-safe-bot.js")).href;
+  const classifierUrl = pathToFileURL(path.join(opsRoot, "lib/classifier.js")).href;
   const { classifyFailureText, formatReportSummary, formatAgentFixPrompt } = await import(classifierUrl);
   const issues = classifyFailureText(log || "");
   const report = {

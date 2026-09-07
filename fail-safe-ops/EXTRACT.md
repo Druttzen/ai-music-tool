@@ -16,7 +16,7 @@ Until this happens, Ops stays in-monorepo (`fail-safe-ops/`).
 | `fail-safe-ops/` | CLI + local UI shell |
 | `scripts/fail-safe-*.cjs` | Diagnose / auto / fix-push / cloud / runtime deliver |
 | `.github/workflows/fail-safe-*.yml` | CI diagnose + cloud auto-fix |
-| Classifier SoT | Today: `app/lib/fail-safe-bot.js` — **move playbooks into Ops** then re-export thin stubs from the app |
+| Classifier SoT | **Done in-monorepo:** `fail-safe-ops/lib/classifier.js` owns playbooks; `app/lib/fail-safe-bot.js` re-exports |
 
 ## Target layout (new repo)
 

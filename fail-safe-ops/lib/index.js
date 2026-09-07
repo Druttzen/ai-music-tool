@@ -20,7 +20,7 @@ export {
 export const FAIL_SAFE_OPS_PRODUCT = {
   id: /** @type {FailSafeOpsProductId} */ ("fail-safe-ops"),
   name: "Fail-Safe Ops",
-  phase: "2-3",
+  phase: "classifier-sot",
   docsPath: "docs/fail-safe-split.md",
   localUi: "npm run fail-safe-ops -- ui",
 };

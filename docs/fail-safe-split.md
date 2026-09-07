@@ -26,7 +26,7 @@ Everything lives inside **ai-music-tool**:
 
 | Layer | Path | Role |
 |-------|------|------|
-| Classifier / playbooks | `app/lib/fail-safe-bot.js` | `FAILURE_PLAYBOOKS`, `classifyFailureText`, runtime health report, agent prompt |
+| Classifier / playbooks | `fail-safe-ops/lib/classifier.js` (app re-exports) | `FAILURE_PLAYBOOKS`, `classifyFailureText`, agent prompt; runtime health stays in app |
 | In-app panel | `app/components/fail-safe-bot-panel.jsx` | Health strip, Fix & push, Bug found dialog |
 | Hooks | `app/hooks/use-fail-safe-*.js` | Probe, fix-push, dialog session |
 | Maintainer auth | `app/lib/maintainer-settings.js` + sidecar `AIMC_MAINTAINER` | Gates Fix & push |
@@ -90,10 +90,10 @@ Everything lives inside **ai-music-tool**:
 - Sidecar `fail_safe_fix.py` Fix & push (or Ops replaces it)
 - Pure classifier / playbooks once extracted to a shared package Ops owns
 
-### Shared (phase 1–2)
+### Shared / SOURCE OF TRUTH
 
-- Classifier API: keep **`app/lib/fail-safe-bot.js` as source of truth**
-- `fail-safe-ops/lib/classifier.js` re-exports it
+- Classifier API SoT: **`fail-safe-ops/lib/classifier.js`** (`FAILURE_PLAYBOOKS`, `classifyFailureText`, prompts)
+- `app/lib/fail-safe-bot.js` re-exports the Ops classifier and keeps Studio runtime helpers (`buildRuntimeHealthReport`, etc.)
 
 ---
 
@@ -149,7 +149,7 @@ Ops (A) remains the only path that auto-fixes and pushes under maintainer/CI cre
 
 ### Phase 1 — Shared classifier boundary
 
-- [x] Re-export entry: `fail-safe-ops/lib/classifier.js` → `app/lib/fail-safe-bot.js`
+- [x] Classifier SoT: `fail-safe-ops/lib/classifier.js`; app re-exports for Studio imports
 - [ ] Optional: thin shared package name (`@aimc/fail-safe-classifier`) when Ops leaves the monorepo
 - [x] Keep all existing imports (`scripts/fail-safe-bot-import.cjs`, tests) unchanged
 
