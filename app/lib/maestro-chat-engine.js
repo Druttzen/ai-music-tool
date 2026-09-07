@@ -6,13 +6,11 @@
  */
 
 import {
-  genreOptions,
-  lyricLanguageOptions,
-  rhythmOptions,
-  soundOptions,
   stylePresets,
   vocalOptions,
 } from "./music-config";
+import { genreOptions, rhythmOptions, soundOptions } from "./suno-music-styles";
+import { lyricLanguageOptions } from "./suno-lyric-languages";
 import { buildMoodWords, clamp, uniq } from "./music-helpers";
 import { generateCoProducerHooks, generateCoProducerLyrics } from "./lyric-generator";
 import { buildMusicGenPrompt } from "./musicgen-prompt";

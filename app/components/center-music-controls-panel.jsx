@@ -1,13 +1,11 @@
 "use client";
 
 import { memo } from "react";
+import { vocalOptions } from "../lib/music-config";
 import {
   genreOptions,
   rhythmOptions,
   soundOptions,
-  vocalOptions,
-} from "../lib/music-config";
-import {
   SUNO_GENRE_GROUPS,
   SUNO_GENRE_WHEEL_COUNT,
   SUNO_INSTRUMENT_GROUPS,

@@ -20,6 +20,7 @@ from __future__ import annotations
 import io
 import os
 import tempfile
+import asyncio
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Any
@@ -394,7 +395,7 @@ async def sonic_signature(file: UploadFile = File(...)) -> SonicSignatureRespons
     if not raw:
         raise HTTPException(status_code=400, detail="empty upload")
     try:
-        payload = extract_sonic_signature(raw)
+        payload = await asyncio.to_thread(extract_sonic_signature, raw)
     except Exception as exc:
         if "librosa" in str(exc).lower() or "numpy" in str(exc).lower():
             raise HTTPException(status_code=503, detail=f"analysis deps missing: {exc}") from exc
@@ -451,7 +452,9 @@ async def vocal_embed_synthesize(
         else None
     )
     try:
-        wav_bytes, meta = synthesize_vocal_embed_mix(plan, inst_raw, guide_raw)
+        wav_bytes, meta = await asyncio.to_thread(
+            synthesize_vocal_embed_mix, plan, inst_raw, guide_raw
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -494,7 +497,9 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
         raise HTTPException(status_code=400, detail="empty upload")
 
     try:
-        y, sr = librosa.load(io.BytesIO(raw), sr=None, mono=True)
+        y, sr = await asyncio.to_thread(
+            librosa.load, io.BytesIO(raw), sr=None, mono=True
+        )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"could not decode audio: {exc}") from exc
 
@@ -564,11 +569,19 @@ async def analyze_image(
         raise HTTPException(status_code=400, detail="empty upload")
 
     device = select_device()
-    text = caption_image_bytes(raw, device=device) if caption else None
+    text = (
+        await asyncio.to_thread(caption_image_bytes, raw, device=device)
+        if caption
+        else None
+    )
     if caption and not text and not clip_tags:
         raise HTTPException(status_code=422, detail="could not caption image")
 
-    clip_raw = clip_tags_for_image_bytes(raw, device=device) if clip_tags else None
+    clip_raw = (
+        await asyncio.to_thread(clip_tags_for_image_bytes, raw, device=device)
+        if clip_tags
+        else None
+    )
     clip_predictions = (
         [GenrePrediction(label=item["label"], score=item["score"]) for item in clip_raw]
         if clip_raw
@@ -606,7 +619,9 @@ async def generate_music(body: GenerateRequest):
         raise HTTPException(status_code=400, detail="prompt is required")
 
     try:
-        result = generate_via_jobs(prompt, duration_sec=body.duration_sec)
+        result = await asyncio.to_thread(
+            generate_via_jobs, prompt, duration_sec=body.duration_sec
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -648,7 +663,12 @@ async def generate_music_with_melody(
         raise HTTPException(status_code=400, detail="empty melody upload")
 
     try:
-        result = generate_via_jobs(text, duration_sec=duration_sec, melody_wav=melody_raw)
+        result = await asyncio.to_thread(
+            generate_via_jobs,
+            text,
+            duration_sec=duration_sec,
+            melody_wav=melody_raw,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -693,7 +713,8 @@ async def generate_full_song(body: GenerateSongRequest):
 
     fmt = normalize_song_format(body.audio_format)
     try:
-        result = generate_song_via_jobs(
+        result = await asyncio.to_thread(
+            generate_song_via_jobs,
             prompt,
             lyrics=body.lyrics,
             duration_sec=body.duration_sec,
@@ -752,7 +773,8 @@ async def vocal_transform_mix(
         raise HTTPException(status_code=422, detail="regions_json must be a JSON array") from exc
 
     try:
-        result = transform_via_jobs(
+        result = await asyncio.to_thread(
+            transform_via_jobs,
             raw,
             filename=file.filename or "mix.wav",
             mode=mode,

@@ -1,15 +1,4 @@
-import { lyricLanguageOptions as sunoLyricLanguageOptions } from "./suno-lyric-languages";
 import { DEFAULT_ALBUM_ROLES } from "./album-mode";
-import {
-  genreOptions as sunoGenreOptions,
-  rhythmOptions as sunoRhythmOptions,
-  soundOptions as sunoSoundOptions,
-} from "./suno-music-styles";
-
-export const lyricLanguageOptions = sunoLyricLanguageOptions;
-export const genreOptions = sunoGenreOptions;
-export const rhythmOptions = sunoRhythmOptions;
-export const soundOptions = sunoSoundOptions;
 
 export const STORAGE_KEY = "ai_music_creator_visual_tool_v3";
 export const PRESET_KEY = "ai_music_creator_custom_presets_v1";
