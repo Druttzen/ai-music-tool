@@ -29,7 +29,13 @@ export function isDesktopAddonHost() {
 
 export async function getCanvasAddonStatus() {
   if (isTauriApp()) return tauriInvoke("suite_canvas_addon_status");
-  return { ...CANVAS_ADDON, installed: false, path: null, desktop: false };
+  return {
+    ...CANVAS_ADDON,
+    installed: false,
+    path: null,
+    uninstallerPath: null,
+    desktop: false,
+  };
 }
 
 export async function installCanvasAddon() {
@@ -43,6 +49,11 @@ export async function installCanvasAddon() {
 
 export async function launchCanvasAddon() {
   if (isTauriApp()) return tauriInvoke("launch_canvas_addon");
+  return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
+}
+
+export async function uninstallCanvasAddon() {
+  if (isTauriApp()) return tauriInvoke("uninstall_canvas_addon");
   return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
 }
 
@@ -65,6 +76,12 @@ export function formatCanvasInstallStatus(result) {
     );
   }
   if (result.mode === "downloaded") return "Downloaded Canvas installer — finish setup, then Open";
+  if (result.mode === "updated") return "AI Canvas Tool updated";
+  if (result.mode === "uninstall-launched") return "Canvas uninstall app opened";
+  if (result.mode === "uninstaller-missing") return "Canvas uninstall app was not found";
+  if (result.mode === "uninstall-failed") {
+    return result.error || "Could not open the Canvas uninstall app";
+  }
   if (result.mode === "no-release") return "Could not find a latest Canvas release — opened releases page";
   if (result.mode === "no-release-assets") return "Release has no installer assets — opened Canvas releases page";
   if (result.mode === "docs" || result.mode === "browser") return "Opened Canvas install instructions";

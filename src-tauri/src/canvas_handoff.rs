@@ -80,6 +80,7 @@ pub struct CanvasAddonStatus {
     pub description: String,
     pub installed: bool,
     pub path: Option<String>,
+    pub uninstaller_path: Option<String>,
     pub repo_url: Option<String>,
     pub install_url: Option<String>,
     pub releases_url: Option<String>,
@@ -93,6 +94,7 @@ pub struct CanvasAddonActionResult {
     pub already_installed: bool,
     pub mode: Option<String>,
     pub path: Option<String>,
+    pub uninstaller_path: Option<String>,
     pub url: Option<String>,
     pub error: Option<String>,
 }
@@ -245,6 +247,7 @@ fn resolve_canvas_installer() -> Option<PathBuf> {
                     if !p.is_file() {
                         return false;
                     }
+
                     let name = p
                         .file_name()
                         .and_then(|n| n.to_str())
@@ -268,6 +271,32 @@ fn resolve_canvas_installer() -> Option<PathBuf> {
         .iter()
         .map(|t| expand_path_template(t))
         .find(|p| p.is_file())
+}
+
+fn looks_like_canvas_uninstaller(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    name.ends_with(".exe")
+        && (name.starts_with("unins")
+            || name.contains("uninstall")
+            || name.contains("un-installer"))
+}
+
+fn resolve_canvas_uninstaller() -> Option<PathBuf> {
+    let dest = canvas_install_dest();
+    let entries = fs::read_dir(&dest).ok()?;
+    let mut candidates = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && looks_like_canvas_uninstaller(&path) {
+            candidates.push(path);
+        }
+    }
+    candidates.sort();
+    candidates.pop()
 }
 
 fn canvas_install_dest() -> PathBuf {
@@ -339,7 +368,8 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
         if from.is_dir() {
             copy_dir_recursive(&from, &to)?;
         } else {
-            fs::copy(&from, &to).map_err(|e| format!("copy {} → {}: {e}", from.display(), to.display()))?;
+            fs::copy(&from, &to)
+                .map_err(|e| format!("copy {} → {}: {e}", from.display(), to.display()))?;
         }
     }
     Ok(())
@@ -448,7 +478,8 @@ fn run_installer_into(installer: &Path, dest: &Path) -> Result<PathBuf, String> 
                         cleanup_setup_exes_in_dest(dest);
                         return Ok(exe);
                     }
-                    errors.push("Inno reported success but no Canvas exe under app data dir".into());
+                    errors
+                        .push("Inno reported success but no Canvas exe under app data dir".into());
                 }
                 Err(err) => errors.push(err),
             }
@@ -551,6 +582,7 @@ pub fn suite_canvas_addon_status() -> CanvasAddonStatus {
         description: addon.map(|a| a.description.clone()).unwrap_or_default(),
         installed: exe.is_some(),
         path: exe.map(|p| p.to_string_lossy().into_owned()),
+        uninstaller_path: resolve_canvas_uninstaller().map(|p| p.to_string_lossy().into_owned()),
         repo_url: addon.and_then(|a| non_empty(&a.repo_url)),
         install_url: addon.and_then(|a| non_empty(&a.install_url)),
         releases_url: addon.and_then(|a| non_empty(&a.releases_url)),
@@ -581,6 +613,8 @@ pub fn launch_canvas_addon() -> CanvasAddonActionResult {
                 already_installed: resolve_canvas_executable().is_some(),
                 mode: Some("missing".to_string()),
                 path: resolve_canvas_executable().map(|p| p.to_string_lossy().into_owned()),
+                uninstaller_path: resolve_canvas_uninstaller()
+                    .map(|p| p.to_string_lossy().into_owned()),
                 url: None,
                 error: Some("Studio data directory unavailable".to_string()),
             };
@@ -602,6 +636,7 @@ pub fn launch_canvas_addon() -> CanvasAddonActionResult {
             "missing".to_string()
         }),
         path: resolve_canvas_executable().map(|p| p.to_string_lossy().into_owned()),
+        uninstaller_path: resolve_canvas_uninstaller().map(|p| p.to_string_lossy().into_owned()),
         url: None,
         error: if launched {
             None
@@ -617,7 +652,11 @@ fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, Strin
         .filter_map(|a| {
             let name = a.get("name")?.as_str()?.to_string();
             let url = a.get("browser_download_url")?.as_str()?.to_string();
-            let digest = a.get("digest")?.as_str()?.strip_prefix("sha256:")?.to_string();
+            let digest = a
+                .get("digest")?
+                .as_str()?
+                .strip_prefix("sha256:")?
+                .to_string();
             if digest.len() != 64 || !digest.chars().all(|c| c.is_ascii_hexdigit()) {
                 return None;
             }
@@ -699,6 +738,7 @@ fn open_fallback_page(url: String, mode: &str) -> CanvasAddonActionResult {
         already_installed: false,
         mode: Some(mode.to_string()),
         path: None,
+        uninstaller_path: None,
         url: Some(url),
         error: if opened {
             None
@@ -717,6 +757,8 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 already_installed: true,
                 mode: Some("installed".to_string()),
                 path: Some(exe.to_string_lossy().into_owned()),
+                uninstaller_path: resolve_canvas_uninstaller()
+                    .map(|p| p.to_string_lossy().into_owned()),
                 url: None,
                 error: None,
             };
@@ -732,16 +774,16 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 path: colocated_canvas_executable()
                     .or(Some(installer.clone()))
                     .map(|p| p.to_string_lossy().into_owned()),
+                uninstaller_path: resolve_canvas_uninstaller()
+                    .map(|p| p.to_string_lossy().into_owned()),
                 url: None,
                 error: if ok {
                     None
                 } else {
-                    Some(
-                        err.unwrap_or_else(|| {
-                            "Could not silently install Canvas into the Studio app data folder"
-                                .to_string()
-                        }),
-                    )
+                    Some(err.unwrap_or_else(|| {
+                        "Could not silently install Canvas into the Studio app data folder"
+                            .to_string()
+                    }))
                 },
             };
         }
@@ -754,6 +796,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
             already_installed: false,
             mode: None,
             path: None,
+            uninstaller_path: None,
             url: None,
             error: Some("No Canvas install source configured".to_string()),
         };
@@ -780,6 +823,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 already_installed: false,
                 mode: Some("download-failed".to_string()),
                 path: None,
+                uninstaller_path: None,
                 url: Some(canvas_releases_fallback_url(addon)),
                 error: Some(format!("Could not create HTTP client: {err}")),
             };
@@ -799,6 +843,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 already_installed: false,
                 mode: Some("download-failed".to_string()),
                 path: None,
+                uninstaller_path: None,
                 url: Some(canvas_releases_fallback_url(addon)),
                 error: Some(format!("Could not reach GitHub releases: {err}")),
             };
@@ -816,6 +861,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
             already_installed: false,
             mode: Some("download-failed".to_string()),
             path: None,
+            uninstaller_path: None,
             url: Some(canvas_releases_fallback_url(addon)),
             error: Some(format!("GitHub releases API failed ({status})")),
         };
@@ -830,6 +876,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 already_installed: false,
                 mode: Some("download-failed".to_string()),
                 path: None,
+                uninstaller_path: None,
                 url: Some(canvas_releases_fallback_url(addon)),
                 error: Some(format!("Invalid GitHub release JSON: {err}")),
             };
@@ -848,7 +895,9 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
     let dest = cache_dir.join(&name);
     let digest_path = dest.with_extension(format!(
         "{}.sha256",
-        dest.extension().and_then(|e| e.to_str()).unwrap_or_default()
+        dest.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default()
     ));
     let reuse_cache = dest.is_file()
         && fs::read_to_string(&digest_path)
@@ -864,6 +913,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
                 already_installed: false,
                 mode: Some("download-failed".to_string()),
                 path: None,
+                uninstaller_path: None,
                 url: Some(url),
                 error: Some(err),
             };
@@ -884,6 +934,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
         path: colocated_canvas_executable()
             .or(Some(dest))
             .map(|p| p.to_string_lossy().into_owned()),
+        uninstaller_path: resolve_canvas_uninstaller().map(|p| p.to_string_lossy().into_owned()),
         url: None,
         error: if ok {
             None
@@ -900,45 +951,27 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
 /// when the exe is missing (never force-redownload Setup on every update — that freezes
 /// the progress bar at the Canvas phase for minutes).
 pub fn refresh_canvas_addon_blocking() -> CanvasAddonActionResult {
-    if let Some(exe) = resolve_canvas_executable() {
+    if resolve_canvas_executable().is_some() {
+        let result = install_canvas_addon_blocking(true);
         return CanvasAddonActionResult {
-            ok: true,
-            launched: false,
-            already_installed: true,
-            mode: Some("kept".to_string()),
-            path: Some(exe.to_string_lossy().into_owned()),
-            url: None,
-            error: None,
-        };
-    }
-
-    if let Some(installer) = resolve_canvas_installer() {
-        let (ok, mode, err) = install_or_open_canvas_setup(&installer);
-        return CanvasAddonActionResult {
-            ok,
-            launched: false,
-            already_installed: colocated_canvas_executable().is_some(),
-            mode: Some(mode.to_string()),
-            path: colocated_canvas_executable()
-                .or(Some(installer))
-                .map(|p| p.to_string_lossy().into_owned()),
-            url: None,
-            error: if ok {
-                None
+            mode: Some(if result.ok {
+                "updated".to_string()
             } else {
-                Some(err.unwrap_or_else(|| {
-                    "Could not silently install Canvas into the Studio app data folder".to_string()
-                }))
-            },
+                result.mode.unwrap_or_else(|| "update-failed".to_string())
+            }),
+            ..result
         };
     }
 
+    // Update all never installs missing addons. Installation belongs to the
+    // explicit Install action so an update cannot change the user's addon set.
     CanvasAddonActionResult {
         ok: true,
         launched: false,
         already_installed: false,
         mode: Some("skipped".to_string()),
         path: None,
+        uninstaller_path: None,
         url: None,
         error: None,
     }
@@ -954,8 +987,60 @@ pub async fn install_canvas_addon() -> CanvasAddonActionResult {
             already_installed: false,
             mode: Some("download-failed".to_string()),
             path: None,
+            uninstaller_path: None,
             url: None,
             error: Some(format!("Canvas install task failed: {err}")),
+        },
+    }
+}
+
+#[tauri::command]
+pub async fn uninstall_canvas_addon() -> CanvasAddonActionResult {
+    let result = tauri::async_runtime::spawn_blocking(|| {
+        let Some(uninstaller) = resolve_canvas_uninstaller() else {
+            return CanvasAddonActionResult {
+                ok: false,
+                launched: false,
+                already_installed: resolve_canvas_executable().is_some(),
+                mode: Some("uninstaller-missing".to_string()),
+                path: resolve_canvas_executable().map(|p| p.to_string_lossy().into_owned()),
+                uninstaller_path: None,
+                url: None,
+                error: Some("AI Canvas Tool uninstall application was not found".to_string()),
+            };
+        };
+        let launched = Command::new(&uninstaller).spawn().is_ok();
+        CanvasAddonActionResult {
+            ok: launched,
+            launched,
+            already_installed: resolve_canvas_executable().is_some(),
+            mode: Some(if launched {
+                "uninstall-launched".to_string()
+            } else {
+                "uninstall-failed".to_string()
+            }),
+            path: resolve_canvas_executable().map(|p| p.to_string_lossy().into_owned()),
+            uninstaller_path: Some(uninstaller.to_string_lossy().into_owned()),
+            url: None,
+            error: if launched {
+                None
+            } else {
+                Some("Could not launch the Canvas uninstall application".to_string())
+            },
+        }
+    })
+    .await;
+    match result {
+        Ok(result) => result,
+        Err(err) => CanvasAddonActionResult {
+            ok: false,
+            launched: false,
+            already_installed: false,
+            mode: Some("uninstall-failed".to_string()),
+            path: None,
+            uninstaller_path: None,
+            url: None,
+            error: Some(format!("Canvas uninstall task failed: {err}")),
         },
     }
 }
@@ -1104,13 +1189,10 @@ mod silent_install_tests {
             exe.display()
         );
         // Setup must not remain in the app folder.
-        let leftover = fs::read_dir(&dest)
-            .unwrap()
-            .flatten()
-            .any(|e| {
-                let n = e.file_name().to_string_lossy().to_ascii_lowercase();
-                n.contains("setup") && n.ends_with(".exe")
-            });
+        let leftover = fs::read_dir(&dest).unwrap().flatten().any(|e| {
+            let n = e.file_name().to_string_lossy().to_ascii_lowercase();
+            n.contains("setup") && n.ends_with(".exe")
+        });
         assert!(!leftover, "Setup.exe must not remain in Canvas app dir");
     }
 }

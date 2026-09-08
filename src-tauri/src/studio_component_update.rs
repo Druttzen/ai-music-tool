@@ -253,11 +253,10 @@ fn refresh_archives(app: Option<&AppHandle>) -> Vec<ComponentUpdateItem> {
     items
 }
 
-fn extras_to_upgrade(app: &AppHandle, manager: &SidecarManager) -> Vec<String> {
-    let mut ids = load_installed_extras(app);
-    if let Some(health) = manager.fetch_health_json() {
-        ids.extend(extras_from_sidecar_health(&health));
-    }
+fn extras_to_upgrade(app: &AppHandle) -> Vec<String> {
+    // Update all must never install a capability merely because health reports
+    // it as available. Only explicitly installed extras are eligible here.
+    let ids = load_installed_extras(app);
     let mut ids: Vec<String> = ids
         .into_iter()
         .filter_map(|id| normalize_extra_id(&id))
@@ -274,7 +273,13 @@ fn update_components_blocking(
 ) -> Vec<ComponentUpdateItem> {
     let mut components = Vec::new();
 
-    emit_progress_pct(&app, "sidecar", "sidecar", "Refreshing sidecar package…", Some(12));
+    emit_progress_pct(
+        &app,
+        "sidecar",
+        "sidecar",
+        "Refreshing sidecar package…",
+        Some(12),
+    );
     match ensure_user_sidecar_pkg(&app) {
         Ok(pkg) => components.push(ComponentUpdateItem {
             kind: "sidecar".to_string(),
@@ -292,7 +297,13 @@ fn update_components_blocking(
         }),
     }
 
-    emit_progress_pct(&app, "canvas", "canvas", "Refreshing Canvas addon…", Some(28));
+    emit_progress_pct(
+        &app,
+        "canvas",
+        "canvas",
+        "Refreshing Canvas addon…",
+        Some(28),
+    );
     let canvas = refresh_canvas_addon_blocking();
     components.push(ComponentUpdateItem {
         kind: "canvas".to_string(),
@@ -326,7 +337,7 @@ fn update_components_blocking(
         components.extend(archives);
     }
 
-    let extras = extras_to_upgrade(&app, &manager);
+    let extras = extras_to_upgrade(&app);
     if extras.is_empty() {
         components.push(ComponentUpdateItem {
             kind: "extra".to_string(),
@@ -476,7 +487,10 @@ mod tests {
         assert_eq!(normalize_extra_id("rvc").as_deref(), Some("vocal-rvc"));
         assert_eq!(normalize_extra_id("vocal_ml").as_deref(), Some("vocal"));
         assert_eq!(normalize_extra_id("vocal-ml").as_deref(), Some("vocal-ml"));
-        assert_eq!(normalize_extra_id("cover_ref").as_deref(), Some("cover-ref"));
+        assert_eq!(
+            normalize_extra_id("cover_ref").as_deref(),
+            Some("cover-ref")
+        );
         assert_eq!(normalize_extra_id("nope"), None);
     }
 
@@ -500,7 +514,10 @@ mod tests {
             zip.finish().unwrap();
         }
         extract_zip_archive(&zip_path, &dest).expect("extract");
-        assert_eq!(fs::read_to_string(dest.join("hello.txt")).unwrap(), "studio");
+        assert_eq!(
+            fs::read_to_string(dest.join("hello.txt")).unwrap(),
+            "studio"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 

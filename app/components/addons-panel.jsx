@@ -16,6 +16,7 @@ import {
   getCanvasAddonStatus,
   installCanvasAddon,
   launchCanvasAddon,
+  uninstallCanvasAddon,
 } from "../lib/canvas-addon-client";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
 import {
@@ -196,6 +197,32 @@ export function AddonsPanel() {
       await refreshCanvas();
     } catch (error) {
       setStatusWithTime(error instanceof Error ? error.message : "Could not open Canvas", "error");
+    } finally {
+      setBusyKey(null);
+    }
+  }, [desktop, refreshCanvas, setStatusWithTime]);
+
+  const onUninstallCanvas = useCallback(async () => {
+    if (!desktop) {
+      setStatusWithTime(CANVAS_DESKTOP_REQUIRED, "warning");
+      return;
+    }
+    setBusyKey("canvas-uninstall");
+    try {
+      setStatusWithTime("Opening AI Canvas Tool uninstall app…");
+      const result = await uninstallCanvasAddon();
+      setStatusWithTime(
+        formatCanvasInstallStatus(result),
+        result.ok ? "info" : "error",
+      );
+      if (result.ok) {
+        setTimeout(() => void refreshCanvas(), 1000);
+      }
+    } catch (error) {
+      setStatusWithTime(
+        error instanceof Error ? error.message : "Could not uninstall Canvas",
+        "error",
+      );
     } finally {
       setBusyKey(null);
     }
@@ -398,7 +425,7 @@ export function AddonsPanel() {
               onClick={() => void onInstallCanvas()}
               className="w-full max-w-full break-words rounded-2xl bg-emerald-300 px-3 py-2 text-sm font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
             >
-              {canvasStatus?.installed ? "Re-check Canvas" : "Download / Install Canvas"}
+              {canvasStatus?.installed ? "Installed" : "Download / Install Canvas"}
             </button>
             <button
               type="button"
@@ -408,6 +435,16 @@ export function AddonsPanel() {
             >
               Open AI Canvas Tool
             </button>
+            {canvasStatus?.installed && canvasStatus?.uninstallerPath ? (
+              <button
+                type="button"
+                disabled={busy || !desktop}
+                onClick={() => void onUninstallCanvas()}
+                className="w-full max-w-full break-words rounded-2xl border border-rose-300/40 bg-rose-500/10 px-3 py-2 text-sm font-bold text-rose-50 hover:bg-rose-500/20 disabled:opacity-50"
+              >
+                Uninstall Canvas
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -458,7 +495,7 @@ export function AddonsPanel() {
                   : rowBusy
                     ? formatSidecarPluginInstallBusyLabel(rowProgress)
                     : installed
-                      ? "Reinstall"
+                      ? "Installed"
                       : installButtonLabel(false);
                 return (
                   <li
@@ -532,7 +569,7 @@ export function AddonsPanel() {
                         <button
                           type="button"
                           data-testid={`addons-install-${id}`}
-                          disabled={busy}
+                          disabled={busy || installed}
                           title={actionLabel}
                           onClick={() => void onInstallExtra(id)}
                           className="w-full max-w-full truncate rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-2 py-1.5 text-center text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"

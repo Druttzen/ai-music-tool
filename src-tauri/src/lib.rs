@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use canvas_handoff::{
     export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
+    uninstall_canvas_addon,
 };
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness, StereoPhase};
 use sidecar_extra_install::{install_sidecar_extra, probe_sidecar_extra_install_env};
@@ -138,6 +139,7 @@ pub fn run() {
             suite_canvas_addon_status,
             launch_canvas_addon,
             install_canvas_addon,
+            uninstall_canvas_addon,
             install_sidecar_extra,
             probe_sidecar_extra_install_env,
             check_studio_update,
@@ -196,7 +198,10 @@ mod loudness_command_tests {
         let result = measure_loudness_bytes(stereo_sine_wav()).expect("native LUFS");
         assert_eq!(result.channels, 2);
         assert_eq!(result.sample_rate, 48_000);
-        assert!(result.integrated_lufs.is_finite(), "integrated LUFS must be finite");
+        assert!(
+            result.integrated_lufs.is_finite(),
+            "integrated LUFS must be finite"
+        );
         assert!(result.true_peak_dbtp <= 0.5);
         assert!(
             result.momentary_lufs.is_some(),
