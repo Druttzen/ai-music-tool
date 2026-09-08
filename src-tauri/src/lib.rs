@@ -19,7 +19,10 @@ use canvas_handoff::{
     uninstall_canvas_addon,
 };
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness, StereoPhase};
-use sidecar_extra_install::{install_sidecar_extra, probe_sidecar_extra_install_env};
+use sidecar_extra_install::{
+    install_sidecar_extra, list_installed_sidecar_extras, probe_sidecar_extra_install_env,
+    uninstall_sidecar_extra,
+};
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use studio_component_update::update_studio_all;
 use studio_exports::save_bytes_to_exports;
@@ -141,6 +144,8 @@ pub fn run() {
             install_canvas_addon,
             uninstall_canvas_addon,
             install_sidecar_extra,
+            uninstall_sidecar_extra,
+            list_installed_sidecar_extras,
             probe_sidecar_extra_install_env,
             check_studio_update,
             install_studio_update,

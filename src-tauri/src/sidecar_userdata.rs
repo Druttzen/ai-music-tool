@@ -498,6 +498,7 @@ pub fn record_installed_extra(app: &AppHandle, extra_id: &str) {
     let Some(id) = pip_extra_spec(extra_id) else {
         return;
     };
+
     let Ok(path) = installed_extras_path(app) else {
         return;
     };
@@ -515,6 +516,39 @@ pub fn record_installed_extra(app: &AppHandle, extra_id: &str) {
         path,
         serde_json::to_string_pretty(&extras).unwrap_or_else(|_| "[]".to_string()),
     );
+}
+
+pub fn remove_installed_extra(app: &AppHandle, extra_id: &str) {
+    let Ok(path) = installed_extras_path(app) else {
+        return;
+    };
+    let mut extras = load_installed_extras(app);
+    extras.retain(|id| id != extra_id);
+    let _ = fs::write(path, serde_json::to_vec_pretty(&extras).unwrap_or_default());
+}
+
+pub fn uninstall_extra_from_user_venv(
+    app: &AppHandle,
+    extra_id: &str,
+) -> Result<String, String> {
+    let root = user_sidecar_root(app)?;
+    let py = user_venv_python(&root)
+        .ok_or_else(|| "Sidecar addon environment is not installed".to_string())?;
+    let package = match pip_extra_spec(extra_id) {
+        Some("stems") => "demucs",
+        Some("stems-melband") => "melband-roformer-infer",
+        Some("generate") => "audiocraft",
+        Some("classify") => "transformers",
+        Some("vision") => "pillow",
+        Some("cover" | "cover-ref") => "diffusers",
+        Some("vocal") => "scipy",
+        Some("vocal-ml") => "torchaudio",
+        Some("vocal-rvc") => "rvc-python",
+        _ => return Err(format!("Unknown sidecar extra: {extra_id}")),
+    };
+    let result = run_pip(&py, &["uninstall", "-y", package], &root)?;
+    remove_installed_extra(app, extra_id);
+    Ok(result)
 }
 
 pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<String, String> {

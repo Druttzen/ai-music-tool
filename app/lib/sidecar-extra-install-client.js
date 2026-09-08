@@ -105,6 +105,12 @@ export async function probeSidecarExtraInstallEnv() {
   };
 }
 
+export async function listInstalledSidecarExtras() {
+  if (!isTauriApp()) return [];
+  const result = await tauriInvoke("list_installed_sidecar_extras");
+  return Array.isArray(result) ? result.map(normalizeSidecarExtraId) : [];
+}
+
 /**
  * @param {string} extraId
  * @returns {Promise<{ ok: boolean, extraId?: string, mode?: string, message?: string, error?: string, installHint?: string, restarted?: boolean }>}
@@ -147,8 +153,26 @@ export async function installSidecarExtra(extraId) {
   };
 }
 
+export async function uninstallSidecarExtra(extraId) {
+  const id = normalizeSidecarExtraId(extraId);
+  if (!isSidecarExtraAllowlisted(id)) {
+    return { ok: false, extraId: id, mode: "unknown", error: `Unknown sidecar extra: ${id}` };
+  }
+  if (!isTauriApp()) {
+    return {
+      ok: false,
+      extraId: id,
+      mode: "desktop-only",
+      error: "Addon uninstall is available in the Studio desktop app",
+    };
+  }
+  return tauriInvoke("uninstall_sidecar_extra", { extraId: id });
+}
+
 export function formatSidecarExtraInstallStatus(result) {
   if (!result) return "Could not install sidecar extra";
+  if (result.mode === "uninstalled") return `Uninstalled ${result.extraId || "extra"}`;
+  if (result.mode === "uninstall-failed") return result.error || "Could not uninstall sidecar extra";
   if (result.mode === "copied-command") {
     return result.message || "Install command copied — run it in the repo, then restart the sidecar";
   }

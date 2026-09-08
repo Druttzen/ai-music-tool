@@ -15,7 +15,8 @@ use crate::process_progress::{
 use crate::sidecar_manager::{resolve_sidecar_dir, SidecarManager};
 use crate::sidecar_userdata::{
     checkout_venv_python, find_system_python_310_312, install_extra_into_user_venv,
-    record_installed_extra, resolve_package_source, user_sidecar_root, user_venv_python,
+    load_installed_extras, record_installed_extra, resolve_package_source,
+    uninstall_extra_from_user_venv, user_sidecar_root, user_venv_python,
 };
 
 #[derive(Debug, Serialize)]
@@ -412,6 +413,59 @@ pub async fn install_sidecar_extra(
     tauri::async_runtime::spawn_blocking(move || install_sidecar_extra_blocking(app, mgr, extra_id))
         .await
         .map_err(|err| format!("Install task failed: {err}"))
+}
+
+#[tauri::command]
+pub async fn uninstall_sidecar_extra(
+    app: AppHandle,
+    manager: tauri::State<'_, Arc<SidecarManager>>,
+    extra_id: String,
+) -> Result<SidecarExtraInstallResult, String> {
+    let id = extra_id.trim().to_string();
+    if script_stem(&id).is_none() {
+        return Ok(fail(
+            id,
+            "unknown",
+            "Unknown sidecar extra id".to_string(),
+            String::new(),
+        ));
+    }
+
+    let mgr = Arc::clone(manager.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        mgr.stop();
+        let result = uninstall_extra_from_user_venv(&app, &id);
+        mgr.restart();
+        match result {
+            Ok(log) => SidecarExtraInstallResult {
+                ok: true,
+                extra_id: id,
+                mode: Some("uninstalled".to_string()),
+                message: Some(if log.trim().is_empty() {
+                    "Sidecar extra uninstalled".to_string()
+                } else {
+                    "Sidecar extra uninstalled".to_string()
+                }),
+                error: None,
+                install_hint: None,
+            },
+            Err(error) => SidecarExtraInstallResult {
+                ok: false,
+                extra_id: id,
+                mode: Some("uninstall-failed".to_string()),
+                message: None,
+                error: Some(error),
+                install_hint: None,
+            },
+        }
+    })
+    .await
+    .map_err(|err| format!("Uninstall task failed: {err}"))
+}
+
+#[tauri::command]
+pub fn list_installed_sidecar_extras(app: AppHandle) -> Vec<String> {
+    load_installed_extras(&app)
 }
 
 #[cfg(test)]

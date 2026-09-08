@@ -36,6 +36,8 @@ import {
 import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
+  listInstalledSidecarExtras,
+  uninstallSidecarExtra,
   isSidecarExtraAllowlisted,
   normalizeSidecarExtraId,
   probeSidecarExtraInstallEnv,
@@ -75,6 +77,7 @@ export function AddonsPanel() {
   const [busyKey, setBusyKey] = useState(/** @type {string|null} */ (null));
   const [extraErrors, setExtraErrors] = useState(/** @type {Record<string, string>} */ ({}));
   const [extrasLoaded, setExtrasLoaded] = useState(false);
+  const [installedExtras, setInstalledExtras] = useState(() => new Set());
   const [installProgress, setInstallProgress] = useState(
     /** @type {{ extraId: string, line: string, parsedBytes: number|null }|null} */ (null),
   );
@@ -90,6 +93,8 @@ export function AddonsPanel() {
   const refreshExtras = useCallback(async () => {
     try {
       const health = await fetchSidecarHealth();
+      const installed = await listInstalledSidecarExtras();
+      setInstalledExtras(new Set(installed));
       const catalog = listStudioPluginCatalog(health);
       setCapabilityRows(catalog);
       setDeviceSummary(formatSidecarDeviceSummary(health));
@@ -99,6 +104,7 @@ export function AddonsPanel() {
       });
     } catch {
       const catalog = listStudioPluginCatalog(null);
+      setInstalledExtras(new Set());
       setCapabilityRows(catalog);
       setDeviceSummary("");
       setCapabilityCounts({ available: 0, total: catalog.length });
@@ -324,6 +330,34 @@ export function AddonsPanel() {
     [installEnv, refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
   );
 
+  const onUninstallExtra = useCallback(
+    async (extraId) => {
+      const id = normalizeSidecarExtraId(extraId);
+      setBusyKey(`uninstall:${id}`);
+      try {
+        setStatusWithTime(`Uninstalling sidecar extra (${id})…`);
+        const result = await uninstallSidecarExtra(id);
+        setStatusWithTime(
+          formatSidecarExtraInstallStatus(result),
+          result?.ok ? "info" : "error",
+        );
+        if (result?.ok) {
+          await refreshSidecarCapabilities();
+          await refreshExtras();
+          await refreshInstallEnv();
+        }
+      } catch (error) {
+        setStatusWithTime(
+          error instanceof Error ? error.message : "Could not uninstall extra",
+          "error",
+        );
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
+  );
+
   const busy = busyKey !== null;
   const bundledReadonly = installEnv?.mode === "bundled-readonly";
   const userDataBootstrap = installEnv?.mode === "user-data-bootstrap";
@@ -476,9 +510,9 @@ export function AddonsPanel() {
               {sortSidecarCapabilityRows(capabilityRows, extraErrors, normalizeSidecarExtraId).map((cap) => {
                 const id = normalizeSidecarExtraId(cap.extraId || cap.id);
                 const hint = cap.install_hint || sidecarExtraNpmHint(id);
-                const rowBusy = busyKey === `extra:${id}`;
+                const rowBusy = busyKey === `extra:${id}` || busyKey === `uninstall:${id}`;
                 const err = extraErrors[id];
-                const installed = Boolean(cap.available);
+                const installed = installedExtras.has(id);
                 const rowProgress =
                   rowBusy && installProgress && normalizeSidecarExtraId(installProgress.extraId) === id
                     ? installProgress
@@ -576,6 +610,17 @@ export function AddonsPanel() {
                         >
                           {actionLabel}
                         </button>
+                        {installed && desktop ? (
+                          <button
+                            type="button"
+                            data-testid={`addons-uninstall-${id}`}
+                            disabled={busy}
+                            onClick={() => void onUninstallExtra(id)}
+                            className="w-full max-w-full truncate rounded-lg border border-rose-400/40 bg-rose-500/10 px-2 py-1.5 text-center text-[11px] font-bold text-rose-50 hover:bg-rose-500/20 disabled:opacity-50"
+                          >
+                            {busyKey === `uninstall:${id}` ? "Uninstalling…" : "Uninstall"}
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   </li>
