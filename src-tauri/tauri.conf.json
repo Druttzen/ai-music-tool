@@ -7,7 +7,7 @@
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build && npm run build:sidecar-resources && npm run build:sidecar"
+    "beforeBuildCommand": "npm run build && npm run fetch:python-embed && npm run build:sidecar-resources && npm run build:sidecar"
   },
   "app": {
     "withGlobalTauri": true,
@@ -42,7 +42,8 @@
       "binaries/ai-sidecar"
     ],
     "resources": [
-      "resources/ai-sidecar"
+      "resources/ai-sidecar",
+      "resources/python-embed"
     ],
     "windows": {
       "nsis": {

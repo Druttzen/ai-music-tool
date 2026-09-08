@@ -266,6 +266,7 @@ fn install_into_user_venv_result(app: &AppHandle, id: &str, hint: &str) -> Sidec
             let mode = if err.to_ascii_lowercase().contains("timed out") {
                 "install-timeout"
             } else if err.to_ascii_lowercase().contains("need python")
+                || err.to_ascii_lowercase().contains("python-embed")
                 || err.to_ascii_lowercase().contains("package source not found")
             {
                 "bundled-readonly"
@@ -361,7 +362,7 @@ fn probe_install_env(app: &AppHandle) -> SidecarExtraInstallEnv {
                 mode: "writable".to_string(),
                 writable: true,
                 message: format!(
-                    "Sidecar extras venv is next to the app at {} — Install can run pip extras.",
+                    "Sidecar Python is next to the app at {} — Install can run pip extras.",
                     root.display()
                 ),
             };
@@ -369,23 +370,34 @@ fn probe_install_env(app: &AppHandle) -> SidecarExtraInstallEnv {
     }
 
     let has_pkg = resolve_package_source(Some(app)).is_some();
-    let has_py = find_system_python_310_312().is_some();
-    if has_pkg && has_py {
+    let has_embed = crate::python_embed::has_bundled_python_embed(Some(app));
+    if has_pkg && has_embed {
         return SidecarExtraInstallEnv {
             mode: "user-data-bootstrap".to_string(),
             writable: true,
             message: format!(
-                "First Install will create a writable sidecar venv next to the app at {} (needs Python 3.10–3.12; may take several minutes).",
+                "First Install will unpack bundled Python next to the app at {} and install packages (may take several minutes). No system Python required.",
                 app_layout::sidecar_dir(Some(app)).unwrap_or_else(|_| std::path::PathBuf::from("data/sidecar")).display()
             ),
         };
     }
 
-    if !has_py {
+    if has_pkg && !has_embed {
+        // Checkout fallback: system Python still OK for contributors without the embed cache.
+        if find_system_python_310_312().is_some() {
+            return SidecarExtraInstallEnv {
+                mode: "user-data-bootstrap".to_string(),
+                writable: true,
+                message: format!(
+                    "First Install will create a writable sidecar venv next to the app at {} (checkout Python 3.10–3.12).",
+                    app_layout::sidecar_dir(Some(app)).unwrap_or_else(|_| std::path::PathBuf::from("data/sidecar")).display()
+                ),
+            };
+        }
         return SidecarExtraInstallEnv {
             mode: "bundled-readonly".to_string(),
             writable: false,
-            message: "Need Python 3.10–3.12 on PATH to install sidecar extras in packaged Studio (or use a local checkout with ai-sidecar/.venv)."
+            message: "Bundled python-embed zip missing — run npm run fetch:python-embed before packaging, or use a checkout with Python 3.10–3.12."
                 .to_string(),
         };
     }

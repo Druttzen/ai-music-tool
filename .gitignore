@@ -22,6 +22,10 @@
 # Generated Tauri sidecar package copy (npm run build:sidecar-resources)
 /src-tauri/resources/ai-sidecar/*
 
+# Bundled embeddable CPython (npm run fetch:python-embed)
+/src-tauri/resources/python-embed/*
+!/src-tauri/resources/python-embed/.gitkeep
+
 # production
 /build/*
 !/build/

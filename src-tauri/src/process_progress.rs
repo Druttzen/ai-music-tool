@@ -94,14 +94,29 @@ pub fn parse_pip_progress_bytes(line: &str) -> Option<u64> {
     parse_paren_size(line).or_else(|| parse_slash_current(line))
 }
 
+/// Hide console windows for helper subprocesses on Windows (same flag as sidecar spawn).
+pub fn apply_create_no_window(cmd: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = cmd;
+    }
+}
+
 pub fn kill_process(pid: u32) {
     #[cfg(windows)]
     {
-        let _ = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/T", "/F"])
+        let mut cmd = Command::new("taskkill");
+        cmd.args(["/PID", &pid.to_string(), "/T", "/F"])
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+            .stderr(Stdio::null());
+        apply_create_no_window(&mut cmd);
+        let _ = cmd.status();
     }
     #[cfg(not(windows))]
     {
@@ -146,6 +161,7 @@ pub fn run_command_streaming(
         use std::os::unix::process::CommandExt;
         cmd.process_group(0);
     }
+    apply_create_no_window(&mut cmd);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = cmd
         .spawn()

@@ -231,7 +231,7 @@ describe("startup addon install runner", () => {
         probeEnv: async () => ({
           mode: "bundled-readonly",
           writable: false,
-          message: "Need Python 3.10–3.12",
+          message: "Bundled python-embed zip missing",
         }),
         getCanvasStatus: async () => ({ installed: true }),
         installExtra,

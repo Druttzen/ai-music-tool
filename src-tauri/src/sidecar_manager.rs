@@ -418,12 +418,7 @@ fn apply_spawn_stdio(cmd: &mut Command) {
     cmd.stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
+    crate::process_progress::apply_create_no_window(cmd);
 }
 
 fn sidecar_binary_names() -> &'static [&'static str] {

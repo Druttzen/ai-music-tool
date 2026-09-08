@@ -103,7 +103,13 @@ describe("sidecar extra install client", () => {
         error: "Install timed out after 20 minutes",
       }),
     ).toMatch(/timed out/i);
-    expect(formatSidecarExtraInstallStatus({ ok: false, error: "boom" })).toBe("boom");
+    expect(
+      formatSidecarExtraInstallStatus({
+        ok: false,
+        mode: "user-data-bootstrap",
+        message: "First Install will unpack bundled Python",
+      }),
+    ).toMatch(/bundled Python/i);
   });
 
   it("exports probe helper for desktop preflight", async () => {

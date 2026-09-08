@@ -43,7 +43,7 @@ The product boundary is audio and music. **AI Canvas Tool** is the sole direct v
 ## Highlights (v0.50.0)
 
 - **Canvas Tool handoff** — drop artwork in Analyzers, then **Open in Canvas Tool → Spotify loop**; Tauri-native export + shared `handoff.json` protocol with Electron legacy path.
-- **Shared suite paths** — `lib/suite-handoff-paths.json` keeps Canvas discovery aligned on `{STUDIO_DATA}/addons/canvas` (plus read-only Program Files / LOCALAPPDATA installs). Handoff and exports live under `{install}/data/`.
+- **Shared suite paths** — `lib/suite-handoff-paths.json` keeps Canvas discovery aligned on `{STUDIO_DATA}/addons/canvas` (app-dir only for Installed status; foreign installs can be relocated once). Handoff and exports live under `{install}/data/`. Packaged Studio embeds CPython under `resources/python-embed` → `{install}/data/sidecar/runtime`.
 - **Fail-safe bot fixes** — workflow can post commit comments on `master` (`contents: write`); Windows CLI import fixed for local `npm run fail-safe:run`.
 
 ## Highlights (v0.49.0)

@@ -22,7 +22,7 @@ Then place `AI.Canvas.Tool-*-Setup.exe` in `{Studio data}/archives/canvas-setup/
 
 When a track is analyzed in Music Creator, **Open in Canvas Tool** also exports `track-audio-*` to the suite exports folder and sets `audioPath` in `handoff.json` for preview sync in Canvas Tool.
 
-Status shows **Installed** when an executable from [`lib/suite-handoff-paths.json`](../lib/suite-handoff-paths.json) `canvasCandidates` is found (preferring `{STUDIO_DATA}/addons/canvas/`).
+Status shows **Installed** when an executable is found under `{STUDIO_DATA}/addons/canvas/` (or `$APPDIR` colocated candidates). Foreign Program Files / `%LOCALAPPDATA%\Programs` copies are not treated as Installed; Install may **relocate** them once into the Studio app data folder.
 
 ## How handoff works
 
@@ -30,7 +30,7 @@ Status shows **Installed** when an executable from [`lib/suite-handoff-paths.jso
 2. `handoff.json` is written at `{install}/data/handoff.json` with track title, artist, and art path
 3. **AI Canvas Tool** launches and imports the handoff automatically (when installed)
 
-Shared paths, executable candidates, and Canvas install metadata live in `lib/suite-handoff-paths.json` (used by Tauri Studio). Installer discovery is limited to Studio data / app-dir candidates; already-installed Canvas under Program Files / LOCALAPPDATA remains discoverable read-only.
+Shared paths, executable candidates, and Canvas install metadata live in `lib/suite-handoff-paths.json` (used by Tauri Studio). Installer discovery is limited to Studio data / app-dir candidates; a one-time relocate can copy an already-installed Canvas into `{STUDIO_DATA}/addons/canvas`.
 
 ## Desktop builds
 

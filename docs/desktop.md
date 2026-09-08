@@ -29,12 +29,13 @@ Tauri Studio checks the latest GitHub Release automatically after startup. When 
 
 **Check for updates** and **Update all** remain in the Project status card. Update all refreshes:
 
+- Sidecar toolchain — re-ensure bundled embeddable CPython (stamp mismatch re-extracts), upgrade `pip` / `setuptools` / `wheel`, upgrade the base editable sidecar package, and inventory optional tools under `{install}/data/tools` (Java / FFmpeg when present; not auto-installed)
 - Installed sidecar plugins / extras (already installed stacks only)
 - Canvas addon, when it is already present
 - Usable `.zip` archives in `{install}/data/{addons,tools,archives}`
 - Then the Studio app itself, when a newer signed release exists
 
-Packages are verified with the updater public key before installation. Addon/extra installs always target the Studio app data directory (`{install}/data` or `STUDIO_DATA_DIR`).
+Packages are verified with the updater public key before installation. Addon/extra installs always target the Studio app data directory (`{install}/data` or `STUDIO_DATA_DIR`). Packaged Studio ships an embeddable CPython under `resources/python-embed` and unpacks it to `{install}/data/sidecar/runtime` — **no system Python on PATH is required**.
 
 Closing Studio resets project and session workspaces to defaults on the next launch (presets and API credentials are kept).
 
@@ -55,8 +56,8 @@ Left sidebar **Addons**:
 
 - **Canvas** — Download / Install and Open work in Tauri Studio. The web UI alone cannot install Canvas.
 - **Sidecar extras** (MusicGen, cover, stems, vision, …) —
-  - **Dev / checkout:** **Install** runs `scripts/install-sidecar-*.ps1|.sh` when `ai-sidecar/.venv` exists.
-  - **Packaged Studio:** **Install** bootstraps a writable venv **next to the app** (`{install}/data/sidecar`), overlays bundled `ai-sidecar` sources onto `pkg/` (never wipes a locked dir), installs the selected extra, then restarts the sidecar from that venv (not the frozen binary). Canvas, profile, extras, tools, and user exports share that same `{install}/data` folder (`profile/`, `addons/`, `tools/`, `archives/`, `exports/`, `sidecar/cache|tmp`). Hugging Face, Torch, pip, Mel-Band, and sidecar job temps are forced under `sidecar/cache` + `sidecar/tmp` for every spawn path (including `tauri:dev`). Studio product downloads (WAV/FLAC/MP3/M4A, stems, Music Exchange, covers) write into `exports/` instead of the OS Downloads folder. Requires **Python 3.10–3.12** on PATH for first-time setup. Windows generate / vocal-rvc extras may use a pip fallback when strict pins fail. If the install folder is not writable (Program Files), Studio falls back to the OS app-data directory. If Python or package sources are missing, the UI copies the `npm run sidecar:*` hint instead.
+  - **Dev / checkout:** **Install** prefers `{STUDIO_DATA}/sidecar/runtime` (bundled embeddable CPython after `npm run fetch:python-embed`) or falls back to `ai-sidecar/.venv` via system Python.
+  - **Packaged Studio:** **Install** unpacks **bundled embeddable CPython** into `{install}/data/sidecar/runtime` (no Windows `py` launcher / PATH Python), overlays bundled `ai-sidecar` sources onto `pkg/`, installs the selected extra with pip, then restarts the sidecar from that runtime. Canvas, profile, extras, tools, and user exports share `{install}/data` (`profile/`, `addons/canvas/`, `tools/`, `archives/`, `exports/`, `sidecar/runtime|cache|tmp`). Hugging Face, Torch, pip, Mel-Band, and sidecar job temps stay under `sidecar/cache` + `sidecar/tmp`. Studio product downloads write into `exports/`. Helper probes and pip use `CREATE_NO_WINDOW` so no console flashes. If `{install}/data` is not writable (Program Files), Studio falls back to the OS app-data directory under `com.djmad.aimusiccreator.studio` — still this app, never another product's Python. If the embed zip or package sources are missing, the UI copies the `npm run sidecar:*` hint instead.
 
 **Exception:** the signed Studio app updater / NSIS installer still uses OS install paths (Programs / current-user install). Model roots set explicitly via `AIMC_*` env vars remain user-controlled.
 

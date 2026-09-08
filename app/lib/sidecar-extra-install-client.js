@@ -183,13 +183,13 @@ export function formatSidecarExtraInstallStatus(result) {
   if (result.mode === "bundled-readonly") {
     return (
       result.error ||
-      "Cannot install pip extras here — need Python 3.10–3.12 (packaged) or a local ai-sidecar/.venv, or run the npm hint"
+      "Cannot install pip extras here — need bundled python-embed (packaged) or a local checkout runtime/.venv, or run the npm hint"
     );
   }
   if (result.mode === "user-data-bootstrap") {
     return (
       result.message ||
-      "Ready to create a user-data sidecar venv — Install will bootstrap Python packages first"
+      "Ready to unpack bundled Python next to the app — Install will bootstrap packages first"
     );
   }
   if (result.mode === "install-timeout") {

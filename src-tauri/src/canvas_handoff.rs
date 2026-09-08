@@ -224,13 +224,31 @@ fn canvas_platform_candidates() -> &'static [String] {
 }
 
 fn resolve_canvas_executable() -> Option<PathBuf> {
+    // Only Studio-colocated installs count as "Installed" / launch targets.
     if let Some(local) = colocated_canvas_executable() {
         return Some(local);
     }
     canvas_platform_candidates()
         .iter()
         .map(|t| expand_path_template(t))
-        .find(|p| p.is_file())
+        .find(|p| {
+            let path = p.as_path();
+            if !path.is_file() {
+                return false;
+            }
+            // Reject Program Files / %LOCALAPPDATA%\Programs foreign installs.
+            if let Ok(data) = app_layout::data_dir(None) {
+                if path.starts_with(&data) {
+                    return true;
+                }
+            }
+            if let Some(install) = app_layout::install_dir() {
+                if path.starts_with(&install) {
+                    return true;
+                }
+            }
+            false
+        })
 }
 
 fn resolve_canvas_installer() -> Option<PathBuf> {
@@ -500,6 +518,14 @@ fn run_installer_into(installer: &Path, dest: &Path) -> Result<PathBuf, String> 
 
 fn install_or_open_canvas_setup(installer: &Path) -> (bool, &'static str, Option<String>) {
     let dest = canvas_install_dest();
+    // If addon folder empty, try binding a foreign install into app data once.
+    if find_exe_in_dir(&dest, 4).is_none() {
+        if let Some(exe) = relocate_foreign_canvas_into(&dest) {
+            let _ = exe;
+            cleanup_setup_exes_in_dest(&dest);
+            return (true, "relocated-local", None);
+        }
+    }
     match run_installer_into(installer, &dest) {
         Ok(_) => (true, "installed-local", None),
         Err(err) => (false, "install-failed", Some(err)),
@@ -511,6 +537,16 @@ fn launch_canvas_tool(handoff_file: Option<&Path>) -> bool {
         let mut cmd = Command::new(exe);
         if let Some(handoff) = handoff_file {
             cmd.arg("--handoff").arg(handoff);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            // CREATE_NO_WINDOW would hide a GUI app — use DETACHED_PROCESS instead so
+            // no console flashes while Canvas still shows its window.
+            const DETACHED_PROCESS: u32 = 0x0000_0008;
+            let _ = CREATE_NO_WINDOW;
+            cmd.creation_flags(DETACHED_PROCESS);
         }
         return cmd
             .spawn()

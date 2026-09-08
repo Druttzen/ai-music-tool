@@ -49,7 +49,12 @@ function Invoke-SidecarPip {
     $nativePref = $PSNativeCommandUseErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
   }
-  & $Pip @ArgumentList
+  # Embed runtime may pass python.exe — use `python -m pip …`.
+  if ($Pip -match '(?i)[\\/]python\.exe$') {
+    & $Pip -m pip @ArgumentList
+  } else {
+    & $Pip @ArgumentList
+  }
   $code = $LASTEXITCODE
   $ErrorActionPreference = $eap
   if ($null -ne $nativePref) {
@@ -67,17 +72,62 @@ function Ensure-SidecarVenv {
   $root = $RepoRoot
   if ($root.StartsWith('\\?\')) { $root = $root.Substring(4) }
   $sidecarPkg = Join-Path $root "ai-sidecar"
-  # When Studio data dir is set, install the writable venv there (canonical app-dir rule).
+  # When Studio data dir is set, install the writable runtime there (canonical app-dir rule).
   $sidecarRuntime = if ($env:STUDIO_DATA_DIR -and $env:STUDIO_DATA_DIR.Trim()) {
     Join-Path $env:STUDIO_DATA_DIR.Trim() "sidecar"
   } else {
     $sidecarPkg
   }
   New-Item -ItemType Directory -Force -Path $sidecarRuntime | Out-Null
-  $venv = Join-Path $sidecarRuntime ".venv"
   Set-SidecarRuntimeCacheEnv -SidecarDir $sidecarRuntime
-  $py = $null
 
+  $embedRuntime = Join-Path $sidecarRuntime "runtime"
+  $embedPy = Join-Path $embedRuntime "python.exe"
+  $embedZip = Join-Path $root "src-tauri\resources\python-embed\python-3.12.10-embed-amd64.zip"
+  $getPip = Join-Path $root "src-tauri\resources\python-embed\get-pip.py"
+
+  # Prefer bundled embeddable CPython under data/sidecar/runtime (no system py).
+  if (-not (Test-Path $embedPy)) {
+    if (Test-Path $embedZip) {
+      Write-Host "Unpacking bundled embeddable CPython to $embedRuntime..."
+      if (-not (Test-Path (Join-Path $root "src-tauri\resources\python-embed\get-pip.py"))) {
+        & node (Join-Path $root "scripts\fetch-python-embed.cjs")
+      }
+      if (Test-Path $embedRuntime) { Remove-Item -Recurse -Force $embedRuntime }
+      New-Item -ItemType Directory -Force -Path $embedRuntime | Out-Null
+      Expand-Archive -LiteralPath $embedZip -DestinationPath $embedRuntime -Force
+      Get-ChildItem -Path $embedRuntime -Filter "python*._pth" | ForEach-Object {
+        $body = Get-Content -LiteralPath $_.FullName -Raw
+        $body = $body -replace '(?m)^#import site\s*$', 'import site'
+        if ($body -notmatch '(?m)^import site\s*$') { $body = $body.TrimEnd() + "`nimport site`n" }
+        if ($body -notmatch 'Lib\\site-packages') { $body = $body.TrimEnd() + "`nLib\site-packages`n" }
+        Set-Content -LiteralPath $_.FullName -Value $body -NoNewline
+      }
+      if (Test-Path $getPip) {
+        Copy-Item -LiteralPath $getPip -Destination (Join-Path $embedRuntime "get-pip.py") -Force
+      }
+      & $embedPy (Join-Path $embedRuntime "get-pip.py") --no-warn-script-location
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & $embedPy -m pip install --upgrade pip
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      & $embedPy -m pip install -e $sidecarPkg
+      if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      Set-Content -LiteralPath (Join-Path $embedRuntime "AIMUSIC_PYTHON_VERSION.txt") -Value "3.12.10"
+    }
+  }
+
+  if (Test-Path $embedPy) {
+    return @{
+      Sidecar = $sidecarPkg
+      Venv = $embedRuntime
+      Pip = $embedPy
+      Python = $embedPy
+    }
+  }
+
+  # Contributor fallback: classic .venv via Windows py launcher (hidden when possible).
+  $venv = Join-Path $sidecarRuntime ".venv"
+  $py = $null
   foreach ($v in @("3.12", "3.11", "3.10")) {
     try {
       $out = & py "-$v" --version 2>&1
@@ -86,7 +136,7 @@ function Ensure-SidecarVenv {
   }
 
   if (-not $py) {
-    Write-Error "Need Python 3.10-3.12. Run: npm run bootstrap"
+    Write-Error "Need bundled python-embed (npm run fetch:python-embed) or Python 3.10-3.12. Run: npm run bootstrap"
     exit 1
   }
 
@@ -104,6 +154,7 @@ function Ensure-SidecarVenv {
     Sidecar = $sidecarPkg
     Venv = $venv
     Pip = (Join-Path $venv "Scripts\pip.exe")
+    Python = (Join-Path $venv "Scripts\python.exe")
   }
 }
 
@@ -208,7 +259,11 @@ function Install-SidecarExtra {
     if ($torchExtras -contains $part.Trim()) { $needsCuda = $true; break }
   }
   if ($needsCuda) {
-    Ensure-SidecarCudaTorch -Pip $ctx.Pip -Python (Join-Path $ctx.Venv "Scripts\python.exe")
+    $pythonExe = if ($ctx.Python) { $ctx.Python } else { Join-Path $ctx.Venv "Scripts\python.exe" }
+    if (-not (Test-Path $pythonExe)) {
+      $pythonExe = Join-Path $ctx.Venv "python.exe"
+    }
+    Ensure-SidecarCudaTorch -Pip $ctx.Pip -Python $pythonExe
   }
   Write-Host "Done. Restart the sidecar: npm run sidecar"
 }

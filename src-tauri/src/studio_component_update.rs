@@ -14,6 +14,7 @@ use crate::app_layout;
 use crate::canvas_handoff::refresh_canvas_addon_blocking;
 use crate::sidecar_extra_install::{known_extra_ids, upgrade_one_sidecar_extra};
 use crate::sidecar_manager::SidecarManager;
+use crate::sidecar_tools::refresh_sidecar_toolchain;
 use crate::sidecar_userdata::{ensure_user_sidecar_pkg, load_installed_extras};
 use crate::studio_updater::{install_studio_update, StudioUpdateCheckResult};
 
@@ -146,7 +147,7 @@ fn zip_is_newer_than_dest(zip_path: &Path, dest: &Path) -> bool {
     }
 }
 
-pub(crate) fn extract_zip_archive(zip_path: &Path, dest: &Path) -> Result<(), String> {
+pub fn extract_zip_archive(zip_path: &Path, dest: &Path) -> Result<(), String> {
     let file = fs::File::open(zip_path).map_err(|err| format!("open zip: {err}"))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|err| format!("read zip: {err}"))?;
     fs::create_dir_all(dest).map_err(|err| format!("create dest: {err}"))?;
@@ -337,6 +338,25 @@ fn update_components_blocking(
         components.extend(archives);
     }
 
+    emit_progress_pct(
+        &app,
+        "tools",
+        "tools",
+        "Refreshing Python, pip, and optional tools…",
+        Some(48),
+    );
+    // Stop before toolchain/pip upgrades so Windows file locks on the running sidecar clear.
+    manager.stop();
+    for tool in refresh_sidecar_toolchain(&app) {
+        components.push(ComponentUpdateItem {
+            kind: "tool".to_string(),
+            id: tool.id,
+            ok: tool.ok,
+            skipped: tool.skipped,
+            message: tool.message,
+        });
+    }
+
     let extras = extras_to_upgrade(&app);
     if extras.is_empty() {
         components.push(ComponentUpdateItem {
@@ -346,6 +366,8 @@ fn update_components_blocking(
             skipped: true,
             message: "No installed plugins to refresh".to_string(),
         });
+        manager.restart();
+        let _ = manager.wait_until_ready(Duration::from_secs(45));
         return components;
     }
 
@@ -356,7 +378,6 @@ fn update_components_blocking(
         "Updating installed sidecar plugins…",
         Some(55),
     );
-    manager.stop();
     let total = extras.len().max(1);
     for (index, extra_id) in extras.into_iter().enumerate() {
         let pct = 55 + ((index as u32 * 25) / total as u32);

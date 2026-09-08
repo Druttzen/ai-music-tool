@@ -3,8 +3,10 @@
 mod app_layout;
 mod canvas_handoff;
 mod process_progress;
+mod python_embed;
 mod sidecar_extra_install;
 mod sidecar_manager;
+mod sidecar_tools;
 mod sidecar_userdata;
 mod studio_component_update;
 mod studio_exports;

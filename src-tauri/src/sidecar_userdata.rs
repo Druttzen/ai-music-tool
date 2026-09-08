@@ -1,8 +1,9 @@
 //! User-data sidecar layout for packaged Studio extras installs.
 //!
 //! Layout under `{install}/data/sidecar/` (see `app_layout`):
+//! - `runtime/` — embeddable CPython (Windows packaged) + site-packages
 //! - `pkg/` — installable ai-music-sidecar sources (from bundle resources or checkout)
-//! - `.venv/` — writable venv used for uvicorn + pip extras
+//! - `.venv/` — legacy writable venv (checkout / older installs)
 //! - `version.txt` — package version stamp for pkg refresh
 //! - `cache/` — HF / Torch / pip / Mel-Band / transformers
 //! - `tmp/` — TEMP / TMP / TMPDIR for sidecar jobs
@@ -21,7 +22,10 @@ use tauri::{AppHandle, Manager};
 
 use crate::app_layout;
 use crate::process_progress::{
-    emit_install_progress, parse_pip_progress_bytes, run_command_streaming,
+    apply_create_no_window, emit_install_progress, parse_pip_progress_bytes, run_command_streaming,
+};
+use crate::python_embed::{
+    ensure_embed_runtime, has_bundled_python_embed, resolve_user_python, write_runtime_readme,
 };
 use crate::sidecar_manager::resolve_sidecar_dir;
 
@@ -38,17 +42,15 @@ pub fn user_sidecar_root_fallback() -> Option<PathBuf> {
         .or_else(app_layout::legacy_appdata_sidecar_root)
 }
 
-/// Prefer the colocated venv; keep a previous AppData venv alive until extras are reinstalled.
+/// Prefer the colocated runtime/venv. Do not keep spawning from legacy AppData.
 pub fn user_sidecar_runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
     let primary = user_sidecar_root(app)?;
     if user_venv_python(&primary).is_some() {
         return Ok(primary);
     }
-    if let Some(legacy) = app_layout::legacy_appdata_sidecar_root() {
-        if legacy != primary && user_venv_python(&legacy).is_some() {
-            return Ok(legacy);
-        }
-    }
+    // One-time: if primary has no Python yet but legacy AppData does, prefer primary
+    // (bootstrap will create runtime there). Never spawn from foreign PATH Python.
+    let _ = app_layout::legacy_appdata_sidecar_root();
     Ok(primary)
 }
 
@@ -58,6 +60,10 @@ pub fn user_pkg_dir(root: &Path) -> PathBuf {
 
 pub fn user_venv_dir(root: &Path) -> PathBuf {
     root.join(".venv")
+}
+
+pub fn user_runtime_dir(root: &Path) -> PathBuf {
+    crate::python_embed::user_runtime_dir(root)
 }
 
 pub fn user_cache_dir(root: &Path) -> PathBuf {
@@ -131,15 +137,7 @@ pub fn checkout_sidecar_cache_root(sidecar_dir: &Path) -> PathBuf {
 }
 
 pub fn user_venv_python(root: &Path) -> Option<PathBuf> {
-    #[cfg(windows)]
-    let py = user_venv_dir(root).join("Scripts/python.exe");
-    #[cfg(not(windows))]
-    let py = user_venv_dir(root).join("bin/python");
-    if py.is_file() {
-        Some(py)
-    } else {
-        None
-    }
+    resolve_user_python(root)
 }
 
 /// Version stamp from `version.txt` or `state.json` `packageVersion`.
@@ -182,17 +180,18 @@ pub fn py_launcher_version_flag(version: &str) -> String {
     format!("-{version}")
 }
 
-/// Prefer system Python 3.12 → 3.11 → 3.10 (no bare python3 / 3.13+).
+/// Prefer system Python 3.12 → 3.11 → 3.10 (checkout / non-Windows only).
+/// Packaged Windows Studio uses bundled embeddable CPython instead.
 pub fn find_system_python_310_312() -> Option<PathBuf> {
     #[cfg(windows)]
     {
         // py launcher needs a single `-3.10` flag — `py - 3.10` opens the default REPL.
         for v in ["3.12", "3.11", "3.10"] {
             let flag = py_launcher_version_flag(v);
-            if let Ok(out) = Command::new("py")
-                .args([&flag, "-c", "import sys; print(sys.executable)"])
-                .output()
-            {
+            let mut cmd = Command::new("py");
+            cmd.args([&flag, "-c", "import sys; print(sys.executable)"]);
+            apply_create_no_window(&mut cmd);
+            if let Ok(out) = cmd.output() {
                 if out.status.success() {
                     let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
                     if !path.is_empty() && Path::new(&path).is_file() {
@@ -212,10 +211,12 @@ pub fn find_system_python_310_312() -> Option<PathBuf> {
     #[cfg(not(windows))]
     {
         for name in ["python3.12", "python3.11", "python3.10"] {
-            if Command::new(name)
-                .arg("--version")
+            let mut cmd = Command::new(name);
+            cmd.arg("--version")
                 .stdout(Stdio::null())
-                .stderr(Stdio::null())
+                .stderr(Stdio::null());
+            apply_create_no_window(&mut cmd);
+            if cmd
                 .status()
                 .map(|s| s.success())
                 .unwrap_or(false)
@@ -230,7 +231,10 @@ pub fn find_system_python_310_312() -> Option<PathBuf> {
 
 #[cfg(windows)]
 fn resolve_windows_python_exe(name: &str) -> Option<PathBuf> {
-    if let Ok(out) = Command::new("where").arg(name).output() {
+    let mut cmd = Command::new("where");
+    cmd.arg(name);
+    apply_create_no_window(&mut cmd);
+    if let Ok(out) = cmd.output() {
         if out.status.success() {
             let first = String::from_utf8_lossy(&out.stdout)
                 .lines()
@@ -350,20 +354,37 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
         return Ok(existing);
     }
 
-    let system_py = find_system_python_310_312().ok_or_else(|| {
-        "Need Python 3.10–3.12 on PATH to create a writable sidecar venv (py -3.12 / python3.12)"
-            .to_string()
-    })?;
     let pkg = ensure_user_sidecar_pkg(app)?;
-    let venv = user_venv_dir(&root);
     let cache = user_cache_dir(&root);
     fs::create_dir_all(&cache).map_err(|e| format!("mkdir cache: {e}"))?;
 
-    let status = Command::new(&system_py)
-        .args(["-m", "venv"])
-        .arg(&venv)
-        .status()
-        .map_err(|e| format!("python -m venv: {e}"))?;
+    // Packaged Windows: unpack bundled embeddable CPython (no PATH / py launcher).
+    if has_bundled_python_embed(Some(app)) {
+        let py = ensure_embed_runtime(app, &root)?;
+        let _ = write_runtime_readme(user_runtime_dir(&root).as_path());
+        run_pip(&py, &["install", "--upgrade", "pip"], &root)?;
+        let pkg_str = pkg
+            .to_str()
+            .ok_or_else(|| "pkg path not utf-8".to_string())?
+            .to_string();
+        run_pip(&py, &["install", "-e", &pkg_str], &root)?;
+        return Ok(py);
+    }
+
+    // Checkout / non-Windows: create a classic .venv from system Python.
+    let system_py = find_system_python_310_312().ok_or_else(|| {
+        if cfg!(windows) {
+            "Bundled python-embed missing — run npm run fetch:python-embed before tauri:build, or use a local checkout with Python 3.10–3.12"
+                .to_string()
+        } else {
+            "Need Python 3.10–3.12 on PATH to create a writable sidecar venv".to_string()
+        }
+    })?;
+    let venv = user_venv_dir(&root);
+    let mut cmd = Command::new(&system_py);
+    cmd.args(["-m", "venv"]).arg(&venv);
+    apply_create_no_window(&mut cmd);
+    let status = cmd.status().map_err(|e| format!("python -m venv: {e}"))?;
     if !status.success() {
         return Err(format!("python -m venv failed (exit {status})"));
     }
@@ -395,6 +416,7 @@ pub fn run_pip_with_progress(
         cmd.arg(a);
     }
     apply_runtime_cache_env(&mut cmd, root);
+    apply_create_no_window(&mut cmd);
     cmd.env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
         .env("PYTHONUNBUFFERED", "1")
         .env("PIP_PROGRESS_BAR", "on")

@@ -191,6 +191,7 @@ pub fn prepare_app_layout() {
         &layout.archives,
         &layout.exports,
         &layout.addons.join("canvas"),
+        &layout.sidecar.join("runtime"),
         &layout.sidecar.join("tmp"),
         &sidecar_cache.join("huggingface"),
         &sidecar_cache.join("torch"),
