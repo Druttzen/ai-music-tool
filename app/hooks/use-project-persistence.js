@@ -124,7 +124,7 @@ export function useProjectPersistence({
           if (hist) setHistory(hist);
         } catch {
           setSkipWorkspaceAutosave(false);
-          setStatusWithTime("Could not load saved data");
+          setStatusWithTime("Could not load saved data", "error");
         } finally {
           hydratedRef.current = true;
         }

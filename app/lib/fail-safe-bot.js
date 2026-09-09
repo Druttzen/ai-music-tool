@@ -219,6 +219,34 @@ export function issueFromLocalFault(latest, count = 1) {
       safeFallback: "Prompt tools still work. Retry the vocal/YouTube action after sidecar is ready.",
     };
   }
+  if (source === "ui.status" || source.startsWith("ui.")) {
+    const title = String(latest?.message || "Studio error").slice(0, 96);
+    if (/install|uninstall|addon/i.test(title)) {
+      return {
+        ...shared,
+        id: "sidecar_extra_install",
+        severity: "warn",
+        title: "Sidecar extra / addon install failed",
+        safeFallback: "Studio still runs. Retry Install from Add-ons, or run the npm hint in a checkout.",
+      };
+    }
+    if (/youtube|vocal/i.test(title)) {
+      return {
+        ...shared,
+        id: "vocal_search",
+        severity: "warn",
+        title: "Vocal search / YouTube tool error",
+        safeFallback: "Prompt tools still work. Retry the vocal/YouTube action after sidecar is ready.",
+      };
+    }
+    return {
+      ...shared,
+      id: "studio_error",
+      severity: "warn",
+      title,
+      safeFallback: "The rest of the studio should still work. Retry the last action or reload.",
+    };
+  }
   return {
     ...shared,
     id: "unhandled_exception",

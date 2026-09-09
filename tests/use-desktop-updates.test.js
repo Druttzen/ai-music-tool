@@ -9,6 +9,7 @@ import { DesktopUpdateStatusBar } from "../app/components/desktop-update-status-
 import {
   resetDesktopUpdateSilentFlagForTests,
   useDesktopUpdates,
+  isStuckStudioUpdateProgress,
 } from "../app/hooks/use-desktop-updates.js";
 import {
   checkForDesktopUpdates,
@@ -71,6 +72,11 @@ describe("useDesktopUpdates", () => {
     expect(result.current.busy).toBe(false);
   });
 
+  it("treats the 85% Studio check as a stall", () => {
+    expect(isStuckStudioUpdateProgress("Checking Studio app update…", 85)).toBe(true);
+    expect(isStuckStudioUpdateProgress("Downloading Studio update…", 90)).toBe(false);
+  });
+
   it("exposes Update all / check controls for the header", async () => {
     const { result } = renderHook(() => useDesktopUpdates());
     await act(async () => {
@@ -80,5 +86,36 @@ describe("useDesktopUpdates", () => {
     expect(result.current.installLabel).toBe("Update all");
     expect(typeof result.current.checkUpdates).toBe("function");
     expect(typeof result.current.updateAll).toBe("function");
+  });
+
+  it("clears a stuck Studio app update check at 85%", async () => {
+    /** @type {(payload: object) => void} */
+    let onProgress = () => {};
+    subscribeToDesktopUpdateStatus.mockImplementation((cb) => {
+      onProgress = cb;
+      return () => {};
+    });
+    installDesktopUpdate.mockImplementation(() => new Promise(() => {}));
+
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    await act(async () => {
+      onProgress({
+        phase: "studio",
+        message: "Checking Studio app update…",
+        pct: 85,
+      });
+    });
+    expect(result.current.progressPct).toBe(85);
+    expect(result.current.visible).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.status).toMatch(/timed out/i);
   });
 });

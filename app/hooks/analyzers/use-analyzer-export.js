@@ -86,7 +86,7 @@ export function useAnalyzerExport({ audioAnalysis, audioPreviewUrlRef, setStatus
       } catch (err) {
         reportCaughtError("analyzers.exportEnhancedAudio", err);
         const msg = err instanceof Error ? err.message : "";
-        setStatusWithTime(msg ? msg.slice(0, 80) : "Studio export failed");
+        setStatusWithTime(msg ? msg.slice(0, 80) : "Studio export failed", "error");
       } finally {
         setAudioExportBusy(false);
         setAudioExportProgress(null);

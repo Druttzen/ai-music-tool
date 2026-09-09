@@ -283,48 +283,11 @@ export async function waitForSidecarExtraReady(extraId, options = {}) {
 export function reportSidecarExtraInstallIfFailed(source, result, thrown) {
   if (thrown) {
     const err = thrown instanceof Error ? thrown : new Error(String(thrown || "install failed"));
-    // #region agent log
-    fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "de2287" },
-      body: JSON.stringify({
-        sessionId: "de2287",
-        runId: "fail-safe-gap",
-        hypothesisId: "A",
-        location: "sidecar-extra-install-client.js:reportSidecarExtraInstallIfFailed",
-        message: "extra_install_thrown",
-        data: { source, reported: true, reason: "thrown", err: err.message.slice(0, 180) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     reportCaughtError(source, err);
     return { reported: true, reason: "thrown" };
   }
   const tone = sidecarExtraInstallStatusTone(result);
   const shouldReport = tone === "error";
-  // #region agent log
-  fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "de2287" },
-    body: JSON.stringify({
-      sessionId: "de2287",
-      runId: "fail-safe-gap",
-      hypothesisId: "A",
-      location: "sidecar-extra-install-client.js:reportSidecarExtraInstallIfFailed",
-      message: "extra_install_outcome",
-      data: {
-        source,
-        reported: shouldReport,
-        tone,
-        ok: result?.ok === true,
-        mode: result?.mode || null,
-        err: String(result?.error || result?.message || "").slice(0, 180),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   if (!shouldReport) return { reported: false, reason: tone };
   reportCaughtError(source, new Error(formatSidecarExtraInstallStatus(result)));
   return { reported: true, reason: "error-result" };

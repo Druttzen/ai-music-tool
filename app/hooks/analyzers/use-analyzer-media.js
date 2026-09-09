@@ -209,7 +209,7 @@ export function useAnalyzerMedia({
       } catch (err) {
         reportCaughtError("analyzers.attachAudioFile", err);
         const msg = err instanceof Error ? err.message : "";
-        setStatusWithTime(msg ? msg.slice(0, 100) : "Could not attach audio file");
+        setStatusWithTime(msg ? msg.slice(0, 100) : "Could not attach audio file", "error");
       } finally {
         if (audioContext) {
           try {
@@ -713,7 +713,7 @@ export function useAnalyzerMedia({
           sidecarStatusType,
         );
       } catch {
-        setStatusWithTime("Image analysis failed");
+        setStatusWithTime("Image analysis failed", "error");
       } finally {
         setAnalyzeImageBusy(false);
       }

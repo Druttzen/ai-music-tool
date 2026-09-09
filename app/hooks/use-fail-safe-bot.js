@@ -69,27 +69,6 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
         sidecarGenerateAvailable,
         appSubsystems: collectAppSubsystemSnapshot(),
       });
-      // #region agent log
-      fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "de2287" },
-        body: JSON.stringify({
-          sessionId: "de2287",
-          runId: "fail-safe-gap",
-          hypothesisId: "H",
-          location: "use-fail-safe-bot.js:probe",
-          message: "fail_safe_probe",
-          data: {
-            reason,
-            sidecarAiStatus: sidecarAiStatus || null,
-            issueIds: (next.issues || []).map((i) => i.id),
-            actionableIds: getActionableIssues(next.issues).map((i) => i.id),
-            overall: next.overall,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       setReport(next);
       safeLocalStorage.setJSON(FAIL_SAFE_STORAGE_KEY, next);
       // Fail-Safe Runtime (Product B): local queue only when enable + consent (default OFF).
@@ -159,26 +138,6 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
       previousStatus: previous,
       sidecarAiStatus,
     });
-    // #region agent log
-    fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "de2287" },
-      body: JSON.stringify({
-        sessionId: "de2287",
-        runId: "fail-safe-gap",
-        hypothesisId: "G",
-        location: "use-fail-safe-bot.js:sidecarWake",
-        message: "sidecar_wake_decision",
-        data: {
-          wake,
-          alreadyScanned: scannedRef.current,
-          previous: previous || null,
-          sidecarAiStatus: sidecarAiStatus || null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     if (!wake) {
       return undefined;
     }

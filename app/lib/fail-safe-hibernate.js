@@ -41,3 +41,30 @@ export function shouldWakeForSidecarOffline(input = {}) {
 export function resetLaunchScanGateForTests() {
   launchScanStarted = false;
 }
+
+/**
+ * Fail-Safe strip state. Sidecar "checking" must not hide recorded errors.
+ * @param {{
+ *   mounted?: boolean,
+ *   busy?: boolean,
+ *   hibernating?: boolean,
+ *   topIssue?: { title?: string } | null,
+ * }} input
+ */
+export function resolveFailSafeStripState(input = {}) {
+  const mounted = Boolean(input.mounted);
+  const busy = Boolean(input.busy);
+  const hibernating = Boolean(input.hibernating);
+  const title = String(input.topIssue?.title || "").trim();
+  if (title) {
+    return { checking: false, botOnline: mounted, statusLabel: title };
+  }
+  if (!mounted || busy) {
+    return { checking: true, botOnline: false, statusLabel: "checking…" };
+  }
+  return {
+    checking: false,
+    botOnline: true,
+    statusLabel: hibernating ? "online · watching for errors" : "online · runtime health OK",
+  };
+}

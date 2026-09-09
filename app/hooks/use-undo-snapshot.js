@@ -63,7 +63,7 @@ export function useUndoSnapshot(getState, applyState, setStatusWithTime) {
       );
       return true;
     } catch {
-      setStatusWithTime("Snapshot restore failed");
+      setStatusWithTime("Snapshot restore failed", "error");
       return false;
     }
   }, [applyState, setStatusWithTime]);

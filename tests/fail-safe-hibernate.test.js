@@ -4,6 +4,7 @@ import {
   resetLaunchScanGateForTests,
   shouldRunLaunchScan,
   shouldWakeForSidecarOffline,
+  resolveFailSafeStripState,
 } from "../app/lib/fail-safe-hibernate.js";
 
 describe("fail-safe-hibernate", () => {
@@ -44,5 +45,32 @@ describe("fail-safe-hibernate", () => {
         sidecarAiStatus: "offline",
       }),
     ).toBe(false);
+  });
+
+  it("shows recorded errors instead of sidecar checking on the Fail-Safe strip", () => {
+    expect(
+      resolveFailSafeStripState({
+        mounted: true,
+        busy: false,
+        hibernating: true,
+        topIssue: { title: "Sidecar extra / addon install failed" },
+      }).statusLabel,
+    ).toBe("Sidecar extra / addon install failed");
+    expect(
+      resolveFailSafeStripState({
+        mounted: true,
+        busy: true,
+        hibernating: false,
+        topIssue: { title: "Autosave failed" },
+      }).checking,
+    ).toBe(false);
+    expect(
+      resolveFailSafeStripState({
+        mounted: true,
+        busy: true,
+        hibernating: false,
+        topIssue: null,
+      }).statusLabel,
+    ).toBe("checking…");
   });
 });

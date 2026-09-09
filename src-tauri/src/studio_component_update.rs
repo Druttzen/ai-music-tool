@@ -455,6 +455,20 @@ pub async fn update_studio_all(
         Some(85),
     );
     let studio = install_studio_update(app.clone()).await;
+    emit_progress_pct(
+        &app,
+        "studio",
+        "studio",
+        if studio.ok {
+            "Studio app update check finished"
+        } else {
+            studio
+                .error
+                .as_deref()
+                .unwrap_or("Studio update check failed")
+        },
+        Some(if studio.ok { 100 } else { 85 }),
+    );
     let failed = components.iter().any(|item| !item.ok);
     let summary = summarize(&components, &studio);
     Ok(StudioAllUpdateResult {

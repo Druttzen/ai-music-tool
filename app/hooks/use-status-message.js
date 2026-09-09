@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { reportStatusFault } from "../lib/fail-safe-runtime-capture";
 
 export const ACTION_TOAST_MS = 2800;
 
@@ -35,6 +36,7 @@ export function useStatusMessage(initialValue = "Not saved yet") {
       setToast((current) => (current?.tick === tick ? null : current));
       timerRef.current = null;
     }, ACTION_TOAST_MS);
+    reportStatusFault(message, type);
   }, []);
 
   useEffect(

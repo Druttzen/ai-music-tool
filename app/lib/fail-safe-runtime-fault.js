@@ -56,7 +56,9 @@ export function recordLocalFault(input = {}) {
   const fingerprint = `${source}:${message}`.slice(0, 96);
   const current = load();
   const dup = current.some(
-    (item) => item.fingerprint === fingerprint && Math.abs((item.at || 0) - at) < DEDUPE_MS,
+    (item) =>
+      Math.abs((item.at || 0) - at) < DEDUPE_MS &&
+      (item.fingerprint === fingerprint || item.message === message),
   );
   if (dup) {
     return { ok: false, reason: "duplicate" };

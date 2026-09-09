@@ -37,7 +37,6 @@ export function useSidecarStatus() {
 
     const probeSidecar = async () => {
       if (cancelled) return;
-      setSidecarAiStatus("checking");
       let nextStatus = "offline";
       try {
         resetSidecarHealthCache();

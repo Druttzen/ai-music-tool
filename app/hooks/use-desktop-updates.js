@@ -8,6 +8,8 @@ import {
   subscribeToDesktopUpdateStatus,
 } from "../lib/desktop-update-bridge";
 
+import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
+
 const PHASE_PCT = {
   sidecar: 12,
   canvas: 28,
@@ -18,6 +20,12 @@ const PHASE_PCT = {
   "studio-download": 90,
   "studio-install": 99,
 };
+
+export const STUDIO_UPDATE_CHECK_STALL_MS = 20_000;
+
+export function isStuckStudioUpdateProgress(status, pct) {
+  return pct === 85 && /checking studio app update/i.test(String(status || ""));
+}
 
 /** Shared across hook instances (status bar + header controls). */
 let silentUpdateStarted = false;
@@ -181,7 +189,13 @@ export function useDesktopUpdates() {
       } else if (payload.phase && PHASE_PCT[payload.phase] != null) {
         setProgressPct(PHASE_PCT[payload.phase]);
       }
-      if (message || payload.phase) setBusy(true);
+      const finished =
+        payload.pct === 100 || /update check finished|timed out/i.test(message);
+      if (finished) {
+        setBusy(false);
+      } else if (message || payload.phase) {
+        setBusy(true);
+      }
     });
     const timer = setTimeout(() => void runSilentUpdate(), 1500);
     return () => {
@@ -190,6 +204,18 @@ export function useDesktopUpdates() {
       clearHideTimer();
     };
   }, [clearHideTimer, runSilentUpdate, runtime]);
+
+  useEffect(() => {
+    if (!busy || !isStuckStudioUpdateProgress(status, progressPct)) return undefined;
+    const timer = setTimeout(() => {
+      reportCaughtError(
+        "desktop.update.studio-check",
+        new Error(status || "Studio update check stalled at 85%"),
+      );
+      showErrorBriefly("Studio update check timed out — GitHub did not respond");
+    }, STUDIO_UPDATE_CHECK_STALL_MS);
+    return () => clearTimeout(timer);
+  }, [busy, progressPct, showErrorBriefly, status]);
 
   return {
     available: Boolean(runtime),

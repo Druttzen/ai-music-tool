@@ -103,6 +103,10 @@ describe("fail-safe-bot", () => {
     expect(issueFromLocalFault({ source: "character-voice.youtube", message: "sidecar offline" }).id).toBe(
       "vocal_search",
     );
+    expect(issueFromLocalFault({ source: "ui.status", message: "Autosave failed" }).id).toBe("studio_error");
+    expect(issueFromLocalFault({ source: "ui.status", message: "Could not install extra" }).id).toBe(
+      "sidecar_extra_install",
+    );
     const extraReport = buildRuntimeHealthReport({
       sidecarAiStatus: "ready",
       sidecarGenerateAvailable: true,

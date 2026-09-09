@@ -6,6 +6,7 @@ import {
   getActionableIssues,
   overallSeverity,
 } from "../lib/fail-safe-bot";
+import { resolveFailSafeStripState } from "../lib/fail-safe-hibernate";
 import { useFailSafeBot } from "../hooks/use-fail-safe-bot";
 import { useFailSafeFixPush } from "../hooks/use-fail-safe-fix-push";
 import { useFailSafeFixSession } from "../hooks/use-fail-safe-fix-session";
@@ -68,7 +69,6 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
   const [queueLen, setQueueLen] = useState(0);
   const [runtimeDeliverBusy, setRuntimeDeliverBusy] = useState(false);
 
-  const checking = !mounted || busy || sidecarAiStatus === "checking";
   const actionable = getActionableIssues(report?.issues);
   const overall =
     mounted && report
@@ -77,6 +77,15 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
         : report.overall
       : "ok";
   const topIssue = actionable[0] || null;
+  const strip = resolveFailSafeStripState({
+    mounted,
+    busy,
+    hibernating,
+    topIssue,
+  });
+  const checking = strip.checking;
+  const botOnline = strip.botOnline;
+  const statusLabel = strip.statusLabel;
   const displayIssues = expanded
     ? report?.issues || []
     : actionable.length
@@ -89,7 +98,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
 
   const e2e = process.env.NEXT_PUBLIC_E2E === "1";
   const fixSession = useFailSafeFixSession({
-    actionableIssues: mounted && !checking ? actionable : [],
+    actionableIssues: mounted ? actionable : [],
     fixAndPush,
     fixPushAvailable,
     autoStartFix: fixPushAvailable,
@@ -117,15 +126,6 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
   const statusClass = checking
     ? SEVERITY_STYLES.checking
     : SEVERITY_STYLES[overall] || SEVERITY_STYLES.ok;
-
-  const botOnline = mounted && !checking;
-  const statusLabel = checking
-    ? "checking…"
-    : topIssue
-      ? topIssue.title
-      : hibernating
-        ? "online · watching for errors"
-        : "online · runtime health OK";
 
   const handleCopy = async () => {
     const ok = await copyFixCommands();
