@@ -10,8 +10,8 @@ use crate::app_layout;
 use crate::process_progress::apply_create_no_window;
 use crate::python_embed::{bundled_python_version, ensure_embed_runtime, has_bundled_python_embed};
 use crate::sidecar_userdata::{
-    bootstrap_user_venv, ensure_user_sidecar_pkg, run_pip, user_runtime_dir, user_sidecar_root,
-    user_venv_python,
+    bootstrap_user_venv, ensure_user_sidecar_pkg, install_sidecar_pkg_editable, run_pip,
+    user_runtime_dir, user_sidecar_root, user_venv_python,
 };
 
 #[derive(Debug, Clone)]
@@ -238,8 +238,7 @@ pub fn refresh_sidecar_toolchain(app: &AppHandle) -> Vec<ToolRefreshItem> {
 
     match ensure_user_sidecar_pkg(app) {
         Ok(pkg) => {
-            let pkg_str = pkg.to_string_lossy().to_string();
-            match run_pip(&python, &["install", "-U", "-e", &pkg_str], &root) {
+            match install_sidecar_pkg_editable(&python, &root, &pkg, None, true, None) {
                 Ok(_) => items.push(item(
                     "sidecar-base",
                     true,

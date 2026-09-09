@@ -363,11 +363,7 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
         let py = ensure_embed_runtime(app, &root)?;
         let _ = write_runtime_readme(user_runtime_dir(&root).as_path());
         run_pip(&py, &["install", "--upgrade", "pip"], &root)?;
-        let pkg_str = pkg
-            .to_str()
-            .ok_or_else(|| "pkg path not utf-8".to_string())?
-            .to_string();
-        run_pip(&py, &["install", "-e", &pkg_str], &root)?;
+        install_sidecar_pkg_editable(&py, &root, &pkg, None, false, None)?;
         return Ok(py);
     }
 
@@ -392,12 +388,53 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
     let py = user_venv_python(&root).ok_or_else(|| "venv python missing after create".to_string())?;
 
     run_pip(&py, &["install", "--upgrade", "pip"], &root)?;
-    let pkg_str = pkg
-        .to_str()
-        .ok_or_else(|| "pkg path not utf-8".to_string())?
-        .to_string();
-    run_pip(&py, &["install", "-e", &pkg_str], &root)?;
+    install_sidecar_pkg_editable(&py, &root, &pkg, None, false, None)?;
     Ok(py)
+}
+
+/// Hatchling + editables must live in the user runtime before `pip install -e`.
+pub const SIDECAR_BUILD_BACKEND_PACKAGES: &[&str] = &["hatchling", "editables"];
+
+/// Args for an editable install of the local sidecar package (`pkg` or `pkg[extra]`).
+pub fn pip_editable_pkg_args(pkg: &Path, extra: Option<&str>, upgrade: bool) -> Vec<String> {
+    let req = match extra {
+        Some(spec) if !spec.is_empty() => format!("{}[{spec}]", pkg.display()),
+        _ => pkg.display().to_string(),
+    };
+    let mut args = vec!["install".to_string()];
+    if upgrade {
+        args.push("-U".to_string());
+    }
+    args.push("-e".to_string());
+    args.push(req);
+    args
+}
+
+/// Install hatchling/editables into the embed runtime so pip 26 can import hatchling.build.
+pub fn ensure_sidecar_build_backend(
+    python: &Path,
+    root: &Path,
+    progress: Option<(&AppHandle, &str)>,
+) -> Result<String, String> {
+    let mut args = vec!["install", "-U"];
+    args.extend_from_slice(SIDECAR_BUILD_BACKEND_PACKAGES);
+    run_pip_with_progress(python, &args, root, progress)
+}
+
+/// Editable-install the sidecar package (and optional extra) after the build backend is present.
+pub fn install_sidecar_pkg_editable(
+    python: &Path,
+    root: &Path,
+    pkg: &Path,
+    extra: Option<&str>,
+    upgrade: bool,
+    progress: Option<(&AppHandle, &str)>,
+) -> Result<String, String> {
+    let backend_log = ensure_sidecar_build_backend(python, root, progress)?;
+    let args = pip_editable_pkg_args(pkg, extra, upgrade);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let pkg_log = run_pip_with_progress(python, &refs, root, progress)?;
+    Ok(format!("{backend_log}\n{pkg_log}"))
 }
 
 pub fn run_pip(python: &Path, args: &[&str], root: &Path) -> Result<String, String> {
@@ -578,9 +615,8 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
     let py = bootstrap_user_venv(app)?;
     let pkg = ensure_user_sidecar_pkg(app)?;
     let spec = pip_extra_spec(extra_id).ok_or_else(|| format!("Unknown sidecar extra: {extra_id}"))?;
-    let req = format!("{}[{spec}]", pkg.display());
     let progress = Some((app, extra_id));
-    let mut out = match run_pip_with_progress(&py, &["install", "-U", "-e", &req], &root, progress) {
+    let mut out = match install_sidecar_pkg_editable(&py, &root, &pkg, Some(spec), true, progress) {
         Ok(log) => log,
         Err(err) if spec == "generate" => {
             let fallback = generate_windows_fallback(&py, &root, progress)?;
@@ -694,6 +730,19 @@ mod tests {
         assert_eq!(pip_extra_spec("vocal_ml"), Some("vocal"));
         assert_eq!(pip_extra_spec("cover_ref"), Some("cover-ref"));
         assert_eq!(pip_extra_spec("nope"), None);
+    }
+
+    #[test]
+    fn pip_editable_pkg_args_include_extra_and_upgrade() {
+        let pkg = PathBuf::from(r"B:\AI Music Creator Studio\data\sidecar\pkg");
+        let args = pip_editable_pkg_args(&pkg, Some("classify"), true);
+        assert_eq!(args[0], "install");
+        assert!(args.contains(&"-U".to_string()));
+        assert!(args.contains(&"-e".to_string()));
+        assert!(args
+            .iter()
+            .any(|a| a.ends_with(r"\pkg[classify]") || a.ends_with("/pkg[classify]")));
+        assert_eq!(SIDECAR_BUILD_BACKEND_PACKAGES, &["hatchling", "editables"]);
     }
 
     #[test]

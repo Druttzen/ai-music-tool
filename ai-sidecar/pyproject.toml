@@ -1,6 +1,6 @@
 [project]
 name = "ai-music-sidecar"
-version = "0.50.39"
+version = "0.50.40"
 description = "Local AI inference sidecar for AI Music Creator (analysis, stem separation, generation)."
 requires-python = ">=3.10,<3.13"  # PyTorch / audiocraft / demucs have no 3.13+ wheels yet
 
@@ -79,7 +79,10 @@ all = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+# `editables` is required for hatchling PEP 660 (`pip install -e`). Packaged
+# embeddable CPython has no `venv` module, so extras must preinstall these
+# into the runtime before pip 26's editable_sanity_check imports hatchling.build.
+requires = ["hatchling", "editables"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

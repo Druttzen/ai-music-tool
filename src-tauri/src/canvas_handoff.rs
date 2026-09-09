@@ -411,6 +411,27 @@ fn looks_like_inno_installer(path: &Path) -> bool {
     name.contains("inno") || name.ends_with("-installer.exe")
 }
 
+fn path_has_whitespace(path: &Path) -> bool {
+    path.as_os_str()
+        .to_string_lossy()
+        .chars()
+        .any(char::is_whitespace)
+}
+
+/// electron-builder NSIS `/D=` writes nothing when the dest path contains spaces
+/// (exit code still 0). Stage into a spaceless folder, then copy.
+fn nsis_staging_dir(dest: &Path) -> PathBuf {
+    let tmp = std::env::temp_dir().join("aimc-canvas-nsis");
+    if !path_has_whitespace(&tmp) {
+        return tmp;
+    }
+    dest.ancestors()
+        .last()
+        .map(|root| root.join("aimc-canvas-nsis"))
+        .filter(|p| !path_has_whitespace(p))
+        .unwrap_or(tmp)
+}
+
 fn cleanup_setup_exes_in_dest(dest: &Path) {
     let Ok(entries) = fs::read_dir(dest) else {
         return;
@@ -438,19 +459,32 @@ fn cleanup_setup_exes_in_dest(dest: &Path) {
 fn run_silent_nsis(installer: &Path, dest: &Path) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let dest_str = dest.to_string_lossy().replace('/', "\\");
-    // NSIS: /D= must be last and unquoted (even with spaces).
+    let install_dir = if path_has_whitespace(dest) {
+        nsis_staging_dir(dest)
+    } else {
+        dest.to_path_buf()
+    };
+    fs::create_dir_all(&install_dir).map_err(|e| format!("create nsis staging: {e}"))?;
+    let dest_str = install_dir.to_string_lossy().replace('/', "\\");
+    // NSIS: /D= must be last and unquoted. Paths with spaces still fail; those
+    // go through spaceless staging above.
     let status = Command::new(installer)
         .arg("/S")
         .raw_arg(format!("/D={dest_str}"))
         .creation_flags(CREATE_NO_WINDOW)
         .status()
         .map_err(|e| format!("NSIS spawn failed: {e}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("NSIS silent install exited with {status}"))
+    if !status.success() {
+        return Err(format!("NSIS silent install exited with {status}"));
     }
+    if install_dir != dest {
+        if find_exe_in_dir(&install_dir, 4).is_none() {
+            return Err("NSIS staging dir has no Canvas exe".to_string());
+        }
+        copy_dir_recursive(&install_dir, dest)?;
+        let _ = fs::remove_dir_all(&install_dir);
+    }
+    Ok(())
 }
 
 #[cfg(windows)]
@@ -1196,21 +1230,46 @@ pub fn export_canvas_handoff(
     }
 }
 
+#[cfg(test)]
+mod canvas_nsis_dest_tests {
+    use super::*;
+
+    #[test]
+    fn studio_data_path_with_spaces_needs_nsis_staging() {
+        let dest = PathBuf::from(r"B:\AI Music Creator Studio\data\addons\canvas");
+        assert!(path_has_whitespace(&dest));
+        let stage = nsis_staging_dir(&dest);
+        assert!(!path_has_whitespace(&stage));
+        assert_ne!(stage, dest);
+    }
+
+    #[test]
+    fn spaceless_addon_path_does_not_need_staging() {
+        let dest = PathBuf::from(r"B:\aimc-data\addons\canvas");
+        assert!(!path_has_whitespace(&dest));
+    }
+}
+
 #[cfg(all(test, windows))]
 mod silent_install_tests {
     use super::*;
 
+    fn canvas_setup_exe() -> Option<PathBuf> {
+        let candidates = [
+            PathBuf::from(
+                r"B:\AI Music Creator Studio\data\archives\canvas-setup\AI.Canvas.Tool-1.1.1-Setup.exe",
+            ),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("target/debug/data/archives/canvas-setup/AI.Canvas.Tool-1.1.1-Setup.exe"),
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("target/debug/data/addons/canvas/AI.Canvas.Tool-1.1.1-Setup.exe"),
+        ];
+        candidates.into_iter().find(|p| p.is_file())
+    }
+
     #[test]
     fn nsis_silent_installs_into_dest_without_inno() {
-        let staged = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("target/debug/data/archives/canvas-setup/AI.Canvas.Tool-1.1.1-Setup.exe");
-        let alt = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("target/debug/data/addons/canvas/AI.Canvas.Tool-1.1.1-Setup.exe");
-        let installer = if staged.is_file() {
-            staged
-        } else if alt.is_file() {
-            alt
-        } else {
+        let Some(installer) = canvas_setup_exe() else {
             eprintln!("skip: Canvas Setup.exe not present for silent install test");
             return;
         };
@@ -1224,11 +1283,36 @@ mod silent_install_tests {
             "exe must live under app data dest: {}",
             exe.display()
         );
-        // Setup must not remain in the app folder.
         let leftover = fs::read_dir(&dest).unwrap().flatten().any(|e| {
             let n = e.file_name().to_string_lossy().to_ascii_lowercase();
             n.contains("setup") && n.ends_with(".exe")
         });
         assert!(!leftover, "Setup.exe must not remain in Canvas app dir");
+    }
+
+    #[test]
+    fn nsis_silent_installs_into_spaced_dest_via_staging() {
+        let Some(installer) = canvas_setup_exe() else {
+            eprintln!("skip: Canvas Setup.exe not present for silent install test");
+            return;
+        };
+        let dest = std::env::temp_dir()
+            .join("aimc canvas spaced")
+            .join("addons")
+            .join("canvas");
+        assert!(
+            path_has_whitespace(&dest),
+            "test dest must contain spaces: {}",
+            dest.display()
+        );
+        let _ = fs::remove_dir_all(dest.parent().unwrap());
+        let exe = run_installer_into(&installer, &dest).expect("silent NSIS into spaced dest");
+        assert!(exe.is_file(), "expected Canvas exe at {}", exe.display());
+        assert!(
+            exe.starts_with(&dest),
+            "exe must live under spaced dest: {}",
+            exe.display()
+        );
+        let _ = fs::remove_dir_all(dest.parent().unwrap());
     }
 }
