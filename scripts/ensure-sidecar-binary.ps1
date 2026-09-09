@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Ensure the Tauri externalBin sidecar exists for the current host triple.
-  Skips PyInstaller when the binary is already present.
+  Skips PyInstaller when the binary version stamp matches package.json.
 #>
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -14,10 +14,19 @@ $name = "ai-sidecar-$triple.exe"
 if (-not ($triple -match "windows")) { $name = "ai-sidecar-$triple" }
 
 $dest = Join-Path $binDir $name
-if (Test-Path $dest) {
-  Write-Host "Sidecar binary present: $name"
+$stamp = "$dest.version"
+$pkgVersion = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
+$stampOk = (Test-Path $dest) -and (Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $pkgVersion)
+if ($stampOk) {
+  Write-Host "Sidecar binary current: $name ($pkgVersion)"
   exit 0
 }
 
-Write-Host "Sidecar binary missing - building via PyInstaller..."
+if (Test-Path $dest) {
+  Write-Host "Sidecar binary stale or unstamped: $name — rebuilding for $pkgVersion"
+} else {
+  Write-Host "Sidecar binary missing - building via PyInstaller..."
+}
 & (Join-Path $PSScriptRoot "build-sidecar-bundle.ps1")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Set-Content -Path $stamp -Value $pkgVersion -Encoding ascii

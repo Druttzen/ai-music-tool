@@ -130,7 +130,10 @@ def test_separate_mocked_demucs_roundtrip():
 
 
 def test_health_reports_stems_available_when_demucs_importable():
+    from ai_sidecar.registry import invalidate_capability_cache
+
     _install_fake_demucs_modules()
+    invalidate_capability_cache()
     res = client.get("/health")
     assert res.status_code == 200
     assert res.json()["stems_available"] is True

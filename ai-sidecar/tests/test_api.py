@@ -15,6 +15,7 @@ from ai_sidecar.main import app, _stems_available
 from ai_sidecar.device import detect_device, select_device
 from ai_sidecar.registry import (
     CAPABILITIES,
+    _module_installed,
     invalidate_capability_cache,
     list_capabilities,
     missing_install_hints,
@@ -85,6 +86,19 @@ def test_list_capabilities_health_probes_are_fast():
     elapsed = time.perf_counter() - t0
     assert caps
     assert elapsed < 1.0, elapsed
+
+
+def test_module_installed_treats_sys_modules_without_spec_as_present():
+    import sys
+    import types
+
+    name = "aimc_fake_health_probe_pkg"
+    sys.modules[name] = types.ModuleType(name)
+    try:
+        assert getattr(sys.modules[name], "__spec__", None) is None
+        assert _module_installed(name) is True
+    finally:
+        sys.modules.pop(name, None)
 
 
 def test_health_reuses_cached_capability_snapshot(monkeypatch):

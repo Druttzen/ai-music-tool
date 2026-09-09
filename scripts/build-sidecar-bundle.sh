@@ -28,6 +28,7 @@ fi
 rm -rf "$SIDECAR/dist" "$SIDECAR/build"
 
 echo "Building $OUT_NAME..."
+unset PYTHONPATH || true
 cd "$SIDECAR"
 "$VENV/bin/pyinstaller" --noconfirm --onefile --clean \
   --name "$BASE" \
@@ -37,6 +38,11 @@ cd "$SIDECAR"
   --collect-all librosa \
   --collect-all soundfile \
   --hidden-import ai_sidecar.main \
+  --exclude-module torch \
+  --exclude-module torchvision \
+  --exclude-module torio \
+  --exclude-module demucs \
+  --exclude-module rvc_python \
   run_sidecar.py
 
 mkdir -p "$BIN_DIR"

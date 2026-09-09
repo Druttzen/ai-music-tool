@@ -7,10 +7,12 @@ Falls back to scipy/librosa DSP when models are not configured.
 from __future__ import annotations
 
 import base64
+import importlib.util
 import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -32,11 +34,13 @@ def _env_path(name: str) -> str | None:
 
 
 def rvc_python_available() -> bool:
+    """True when the rvc_python package is installed — does not import the engine (health must stay fast)."""
+    if "rvc_python" in sys.modules:
+        return True
     try:
-        from rvc_python.infer import RVCInference  # noqa: F401, PLC0415
-    except Exception:
+        return importlib.util.find_spec("rvc_python") is not None
+    except (ImportError, ValueError, ModuleNotFoundError):
         return False
-    return True
 
 
 def rvc_api_configured() -> bool:

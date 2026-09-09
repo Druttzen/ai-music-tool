@@ -12,10 +12,16 @@ from typing import Callable
 
 def _module_installed(*names: str) -> bool:
     """True when packages are discoverable — does not import them (health must stay fast)."""
-    try:
-        return all(importlib.util.find_spec(name) is not None for name in names)
-    except (ImportError, ValueError, ModuleNotFoundError):
-        return False
+    for name in names:
+        if name in sys.modules:
+            continue
+        try:
+            spec = importlib.util.find_spec(name)
+        except (ImportError, ValueError, ModuleNotFoundError):
+            return False
+        if spec is None:
+            return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -106,9 +112,9 @@ def _probe_vocal_torch() -> bool:
 
 
 def _probe_rvc() -> bool:
-    from .vocal_ml_models import rvc_api_configured
+    from .vocal_ml_models import rvc_api_configured, rvc_python_available
 
-    return rvc_api_configured() or _module_installed("rvc_python")
+    return rvc_api_configured() or rvc_python_available()
 
 
 def _probe_diffsinger() -> bool:

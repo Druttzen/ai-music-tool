@@ -644,6 +644,7 @@ fn user_data_sidecar_is_current(app: &AppHandle) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SidecarSpawnStep {
     CurrentUserVenv,
+    BootstrapUserVenv,
     Dev,
     Bundled,
     AnyUserVenv,
@@ -656,6 +657,11 @@ fn sidecar_spawn_steps(skip_user_venv: bool, user_venv_current: bool, debug: boo
     }
     if debug {
         steps.push(SidecarSpawnStep::Dev);
+    }
+    // Packaged first launch has no stamp yet. Bootstrap embed CPython before the
+    // PyInstaller fallback so a stale 0.1.0 binary cannot occupy :8723.
+    if !skip_user_venv && !user_venv_current {
+        steps.push(SidecarSpawnStep::BootstrapUserVenv);
     }
     steps.push(SidecarSpawnStep::Bundled);
     if !skip_user_venv {
@@ -685,6 +691,17 @@ fn spawn_sidecar_process(
                 if let Some(handle) = app {
                     match spawn_user_data_sidecar(handle, token) {
                         Ok(child) => return Ok((child, false)),
+                        Err(e) => last_err = Some(e),
+                    }
+                }
+            }
+            SidecarSpawnStep::BootstrapUserVenv => {
+                if let Some(handle) = app {
+                    match crate::sidecar_userdata::bootstrap_user_venv(handle) {
+                        Ok(_) => match spawn_user_data_sidecar(handle, token) {
+                            Ok(child) => return Ok((child, false)),
+                            Err(e) => last_err = Some(e),
+                        },
                         Err(e) => last_err = Some(e),
                     }
                 }
@@ -753,6 +770,7 @@ mod tests {
         assert_eq!(
             steps,
             vec![
+                SidecarSpawnStep::BootstrapUserVenv,
                 SidecarSpawnStep::Bundled,
                 SidecarSpawnStep::AnyUserVenv,
                 SidecarSpawnStep::Dev,

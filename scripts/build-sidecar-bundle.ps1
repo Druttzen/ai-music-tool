@@ -45,6 +45,8 @@ if (Test-Path $dist) { Remove-Item -Recurse -Force $dist }
 if (Test-Path $build) { Remove-Item -Recurse -Force $build }
 
 Write-Host "Building $outName (this may take several minutes)..."
+# Never freeze a user install PYTHONPATH (B:\...\data\sidecar\pkg) or optional torch extras.
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
 Push-Location $sidecar
 try {
   & "$venv\Scripts\pyinstaller" --noconfirm --onefile --clean `
@@ -55,6 +57,11 @@ try {
     --collect-all librosa `
     --collect-all soundfile `
     --hidden-import ai_sidecar.main `
+    --exclude-module torch `
+    --exclude-module torchvision `
+    --exclude-module torio `
+    --exclude-module demucs `
+    --exclude-module rvc_python `
     run_sidecar.py
   if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
 } finally {
