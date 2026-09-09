@@ -31,8 +31,10 @@ import {
 import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
+  reportSidecarExtraInstallIfFailed,
   sidecarExtraInstallStatusTone,
 } from "../lib/sidecar-extra-install-client";
+import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
 import { pickVoiceStyleCompactForCoProducer } from "../lib/voice-character-studio-session";
 import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
 import {
@@ -47,6 +49,10 @@ import {
   shouldClearAlignOnLyricsChange,
   vocalEmbedSynthesizeButtonLabel,
 } from "../lib/vocal-embed-studio-utils";
+
+function reportVocalEmbedError(source, err) {
+  reportCaughtError(source, err instanceof Error ? err : new Error(String(err || "Vocal studio error")));
+}
 
 export function useVocalEmbedStudio() {
   const {
@@ -428,6 +434,7 @@ export function useVocalEmbedStudio() {
         "success",
       );
     } catch (err) {
+      reportVocalEmbedError("vocal-embed.handoff-export", err);
       setStatusWithTime(err instanceof Error ? err.message : "Align & handoff export failed", "error");
     } finally {
       setSidecarBusy(false);
@@ -462,6 +469,7 @@ export function useVocalEmbedStudio() {
         preview.align_method === "mfa" ? "success" : "info",
       );
     } catch (err) {
+      reportVocalEmbedError("vocal-embed.align-preview", err);
       setStatusWithTime(err instanceof Error ? err.message : "Alignment preview failed", "error");
     } finally {
       setSidecarBusy(false);
@@ -484,6 +492,7 @@ export function useVocalEmbedStudio() {
       const res = await submitVocalEmbedPlanToSidecar(payload);
       setStatusWithTime(res.message, res.synthesis_available ? "success" : "info");
     } catch (err) {
+      reportVocalEmbedError("vocal-embed.sidecar-handoff", err);
       setStatusWithTime(err instanceof Error ? err.message : "Sidecar handoff failed", "error");
     } finally {
       setSidecarBusy(false);
@@ -565,6 +574,7 @@ export function useVocalEmbedStudio() {
       persistAlignPreview(preview);
       await runSynthesizeMix(` · ${preview.align_method} align`, preview);
     } catch (err) {
+      reportVocalEmbedError("vocal-embed.align-synthesize", err);
       setStatusWithTime(err instanceof Error ? err.message : "Align & synthesize failed", "error");
     } finally {
       setSidecarBusy(false);
@@ -593,6 +603,7 @@ export function useVocalEmbedStudio() {
           : " · OpenVPI DiffSinger inference",
       );
     } catch (err) {
+      reportVocalEmbedError("vocal-embed.openvpi", err);
       setStatusWithTime(err instanceof Error ? err.message : "OpenVPI synthesis failed", "error");
     } finally {
       setSidecarBusy(false);
@@ -631,6 +642,7 @@ export function useVocalEmbedStudio() {
       }
       await runSynthesizeMix();
     } catch (err) {
+      reportVocalEmbedError("vocal-embed.synthesize", err);
       setStatusWithTime(err instanceof Error ? err.message : "Vocal synthesis failed", "error");
     } finally {
       setSidecarBusy(false);
@@ -656,11 +668,13 @@ export function useVocalEmbedStudio() {
     setSidecarBusy(true);
     try {
       const result = await installSidecarExtra("vocal-ml");
+      reportSidecarExtraInstallIfFailed("vocal-embed.install", result);
       setStatusWithTime(
         formatSidecarExtraInstallStatus(result),
         sidecarExtraInstallStatusTone(result),
       );
     } catch (err) {
+      reportSidecarExtraInstallIfFailed("vocal-embed.install", null, err);
       setStatusWithTime(err instanceof Error ? err.message : "Vocal ML install failed", "error");
     } finally {
       setSidecarBusy(false);

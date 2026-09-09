@@ -8,6 +8,7 @@ import {
   formatAgentFixPrompt,
   formatScanAge,
   getActionableIssues,
+  issueFromLocalFault,
   overallSeverity,
 } from "../app/lib/fail-safe-bot.js";
 
@@ -90,6 +91,31 @@ describe("fail-safe-bot", () => {
     expect(report.overall).toBe("fail");
     expect(report.issues.some((i) => i.id === "storage_quota")).toBe(true);
     expect(report.issues.some((i) => i.id === "unhandled_exception")).toBe(true);
+  });
+
+  it("maps addon install and vocal/YouTube faults to dedicated issues", () => {
+    expect(issueFromLocalFault({ source: "addons.install:vocal-rvc", message: "pip failed" }).id).toBe(
+      "sidecar_extra_install",
+    );
+    expect(issueFromLocalFault({ source: "vocal-embed.install", message: "timeout" }).id).toBe(
+      "sidecar_extra_install",
+    );
+    expect(issueFromLocalFault({ source: "character-voice.youtube", message: "sidecar offline" }).id).toBe(
+      "vocal_search",
+    );
+    const extraReport = buildRuntimeHealthReport({
+      sidecarAiStatus: "ready",
+      sidecarGenerateAvailable: true,
+      sidecarHealth: { librosa_available: true },
+      appSubsystems: {
+        storageOk: true,
+        audioContextAvailable: true,
+        canvasAvailable: true,
+        localFaults: [{ source: "addons.install:stems", message: "Could not install extra" }],
+      },
+    });
+    expect(extraReport.issues.some((i) => i.id === "sidecar_extra_install")).toBe(true);
+    expect(getActionableIssues(extraReport.issues).some((i) => i.id === "sidecar_extra_install")).toBe(true);
   });
 
   it("classifies unhandled runtime exceptions", () => {

@@ -30,6 +30,7 @@ import { resolvePolishStepIndex } from "../lib/suno-guided-workflow";
 import { parseYoutubeReference } from "../lib/youtube-reference";
 import { resolveYoutubeMusicDna } from "../lib/youtube-music-dna";
 import { APP_VERSION } from "../lib/music-config";
+import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
 import {
   useProjectWorkspaceActions,
   useProjectWorkspaceProjectState,
@@ -196,6 +197,10 @@ export function useCharacterVoiceStudio() {
           setGuidedStep(resolvePolishStepIndex());
         }
       } catch {
+        reportCaughtError(
+          "character-voice.analyze",
+          new Error("Voice analysis failed — try WAV or MP3 acapella"),
+        );
         setStatusWithTime("Voice analysis failed — try WAV or MP3 acapella", "error");
       } finally {
         setBusy(false);
@@ -247,6 +252,25 @@ export function useCharacterVoiceStudio() {
           "success",
         );
       } catch (err) {
+        // #region agent log
+        fetch("http://127.0.0.1:7508/ingest/9c8bfb19-d6a5-4ab4-bf6e-336680cebd6d", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "de2287" },
+          body: JSON.stringify({
+            sessionId: "de2287",
+            runId: "fail-safe-gap",
+            hypothesisId: "B",
+            location: "use-character-voice-studio.js:linkYoutubeReference",
+            message: "youtube_resolve_failed",
+            data: {
+              reported: true,
+              err: err instanceof Error ? err.message.slice(0, 180) : String(err || "").slice(0, 180),
+            },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {});
+        // #endregion
+        reportCaughtError("character-voice.youtube", err);
         const fallbackRef = {
           ...ref,
           title: ref.videoId,

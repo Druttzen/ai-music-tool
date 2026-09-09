@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
+import importlib.util
 import sys
 from threading import Lock
 from time import monotonic
 from typing import Callable
+
+
+def _module_installed(*names: str) -> bool:
+    """True when packages are discoverable — does not import them (health must stay fast)."""
+    try:
+        return all(importlib.util.find_spec(name) is not None for name in names)
+    except (ImportError, ValueError, ModuleNotFoundError):
+        return False
 
 
 @dataclass(frozen=True)
@@ -41,29 +50,21 @@ class CapabilitySpec:
 
 
 def _probe_stems() -> bool:
-    try:
-        import demucs  # noqa: F401
-    except Exception:
-        return False
-    return True
+    return _module_installed("demucs")
 
 
 def _probe_stems_melband() -> bool:
-    from .stems_melband import melband_available
-
-    return melband_available()
+    return _module_installed("mel_band_roformer")
 
 
 def _probe_generate() -> bool:
-    from .musicgen import generation_available
-
-    return generation_available()
+    return _module_installed("torch", "audiocraft")
 
 
 def _probe_acestep() -> bool:
-    from .acestep_bridge import acestep_reachable
+    from .acestep_bridge import acestep_configured
 
-    return acestep_reachable()
+    return acestep_configured()
 
 
 def _probe_mfa() -> bool:
@@ -73,62 +74,41 @@ def _probe_mfa() -> bool:
 
 
 def _probe_vocal_transform() -> bool:
-    from .vocal_transform import vocal_transform_available
-
-    return vocal_transform_available(mode="pitch")
+    return _module_installed("demucs") or _module_installed("mel_band_roformer")
 
 
 def _probe_genre() -> bool:
-    from .genre_classifier import genre_classification_available
-
-    return genre_classification_available()
+    return _module_installed("torch", "transformers")
 
 
 def _probe_vision() -> bool:
-    from .vision_analyzer import vision_analysis_available
-
-    return vision_analysis_available()
+    return _module_installed("PIL", "torch", "transformers")
 
 
 def _probe_cover() -> bool:
-    from .cover_generator import cover_available
-
-    return cover_available()
+    return _module_installed("torch", "diffusers", "PIL")
 
 
 def _probe_cover_ref() -> bool:
-    from .cover_ref_generator import cover_ref_available
-
-    return cover_ref_available()
+    return _module_installed("torch", "diffusers", "PIL")
 
 
 def _probe_vocal_synth() -> bool:
-    from .vocal_embed import vocal_synthesis_available
-
-    return vocal_synthesis_available()
+    return _module_installed("librosa", "soundfile")
 
 
 def _probe_vocal_ml() -> bool:
-    from .vocal_embed import vocal_ml_available
-
-    return vocal_ml_available()
+    return _module_installed("librosa", "soundfile", "scipy")
 
 
 def _probe_vocal_torch() -> bool:
-    try:
-        import torch  # noqa: F401
-        import torchaudio  # noqa: F401
-    except Exception:
-        return False
-    return True
+    return _module_installed("torch", "torchaudio")
 
 
 def _probe_rvc() -> bool:
-    from .vocal_ml_models import rvc_api_configured, rvc_python_available
+    from .vocal_ml_models import rvc_api_configured
 
-    # Extra is installed when the library (or a remote API) is present.
-    # Voice models stay a separate runtime config (AIMC_RVC_MODEL).
-    return rvc_python_available() or rvc_api_configured()
+    return rvc_api_configured() or _module_installed("rvc_python")
 
 
 def _probe_diffsinger() -> bool:

@@ -21,6 +21,7 @@ import {
   formatSidecarExtraInstallStatus,
   installSidecarExtra,
   normalizeSidecarExtraId,
+  reportSidecarExtraInstallIfFailed,
   sidecarExtraInstallStatusTone,
 } from "../lib/sidecar-extra-install-client";
 import {
@@ -133,9 +134,11 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
           formatSidecarExtraInstallStatus(result),
           sidecarExtraInstallStatusTone(result),
         );
+        reportSidecarExtraInstallIfFailed(`addons.install:${id}`, result);
         const health = await refreshSidecarCapabilities({ waitForExtraId: id });
         if (health) setSidecarHealth(health);
       } catch (err) {
+        reportSidecarExtraInstallIfFailed(`addons.install:${id}`, null, err);
         setStatusWithTime(err instanceof Error ? err.message : "Could not install extra", "error");
       } finally {
         setExtraInstallBusy(null);

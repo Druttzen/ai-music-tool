@@ -156,19 +156,7 @@ export function buildRuntimeHealthReport(input = {}) {
 
   const localFaults = appSubsystems?.localFaults;
   if (Array.isArray(localFaults) && localFaults.length) {
-    const latest = localFaults[0];
-    const isReact = String(latest.source || "").startsWith("react:");
-    issues.push({
-      id: isReact ? "react_render" : "unhandled_exception",
-      severity: isReact ? "fail" : "warn",
-      title: isReact ? `UI recovered: ${latest.source}` : "Caught a runtime error",
-      detail: `${latest.source || "runtime"}: ${latest.message || "unknown"}${
-        localFaults.length > 1 ? ` (+${localFaults.length - 1} more)` : ""
-      }`,
-      fixCommands: [],
-      safeFallback: "The rest of the studio should still work. Retry the last action or reload.",
-      docsPath: "docs/fail-safe-bot.md",
-    });
+    issues.push(issueFromLocalFault(localFaults[0], localFaults.length));
   }
 
   return {
@@ -184,6 +172,59 @@ export function buildRuntimeHealthReport(input = {}) {
     meta: {
       sidecarAiStatus: sidecarAiStatus || "unknown",
     },
+  };
+}
+
+/**
+ * Map a recorded runtime fault to a Fail-Safe issue (addon install, vocal/YouTube, UI crash).
+ * @param {{ source?: string, message?: string }} latest
+ * @param {number} [count]
+ * @returns {FailSafeIssue}
+ */
+export function issueFromLocalFault(latest, count = 1) {
+  const source = String(latest?.source || "runtime");
+  const more = count > 1 ? ` (+${count - 1} more)` : "";
+  const detail = `${source}: ${latest?.message || "unknown"}${more}`;
+  const shared = {
+    detail,
+    fixCommands: /** @type {string[]} */ ([]),
+    docsPath: "docs/fail-safe-bot.md",
+  };
+  if (source.startsWith("react:")) {
+    return {
+      ...shared,
+      id: "react_render",
+      severity: "fail",
+      title: `UI recovered: ${source}`,
+      safeFallback: "The rest of the studio should still work. Retry the last action or reload.",
+    };
+  }
+  if (
+    /addons\.(install|uninstall|canvas)|vocal-embed\.install|sidecar\.extra|\.install:/i.test(source)
+  ) {
+    return {
+      ...shared,
+      id: "sidecar_extra_install",
+      severity: "warn",
+      title: "Sidecar extra / addon install failed",
+      safeFallback: "Studio still runs. Retry Install from Add-ons, or run the npm hint in a checkout.",
+    };
+  }
+  if (/character-voice|vocal-embed|youtube/i.test(source)) {
+    return {
+      ...shared,
+      id: "vocal_search",
+      severity: "warn",
+      title: "Vocal search / YouTube tool error",
+      safeFallback: "Prompt tools still work. Retry the vocal/YouTube action after sidecar is ready.",
+    };
+  }
+  return {
+    ...shared,
+    id: "unhandled_exception",
+    severity: "warn",
+    title: "Caught a runtime error",
+    safeFallback: "The rest of the studio should still work. Retry the last action or reload.",
   };
 }
 

@@ -6,6 +6,7 @@ Torch is imported lazily so /health works before optional ML extras install.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from threading import Lock
 
 
 @dataclass
@@ -35,10 +36,25 @@ class DevicePolicy:
         return asdict(self)
 
 
-def detect_device() -> DeviceInfo:
+_DEVICE_CACHE: DeviceInfo | None = None
+_DEVICE_LOCK = Lock()
+
+
+def _torch_installed() -> bool:
     try:
-        import torch
+        import importlib.util
+
+        return importlib.util.find_spec("torch") is not None
     except Exception:
+        return False
+
+
+def peek_device() -> DeviceInfo:
+    """Health-safe device snapshot: never imports torch (cold import is multi-second)."""
+    cached = _DEVICE_CACHE
+    if cached is not None:
+        return cached
+    if not _torch_installed():
         return DeviceInfo(
             backend="cpu",
             device="cpu",
@@ -46,10 +62,39 @@ def detect_device() -> DeviceInfo:
             total_vram_gb=0.0,
             torch_available=False,
         )
+    return DeviceInfo(
+        backend="cpu",
+        device="cpu",
+        name="CPU",
+        total_vram_gb=0.0,
+        torch_available=True,
+    )
+
+
+def detect_device() -> DeviceInfo:
+    global _DEVICE_CACHE
+    with _DEVICE_LOCK:
+        if _DEVICE_CACHE is not None and (
+            _DEVICE_CACHE.torch_version is not None or not _DEVICE_CACHE.torch_available
+        ):
+            return _DEVICE_CACHE
+    try:
+        import torch
+    except Exception:
+        info = DeviceInfo(
+            backend="cpu",
+            device="cpu",
+            name="CPU (torch not installed)",
+            total_vram_gb=0.0,
+            torch_available=False,
+        )
+        with _DEVICE_LOCK:
+            _DEVICE_CACHE = info
+        return info
 
     if torch.cuda.is_available():
         props = torch.cuda.get_device_properties(0)
-        return DeviceInfo(
+        info = DeviceInfo(
             backend="cuda",
             device="cuda",
             name=props.name,
@@ -58,10 +103,13 @@ def detect_device() -> DeviceInfo:
             torch_version=getattr(torch, "__version__", None),
             cuda_version=getattr(getattr(torch, "version", None), "cuda", None),
         )
+        with _DEVICE_LOCK:
+            _DEVICE_CACHE = info
+        return info
 
     mps = getattr(torch.backends, "mps", None)
     if mps is not None and mps.is_available():
-        return DeviceInfo(
+        info = DeviceInfo(
             backend="mps",
             device="mps",
             name="Apple Metal (MPS)",
@@ -69,8 +117,11 @@ def detect_device() -> DeviceInfo:
             torch_available=True,
             torch_version=getattr(torch, "__version__", None),
         )
+        with _DEVICE_LOCK:
+            _DEVICE_CACHE = info
+        return info
 
-    return DeviceInfo(
+    info = DeviceInfo(
         backend="cpu",
         device="cpu",
         name="CPU",
@@ -78,6 +129,9 @@ def detect_device() -> DeviceInfo:
         torch_available=True,
         torch_version=getattr(torch, "__version__", None),
     )
+    with _DEVICE_LOCK:
+        _DEVICE_CACHE = info
+    return info
 
 
 def select_device() -> str:

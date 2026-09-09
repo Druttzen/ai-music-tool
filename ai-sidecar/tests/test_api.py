@@ -68,10 +68,23 @@ def test_health_ok():
     assert isinstance(body.get("device_info"), dict)
     assert body.get("owned") is False
     assert body["device_info"]["device"] == body["device"]
+    assert body["device"] in ("cpu", "cuda", "mps")
     assert select_device() in ("cpu", "cuda", "mps")
-    assert detect_device().device == body["device"]
+    assert detect_device().device in ("cpu", "cuda", "mps")
     assert list_capabilities()
     assert isinstance(missing_install_hints(), list)
+
+
+def test_list_capabilities_health_probes_are_fast():
+    """Health probes must not import torch/demucs (those stalls kill Studio's 500ms poller)."""
+    import time
+
+    invalidate_capability_cache()
+    t0 = time.perf_counter()
+    caps = list_capabilities(force_refresh=True)
+    elapsed = time.perf_counter() - t0
+    assert caps
+    assert elapsed < 1.0, elapsed
 
 
 def test_health_reuses_cached_capability_snapshot(monkeypatch):

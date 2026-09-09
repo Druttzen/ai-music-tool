@@ -36,7 +36,7 @@ describe("fail-safe-hibernate", () => {
         previousStatus: "checking",
         sidecarAiStatus: "offline",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldWakeForSidecarOffline({
         alreadyScanned: false,

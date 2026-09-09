@@ -41,10 +41,12 @@ import {
   isSidecarExtraAllowlisted,
   normalizeSidecarExtraId,
   probeSidecarExtraInstallEnv,
+  reportSidecarExtraInstallIfFailed,
   sidecarExtraInstallStatusTone,
   sidecarExtraNpmHint,
   subscribeSidecarExtraInstallProgress,
 } from "../lib/sidecar-extra-install-client";
+import { reportCaughtError, reportFailedOperation } from "../lib/fail-safe-runtime-capture";
 import { SIDECAR_EXTRAS_CHANGED_EVENT } from "../lib/sidecar-startup-install";
 
 /** @param {"ok"|"info"|"warn"|"muted"|"bad"} tone */
@@ -181,8 +183,12 @@ export function AddonsPanel() {
       setStatusWithTime("Downloading / installing AI Canvas Tool…");
       const result = await installCanvasAddon();
       setStatusWithTime(formatCanvasInstallStatus(result), result.ok ? "info" : "error");
+      if (!result?.ok) {
+        reportFailedOperation("addons.canvas.install", formatCanvasInstallStatus(result));
+      }
       await refreshCanvas();
     } catch (error) {
+      reportCaughtError("addons.canvas.install", error);
       setStatusWithTime(error instanceof Error ? error.message : "Could not install Canvas", "error");
     } finally {
       setBusyKey(null);
@@ -309,6 +315,7 @@ export function AddonsPanel() {
         const result = await installSidecarExtra(id);
         const tone = sidecarExtraInstallStatusTone(result);
         setStatusWithTime(formatSidecarExtraInstallStatus(result), tone);
+        reportSidecarExtraInstallIfFailed(`addons.install:${id}`, result);
         if (tone === "error" || result?.ok === false) {
           setExtraErrors((prev) => ({
             ...prev,
@@ -319,6 +326,7 @@ export function AddonsPanel() {
         await refreshExtras();
         await refreshInstallEnv();
       } catch (error) {
+        reportSidecarExtraInstallIfFailed(`addons.install:${id}`, null, error);
         const msg = error instanceof Error ? error.message : "Could not install extra";
         setExtraErrors((prev) => ({ ...prev, [id]: msg }));
         setStatusWithTime(msg, "error");
@@ -341,12 +349,14 @@ export function AddonsPanel() {
           formatSidecarExtraInstallStatus(result),
           result?.ok ? "info" : "error",
         );
+        reportSidecarExtraInstallIfFailed(`addons.uninstall:${id}`, result);
         if (result?.ok) {
           await refreshSidecarCapabilities();
           await refreshExtras();
           await refreshInstallEnv();
         }
       } catch (error) {
+        reportSidecarExtraInstallIfFailed(`addons.uninstall:${id}`, null, error);
         setStatusWithTime(
           error instanceof Error ? error.message : "Could not uninstall extra",
           "error",

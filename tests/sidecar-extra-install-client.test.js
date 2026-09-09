@@ -24,7 +24,9 @@ import {
   sidecarExtraIsAvailable,
   sidecarExtraNpmHint,
   waitForSidecarExtraReady,
+  reportSidecarExtraInstallIfFailed,
 } from "../app/lib/sidecar-extra-install-client.js";
+import { clearLocalFaults, getLocalFaults } from "../app/lib/fail-safe-runtime-fault.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -213,5 +215,25 @@ describe("sidecar extra install client", () => {
     const health = await waitForSidecarExtraReady("generate", { timeoutMs: 30, intervalMs: 5 });
     expect(health).toEqual({ generate_available: false });
     expect(fetchSidecarHealth.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("records pip extra failures for Fail-Safe but ignores copied npm hints", () => {
+    clearLocalFaults();
+    const skipped = reportSidecarExtraInstallIfFailed("addons.install:stems", {
+      ok: false,
+      mode: "copied-command",
+      message: "Copied hint",
+    });
+    expect(skipped.reported).toBe(false);
+    expect(getLocalFaults()).toHaveLength(0);
+
+    const recorded = reportSidecarExtraInstallIfFailed("addons.install:vocal-rvc", {
+      ok: false,
+      mode: "install-timeout",
+      error: "Install timed out after 20 minutes",
+    });
+    expect(recorded.reported).toBe(true);
+    expect(getLocalFaults()[0].source).toBe("addons.install:vocal-rvc");
+    expect(getLocalFaults()[0].message).toMatch(/timed out/i);
   });
 });

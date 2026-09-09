@@ -66,7 +66,7 @@ from .cover_ref_generator import (
 )
 from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer_enabled, repo_root
 from .fail_safe_runtime import RuntimeDeliverRequest, RuntimeDeliverResponse, deliver_runtime_report
-from .device import detect_device, select_device
+from .device import detect_device, peek_device, select_device
 from .registry import capability_flags, list_capabilities
 from .jobs import JOBS
 from . import generate_jobs as _generate_jobs  # noqa: F401 — register runners
@@ -99,6 +99,9 @@ async def _lifespan(_app: FastAPI):
     configure_idle_exit(float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "300")))
     touch_activity()
     start_idle_watchdog()
+    import threading
+
+    threading.Thread(target=detect_device, name="aimc-device-warmup", daemon=True).start()
     yield
 
 
@@ -189,9 +192,9 @@ async def _read_upload_limited(file: UploadFile, limit: int) -> bytes:
 @lru_cache(maxsize=1)
 def _librosa_available() -> bool:
     try:
-        import librosa  # noqa: F401, PLC0415
+        import importlib.util
 
-        return True
+        return importlib.util.find_spec("librosa") is not None
     except Exception:
         return False
 
@@ -308,7 +311,7 @@ def health(request: Request) -> Health:
     from . import __version__
     from .device import build_policy
 
-    info = detect_device()
+    info = peek_device()
     capabilities = list_capabilities()
     flags = capability_flags(capabilities)
     header = request.headers.get(_SIDECAR_AUTH_HEADER) or ""

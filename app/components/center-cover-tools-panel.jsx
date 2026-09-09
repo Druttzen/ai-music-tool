@@ -15,7 +15,9 @@ import {
   installSidecarExtra,
   sidecarExtraInstallCompleted,
   sidecarExtraInstallStatusTone,
+  reportSidecarExtraInstallIfFailed,
 } from "../lib/sidecar-extra-install-client";
+import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
 import { buildCoverPromptFromStyle, resolveCoverPromptSource } from "../lib/cover-prompt";
 import { buildSunoV55StyleFromAudioAnalysis } from "../lib/audio-to-suno-style";
 import { buildSunoV55StyleFromImageAnalysis } from "../lib/image-to-suno-style";
@@ -157,6 +159,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
           formatSidecarExtraInstallStatus(result),
           sidecarExtraInstallStatusTone(result),
         );
+        reportSidecarExtraInstallIfFailed("addons.install:cover", result);
         if (!sidecarExtraInstallCompleted(result)) return;
         const h = await refreshSidecarCapabilities({ waitForExtraId: "cover" });
         if (!operationIsCurrent(operation)) return;
@@ -174,6 +177,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
       setStatusWithTime(`Cover generated (${out.model || "FLUX"})`);
     } catch (err) {
       if (!operationIsCurrent(operation)) return;
+      reportCaughtError("cover.generate", err);
       setStatusWithTime(err instanceof Error ? err.message : "Cover generation failed", "error");
     } finally {
       finishOperation(operation);
@@ -206,6 +210,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
           formatSidecarExtraInstallStatus(result),
           sidecarExtraInstallStatusTone(result),
         );
+        reportSidecarExtraInstallIfFailed("addons.install:cover-ref", result);
         if (!sidecarExtraInstallCompleted(result)) return;
         const h = await refreshSidecarCapabilities({ waitForExtraId: "cover-ref" });
         if (!operationIsCurrent(operation)) return;
@@ -231,6 +236,7 @@ export const CenterCoverToolsPanel = memo(function CenterCoverToolsPanel() {
       setStatusWithTime(`Cover from image generated (${out.model || "FLUX img2img"})`);
     } catch (err) {
       if (!operationIsCurrent(operation)) return;
+      reportCaughtError("cover.generate-ref", err);
       setStatusWithTime(err instanceof Error ? err.message : "Cover-ref generation failed", "error");
     } finally {
       finishOperation(operation);

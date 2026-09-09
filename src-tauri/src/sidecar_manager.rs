@@ -16,7 +16,7 @@ use tauri_plugin_shell::process::CommandChild;
 const SIDECAR_PORT: u16 = 8723;
 const HEALTH_URL: &str = "http://127.0.0.1:8723/health";
 const POLL_INTERVAL: Duration = Duration::from_millis(400);
-const HEALTH_TIMEOUT: Duration = Duration::from_millis(500);
+const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
 /// Shut down managed sidecar after this many seconds without /analyze or /separate.
 const SIDECAR_IDLE_EXIT_SEC: &str = "300";
 const SPAWN_GRACE: Duration = Duration::from_secs(30);

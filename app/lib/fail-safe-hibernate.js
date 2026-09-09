@@ -28,12 +28,13 @@ export function shouldRunLaunchScan(input = {}) {
  */
 export function shouldWakeForSidecarOffline(input = {}) {
   const prev = input.previousStatus;
+  // alreadyScanned already skips the initial checking→offline hop before launch scan.
+  // After hibernate, checking→offline must wake (sidecar spawn/health timeout).
   return Boolean(
     input.alreadyScanned &&
       input.sidecarAiStatus === "offline" &&
       prev &&
-      prev !== "offline" &&
-      prev !== "checking",
+      prev !== "offline",
   );
 }
 
