@@ -23,7 +23,7 @@ if ($stampOk) {
 }
 
 if (Test-Path $dest) {
-  Write-Host "Sidecar binary stale or unstamped: $name — rebuilding for $pkgVersion"
+  Write-Host "Sidecar binary stale or unstamped: $name - rebuilding for $pkgVersion"
 } else {
   Write-Host "Sidecar binary missing - building via PyInstaller..."
 }

@@ -16,7 +16,7 @@ if [[ -f "$DEST" && -f "$STAMP" && "$(tr -d '[:space:]' < "$STAMP")" == "$PKG_VE
 fi
 
 if [[ -f "$DEST" ]]; then
-  echo "Sidecar binary stale or unstamped: $NAME — rebuilding for $PKG_VERSION"
+  echo "Sidecar binary stale or unstamped: $NAME - rebuilding for $PKG_VERSION"
 else
   echo "Sidecar binary missing - building via PyInstaller..."
 fi
