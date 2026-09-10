@@ -15,6 +15,7 @@ import { useAnalyzerExport } from "./analyzers/use-analyzer-export";
 import { useAnalyzerStems } from "./analyzers/use-analyzer-stems";
 import { useAnalyzerGenerate } from "./analyzers/use-analyzer-generate";
 import { useAnalyzerVocals } from "./analyzers/use-analyzer-vocals";
+import { useLocalCoverRemix } from "./analyzers/use-local-cover-remix";
 import { useAnalyzerCanvas } from "./analyzers/use-analyzer-canvas";
 
 export function useAnalyzers({
@@ -111,6 +112,18 @@ export function useAnalyzers({
     setStatusWithTime,
   });
 
+  const {
+    localCoverRemixBusy,
+    runLocalCoverRemix,
+  } = useLocalCoverRemix({
+    audioAnalysis: media.audioAnalysis,
+    setAudioAnalysis: media.setAudioAnalysis,
+    setAudioPreviewFromBlob: media.setAudioPreviewFromBlob,
+    syncCacheKeysRef: media.syncCacheKeysRef,
+    audioPreviewUrlRef: media.audioPreviewUrlRef,
+    setStatusWithTime,
+  });
+
   const { openInCanvasTool } = useAnalyzerCanvas({
     imagePreview: media.imagePreview,
     audioPreviewUrl: media.audioPreviewUrl,
@@ -152,6 +165,8 @@ export function useAnalyzers({
     generateSongFromPrompt,
     vocalTransformBusy,
     transformVocalsOnTrack,
+    localCoverRemixBusy,
+    runLocalCoverRemix,
     imageAnalysis: media.imageAnalysis,
     imagePreview: media.imagePreview,
     openInCanvasTool,

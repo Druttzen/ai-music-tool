@@ -15,6 +15,7 @@ import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
 import { MusicGenPreviewControls } from "./musicgen-preview-controls";
 import { AceStepSongControls } from "./acestep-song-controls";
 import { VocalTransformControls } from "./vocal-transform-controls";
+import { LocalCoverRemixControls } from "./local-cover-remix-controls";
 import { musicGenInstallHint, missingSidecarInstallHints } from "../lib/sidecar-capabilities";
 import { fetchSidecarHealth } from "../lib/sidecar-bridge";
 import {
@@ -64,6 +65,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     generateMusicBusy,
     generateSongBusy,
     vocalTransformBusy,
+    localCoverRemixBusy,
   } = useProjectWorkspaceAnalyzerState();
   const {
     analyzeAudioFile,
@@ -81,6 +83,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     generateMusicFromPrompt,
     generateSongFromPrompt,
     transformVocalsOnTrack,
+    runLocalCoverRemix,
     applyImageToSunoStyle,
     copyToClipboard,
     openInCanvasTool,
@@ -365,6 +368,17 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 exportBusy={audioExportBusy}
                 exportProgress={audioExportProgress}
               />
+                <div className="mt-3">
+                  <LocalCoverRemixControls
+                    analysis={audioAnalysis}
+                    busy={localCoverRemixBusy || generateMusicBusy || generateSongBusy || vocalTransformBusy}
+                    generateAvailable={sidecarGenerateAvailable}
+                    acestepAvailable={sidecarAcestepAvailable}
+                    vocalTransformAvailable={sidecarVocalTransformAvailable}
+                    onGenerate={runLocalCoverRemix}
+                    compact
+                  />
+                </div>
               </>
             ) : null}
           </DropBox>

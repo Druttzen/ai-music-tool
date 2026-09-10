@@ -154,6 +154,8 @@ export function pickWorkspaceContextExtras(
     generateSongFromPrompt: analyzers.generateSongFromPrompt,
     vocalTransformBusy: analyzers.vocalTransformBusy,
     transformVocalsOnTrack: analyzers.transformVocalsOnTrack,
+    localCoverRemixBusy: analyzers.localCoverRemixBusy,
+    runLocalCoverRemix: analyzers.runLocalCoverRemix,
     openInCanvasTool: analyzers.openInCanvasTool,
     refreshSidecarCapabilities: analyzers.refreshSidecarCapabilities,
     separateStems: analyzers.separateStems,

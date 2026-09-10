@@ -42,7 +42,9 @@ Manual alternative:
    Generation still needs the ACE-Step server reachable.
 
 In Studio, ACE-Step controls show numbered setup steps, **Copy env snippet**, and a
-link to this doc when the API is unreachable.
+link to this doc when the API is unreachable. The **Local cover / remix** panel
+(Analyzers) prefers ACE-Step for full-song covers from reverse track DNA — see
+`docs/local-cover-remix.md`.
 
 ## API
 
