@@ -40,6 +40,8 @@
     "sidecar:cover": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-cover.ps1",
     "sidecar:cover-ref": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-cover-ref.ps1",
     "sidecar:classify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-classify.ps1",
+    "sidecar:acestep": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-acestep.ps1",
+    "sidecar:acest": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-acestep.ps1",
     "sidecar:all": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-all.ps1",
     "sidecar:fg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1 -Foreground -IdleExitSec 0",
     "sidecar:watch": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-with-sidecar.ps1 -WatchOnly",

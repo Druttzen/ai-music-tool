@@ -15,8 +15,8 @@ use crate::process_progress::{
 use crate::sidecar_manager::{resolve_sidecar_dir, SidecarManager};
 use crate::sidecar_userdata::{
     checkout_venv_python, find_system_python_310_312, install_extra_into_user_venv,
-    load_installed_extras, record_installed_extra, resolve_package_source,
-    uninstall_extra_from_user_venv, user_sidecar_root, user_venv_python,
+    detect_installed_extras_from_venv, load_installed_extras, record_installed_extra,
+    resolve_package_source, uninstall_extra_from_user_venv, user_sidecar_root, user_venv_python,
 };
 
 #[derive(Debug, Serialize)]
@@ -477,7 +477,15 @@ pub async fn uninstall_sidecar_extra(
 
 #[tauri::command]
 pub fn list_installed_sidecar_extras(app: AppHandle) -> Vec<String> {
-    load_installed_extras(&app)
+    let mut ids = load_installed_extras(&app);
+    for id in detect_installed_extras_from_venv(&app) {
+        if !ids.iter().any(|existing| existing == &id) {
+            ids.push(id);
+        }
+    }
+    ids.sort();
+    ids.dedup();
+    ids
 }
 
 #[cfg(test)]

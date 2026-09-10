@@ -532,22 +532,17 @@ pub fn load_installed_extras(app: &AppHandle) -> Vec<String> {
     let mut ids = Vec::new();
     if let Ok(path) = installed_extras_path(app) {
         if let Ok(raw) = fs::read_to_string(path) {
-            ids = serde_json::from_str::<Vec<String>>(&raw)
+            // PowerShell Set-Content may write a UTF-8 BOM; serde_json rejects it.
+            let trimmed = raw.trim_start_matches('\u{feff}');
+            ids = serde_json::from_str::<Vec<String>>(trimmed)
                 .unwrap_or_default()
                 .into_iter()
                 .filter_map(|id| pip_extra_spec(&id).map(str::to_string))
                 .collect();
         }
     }
-    if let Ok(root) = user_sidecar_root(app) {
-        if let Ok(raw) = fs::read_to_string(root.join("state.json")) {
-            if let Some(last) = last_extra_from_state_json(&raw) {
-                if !ids.iter().any(|id| id == &last) {
-                    ids.push(last);
-                }
-            }
-        }
-    }
+    // Do not merge state.json lastExtra here — that re-adds phantom Uninstall
+    // targets after a real uninstall (lastExtra is install history, not inventory).
     ids.sort();
     ids.dedup();
     ids
@@ -577,13 +572,81 @@ pub fn record_installed_extra(app: &AppHandle, extra_id: &str) {
     );
 }
 
+/// Extras that share one pip package (uninstall one removes all siblings from tracking).
+fn shared_tracking_ids(extra_id: &str) -> Vec<&'static str> {
+    match pip_extra_spec(extra_id) {
+        Some("cover") | Some("cover-ref") => vec!["cover", "cover-ref"],
+        Some(id) => vec![id],
+        None => Vec::new(),
+    }
+}
+
 pub fn remove_installed_extra(app: &AppHandle, extra_id: &str) {
     let Ok(path) = installed_extras_path(app) else {
         return;
     };
+    let twins = shared_tracking_ids(extra_id);
+    if twins.is_empty() {
+        return;
+    }
     let mut extras = load_installed_extras(app);
-    extras.retain(|id| id != extra_id);
+    extras.retain(|id| !twins.iter().any(|twin| twin == id));
     let _ = fs::write(path, serde_json::to_vec_pretty(&extras).unwrap_or_default());
+}
+
+/// Map allowlisted extras to a representative importable module (for UI Uninstall).
+fn extra_probe_module(extra_id: &str) -> Option<&'static str> {
+    match pip_extra_spec(extra_id)? {
+        "stems" => Some("demucs"),
+        "stems-melband" => Some("mel_band_roformer"),
+        "generate" => Some("audiocraft"),
+        "classify" => Some("transformers"),
+        "vision" => Some("PIL"),
+        "cover" | "cover-ref" => Some("diffusers"),
+        "vocal" => Some("scipy"),
+        "vocal-ml" => Some("torchaudio"),
+        "vocal-rvc" => Some("rvc_python"),
+        _ => None,
+    }
+}
+
+/// Detect pip extras present in the user venv even when installed-extras.json is empty.
+pub fn detect_installed_extras_from_venv(app: &AppHandle) -> Vec<String> {
+    let Ok(root) = user_sidecar_root(app) else {
+        return Vec::new();
+    };
+    let Some(py) = user_venv_python(&root) else {
+        return Vec::new();
+    };
+    const CANDIDATES: &[&str] = &[
+        "stems",
+        "stems-melband",
+        "generate",
+        "classify",
+        "vision",
+        "cover",
+        "cover-ref",
+        "vocal",
+        "vocal-ml",
+        "vocal-rvc",
+    ];
+    let mut found = Vec::new();
+    for id in CANDIDATES {
+        let Some(module) = extra_probe_module(id) else {
+            continue;
+        };
+        let code = format!(
+            "import importlib.util,sys; sys.exit(0 if importlib.util.find_spec({module:?}) else 1)"
+        );
+        let status = std::process::Command::new(&py)
+            .args(["-c", &code])
+            .current_dir(&root)
+            .status();
+        if matches!(status, Ok(s) if s.success()) {
+            found.push((*id).to_string());
+        }
+    }
+    found
 }
 
 pub fn uninstall_extra_from_user_venv(
@@ -760,6 +823,14 @@ mod tests {
             Some("classify")
         );
         assert_eq!(last_extra_from_state_json(r#"{"lastExtra":"nope"}"#), None);
+    }
+
+    #[test]
+    fn shared_tracking_ids_covers_cover_twins() {
+        assert_eq!(shared_tracking_ids("cover"), vec!["cover", "cover-ref"]);
+        assert_eq!(shared_tracking_ids("cover-ref"), vec!["cover", "cover-ref"]);
+        assert_eq!(shared_tracking_ids("stems"), vec!["stems"]);
+        assert!(shared_tracking_ids("nope").is_empty());
     }
 
     #[test]

@@ -8,6 +8,19 @@ own model runtime). Point the sidecar at the API instead — same pattern as
 
 ## Setup
 
+From this repo (preferred):
+
+```bash
+npm run sidecar:acestep
+# alias: npm run sidecar:acest
+```
+
+That writes `AIMC_ACESTEP_API_URL` into `ai-sidecar/.env.vocal` (and Studio
+`data/sidecar/pkg/.env.vocal` when present) and starts the ACE-Step API if a
+checkout is found (`AIMC_ACESTEP_HOME`, `ACESTEP_HOME`, or `F:\ACE-Step-1.5`).
+
+Manual alternative:
+
 1. Install and start ACE-Step’s API (from their repo / portable package):
 
    ```bash
@@ -25,8 +38,8 @@ own model runtime). Point the sidecar at the API instead — same pattern as
    ```
 
 3. Restart the sidecar (`npm run sidecar`). `/health` shows
-   `acestep_available: true` only when the API URL is set **and** the server
-   responds (probe hits `/docs`, `/openapi.json`, or `/`). Env alone is not enough.
+   `acestep_available: true` when the API URL is set (loaded from `.env.vocal`).
+   Generation still needs the ACE-Step server reachable.
 
 In Studio, ACE-Step controls show numbered setup steps, **Copy env snippet**, and a
 link to this doc when the API is unreachable.

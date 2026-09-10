@@ -20,7 +20,7 @@ const LEGACY_INSTALLABLE = [
     id: "acestep",
     title: "ACE-Step full song",
     flag: "acestep_available",
-    install_hint: "Start ACE-Step API + set AIMC_ACESTEP_API_URL (docs/acestep.md)",
+    install_hint: "npm run sidecar:acestep",
   },
   {
     id: "vocal-transform",

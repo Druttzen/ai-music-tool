@@ -44,6 +44,7 @@ import {
   reportSidecarExtraInstallIfFailed,
   sidecarExtraInstallStatusTone,
   sidecarExtraNpmHint,
+  sidecarExtraRowIsInstalled,
   subscribeSidecarExtraInstallProgress,
 } from "../lib/sidecar-extra-install-client";
 import { reportCaughtError, reportFailedOperation } from "../lib/fail-safe-runtime-capture";
@@ -93,26 +94,35 @@ export function AddonsPanel() {
   }, []);
 
   const refreshExtras = useCallback(async () => {
+    let installed = [];
     try {
-      const health = await fetchSidecarHealth();
-      const installed = await listInstalledSidecarExtras();
-      setInstalledExtras(new Set(installed));
-      const catalog = listStudioPluginCatalog(health);
-      setCapabilityRows(catalog);
-      setDeviceSummary(formatSidecarDeviceSummary(health));
-      setCapabilityCounts({
-        available: catalog.filter((r) => r.available).length,
-        total: catalog.length,
-      });
+      installed = await listInstalledSidecarExtras();
     } catch {
-      const catalog = listStudioPluginCatalog(null);
-      setInstalledExtras(new Set());
-      setCapabilityRows(catalog);
-      setDeviceSummary("");
-      setCapabilityCounts({ available: 0, total: catalog.length });
-    } finally {
-      setExtrasLoaded(true);
+      /* keep empty; do not wipe after a later health failure */
     }
+    let health = null;
+    try {
+      health = await fetchSidecarHealth();
+    } catch {
+      health = null;
+    }
+    const tracked = new Set(installed);
+    const catalog = listStudioPluginCatalog(health);
+    // Merge health-available allowlisted extras so Uninstall shows even if
+    // installed-extras.json was wiped while packages remain in the venv.
+    for (const row of catalog) {
+      if (sidecarExtraRowIsInstalled(tracked, row)) {
+        tracked.add(normalizeSidecarExtraId(row.extraId || row.id));
+      }
+    }
+    setInstalledExtras(tracked);
+    setCapabilityRows(catalog);
+    setDeviceSummary(formatSidecarDeviceSummary(health));
+    setCapabilityCounts({
+      available: catalog.filter((r) => r.available).length,
+      total: catalog.length,
+    });
+    setExtrasLoaded(true);
   }, []);
 
   const refreshInstallEnv = useCallback(async () => {
@@ -245,16 +255,19 @@ export function AddonsPanel() {
       let id = normalizeSidecarExtraId(extraId);
       // Config-only / stem-backed catalog rows are not pip extras.
       if (id === "acestep") {
-        const copyHint = "Set AIMC_ACESTEP_API_URL (see docs/acestep.md)";
+        const copyHint = "npm run sidecar:acestep";
         try {
           if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(copyHint);
-            setStatusWithTime(`Copied setup hint — ${copyHint}`, "info");
+            setStatusWithTime(
+              `ACE-Step is not a pip extra — run “${copyHint}” (starts API + writes AIMC_ACESTEP_API_URL). Copied.`,
+              "info",
+            );
           } else {
-            setStatusWithTime(copyHint, "info");
+            setStatusWithTime(`ACE-Step: run ${copyHint} (docs/acestep.md)`, "info");
           }
         } catch {
-          setStatusWithTime(copyHint, "info");
+          setStatusWithTime(`ACE-Step: run ${copyHint} (docs/acestep.md)`, "info");
         }
         return;
       }
@@ -522,7 +535,12 @@ export function AddonsPanel() {
                 const hint = cap.install_hint || sidecarExtraNpmHint(id);
                 const rowBusy = busyKey === `extra:${id}` || busyKey === `uninstall:${id}`;
                 const err = extraErrors[id];
-                const installed = installedExtras.has(id);
+                const canUninstall = isSidecarExtraAllowlisted(id);
+                const installed = sidecarExtraRowIsInstalled(installedExtras, {
+                  ...cap,
+                  id,
+                  extraId: id,
+                });
                 const rowProgress =
                   rowBusy && installProgress && normalizeSidecarExtraId(installProgress.extraId) === id
                     ? installProgress
@@ -609,7 +627,7 @@ export function AddonsPanel() {
                           </div>
                         ) : null}
                       </div>
-                      <div className="flex w-full shrink-0 flex-col sm:w-[7.5rem]">
+                      <div className="flex w-full shrink-0 flex-col gap-1 sm:w-[7.5rem]">
                         <button
                           type="button"
                           data-testid={`addons-install-${id}`}
@@ -620,7 +638,7 @@ export function AddonsPanel() {
                         >
                           {actionLabel}
                         </button>
-                        {installed && desktop ? (
+                        {installed && canUninstall && desktop ? (
                           <button
                             type="button"
                             data-testid={`addons-uninstall-${id}`}

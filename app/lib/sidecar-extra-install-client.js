@@ -41,6 +41,22 @@ export function isSidecarExtraAllowlisted(id) {
 }
 
 /**
+ * True when Addons should treat the row as installed (show Uninstall).
+ * Prefer the tracking file, but also trust /health for allowlisted pip extras —
+ * packages can exist in the user venv even when installed-extras.json was cleared.
+ * @param {Iterable<string>|Set<string>|null|undefined} trackedIds
+ * @param {{ available?: boolean, id?: string, extraId?: string }|null|undefined} row
+ */
+export function sidecarExtraRowIsInstalled(trackedIds, row) {
+  const id = normalizeSidecarExtraId(row?.extraId || row?.id);
+  if (!id) return false;
+  const tracked = trackedIds instanceof Set ? trackedIds : new Set(trackedIds || []);
+  if (tracked.has(id)) return true;
+  if (!isSidecarExtraAllowlisted(id)) return false;
+  return row?.available === true;
+}
+
+/**
  * /health boolean field for a given install extra id.
  * @param {string} id
  * @returns {keyof import("./sidecar-bridge").SidecarHealth | null}

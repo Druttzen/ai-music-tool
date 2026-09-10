@@ -23,6 +23,7 @@ import {
   sidecarExtraInstallStatusTone,
   sidecarExtraIsAvailable,
   sidecarExtraNpmHint,
+  sidecarExtraRowIsInstalled,
   waitForSidecarExtraReady,
   reportSidecarExtraInstallIfFailed,
 } from "../app/lib/sidecar-extra-install-client.js";
@@ -38,6 +39,20 @@ describe("sidecar extra install client", () => {
     fetchSidecarHealthInventory.mockResolvedValue(null);
   });
 
+  it("treats health-available allowlisted extras as installed for Uninstall UI", () => {
+    expect(
+      sidecarExtraRowIsInstalled([], { id: "stems", available: true }),
+    ).toBe(true);
+    expect(
+      sidecarExtraRowIsInstalled(new Set(["generate"]), { id: "stems", available: false }),
+    ).toBe(false);
+    expect(
+      sidecarExtraRowIsInstalled(new Set(["generate"]), { id: "generate", available: false }),
+    ).toBe(true);
+    expect(
+      sidecarExtraRowIsInstalled([], { id: "acestep", available: true }),
+    ).toBe(false);
+  });
   it("normalizes legacy capability ids", () => {
     expect(normalizeSidecarExtraId("vocal_ml")).toBe("vocal");
     expect(normalizeSidecarExtraId("rvc")).toBe("vocal-rvc");
