@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { runLocalCoverRemixJob } from "../lib/local-cover-remix-engine";
-import { buildLocalTrackDna, resolveLocalCoverRemixEngine } from "../lib/local-track-dna";
+import { runLocalCoverRemixJob } from "../../lib/local-cover-remix-engine";
+import { buildLocalTrackDna, resolveLocalCoverRemixEngine } from "../../lib/local-track-dna";
 import {
   buildMusicGenAnalysisReport,
   downloadMusicGenBlob,
   enrichMusicGenReportWithSidecar,
-} from "../lib/musicgen-preview";
-import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
+} from "../../lib/musicgen-preview";
+import { reportCaughtError } from "../../lib/fail-safe-runtime-capture";
 
 /**
  * Local cover/remix engine hook (no Suno).
