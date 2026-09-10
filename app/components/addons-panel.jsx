@@ -536,11 +536,14 @@ export function AddonsPanel() {
                 const rowBusy = busyKey === `extra:${id}` || busyKey === `uninstall:${id}`;
                 const err = extraErrors[id];
                 const canUninstall = isSidecarExtraAllowlisted(id);
-                const installed = sidecarExtraRowIsInstalled(installedExtras, {
+                const pipInstalled = sidecarExtraRowIsInstalled(installedExtras, {
                   ...cap,
                   id,
                   extraId: id,
                 });
+                // Config-only / derived rows (ACE-Step, vocal-transform) are not pip
+                // extras — still treat /health available as Installed for the action button.
+                const installed = pipInstalled || Boolean(cap.available);
                 const rowProgress =
                   rowBusy && installProgress && normalizeSidecarExtraId(installProgress.extraId) === id
                     ? installProgress
@@ -638,7 +641,7 @@ export function AddonsPanel() {
                         >
                           {actionLabel}
                         </button>
-                        {installed && canUninstall && desktop ? (
+                        {pipInstalled && canUninstall && desktop ? (
                           <button
                             type="button"
                             data-testid={`addons-uninstall-${id}`}

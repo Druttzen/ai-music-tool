@@ -114,11 +114,49 @@ describe("sidecar-capabilities", () => {
         },
       ],
     });
-    expect(rows.map((r) => r.id)).toEqual(["generate", "stems"]);
+    expect(rows.map((r) => r.id)).toEqual(["generate", "stems", "vocal_synth"]);
     expect(rows.find((r) => r.id === "generate")?.available).toBe(true);
     expect(rows.find((r) => r.id === "generate")?.commercial_use).toBe(false);
     expect(rows.find((r) => r.id === "generate")?.tasks).toEqual(["generate"]);
     expect(rows.find((r) => r.id === "stems")?.available).toBe(false);
+    expect(rows.find((r) => r.id === "vocal_synth")?.prompt_install).toBe(false);
+  });
+
+  it("keeps ACE-Step (prompt_install false) for Addons status overlays", () => {
+    const rows = listSidecarCapabilityRows({
+      capabilities: [
+        {
+          id: "acestep",
+          title: "ACE-Step full song",
+          install_hint: "npm run sidecar:acestep",
+          available: true,
+          prompt_install: false,
+        },
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("acestep");
+    expect(rows[0].available).toBe(true);
+    expect(rows[0].prompt_install).toBe(false);
+    expect(
+      missingSidecarInstallHints({
+        capabilities: [
+          {
+            id: "acestep",
+            title: "ACE-Step full song",
+            install_hint: "npm run sidecar:acestep",
+            available: false,
+            prompt_install: false,
+          },
+          {
+            id: "generate",
+            title: "MusicGen preview",
+            install_hint: "npm run sidecar:generate",
+            available: false,
+          },
+        ],
+      }).map((h) => h.id),
+    ).toEqual(["generate"]);
   });
 
   it("sorts action-needed extras first and formats row status", () => {

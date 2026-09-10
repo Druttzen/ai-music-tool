@@ -61,12 +61,13 @@ export function listSidecarCapabilityRows(health) {
 
   if (Array.isArray(health.capabilities) && health.capabilities.length) {
     return health.capabilities
-      .filter((c) => c.prompt_install !== false)
       .map((c) => ({
         id: c.id,
         title: c.title || c.id,
         install_hint: c.install_hint || "",
         available: Boolean(c.available),
+        // Preserve registry flag so missing-hint helpers can skip config-only rows.
+        prompt_install: c.prompt_install !== false,
         commercial_use: typeof c.commercial_use === "boolean" ? c.commercial_use : null,
         license: c.license ? String(c.license) : "",
         tasks: Array.isArray(c.tasks) ? c.tasks.map(String).filter(Boolean) : [],
@@ -80,6 +81,7 @@ export function listSidecarCapabilityRows(health) {
       title,
       install_hint,
       available: health[flag] === true,
+      prompt_install: true,
       commercial_use: null,
       license: "",
       tasks: [],
@@ -149,6 +151,7 @@ export function formatSidecarExtraRowStatus(row, opts = {}) {
  */
 export function missingSidecarInstallHints(health) {
   return listSidecarCapabilityRows(health)
+    .filter((c) => c.prompt_install !== false)
     .filter((c) => !c.available && c.install_hint)
     .map(({ id, title, install_hint }) => ({ id, title, install_hint }));
 }
