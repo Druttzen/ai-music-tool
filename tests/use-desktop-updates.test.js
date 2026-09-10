@@ -118,4 +118,46 @@ describe("useDesktopUpdates", () => {
     expect(result.current.busy).toBe(false);
     expect(result.current.status).toMatch(/timed out/i);
   });
+
+  it("hides the status bar after a finished progress event even without updateAll", async () => {
+    /** @type {(payload: object) => void} */
+    let onProgress = () => {};
+    subscribeToDesktopUpdateStatus.mockImplementation((cb) => {
+      onProgress = cb;
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    await act(async () => {
+      onProgress({
+        phase: "plugin",
+        message: "Updating stems…",
+        pct: 65,
+      });
+    });
+    expect(result.current.visible).toBe(true);
+    expect(result.current.busy).toBe(true);
+
+    await act(async () => {
+      onProgress({
+        phase: "studio",
+        message: "Studio app update check finished",
+        pct: 100,
+      });
+    });
+    expect(result.current.busy).toBe(false);
+    expect(result.current.visible).toBe(true);
+    expect(result.current.status).toMatch(/finished/i);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2200);
+    });
+    expect(result.current.visible).toBe(false);
+    expect(result.current.status).toBe("");
+    expect(result.current.progressPct).toBe(null);
+  });
 });

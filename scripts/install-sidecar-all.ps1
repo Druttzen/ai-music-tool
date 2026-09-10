@@ -5,4 +5,4 @@
 $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\lib\sidecar-venv.ps1"
 Install-SidecarExtra -RepoRoot (Split-Path -Parent $PSScriptRoot) -ExtraSpec "all" -Label "[all] extras (~multi-GB)"
-Write-Host "Optional RVC models still need configuration — see ai-sidecar README."
+Write-Host "Optional RVC models still need configuration - see ai-sidecar README."

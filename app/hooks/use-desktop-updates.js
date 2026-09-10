@@ -189,11 +189,18 @@ export function useDesktopUpdates() {
       } else if (payload.phase && PHASE_PCT[payload.phase] != null) {
         setProgressPct(PHASE_PCT[payload.phase]);
       }
+      // Status bar and header each own hook state. Finish events must dismiss the bar
+      // here — only the instance that called updateAll schedules hideStatus otherwise.
       const finished =
         payload.pct === 100 || /update check finished|timed out/i.test(message);
       if (finished) {
         setBusy(false);
+        clearHideTimer();
+        hideTimerRef.current = setTimeout(() => {
+          hideStatus();
+        }, 2200);
       } else if (message || payload.phase) {
+        clearHideTimer();
         setBusy(true);
       }
     });
@@ -203,7 +210,7 @@ export function useDesktopUpdates() {
       unsubscribe();
       clearHideTimer();
     };
-  }, [clearHideTimer, runSilentUpdate, runtime]);
+  }, [clearHideTimer, hideStatus, runSilentUpdate, runtime]);
 
   useEffect(() => {
     if (!busy || !isStuckStudioUpdateProgress(status, progressPct)) return undefined;
