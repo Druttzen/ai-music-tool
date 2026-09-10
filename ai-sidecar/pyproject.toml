@@ -75,7 +75,9 @@ all = [
     "xformers",
     "scipy>=1.11",
     "requests>=2.31",
-    "rvc-python>=0.1.5",
+    # Do not list rvc-python here: it pins faiss-cpu==1.7.3 (no Py3.12 wheel) and
+    # breaks `pip install -e .[all]`. Use `npm run sidecar:vocal-rvc` / Install-SidecarExtra
+    # vocal-rvc fallback (`rvc-python --no-deps` + companion wheels) instead.
 ]
 
 [build-system]

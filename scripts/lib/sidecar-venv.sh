@@ -109,8 +109,8 @@ install_sidecar_extra() {
   ensure_sidecar_venv
   echo "Installing ${label}..."
   if ! "$SIDECAR_PIP" install -e "${SIDECAR_DIR}[${spec}]"; then
-    if [[ "$spec" == "vocal-rvc" ]]; then
-      echo "rvc-python extra conflicted (omegaconf pin). Installing rvc-python --no-deps plus companion wheels..."
+    if [[ "$spec" == "vocal-rvc" || "$spec" == *vocal-rvc* ]]; then
+      echo "rvc-python extra conflicted (omegaconf/faiss pin). Installing rvc-python --no-deps plus companion wheels..."
       "$SIDECAR_PIP" install "rvc-python" --no-deps
       "$SIDECAR_PIP" install "fairseq==0.12.2" --no-deps
       "$SIDECAR_PIP" install faiss-cpu loguru ffmpeg-python "praat-parselmouth>=0.4.2" pyworld torchcrepe bitarray sacrebleu cython

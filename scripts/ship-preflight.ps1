@@ -39,12 +39,12 @@ if ($Tauri) {
 }
 
 if ($TagOnly) {
-  Write-Host "ship-preflight: tag-only — push studio-v*" -ForegroundColor Cyan
+  Write-Host "ship-preflight: tag-only - push studio-v*" -ForegroundColor Cyan
   node scripts/ship-tag-release.cjs
   exit $LASTEXITCODE
 }
 
-Write-Host "ship-preflight: OK — ready to commit, tag, and release" -ForegroundColor Green
+Write-Host "ship-preflight: OK - ready to commit, tag, and release" -ForegroundColor Green
 Write-Host "  Checklist: npm run ship:ready -- --print   (or docs/publish.md)" -ForegroundColor DarkGray
 Write-Host "  CI release: npm run ship:tag" -ForegroundColor DarkGray
 Write-Host "  Stronger local: npm run ship:ready -- --full" -ForegroundColor DarkGray

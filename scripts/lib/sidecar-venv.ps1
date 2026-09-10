@@ -223,12 +223,13 @@ function Install-SidecarExtra {
   )
   $ctx = Ensure-SidecarVenv -RepoRoot $RepoRoot
   Write-Host "Installing $Label..."
+  $specs = @($ExtraSpec -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
   # Format operator avoids `"path[$extra]"` which Windows PowerShell can parse as a type literal.
   $editable = '{0}[{1}]' -f $ctx.Sidecar, $ExtraSpec
   $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "-e", $editable)
   if ($code -ne 0) {
-    if ($ExtraSpec -eq "vocal-rvc") {
-      Write-Host "rvc-python extra conflicted (omegaconf pin). Installing rvc-python --no-deps plus companion wheels..."
+    if ($specs -contains "vocal-rvc") {
+      Write-Host "rvc-python extra conflicted (omegaconf/faiss pin). Installing rvc-python --no-deps plus companion wheels..."
       $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "rvc-python", "--no-deps")
       if ($code -ne 0) { exit $code }
       $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "fairseq==0.12.2", "--no-deps")
@@ -244,7 +245,7 @@ function Install-SidecarExtra {
   }
   # audiocraft pins torch==2.1.0 which conflicts with shared torch>=2.2 (stems/cover/vision).
   # Install companion deps via the [generate]/[all] extras, then audiocraft itself with --no-deps.
-  if ($ExtraSpec -eq "generate" -or $ExtraSpec -eq "all") {
+  if ($specs -contains "generate" -or $specs -contains "all") {
     Write-Host "Installing audiocraft (MusicGen) with --no-deps to keep torch>=2.2..."
     $code = Invoke-SidecarPip -Pip $ctx.Pip -ArgumentList @("install", "audiocraft>=1.3", "--no-deps")
     if ($code -ne 0) { exit $code }
@@ -255,8 +256,8 @@ function Install-SidecarExtra {
     "vocal-ml", "vocal-rvc", "all"
   )
   $needsCuda = $false
-  foreach ($part in ($ExtraSpec -split ",")) {
-    if ($torchExtras -contains $part.Trim()) { $needsCuda = $true; break }
+  foreach ($part in $specs) {
+    if ($torchExtras -contains $part) { $needsCuda = $true; break }
   }
   if ($needsCuda) {
     $pythonExe = if ($ctx.Python) { $ctx.Python } else { Join-Path $ctx.Venv "Scripts\python.exe" }
