@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.50.41",
+  "version": "0.50.42",
   "description": "AI Music Creator — Suno guided path, local analyzers, EBU R128, Preview monitor, studio WAV/FLAC/MP3/M4A export",
   "author": "DJ M@D",
   "private": true,
