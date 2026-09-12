@@ -515,6 +515,7 @@ fn installed_extras_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(user_sidecar_root(app)?.join(INSTALLED_EXTRAS_FILE))
 }
 
+#[cfg(test)]
 pub(crate) fn last_extra_from_state_json(raw: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(raw).ok()?;
     let id = value

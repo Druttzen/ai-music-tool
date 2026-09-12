@@ -409,8 +409,7 @@ async def sonic_signature(file: UploadFile = File(...)) -> SonicSignatureRespons
 @app.get("/acousticbrainz/{recording_mbid}", response_model=AcousticBrainzResponse)
 def acousticbrainz_lookup(recording_mbid: str) -> AcousticBrainzResponse:
     """Fetch archived AcousticBrainz features for a MusicBrainz recording MBID."""
-    data = fetch_acousticbrainz_features(recording_mbid)
-    if not data:
+    if not (data := fetch_acousticbrainz_features(recording_mbid)):
         raise HTTPException(status_code=404, detail="no AcousticBrainz data for this recording")
     return AcousticBrainzResponse(**data)
 
@@ -520,7 +519,7 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
     bandwidth = float(np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr)))
     rolloff = float(np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr)))
     onset_strength = float(np.mean(onset_env)) if onset_env.size else 0.0
-    beat_count = int(len(beat_frames))
+    beat_count = len(beat_frames)
     beat_density = float(beat_count / max(duration, 1.0))
     harmonic, percussive = librosa.effects.hpss(y)
     harmonic_energy = float(np.mean(np.abs(harmonic))) + 1e-9
