@@ -19,9 +19,19 @@ export default function Error({ error, reset }) {
 
   useEffect(() => {
     const msg = String(error?.message || "");
-    if (msg === "useEffect is not defined" || msg === "isDesktopAddonHost is not defined") {
-      reset();
+    if (msg !== "useEffect is not defined" && msg !== "isDesktopAddonHost is not defined") {
+      return;
     }
+    const key = "aimc-error-auto-reset";
+    try {
+      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key) === msg) {
+        return;
+      }
+      sessionStorage?.setItem(key, msg);
+    } catch {
+      /* ignore quota / private mode */
+    }
+    reset();
   }, [error, reset]);
 
   return (

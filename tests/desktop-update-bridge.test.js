@@ -5,6 +5,7 @@ import {
   checkForDesktopUpdates,
   getDesktopUpdateRuntime,
   installDesktopUpdate,
+  subscribeToDesktopUpdateStatus,
 } from "../app/lib/desktop-update-bridge";
 
 vi.mock("../app/lib/dsp-bridge", () => ({ isTauriApp: vi.fn() }));
@@ -41,5 +42,26 @@ describe("desktop-update-bridge", () => {
   it("stays inert in the browser", async () => {
     expect(getDesktopUpdateRuntime()).toBeNull();
     await expect(checkForDesktopUpdates()).resolves.toMatchObject({ ok: false, available: false });
+  });
+
+  it("drops a late listen callback after unsubscribe", async () => {
+    vi.mocked(isTauriApp).mockReturnValue(true);
+    const unlisten = vi.fn();
+    let resolveListen;
+    const listen = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveListen = resolve;
+        }),
+    );
+    Object.defineProperty(window, "__TAURI__", {
+      configurable: true,
+      value: { core: { invoke }, event: { listen } },
+    });
+    const stop = subscribeToDesktopUpdateStatus(() => {});
+    stop();
+    resolveListen(unlisten);
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
   });
 });

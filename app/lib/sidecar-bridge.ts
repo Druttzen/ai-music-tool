@@ -86,24 +86,9 @@ const SIDECAR_AUTH_HEADER = "X-AIMC-Sidecar-Token";
 
 let cachedSidecarAuthToken: string | null | undefined;
 
-async function resolveSidecarAuthToken(): Promise<string | null> {
-  if (cachedSidecarAuthToken !== undefined) return cachedSidecarAuthToken;
-  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SIDECAR_TOKEN) {
-    cachedSidecarAuthToken = String(process.env.NEXT_PUBLIC_SIDECAR_TOKEN);
-    return cachedSidecarAuthToken;
-  }
-  if (isTauriApp()) {
-    try {
-      const token = await tauriInvoke<string | null>("sidecar_auth_token");
-      cachedSidecarAuthToken = token?.trim() || null;
-      return cachedSidecarAuthToken;
-    } catch {
-      cachedSidecarAuthToken = null;
-      return null;
-    }
-  }
-  cachedSidecarAuthToken = null;
-  return null;
+/** @internal Remaining time until a waitForSidecar deadline. */
+export function remainingSidecarWaitMs(deadlineMs: number, nowMs = Date.now()): number {
+  return Math.max(0, deadlineMs - nowMs);
 }
 
 /**
@@ -167,6 +152,26 @@ function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>
   return w.__TAURI__.core.invoke<T>(cmd, args);
 }
 
+/** @internal Resolve sidecar auth; invoke failures are not cached so the next call can retry. */
+export async function resolveSidecarAuthToken(): Promise<string | null> {
+  if (cachedSidecarAuthToken !== undefined) return cachedSidecarAuthToken;
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SIDECAR_TOKEN) {
+    cachedSidecarAuthToken = String(process.env.NEXT_PUBLIC_SIDECAR_TOKEN);
+    return cachedSidecarAuthToken;
+  }
+  if (isTauriApp()) {
+    try {
+      const token = await tauriInvoke<string | null>("sidecar_auth_token");
+      cachedSidecarAuthToken = token?.trim() || null;
+      return cachedSidecarAuthToken;
+    } catch {
+      return null;
+    }
+  }
+  cachedSidecarAuthToken = null;
+  return null;
+}
+
 /** Managed sidecar status from the Tauri host (null outside Tauri). */
 export async function getManagedSidecarStatus(): Promise<SidecarManagedStatus | null> {
   if (!isTauriApp()) return null;
@@ -184,14 +189,14 @@ export async function ensureManagedSidecar(timeoutMs = 30_000): Promise<boolean>
   return status.ready;
 }
 
-/** Poll /health until available or timeout. */
+/** Poll /health until available or timeout (one deadline for spawn + HTTP). */
 export async function waitForSidecar(timeoutMs = 45_000): Promise<boolean> {
   resetSidecarHealthCache();
+  const deadline = Date.now() + timeoutMs;
   if (isTauriApp()) {
-    const ok = await ensureManagedSidecar(timeoutMs);
+    const ok = await ensureManagedSidecar(remainingSidecarWaitMs(deadline));
     if (ok) return true;
   }
-  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await isSidecarAvailable()) return true;
     await new Promise((r) => setTimeout(r, 400));

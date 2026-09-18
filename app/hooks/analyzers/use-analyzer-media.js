@@ -194,6 +194,7 @@ export function useAnalyzerMedia({
           const next = patchAudioAnalysis(prev, {
             audioCacheKey: keys.audioCacheKey,
             audioLookupKey: keys.audioLookupKey,
+            fileSize: file.size,
             waveformPeaks: peaks,
             waveformSource: "sample",
             duration: buffer.duration,
@@ -245,6 +246,7 @@ export function useAnalyzerMedia({
         const buffer = decoded.buffer;
         const cacheKey = makeAudioCacheKey(file);
         const report = analyzeAudioBuffer(buffer, file.name);
+        report.fileSize = file.size;
         try {
           const keys = await putAudioCacheEntries(file, cacheKey, buffer.duration);
           report.audioCacheKey = keys.audioCacheKey;
@@ -285,6 +287,7 @@ export function useAnalyzerMedia({
           sidecarStatusMsg = `${sidecarStatusMsg} · Symphonia preview decode`;
         }
 
+        finalReport.fileSize = file.size;
         setAudioPreviewFromBlob(decoded.previewBlob || file);
         setAudioAnalysis(finalReport);
         setStatusWithTime(
@@ -298,6 +301,7 @@ export function useAnalyzerMedia({
             const sidecar = await analyzeAudioViaSidecar(file, file.name);
             const fallback = buildSidecarFallbackReport(file.name, sidecar);
             let finalReport = mergeSidecarAnalysis(fallback, sidecar);
+            finalReport.fileSize = file.size;
             try {
               const sonic = await fetchSonicSignatureViaSidecar(file, file.name);
               finalReport = mergeSonicSignature(finalReport, sonic);

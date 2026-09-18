@@ -115,7 +115,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   const [stemsModel, setStemsModel] = useState("htdemucs");
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
-  const [waveSurferPrototype, setWaveSurferPrototype] = useState(() => readWaveSurferPref());
+  const [waveSurferPrototype, setWaveSurferPrototype] = useState(ENABLE_WAVESURFER_DEFAULT);
   const [studioShell, setStudioShell] = useState(false);
   const [exportDir, setExportDir] = useState(null);
   const [defaultExportDir, setDefaultExportDir] = useState(null);
@@ -127,6 +127,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
     const timer = setTimeout(() => {
       setStudioShell(isTauriApp());
       setExportDir(getStoredStudioExportDirectory());
+      setWaveSurferPrototype(readWaveSurferPref());
     }, 0);
     return () => clearTimeout(timer);
   }, []);

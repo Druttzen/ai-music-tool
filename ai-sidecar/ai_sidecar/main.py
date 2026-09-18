@@ -18,6 +18,7 @@ transform — see registry.py for the catalog.
 from __future__ import annotations
 
 import io
+import logging
 import os
 import tempfile
 import asyncio
@@ -87,6 +88,14 @@ _SIDECAR_TOKEN = os.environ.get("AIMC_SIDECAR_TOKEN", "").strip()
 _SIDECAR_AUTH_HEADER = "x-aimc-sidecar-token"
 MAX_AUDIO_UPLOAD_BYTES = 512 * 1024 * 1024
 MAX_IMAGE_UPLOAD_BYTES = 32 * 1024 * 1024
+_LOG = logging.getLogger("ai_sidecar")
+
+
+def _http_safe_detail(exc: Exception, fallback: str) -> str:
+    _LOG.exception(fallback)
+    if os.environ.get("AIMC_SIDECAR_DEBUG") == "1":
+        return f"{fallback}: {exc}"
+    return fallback
 
 _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -373,7 +382,9 @@ def youtube_resolve(body: YoutubeResolveRequest) -> YoutubeResolveResponse:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"YouTube resolve failed: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=_http_safe_detail(exc, "YouTube resolve failed")
+        ) from exc
     return YoutubeResolveResponse(**payload)
 
 
@@ -387,7 +398,9 @@ def youtube_sonic_signature(body: YoutubeSonicRequest) -> SonicSignatureResponse
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"YouTube sonic signature failed: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=_http_safe_detail(exc, "YouTube sonic signature failed")
+        ) from exc
     return SonicSignatureResponse(**{k: v for k, v in payload.items() if k not in ("video_id", "watch_url")})
 
 
@@ -401,8 +414,12 @@ async def sonic_signature(file: UploadFile = File(...)) -> SonicSignatureRespons
         payload = await asyncio.to_thread(extract_sonic_signature, raw)
     except Exception as exc:
         if "librosa" in str(exc).lower() or "numpy" in str(exc).lower():
-            raise HTTPException(status_code=503, detail=f"analysis deps missing: {exc}") from exc
-        raise HTTPException(status_code=422, detail=f"sonic signature failed: {exc}") from exc
+            raise HTTPException(
+                status_code=503, detail=_http_safe_detail(exc, "analysis deps missing")
+            ) from exc
+        raise HTTPException(
+            status_code=422, detail=_http_safe_detail(exc, "sonic signature failed")
+        ) from exc
     return SonicSignatureResponse(**payload)
 
 
@@ -492,7 +509,9 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
         import librosa  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
     except Exception as exc:  # pragma: no cover - depends on optional install
-        raise HTTPException(status_code=503, detail=f"analysis deps missing: {exc}") from exc
+        raise HTTPException(
+            status_code=503, detail=_http_safe_detail(exc, "analysis deps missing")
+        ) from exc
 
     raw = await _read_upload_limited(file, MAX_AUDIO_UPLOAD_BYTES)
     if not raw:
@@ -503,7 +522,9 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
             librosa.load, io.BytesIO(raw), sr=None, mono=True
         )
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"could not decode audio: {exc}") from exc
+        raise HTTPException(
+            status_code=422, detail=_http_safe_detail(exc, "could not decode audio")
+        ) from exc
 
     duration = float(librosa.get_duration(y=y, sr=sr))
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
@@ -981,7 +1002,9 @@ async def vocal_embed_align_preview(
         import librosa  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"alignment deps missing: {exc}") from exc
+        raise HTTPException(
+            status_code=503, detail=_http_safe_detail(exc, "alignment deps missing")
+        ) from exc
 
     y, sr = librosa.load(io.BytesIO(guide_raw), sr=None, mono=True)
     aligned_plan, method = align_plan_with_guide(plan, np.asarray(y, dtype=np.float32), int(sr))
@@ -1016,7 +1039,9 @@ async def vocal_embed_ds_export(
                 import librosa  # noqa: PLC0415
                 import numpy as np  # noqa: PLC0415
             except Exception as exc:
-                raise HTTPException(status_code=503, detail=f"alignment deps missing: {exc}") from exc
+                raise HTTPException(
+                    status_code=503, detail=_http_safe_detail(exc, "alignment deps missing")
+                ) from exc
             y, sr = librosa.load(io.BytesIO(guide_raw), sr=None, mono=True)
             guide_mono = np.asarray(y, dtype=np.float32)
             sample_rate = int(sr)
@@ -1078,7 +1103,9 @@ async def separate(file: UploadFile = File(...), model_name: str = Form("htdemuc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"separation failed: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=_http_safe_detail(exc, "separation failed")
+        ) from exc
 
     job_id = result["job_id"]
     sources = list(result["sources"])

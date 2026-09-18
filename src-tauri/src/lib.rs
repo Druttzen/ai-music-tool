@@ -44,26 +44,43 @@ fn validate_dsp_input(bytes: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn measure_loudness_bytes(bytes: Vec<u8>) -> Result<Loudness, String> {
+fn measure_loudness_bytes_sync(bytes: Vec<u8>) -> Result<Loudness, String> {
     validate_dsp_input(&bytes)?;
     dsp_core::measure_loudness_bytes(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn measure_stereo_phase_bytes(bytes: Vec<u8>) -> Result<StereoPhase, String> {
+async fn measure_loudness_bytes(bytes: Vec<u8>) -> Result<Loudness, String> {
+    tauri::async_runtime::spawn_blocking(move || measure_loudness_bytes_sync(bytes))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn measure_stereo_phase_bytes_sync(bytes: Vec<u8>) -> Result<StereoPhase, String> {
     validate_dsp_input(&bytes)?;
     dsp_core::measure_stereo_phase_bytes(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn decode_preview_wav_bytes(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+async fn measure_stereo_phase_bytes(bytes: Vec<u8>) -> Result<StereoPhase, String> {
+    tauri::async_runtime::spawn_blocking(move || measure_stereo_phase_bytes_sync(bytes))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn decode_preview_wav_bytes_sync(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
     validate_dsp_input(&bytes)?;
     dsp_core::decode_preview_wav_bytes(bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn export_mastered(
+async fn decode_preview_wav_bytes(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+    tauri::async_runtime::spawn_blocking(move || decode_preview_wav_bytes_sync(bytes))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn export_mastered_sync(
     bytes: Vec<u8>,
     preset_id: String,
     format: String,
@@ -72,6 +89,21 @@ fn export_mastered(
 ) -> Result<ExportMasteredResult, String> {
     validate_dsp_input(&bytes)?;
     export_mastered_bytes(bytes, &preset_id, &format, start_sec, end_sec).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn export_mastered(
+    bytes: Vec<u8>,
+    preset_id: String,
+    format: String,
+    start_sec: Option<f64>,
+    end_sec: Option<f64>,
+) -> Result<ExportMasteredResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        export_mastered_sync(bytes, preset_id, format, start_sec, end_sec)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -172,7 +204,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod loudness_command_tests {
-    use super::measure_loudness_bytes;
+    use super::measure_loudness_bytes_sync;
     use std::f32::consts::PI;
 
     fn stereo_sine_wav() -> Vec<u8> {
@@ -204,7 +236,7 @@ mod loudness_command_tests {
 
     #[test]
     fn studio_native_lufs_bytes_command_works() {
-        let result = measure_loudness_bytes(stereo_sine_wav()).expect("native LUFS");
+        let result = measure_loudness_bytes_sync(stereo_sine_wav()).expect("native LUFS");
         assert_eq!(result.channels, 2);
         assert_eq!(result.sample_rate, 48_000);
         assert!(

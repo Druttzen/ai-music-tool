@@ -431,6 +431,7 @@ export function normalizeAudioAnalysis(raw) {
     version: 2,
     fileName,
     duration,
+    fileSize: Number(raw.fileSize) || 0,
     energy: raw.energy ?? 50,
     aggression: raw.aggression ?? 50,
     brightness: raw.brightness ?? 50,
@@ -456,7 +457,8 @@ export function normalizeAudioAnalysis(raw) {
       raw.waveformSource || (hasPeaks ? "saved" : ""),
     audioCacheKey: raw.audioCacheKey || "",
     audioLookupKey:
-      raw.audioLookupKey || (fileName && duration ? makeAudioLookupKey(fileName, duration) : ""),
+      raw.audioLookupKey ||
+      (fileName && duration ? makeAudioLookupKey(fileName, duration, raw.fileSize) : ""),
     moodSuggestion: raw.moodSuggestion || {
       energy: raw.energy ?? 50,
       aggression: raw.aggression ?? 50,

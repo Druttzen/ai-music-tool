@@ -292,6 +292,9 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
         let ty = entry.file_type().map_err(|e| format!("file_type: {e}"))?;
         let from = entry.path();
         let to = dst.join(entry.file_name());
+        if ty.is_symlink() {
+            continue;
+        }
         if ty.is_dir() {
             // Skip heavy / non-package dirs if present in checkout copies.
             let name = entry.file_name();
@@ -928,6 +931,30 @@ mod tests {
         copy_dir_recursive(&src, &dst).unwrap();
         assert!(dst.join("keep-me.txt").is_file());
         assert!(package_source_ok(&dst));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn overlay_copy_skips_symlinks() {
+        use std::os::unix::fs::symlink;
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("aimc-pkg-symlink-{stamp}"));
+        let src = root.join("src");
+        let dst = root.join("dst");
+        let outside = root.join("secret.txt");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&src).unwrap();
+        fs::create_dir_all(&dst).unwrap();
+        fs::write(&outside, "secret\n").unwrap();
+        symlink(&outside, src.join("link.txt")).unwrap();
+        fs::write(src.join("ok.txt"), "ok\n").unwrap();
+        copy_dir_recursive(&src, &dst).unwrap();
+        assert!(dst.join("ok.txt").is_file());
+        assert!(!dst.join("link.txt").exists());
         let _ = fs::remove_dir_all(&root);
     }
 }

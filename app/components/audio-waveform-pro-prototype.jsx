@@ -62,7 +62,12 @@ export const AudioWaveformProPrototype = memo(function AudioWaveformProPrototype
   const onHighlightChangeRef = useRef(onHighlightChange);
   const regionSeqRef = useRef(1);
   const [status, setStatus] = useState("loading");
-  const [showSpectrogram, setShowSpectrogram] = useState(() => readSpectrogramPref());
+  const [showSpectrogram, setShowSpectrogram] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSpectrogram(readSpectrogramPref()), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     onHighlightChangeRef.current = onHighlightChange;

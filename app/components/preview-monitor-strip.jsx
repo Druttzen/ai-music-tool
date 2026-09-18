@@ -35,10 +35,13 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
   const [refEngine, setRefEngine] = useState(null);
   const [refBusy, setRefBusy] = useState(false);
   const [spectrum, setSpectrum] = useState(() => new Array(SPECTRUM_BINS).fill(0));
-  const [eqState, setEqState] = useState(() =>
-    typeof window === "undefined" ? defaultPreviewEqState() : loadPreviewEqState(),
-  );
+  const [eqState, setEqState] = useState(() => defaultPreviewEqState());
   const eqStateRef = useRef(eqState);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setEqState(loadPreviewEqState()), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const matchGain = useMemo(
     () => gainToMatchLufs(programLufs ?? NaN, refLufs ?? NaN),

@@ -377,15 +377,22 @@ fn find_foreign_canvas_install() -> Option<PathBuf> {
     None
 }
 
+const MAX_CANVAS_IMAGE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_CANVAS_AUDIO_BYTES: usize = 512 * 1024 * 1024;
+
 fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
     fs::create_dir_all(dest).map_err(|e| format!("mkdir {}: {e}", dest.display()))?;
     for entry in fs::read_dir(src).map_err(|e| format!("read {}: {e}", src.display()))? {
         let entry = entry.map_err(|e| e.to_string())?;
         let from = entry.path();
         let to = dest.join(entry.file_name());
-        if from.is_dir() {
+        let meta = fs::symlink_metadata(&from).map_err(|e| e.to_string())?;
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        if meta.is_dir() {
             copy_dir_recursive(&from, &to)?;
-        } else {
+        } else if meta.is_file() {
             fs::copy(&from, &to)
                 .map_err(|e| format!("copy {} → {}: {e}", from.display(), to.display()))?;
         }
@@ -1116,7 +1123,62 @@ pub async fn uninstall_canvas_addon() -> CanvasAddonActionResult {
 }
 
 #[tauri::command]
-pub fn export_canvas_handoff(
+pub async fn export_canvas_handoff(
+    title: String,
+    artist: String,
+    image_bytes: Vec<u8>,
+    ext: Option<String>,
+    audio_bytes: Option<Vec<u8>>,
+    audio_ext: Option<String>,
+    motion_hint: Option<String>,
+    duration_sec: Option<u32>,
+) -> CanvasHandoffResult {
+    if image_bytes.len() > MAX_CANVAS_IMAGE_BYTES {
+        return CanvasHandoffResult {
+            ok: false,
+            launched: false,
+            album_art_path: None,
+            handoff_path: None,
+            error: Some("image payload exceeds the 64 MiB limit".to_string()),
+        };
+    }
+    if audio_bytes
+        .as_ref()
+        .map(|b| b.len())
+        .unwrap_or(0)
+        > MAX_CANVAS_AUDIO_BYTES
+    {
+        return CanvasHandoffResult {
+            ok: false,
+            launched: false,
+            album_art_path: None,
+            handoff_path: None,
+            error: Some("audio payload exceeds the 512 MiB limit".to_string()),
+        };
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        export_canvas_handoff_sync(
+            title,
+            artist,
+            image_bytes,
+            ext,
+            audio_bytes,
+            audio_ext,
+            motion_hint,
+            duration_sec,
+        )
+    })
+    .await
+    .unwrap_or_else(|err| CanvasHandoffResult {
+        ok: false,
+        launched: false,
+        album_art_path: None,
+        handoff_path: None,
+        error: Some(format!("canvas handoff task failed: {err}")),
+    })
+}
+
+fn export_canvas_handoff_sync(
     title: String,
     artist: String,
     image_bytes: Vec<u8>,

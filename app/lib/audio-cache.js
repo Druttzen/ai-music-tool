@@ -34,15 +34,19 @@ export function makeAudioCacheKey(file) {
 }
 
 /**
- * Stable key for the same track identity (name + duration) across sessions.
+ * Stable key for the same track identity (name + duration + size) across sessions.
+ * Size is optional so older lookup keys still resolve.
  * @param {string} fileName
  * @param {number} durationSec
+ * @param {number} [sizeBytes]
  */
-export function makeAudioLookupKey(fileName, durationSec) {
+export function makeAudioLookupKey(fileName, durationSec, sizeBytes) {
   const name = String(fileName || "audio")
     .trim()
     .toLowerCase();
   const d = Math.round((Number(durationSec) || 0) * 10);
+  const size = Math.max(0, Number(sizeBytes) || 0);
+  if (size > 0) return `lookup:${name}:${d}:${size}`;
   return `lookup:${name}:${d}`;
 }
 
@@ -56,6 +60,7 @@ export function getAudioCacheKeysForAnalysis(analysis) {
   if (analysis.audioCacheKey) keys.push(analysis.audioCacheKey);
   if (analysis.audioLookupKey) keys.push(analysis.audioLookupKey);
   if (analysis.fileName && analysis.duration) {
+    keys.push(makeAudioLookupKey(analysis.fileName, analysis.duration, analysis.fileSize));
     keys.push(makeAudioLookupKey(analysis.fileName, analysis.duration));
   }
   return uniq(keys);
@@ -85,8 +90,10 @@ export async function putAudioCache(key, file) {
  */
 export async function putAudioCacheEntries(file, primaryKey, durationSec) {
   const fileName = file?.name || "audio";
+  const lookup = makeAudioLookupKey(fileName, durationSec, file?.size);
   const keys = uniq([
     primaryKey,
+    lookup,
     makeAudioLookupKey(fileName, durationSec),
   ]).filter(Boolean);
   for (const key of keys) {
@@ -94,7 +101,7 @@ export async function putAudioCacheEntries(file, primaryKey, durationSec) {
   }
   return {
     audioCacheKey: primaryKey,
-    audioLookupKey: makeAudioLookupKey(fileName, durationSec),
+    audioLookupKey: lookup,
   };
 }
 
@@ -211,5 +218,8 @@ export function audioFileMatchesAnalysis(file, analysis, fileDurationSec, tolera
   const got = Number(fileDurationSec) || 0;
   const durationMatch =
     !expected || !got || Math.abs(expected - got) <= toleranceSec;
-  return nameMatch && durationMatch;
+  const expectedSize = Number(analysis.fileSize) || 0;
+  const gotSize = Number(file.size) || 0;
+  const sizeMatch = !expectedSize || !gotSize || expectedSize === gotSize;
+  return nameMatch && durationMatch && sizeMatch;
 }
