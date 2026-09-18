@@ -59,6 +59,7 @@ export function useAnalyzerExport({ audioAnalysis, audioPreviewUrlRef, setStatus
           format,
           startSec,
           endSec,
+          outputDir: opts.outputDir,
           onProgress: (p) => setAudioExportProgress(p),
         });
 
@@ -70,7 +71,7 @@ export function useAnalyzerExport({ audioAnalysis, audioPreviewUrlRef, setStatus
           : "";
         const where =
           result?.saveMode === "studio" && result?.savePath
-            ? ` · Studio exports`
+            ? ` · ${result.savePath}`
             : "";
         if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
           setStatusWithTime(

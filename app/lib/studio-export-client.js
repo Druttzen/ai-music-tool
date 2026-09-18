@@ -6,6 +6,7 @@
 import { serializeAudioBuffer } from "./audio-buffer-serialize";
 import { downloadFormatBlob, normalizeStudioExportFormat } from "./audio-export-formats";
 import { isTauriApp, exportMasteredNative } from "./dsp-bridge";
+import { resolveStudioExportDirectory } from "./studio-export-destination";
 
 let workerInstance = null;
 let exportInFlight = false;
@@ -71,15 +72,17 @@ export function buildExportFileName(baseFileName, format) {
  * @param {Blob} blob
  * @param {string} presetId
  * @param {string} baseFileName
- * @param {{ format?: string, onProgress?: (p: { phase: string, pct: number }) => void, startSec?: number, endSec?: number }} [opts]
+ * @param {{ format?: string, onProgress?: (p: { phase: string, pct: number }) => void, startSec?: number, endSec?: number, outputDir?: string|null }} [opts]
  */
 export async function exportEnhancedFromBlob(blob, presetId, baseFileName, opts = {}) {
   const format = normalizeStudioExportFormat(opts.format);
   const nativeOnly = format === "flac" || format === "m4a";
+  const outputDir = resolveStudioExportDirectory(opts);
+  const saveOpts = { ...opts, outputDir };
 
   if (isTauriApp()) {
     try {
-      return await exportMasteredNativePath(blob, presetId, baseFileName, format, opts);
+      return await exportMasteredNativePath(blob, presetId, baseFileName, format, saveOpts);
     } catch (err) {
       // FLAC/M4A have no honest JS encoder — never silently deliver WAV24/MP3 as success.
       if (nativeOnly) {
@@ -116,7 +119,7 @@ export async function exportEnhancedFromBlob(blob, presetId, baseFileName, opts 
     );
   }
 
-  return exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opts);
+  return exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, saveOpts);
 }
 
 async function exportMasteredNativePath(blob, presetId, baseFileName, format, opts) {
@@ -146,7 +149,9 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
             : "audio/wav";
     const outBlob = new Blob([outBytes], { type: mime });
     const fileName = buildExportFileName(baseFileName, format);
-    const saved = await downloadFormatBlob(outBlob, fileName);
+    const saved = await downloadFormatBlob(outBlob, fileName, {
+      directory: opts.outputDir,
+    });
     opts.onProgress?.({ phase: "done", pct: 100 });
     return {
       format,
@@ -257,7 +262,9 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
       }
       if (msg.type === "done") {
         const blob = new Blob([msg.blobBuffer], { type: msg.mime });
-        void downloadFormatBlob(blob, msg.fileName || fileName).then((saved) => {
+        void downloadFormatBlob(blob, msg.fileName || fileName, {
+          directory: opts.outputDir,
+        }).then((saved) => {
           settle(resolve, {
             format: msg.outFormat || format,
             formatFallback: !!msg.formatFallback,
@@ -310,7 +317,9 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
     opts.onProgress?.({ phase: "encoding", pct: 85 });
     const format = normalizeStudioExportFormat(opts.format);
     try {
-      const encoded = await downloadAudioBufferAsFormat(enhanced, format, baseFileName);
+      const encoded = await downloadAudioBufferAsFormat(enhanced, format, baseFileName, {
+        directory: opts.outputDir,
+      });
       opts.onProgress?.({ phase: "done", pct: 100 });
       return {
         format: encoded?.format || format,
@@ -322,7 +331,9 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
       };
     } catch (encodeErr) {
       if (format !== "mp3") throw encodeErr;
-      const encoded = await downloadAudioBufferAsFormat(enhanced, "wav", baseFileName);
+      const encoded = await downloadAudioBufferAsFormat(enhanced, "wav", baseFileName, {
+        directory: opts.outputDir,
+      });
       opts.onProgress?.({ phase: "done", pct: 100 });
       return {
         format: "wav",

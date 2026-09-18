@@ -25,6 +25,14 @@ import { AceStepSongControls } from "./acestep-song-controls";
 import { VocalTransformControls } from "./vocal-transform-controls";
 import { PreviewMonitorStrip } from "./preview-monitor-strip";
 import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
+import { isTauriApp } from "../lib/dsp-bridge";
+import {
+  fetchDefaultStudioExportsDir,
+  formatExportDirLabel,
+  getStoredStudioExportDirectory,
+  pickStudioExportDirectory,
+  setStoredStudioExportDirectory,
+} from "../lib/studio-export-destination";
 
 /** WaveSurfer pro editor on by default; set NEXT_PUBLIC_WAVESURFER_PROTOTYPE=0 to force classic. */
 const ENABLE_WAVESURFER_DEFAULT = process.env.NEXT_PUBLIC_WAVESURFER_PROTOTYPE !== "0";
@@ -108,7 +116,31 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
   const [waveSurferPrototype, setWaveSurferPrototype] = useState(() => readWaveSurferPref());
+  const [studioShell, setStudioShell] = useState(false);
+  const [exportDir, setExportDir] = useState(null);
+  const [defaultExportDir, setDefaultExportDir] = useState(null);
+  const [exportDirBusy, setExportDirBusy] = useState(false);
+  const [exportDirError, setExportDirError] = useState("");
   const rafRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setStudioShell(isTauriApp());
+      setExportDir(getStoredStudioExportDirectory());
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!studioShell) return undefined;
+    let cancelled = false;
+    fetchDefaultStudioExportsDir().then((path) => {
+      if (!cancelled) setDefaultExportDir(path);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [studioShell]);
 
   const seekAudio = useCallback(
     (time) => {
@@ -120,6 +152,28 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
     },
     [analysis?.duration],
   );
+
+  const chooseExportDir = useCallback(async () => {
+    setExportDirError("");
+    setExportDirBusy(true);
+    try {
+      const picked = await pickStudioExportDirectory(exportDir || defaultExportDir);
+      if (!picked) return;
+      setStoredStudioExportDirectory(picked);
+      setExportDir(picked);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not choose folder";
+      setExportDirError(msg.slice(0, 120));
+    } finally {
+      setExportDirBusy(false);
+    }
+  }, [defaultExportDir, exportDir]);
+
+  const resetExportDir = useCallback(() => {
+    setExportDirError("");
+    setStoredStudioExportDirectory(null);
+    setExportDir(null);
+  }, []);
 
   useEffect(() => {
     const player = audioRef.current;
@@ -456,6 +510,54 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               </button>
             ))}
           </div>
+          <div
+            data-testid="studio-export-destination"
+            className="rounded-xl border border-violet-400/20 bg-black/25 px-3 py-2 space-y-1.5"
+          >
+            <div className="text-[10px] font-bold uppercase tracking-wider text-white/50">
+              Output folder
+            </div>
+            <div
+              className="font-mono text-[11px] text-violet-100/90 break-all"
+              title={exportDir || defaultExportDir || ""}
+            >
+              {studioShell
+                ? formatExportDirLabel(exportDir || defaultExportDir, {
+                    fallback: "Studio exports",
+                    max: 88,
+                  })
+                : "Browser download (Studio can choose a folder)"}
+            </div>
+            {studioShell ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={exportBusy || exportDirBusy}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void chooseExportDir();
+                  }}
+                  className="rounded-lg border border-violet-400/35 bg-violet-500/20 px-2 py-1 text-[10px] font-bold text-violet-50 hover:bg-violet-500/30 disabled:opacity-50"
+                >
+                  {exportDirBusy ? "Choosing…" : "Choose folder"}
+                </button>
+                <button
+                  type="button"
+                  disabled={exportBusy || exportDirBusy || !exportDir}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    resetExportDir();
+                  }}
+                  className="rounded-lg border border-white/15 px-2 py-1 text-[10px] font-bold text-white/60 hover:bg-white/10 disabled:opacity-40"
+                >
+                  Studio default
+                </button>
+              </div>
+            ) : null}
+            {exportDirError ? (
+              <div className="text-[10px] text-rose-300">{exportDirError}</div>
+            ) : null}
+          </div>
           {exportBusy && exportProgress ? (
             <div className="space-y-1">
               <div className="flex justify-between text-[10px] text-white/45">
@@ -478,7 +580,11 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
                 disabled={exportBusy}
                 onClick={(e) => {
                   e.preventDefault();
-                  onExportEnhanced(preset.id, { format: exportFormat, scope: "full" });
+                  onExportEnhanced(preset.id, {
+                    format: exportFormat,
+                    scope: "full",
+                    outputDir: exportDir,
+                  });
                 }}
                 className="rounded-2xl border border-violet-400/35 bg-violet-500/20 px-2 py-2 text-left transition hover:bg-violet-500/30 disabled:cursor-wait disabled:opacity-50"
               >
@@ -508,7 +614,11 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               disabled={exportBusy}
               onClick={(e) => {
                 e.preventDefault();
-                onExportEnhanced(highlightPreset, { format: exportFormat, scope: "highlight" });
+                onExportEnhanced(highlightPreset, {
+                  format: exportFormat,
+                  scope: "highlight",
+                  outputDir: exportDir,
+                });
               }}
               className="flex-1 min-w-[160px] rounded-xl border border-amber-400/30 bg-amber-500/15 py-2 text-[10px] font-bold text-amber-100 hover:bg-amber-500/25 disabled:opacity-50"
             >

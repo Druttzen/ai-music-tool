@@ -27,7 +27,7 @@ use sidecar_extra_install::{
 };
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use studio_component_update::update_studio_all;
-use studio_exports::save_bytes_to_exports;
+use studio_exports::{get_exports_dir, pick_export_directory, save_bytes_to_exports};
 use studio_updater::{check_studio_update, install_studio_update};
 use tauri::{Manager, RunEvent};
 use workspace_reset::{consume_workspace_reset_flag, workspace_reset_pending};
@@ -153,6 +153,8 @@ pub fn run() {
             install_studio_update,
             update_studio_all,
             save_bytes_to_exports,
+            get_exports_dir,
+            pick_export_directory,
             workspace_reset_pending,
             consume_workspace_reset_flag,
         ])

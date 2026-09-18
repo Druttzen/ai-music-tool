@@ -248,12 +248,13 @@ export function audioBufferToWav32Blob(buffer) {
 /**
  * @param {Blob} wavBlob
  * @param {string} fileName
+ * @param {{ directory?: string|null }} [opts]
  * @returns {Promise<{ mode: "studio"|"browser", path?: string }>}
  */
-export function downloadAudioBlob(wavBlob, fileName) {
+export function downloadAudioBlob(wavBlob, fileName, opts) {
   // Dynamic import avoids circular deps with studio export helpers.
   return import("./studio-file-save").then(({ saveOrDownloadBlob }) =>
-    saveOrDownloadBlob(wavBlob, fileName),
+    saveOrDownloadBlob(wavBlob, fileName, opts),
   );
 }
 

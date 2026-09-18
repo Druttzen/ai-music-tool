@@ -38,6 +38,7 @@ describe("studio-file-save", () => {
           expect(cmd).toBe("save_bytes_to_exports");
           expect(args.fileName).toBe("out.wav");
           expect(args.bytes).toBeInstanceOf(Uint8Array);
+          expect(args.directory).toBeUndefined();
           return "C:/Apps/Studio/data/exports/out.wav";
         }),
       },
@@ -49,5 +50,26 @@ describe("studio-file-save", () => {
       path: "C:/Apps/Studio/data/exports/out.wav",
     });
     expect(globalThis.window.__TAURI__.core.invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes a custom output directory to save_bytes_to_exports", async () => {
+    globalThis.window.__TAURI__ = {
+      core: {
+        invoke: vi.fn(async (cmd, args) => {
+          expect(cmd).toBe("save_bytes_to_exports");
+          expect(args.fileName).toBe("mix.flac");
+          expect(args.directory).toBe("D:/Renders");
+          return "D:/Renders/mix.flac";
+        }),
+      },
+    };
+    const { saveOrDownloadBlob } = await import("../app/lib/studio-file-save.js");
+    const result = await saveOrDownloadBlob(new Blob(["flac"]), "mix.flac", {
+      directory: "D:/Renders",
+    });
+    expect(result).toEqual({
+      mode: "studio",
+      path: "D:/Renders/mix.flac",
+    });
   });
 });
