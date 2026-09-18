@@ -14,16 +14,19 @@ describe("audio-cache", () => {
 
   it("makeAudioLookupKey normalizes file name and rounds duration", () => {
     expect(makeAudioLookupKey("My Track.WAV", 120.04)).toBe("lookup:my track.wav:1200");
+    expect(makeAudioLookupKey("My Track.WAV", 120.04, 4096)).toBe("lookup:my track.wav:1200:4096");
   });
 
-  it("getAudioCacheKeysForAnalysis dedupes lookup and cache keys", () => {
+  it("getAudioCacheKeysForAnalysis includes size-qualified and legacy lookup keys", () => {
     const keys = getAudioCacheKeysForAnalysis({
       fileName: "beat.wav",
       duration: 180,
+      fileSize: 2048,
       audioCacheKey: "beat.wav|999|1",
-      audioLookupKey: "lookup:beat.wav:1800",
+      audioLookupKey: "lookup:beat.wav:1800:2048",
     });
     expect(keys).toContain("beat.wav|999|1");
+    expect(keys).toContain("lookup:beat.wav:1800:2048");
     expect(keys).toContain("lookup:beat.wav:1800");
     expect(new Set(keys).size).toBe(keys.length);
   });
@@ -34,5 +37,11 @@ describe("audio-cache", () => {
     expect(audioFileMatchesAnalysis(file, analysis, 121, 3)).toBe(true);
     expect(audioFileMatchesAnalysis(file, analysis, 130, 3)).toBe(false);
     expect(audioFileMatchesAnalysis({ name: "other.mp3" }, analysis, 120, 3)).toBe(false);
+  });
+
+  it("audioFileMatchesAnalysis rejects a same-name file with a different size", () => {
+    const analysis = { fileName: "demo.mp3", duration: 120, fileSize: 1000 };
+    expect(audioFileMatchesAnalysis({ name: "demo.mp3", size: 1000 }, analysis, 120, 3)).toBe(true);
+    expect(audioFileMatchesAnalysis({ name: "demo.mp3", size: 2000 }, analysis, 120, 3)).toBe(false);
   });
 });

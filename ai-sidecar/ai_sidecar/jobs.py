@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -37,6 +41,69 @@ class Job:
 RunnerFn = Callable[["JobContext"], dict[str, Any] | None]
 
 _RUNNERS: dict[str, RunnerFn] = {}
+_ARTIFACT_KEYS = ("out_dir", "output_dir", "path")
+
+
+def _tmp_roots() -> list[Path]:
+    roots: list[Path] = []
+    for key in ("TMPDIR", "TEMP", "TMP"):
+        raw = os.environ.get(key)
+        if raw:
+            roots.append(Path(raw))
+    roots.append(Path(tempfile.gettempdir()))
+    resolved: list[Path] = []
+    for root in roots:
+        try:
+            resolved.append(root.resolve())
+        except OSError:
+            continue
+    return resolved
+
+
+def _is_under_tmp(path: Path) -> bool:
+    try:
+        resolved = path.resolve()
+    except OSError:
+        return False
+    for root in _tmp_roots():
+        if resolved == root:
+            continue
+        try:
+            resolved.relative_to(root)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def _iter_artifact_paths(result: dict[str, Any]) -> list[Path]:
+    found: list[Path] = []
+    for key in _ARTIFACT_KEYS:
+        raw = result.get(key)
+        if isinstance(raw, str) and raw.strip():
+            found.append(Path(raw))
+    extra = result.get("paths")
+    if isinstance(extra, dict):
+        for raw in extra.values():
+            if isinstance(raw, str) and raw.strip():
+                found.append(Path(raw))
+    return found
+
+
+def cleanup_job_artifacts(result: dict[str, Any] | None) -> None:
+    """Delete job outputs that live under the process temp root."""
+    if not result:
+        return
+    for path in _iter_artifact_paths(result):
+        if not _is_under_tmp(path):
+            continue
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        elif path.is_file():
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
 
 def register(kind: str):
@@ -75,10 +142,15 @@ class JobManager:
 
     def prune(self) -> None:
         now = time.time()
+        expired: list[Job] = []
         with self._lock:
-            expired = [jid for jid, job in self._jobs.items() if now - job.created > self._ttl_sec]
-            for jid in expired:
-                self._jobs.pop(jid, None)
+            stale_ids = [jid for jid, job in self._jobs.items() if now - job.created > self._ttl_sec]
+            for jid in stale_ids:
+                job = self._jobs.pop(jid, None)
+                if job is not None:
+                    expired.append(job)
+        for job in expired:
+            cleanup_job_artifacts(job.result)
 
     def get(self, job_id: str) -> Job | None:
         self.prune()

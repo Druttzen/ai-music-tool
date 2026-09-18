@@ -28,12 +28,21 @@ export function subscribeToDesktopUpdateStatus(callback) {
   const listen = window.__TAURI__?.event?.listen;
   if (typeof listen !== "function") return () => {};
   let unlisten = () => {};
+  let cancelled = false;
   listen("studio-component-update-progress", (event) => {
     callback(event?.payload ?? event);
   })
     .then((fn) => {
-      if (typeof fn === "function") unlisten = fn;
+      if (typeof fn !== "function") return;
+      if (cancelled) {
+        fn();
+        return;
+      }
+      unlisten = fn;
     })
     .catch(() => {});
-  return () => unlisten();
+  return () => {
+    cancelled = true;
+    unlisten();
+  };
 }

@@ -38,18 +38,22 @@ export function triggerBrowserDownload(blob, fileName) {
 /**
  * @param {Blob} blob
  * @param {string} fileName
+ * @param {{ directory?: string|null }} [opts]
  * @returns {Promise<{ mode: "studio"|"browser", path?: string }>}
  */
-export async function saveOrDownloadBlob(blob, fileName) {
+export async function saveOrDownloadBlob(blob, fileName, opts = {}) {
   const name = String(fileName || "download").trim() || "download";
+  const directory = String(opts.directory || "").trim();
   if (isTauriApp()) {
     const t = tauriApi();
     if (t?.core?.invoke) {
       const buffer = await blob.arrayBuffer();
-      const path = await t.core.invoke("save_bytes_to_exports", {
+      const args = {
         fileName: name,
         bytes: new Uint8Array(buffer),
-      });
+      };
+      if (directory) args.directory = directory;
+      const path = await t.core.invoke("save_bytes_to_exports", args);
       return { mode: "studio", path: String(path || "") };
     }
   }

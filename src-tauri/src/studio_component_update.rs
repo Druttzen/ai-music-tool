@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Serialize;
-use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 
 use crate::app_layout;
@@ -69,7 +68,8 @@ pub(crate) fn normalize_extra_id(raw: &str) -> Option<String> {
     crate::sidecar_userdata::pip_extra_spec(raw).map(str::to_string)
 }
 
-pub(crate) fn extras_from_sidecar_health(health: &Value) -> Vec<String> {
+#[cfg(test)]
+pub(crate) fn extras_from_sidecar_health(health: &serde_json::Value) -> Vec<String> {
     let mut ids = Vec::new();
     let flags = [
         ("stems_available", "stems"),
@@ -92,17 +92,17 @@ pub(crate) fn extras_from_sidecar_health(health: &Value) -> Vec<String> {
         ("vocalRvcAvailable", "vocal-rvc"),
     ];
     for (key, extra) in flags {
-        if health.get(key).and_then(Value::as_bool) == Some(true) {
+        if health.get(key).and_then(serde_json::Value::as_bool) == Some(true) {
             ids.push(extra.to_string());
         }
     }
-    if let Some(caps) = health.get("capabilities").and_then(Value::as_array) {
+    if let Some(caps) = health.get("capabilities").and_then(serde_json::Value::as_array) {
         for cap in caps {
-            let available = cap.get("available").and_then(Value::as_bool) == Some(true);
+            let available = cap.get("available").and_then(serde_json::Value::as_bool) == Some(true);
             if !available {
                 continue;
             }
-            if let Some(id) = cap.get("id").and_then(Value::as_str) {
+            if let Some(id) = cap.get("id").and_then(serde_json::Value::as_str) {
                 if let Some(mapped) = normalize_extra_id(id) {
                     ids.push(mapped);
                 }

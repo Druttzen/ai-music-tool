@@ -34,7 +34,7 @@ describe("audio-cache indexeddb", () => {
     const primary = makeAudioCacheKey({ name: "loop.mp3", size: 4, lastModified: 2 });
     const meta = await putAudioCacheEntries(file, primary, 180.2);
     expect(meta.audioCacheKey).toBe(primary);
-    expect(meta.audioLookupKey).toContain("loop.mp3");
+    expect(meta.audioLookupKey).toBe("lookup:loop.mp3:1802:4");
 
     const resolved = await resolveAudioCacheBlob({
       fileName: "loop.mp3",

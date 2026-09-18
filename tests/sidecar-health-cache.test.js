@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   HEALTH_FAIL_TTL_MS,
   HEALTH_OK_TTL_MS,
+  remainingSidecarWaitMs,
   shouldReuseHealthCache,
   sidecarHttpHealthIsUsable,
 } from "../app/lib/sidecar-bridge.ts";
@@ -36,5 +37,17 @@ describe("sidecarHttpHealthIsUsable", () => {
     expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: true })).toBe(true);
     expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: false })).toBe(false);
     expect(sidecarHttpHealthIsUsable({ isTauri: true, owned: undefined })).toBe(false);
+  });
+});
+
+describe("remainingSidecarWaitMs", () => {
+  it("shares one deadline between spawn and HTTP poll", () => {
+    const timeout = 45_000;
+    const start = 1_000_000;
+    const deadline = start + timeout;
+    expect(remainingSidecarWaitMs(deadline, start)).toBe(timeout);
+    expect(remainingSidecarWaitMs(deadline, start + 30_000)).toBe(15_000);
+    expect(remainingSidecarWaitMs(deadline, start + timeout)).toBe(0);
+    expect(remainingSidecarWaitMs(deadline, start + timeout + 5_000)).toBe(0);
   });
 });

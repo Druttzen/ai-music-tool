@@ -80,6 +80,15 @@ pub fn decode_interleaved(bytes: Vec<u8>) -> Result<(Vec<f32>, u32, u32)> {
                 }
                 if let Some(buf) = sbuf.as_mut() {
                     buf.copy_interleaved_ref(decoded);
+                    let next_len = samples.len() as u64 + buf.samples().len() as u64;
+                    if sample_rate > 0 && channels > 0 {
+                        let max_samples = (MAX_DECODE_DURATION_SEC as u64)
+                            .saturating_mul(sample_rate as u64)
+                            .saturating_mul(channels as u64);
+                        if next_len > max_samples {
+                            return Err(anyhow!("audio duration exceeds the 4 hour limit"));
+                        }
+                    }
                     samples.extend_from_slice(buf.samples());
                 }
             }

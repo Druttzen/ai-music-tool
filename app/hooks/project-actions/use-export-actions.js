@@ -185,21 +185,15 @@ export function useExportActions(deps) {
     });
     const json = JSON.stringify(payload, null, 2);
 
-    downloadTextFile(json, bundleFileName);
-    let delay = 400;
+    await downloadTextFile(json, bundleFileName);
     if (audioBlob && audioSidecarName) {
-      setTimeout(() => downloadBlobFile(audioBlob, audioSidecarName), delay);
-      delay += 400;
+      await downloadBlobFile(audioBlob, audioSidecarName);
     }
     if (masteredBlob && masteredSidecarName) {
-      setTimeout(() => downloadBlobFile(masteredBlob, masteredSidecarName), delay);
-      delay += 400;
+      await downloadBlobFile(masteredBlob, masteredSidecarName);
     }
     if (vocalHandoffPayload && vocalHandoffName) {
-      setTimeout(
-        () => downloadTextFile(JSON.stringify(vocalHandoffPayload, null, 2), vocalHandoffName),
-        delay,
-      );
+      await downloadTextFile(JSON.stringify(vocalHandoffPayload, null, 2), vocalHandoffName);
     }
     const extras = [
       audioSidecarName,

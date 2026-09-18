@@ -116,8 +116,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   } = useProjectWorkspaceActions();
   const { audioAnalysis, imageAnalysis, sidecarGenerateAvailable } = useProjectWorkspaceAnalyzerState();
 
-  const [messages, setMessages] = useState(loadStoredMessages);
-  const [draft, setDraft] = useState(() => readPendingMaestroPrefill());
+  const [messages, setMessages] = useState(() => [createMaestroGreeting()]);
+  const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   /** Avoid SSR/client mismatch when LLM settings hydrate from localStorage. */
   const [hintMounted, setHintMounted] = useState(false);
@@ -125,7 +125,13 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   const snapshotRef = useRef(null);
 
   useEffect(() => {
-    queueMicrotask(() => setHintMounted(true));
+    const timer = setTimeout(() => {
+      setHintMounted(true);
+      setMessages(loadStoredMessages());
+      const pending = readPendingMaestroPrefill();
+      if (pending) setDraft(pending);
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
