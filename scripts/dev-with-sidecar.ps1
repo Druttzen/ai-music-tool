@@ -14,21 +14,57 @@ $sidecarDir = Join-Path $root "ai-sidecar"
 $watcherPidFile = Join-Path $sidecarDir ".sidecar-watcher.pid"
 $watcherScript = Join-Path $PSScriptRoot "sidecar-dev-watcher.ps1"
 
+$watcherModeFile = Join-Path $sidecarDir ".sidecar-watcher.mode"
+$desiredMode = if ($Tauri) { "studio" } else { "dev" }
+
+function Stop-SidecarDevWatcherIfRunning {
+  if (-not (Test-Path $watcherPidFile)) { return }
+  $existing = (Get-Content $watcherPidFile -Raw).Trim()
+  if ($existing -match '^\d+$') {
+    $proc = Get-Process -Id ([int]$existing) -ErrorAction SilentlyContinue
+    if ($proc) {
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+      Write-Host "Stopped sidecar dev watcher (PID $($proc.Id)) for mode switch"
+    }
+  }
+  Remove-Item $watcherPidFile -Force -ErrorAction SilentlyContinue
+}
+
 function Start-SidecarDevWatcher {
+  $needRestart = $false
   if (Test-Path $watcherPidFile) {
     $existing = (Get-Content $watcherPidFile -Raw).Trim()
     if ($existing -match '^\d+$') {
       $proc = Get-Process -Id ([int]$existing) -ErrorAction SilentlyContinue
       if ($proc) {
-        Write-Host "Sidecar dev watcher already running (PID $existing)"
-        return
+        $currentMode = ""
+        if (Test-Path $watcherModeFile) {
+          $currentMode = (Get-Content $watcherModeFile -Raw).Trim()
+        }
+        if ($currentMode -eq $desiredMode) {
+          Write-Host "Sidecar dev watcher already running (PID $existing, mode=$currentMode)"
+          return
+        }
+        $needRestart = $true
       }
     }
+  }
+  if ($needRestart) {
+    Stop-SidecarDevWatcherIfRunning
+  }
+
+  $watcherArgs = @(
+    "-NoProfile",
+    "-ExecutionPolicy", "Bypass",
+    "-File", $watcherScript
+  )
+  if ($Tauri) {
+    $watcherArgs += "-StudioOwnsSidecar"
   }
 
   $proc = Start-Process `
     -FilePath "powershell.exe" `
-    -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $watcherScript) `
+    -ArgumentList $watcherArgs `
     -WorkingDirectory $root `
     -WindowStyle Hidden `
     -PassThru
@@ -39,7 +75,7 @@ function Start-SidecarDevWatcher {
   }
 
   $proc.Id | Out-File -FilePath $watcherPidFile -Encoding ascii -NoNewline
-  Write-Host "Started sidecar dev watcher (PID $($proc.Id))"
+  Write-Host "Started sidecar dev watcher (PID $($proc.Id), mode=$desiredMode)"
 }
 
 Start-SidecarDevWatcher

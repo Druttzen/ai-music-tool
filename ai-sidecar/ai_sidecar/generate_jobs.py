@@ -49,10 +49,16 @@ def run_acestep(ctx: JobContext) -> dict[str, Any]:
     prompt = str(ctx.payload.get("prompt") or "").strip()
     ctx.set_progress(0.1, "submitting ACE-Step task")
     if ctx.payload.get("autostart"):
-        from .acestep_lifecycle import ensure_acestep_api
+        from .acestep_lifecycle import ensure_acestep_api, resolve_acestep_dit_model
 
         ctx.set_progress(0.05, "checking ACE-Step API")
-        ensure_acestep_api()
+        requested_model = str(ctx.payload.get("model") or "")
+        dit_id, dit_warning = resolve_acestep_dit_model(requested_model)
+        if dit_warning:
+            ctx.set_progress(0.06, dit_warning[:120])
+        ensure_acestep_api(model=dit_id)
+        # Prefer the resolved checkpoint id for release_task / on-demand load.
+        ctx.payload["model"] = dit_id
     else:
         from .acestep_bridge import acestep_configured, acestep_reachable
 

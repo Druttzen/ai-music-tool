@@ -37,6 +37,16 @@ Manual alternative:
    # AIMC_ACESTEP_TIMEOUT_SEC=600
    ```
 
+   When Studio autostarts the ACE API from a checkout, it sets
+   `ACESTEP_CONFIG_PATH` to the requested DiT (`acestep-v15-turbo` or
+   `acestep-v15-base` when that checkpoint exists) and
+   `ACESTEP_ON_DEMAND_MODEL_LOAD=true` so a later quality switch can load
+   another `acestep-v15-*` id. Only one DiT is kept in memory (consumer GPUs).
+   If Quality is selected but `checkpoints/acestep-v15-base` is missing, the
+   sidecar falls back to turbo and reports that in the job status line.
+   Studio only restarts an ACE process it spawned — a manually started API on
+   `:8001` is left alone.
+
 3. Restart the sidecar (`npm run sidecar`). `/health` shows
    `acestep_available: true` only when the ACE-Step API at
    `AIMC_ACESTEP_API_URL` is reachable (URL alone is not enough).

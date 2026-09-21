@@ -12,6 +12,7 @@ build/
 .ruff_cache/
 .sidecar.pid
 .sidecar-watcher.pid
+.sidecar-watcher.mode
 .sidecar-watcher.log
 .sidecar.log
 .sidecar.log.err

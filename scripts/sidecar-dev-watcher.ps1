@@ -1,21 +1,27 @@
 <#
 .SYNOPSIS
   Background watcher: keeps the AI sidecar alive while dev tools run, stops it after they exit.
+
+  With -StudioOwnsSidecar (tauri:dev), never start an unowned uvicorn — wait for Studio's
+  Rust spawn and only ping /dev-session/ping so idle-exit stays warm.
 #>
 param(
   [int]$PollSec = 15,
-  [int]$StopAfterDevSec = 90
+  [int]$StopAfterDevSec = 90,
+  [switch]$StudioOwnsSidecar
 )
 
 $ErrorActionPreference = "SilentlyContinue"
 $root = Split-Path -Parent $PSScriptRoot
 $sidecarDir = Join-Path $root "ai-sidecar"
 $watcherPidFile = Join-Path $sidecarDir ".sidecar-watcher.pid"
+$watcherModeFile = Join-Path $sidecarDir ".sidecar-watcher.mode"
 $startSidecar = Join-Path $PSScriptRoot "start-sidecar.ps1"
 $stopSidecar = Join-Path $PSScriptRoot "stop-sidecar.ps1"
 $rootPattern = [regex]::Escape($root)
 $stopTicks = [Math]::Max(1, [int][Math]::Ceiling($StopAfterDevSec / $PollSec))
 $inactiveTicks = 0
+$modeLabel = if ($StudioOwnsSidecar) { "studio" } else { "dev" }
 
 function Test-DevToolActive {
   if (Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1) {
@@ -44,12 +50,17 @@ function Send-DevSessionPing {
 function Ensure-SidecarUp {
   $listening = Get-NetTCPConnection -LocalPort 8723 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($listening) { return $true }
+  if ($StudioOwnsSidecar) {
+    # Studio Rust spawn_dev_sidecar owns the token; do not start an unowned process.
+    return $false
+  }
   & powershell -NoProfile -ExecutionPolicy Bypass -File $startSidecar -IdleExitSec 300 | Out-Null
   Start-Sleep -Seconds 1
   return [bool](Get-NetTCPConnection -LocalPort 8723 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
 
-Write-Host "Sidecar dev watcher started (poll ${PollSec}s, stop ${StopAfterDevSec}s after dev exits)"
+$modeLabel | Out-File -FilePath $watcherModeFile -Encoding ascii -NoNewline
+Write-Host "Sidecar dev watcher started (mode=$modeLabel, poll ${PollSec}s, stop ${StopAfterDevSec}s after dev exits)"
 
 while ($true) {
   if (Test-DevToolActive) {
@@ -60,7 +71,10 @@ while ($true) {
   } else {
     $inactiveTicks++
     if ($inactiveTicks -ge $stopTicks) {
-      & powershell -NoProfile -ExecutionPolicy Bypass -File $stopSidecar | Out-Null
+      if (-not $StudioOwnsSidecar) {
+        # Only stop processes we may have started; Studio owns idle-exit when Tauri-spawned.
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $stopSidecar | Out-Null
+      }
       $inactiveTicks = 0
     }
   }

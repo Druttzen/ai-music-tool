@@ -140,7 +140,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           onChange={(e) => setDurationSec(Number(e.target.value))}
           className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
         >
-          {[5, 10, 15, 20, 30].map((sec) => (
+          {[5, 8, 10, 15, 20, 30].map((sec) => (
             <option key={sec} value={sec}>
               {sec}s
             </option>

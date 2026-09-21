@@ -194,7 +194,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
               thinking: quality === "quality" ? true : thinking,
               inferenceSteps: quality === "quality" ? 32 : 8,
               seed: seed.trim() ? Number(seed) : null,
-              model: quality === "quality" ? "acestep-v15" : "acestep-v15-turbo",
+              model: quality === "quality" ? "acestep-v15-base" : "acestep-v15-turbo",
             });
           }}
           className="min-w-[140px] flex-1 rounded-xl border border-emerald-400/35 bg-emerald-500/20 py-2 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30 disabled:opacity-50"
@@ -216,7 +216,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
               thinking: quality === "quality" ? true : thinking,
               inferenceSteps: quality === "quality" ? 32 : 8,
               seed: seed.trim() ? Number(seed) : null,
-              model: quality === "quality" ? "acestep-v15" : "acestep-v15-turbo",
+              model: quality === "quality" ? "acestep-v15-base" : "acestep-v15-turbo",
             });
           }}
           className="rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-[10px] font-semibold text-white/70 hover:text-white disabled:opacity-50"
