@@ -11,6 +11,7 @@ export const SIDECAR_EXTRA_NPM = {
   stems: "npm run sidecar:stems",
   "stems-melband": "npm run sidecar:stems-melband",
   generate: "npm run sidecar:generate",
+  acestep: "npm run sidecar:acestep",
   classify: "npm run sidecar:classify",
   vision: "npm run sidecar:vision",
   cover: "npm run sidecar:cover",
@@ -27,6 +28,7 @@ export function normalizeSidecarExtraId(id) {
   if (raw === "rvc") return "vocal-rvc";
   if (raw === "genre") return "classify";
   if (raw === "cover_ref") return "cover-ref";
+  if (raw === "acest") return "acestep";
   return raw;
 }
 
@@ -53,6 +55,9 @@ export function sidecarExtraRowIsInstalled(trackedIds, row) {
   const tracked = trackedIds instanceof Set ? trackedIds : new Set(trackedIds || []);
   if (tracked.has(id)) return true;
   if (!isSidecarExtraAllowlisted(id)) return false;
+  // ACE-Step is an external API — "available" means reachable, not pip-installed.
+  // Only treat it as installed when the Install action recorded it.
+  if (id === "acestep") return false;
   return row?.available === true;
 }
 
@@ -69,6 +74,8 @@ export function sidecarExtraHealthFlag(id) {
       return "stems_melband_available";
     case "generate":
       return "generate_available";
+    case "acestep":
+      return "acestep_available";
     case "classify":
       return "genre_available";
     case "vision":

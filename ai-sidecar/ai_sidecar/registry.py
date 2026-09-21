@@ -68,9 +68,11 @@ def _probe_generate() -> bool:
 
 
 def _probe_acestep() -> bool:
-    from .acestep_bridge import acestep_configured
+    # Match UI copy: available only when the external ACE-Step API answers.
+    # Short timeout so /health stays fast when the API is down (connection refused).
+    from .acestep_bridge import acestep_reachable
 
-    return acestep_configured()
+    return acestep_reachable(timeout_sec=0.4)
 
 
 def _probe_mfa() -> bool:
@@ -159,7 +161,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         license="MIT (ACE-Step 1.5)",
         commercial_use=True,
         probe=_probe_acestep,
-        prompt_install=False,  # external API server, not an npm pip extra
+        prompt_install=True,  # runs scripts/install-sidecar-acestep (starts API + writes env)
     ),
     CapabilitySpec(
         id="mfa-align",

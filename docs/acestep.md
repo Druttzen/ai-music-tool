@@ -38,8 +38,8 @@ Manual alternative:
    ```
 
 3. Restart the sidecar (`npm run sidecar`). `/health` shows
-   `acestep_available: true` when the API URL is set (loaded from `.env.vocal`).
-   Generation still needs the ACE-Step server reachable.
+   `acestep_available: true` only when the ACE-Step API at
+   `AIMC_ACESTEP_API_URL` is reachable (URL alone is not enough).
 
 In Studio, ACE-Step controls show numbered setup steps, **Copy env snippet**, and a
 link to this doc when the API is unreachable. The **Local cover / remix** panel

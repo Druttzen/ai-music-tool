@@ -12,8 +12,7 @@ import {
 } from "../lib/analyzer-file-types";
 import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
-import { MusicGenPreviewControls } from "./musicgen-preview-controls";
-import { AceStepSongControls } from "./acestep-song-controls";
+import { LocalGeneratePanel } from "./local-generate-panel";
 import { VocalTransformControls } from "./vocal-transform-controls";
 import { LocalCoverRemixControls } from "./local-cover-remix-controls";
 import { musicGenInstallHint, missingSidecarInstallHints } from "../lib/sidecar-capabilities";
@@ -303,22 +302,26 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
           >
             {!audioAnalysis ? (
               <div className="mt-3 space-y-3">
-                <MusicGenPreviewControls
-                  defaultPrompt={defaultMusicGenPrompt}
-                  busy={generateMusicBusy}
-                  available={sidecarGenerateAvailable}
-                  installHint={musicGenHint}
-                  canUseMelodyReference={!!audioPreviewUrl}
-                  onGenerate={generateMusicFromPrompt}
-                  compact
-                />
-                <AceStepSongControls
-                  defaultPrompt={defaultMusicGenPrompt}
-                  defaultLyrics={sunoFieldSlices.lyrics || ""}
-                  busy={generateSongBusy}
-                  available={sidecarAcestepAvailable}
-                  onGenerate={generateSongFromPrompt}
-                  compact
+                <LocalGeneratePanel
+                  music={{
+                    defaultPrompt: defaultMusicGenPrompt,
+                    busy: generateMusicBusy,
+                    available: sidecarGenerateAvailable,
+                    installHint: musicGenHint,
+                    canUseMelodyReference: !!audioPreviewUrl,
+                    onGenerate: generateMusicFromPrompt,
+                    compact: true,
+                  }}
+                  song={{
+                    defaultPrompt: defaultMusicGenPrompt,
+                    defaultLyrics: sunoFieldSlices.lyrics || "",
+                    defaultBpm: audioAnalysis?.bpm ?? null,
+                    defaultKey: audioAnalysis?.estimatedKey || "",
+                    busy: generateSongBusy,
+                    available: sidecarAcestepAvailable,
+                    onGenerate: generateSongFromPrompt,
+                    compact: true,
+                  }}
                 />
               </div>
             ) : null}

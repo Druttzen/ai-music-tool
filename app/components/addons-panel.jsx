@@ -253,24 +253,7 @@ export function AddonsPanel() {
   const onInstallExtra = useCallback(
     async (extraId) => {
       let id = normalizeSidecarExtraId(extraId);
-      // Config-only / stem-backed catalog rows are not pip extras.
-      if (id === "acestep") {
-        const copyHint = "npm run sidecar:acestep";
-        try {
-          if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(copyHint);
-            setStatusWithTime(
-              `ACE-Step is not a pip extra — run “${copyHint}” (starts API + writes AIMC_ACESTEP_API_URL). Copied.`,
-              "info",
-            );
-          } else {
-            setStatusWithTime(`ACE-Step: run ${copyHint} (docs/acestep.md)`, "info");
-          }
-        } catch {
-          setStatusWithTime(`ACE-Step: run ${copyHint} (docs/acestep.md)`, "info");
-        }
-        return;
-      }
+      // Stem-backed catalog rows are not their own pip extras.
       if (id === "vocal-transform") {
         id = "stems";
       }
@@ -289,7 +272,9 @@ export function AddonsPanel() {
         return;
       }
       const hint = sidecarExtraNpmHint(id);
-      if (installEnv?.mode === "bundled-readonly") {
+      // ACE-Step is an external API launcher, not a pip extra — still runnable when the
+      // music sidecar venv is packaged read-only.
+      if (installEnv?.mode === "bundled-readonly" && id !== "acestep") {
         setBusyKey(`extra:${id}`);
         try {
           if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {

@@ -56,7 +56,7 @@ export function useAnalyzerGenerate({
 
       setGenerateMusicBusy(true);
       try {
-        setStatusWithTime("MusicGen generation started (this may take a minute)…");
+        setStatusWithTime("MusicGen queued…");
         const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
         if (!sidecarReady) {
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
@@ -101,7 +101,14 @@ export function useAnalyzerGenerate({
                 options,
               );
             })()
-          : await generateMusicViaSidecar(text, durationSec, options);
+          : await generateMusicViaSidecar(text, durationSec, {
+              ...options,
+              onProgress: (progress, message) => {
+                setStatusWithTime(
+                  `MusicGen ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
+                );
+              },
+            });
         const resolvedDuration = dur || durationSec;
         const fileName = `musicgen-preview-${Date.now()}.wav`;
         const file =
@@ -180,25 +187,28 @@ export function useAnalyzerGenerate({
 
       setGenerateSongBusy(true);
       try {
-        setStatusWithTime("ACE-Step full-song generation started (this can take a few minutes)…");
+        setStatusWithTime("ACE-Step queued — starting the API if it is down…");
         const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
         if (!sidecarReady) {
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
-          return;
-        }
-        const health = await fetchSidecarHealth();
-        if (!health?.acestep_available) {
-          setStatusWithTime(
-            "ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
-            "warning",
-          );
-          setSidecarAcestepAvailable(false);
           return;
         }
         const { blob, model, durationSec: dur } = await generateSongViaSidecar({
           prompt: text,
           lyrics,
           durationSec,
+          bpm: options.bpm ?? null,
+          keyScale: options.keyScale || "",
+          vocalLanguage: options.vocalLanguage || "",
+          thinking: options.thinking !== false,
+          inferenceSteps: options.inferenceSteps,
+          seed: options.seed,
+          model: options.model || "",
+          onProgress: (progress, message) => {
+            setStatusWithTime(
+              `ACE-Step ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
+            );
+          },
         });
         const resolvedDuration = dur || durationSec;
         const fileName = `acestep-song-${Date.now()}.wav`;

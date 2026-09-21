@@ -20,8 +20,7 @@ import {
 import { clamp } from "../lib/music-helpers";
 import { AudioHighlightWaveform } from "./audio-highlight-waveform";
 import { AudioWaveformProPrototype } from "./audio-waveform-pro-prototype";
-import { MusicGenPreviewControls } from "./musicgen-preview-controls";
-import { AceStepSongControls } from "./acestep-song-controls";
+import { LocalGeneratePanel } from "./local-generate-panel";
 import { VocalTransformControls } from "./vocal-transform-controls";
 import { PreviewMonitorStrip } from "./preview-monitor-strip";
 import { hasMeaningfulHighlightRange } from "../lib/audio-highlight-slice";
@@ -693,25 +692,26 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
         </section>
       ) : null}
 
-      {onGenerateMusic ? (
-        <MusicGenPreviewControls
-          defaultPrompt={defaultMusicGenPrompt}
-          busy={generateMusicBusy || exportBusy}
-          available={sidecarGenerateAvailable}
-          installHint={musicGenHintProp}
-          canUseMelodyReference={!!audioUrl}
-          canUseHighlightMelody={hasMeaningfulHighlightRange(analysis)}
-          onGenerate={onGenerateMusic}
-        />
-      ) : null}
-
-      {onGenerateSong ? (
-        <AceStepSongControls
-          defaultPrompt={defaultMusicGenPrompt}
-          defaultLyrics={defaultAceStepLyrics}
-          busy={generateSongBusy || exportBusy}
-          available={sidecarAcestepAvailable}
-          onGenerate={onGenerateSong}
+      {onGenerateMusic || onGenerateSong ? (
+        <LocalGeneratePanel
+          music={{
+            defaultPrompt: defaultMusicGenPrompt,
+            busy: generateMusicBusy || exportBusy,
+            available: sidecarGenerateAvailable,
+            installHint: musicGenHintProp,
+            canUseMelodyReference: !!audioUrl,
+            canUseHighlightMelody: hasMeaningfulHighlightRange(analysis),
+            onGenerate: onGenerateMusic,
+          }}
+          song={{
+            defaultPrompt: defaultMusicGenPrompt,
+            defaultLyrics: defaultAceStepLyrics,
+            defaultBpm: analysis?.bpm ?? null,
+            defaultKey: analysis?.estimatedKey || "",
+            busy: generateSongBusy || exportBusy,
+            available: sidecarAcestepAvailable,
+            onGenerate: onGenerateSong,
+          }}
         />
       ) : null}
 

@@ -101,6 +101,9 @@ def build_release_task_payload(
     key_scale: str = "",
     thinking: bool = True,
     audio_format: str = "wav",
+    inference_steps: int | None = None,
+    seed: int | None = None,
+    model: str = "",
 ) -> dict[str, Any]:
     """Build the /release_task JSON body (pure; unit-testable)."""
     text = str(prompt or "").strip()
@@ -125,9 +128,14 @@ def build_release_task_payload(
     key = str(key_scale or "").strip()
     if key:
         payload["key_scale"] = key
-    model = acestep_model()
-    if model:
-        payload["model"] = model
+    chosen_model = str(model or "").strip() or acestep_model()
+    if chosen_model:
+        payload["model"] = chosen_model
+    if inference_steps is not None:
+        payload["inference_steps"] = max(1, min(int(inference_steps), 128))
+    if seed is not None and int(seed) >= 0:
+        payload["seed"] = int(seed)
+        payload["use_random_seed"] = False
     key_auth = acestep_api_key()
     if key_auth:
         payload["ai_token"] = key_auth
@@ -187,6 +195,10 @@ def generate_acestep_song(
     key_scale: str = "",
     thinking: bool = True,
     audio_format: str = "wav",
+    inference_steps: int | None = None,
+    seed: int | None = None,
+    model: str = "",
+    on_progress: Any = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Generate a full song via the configured ACE-Step API; returns (audio bytes, meta)."""
     if not acestep_configured():
@@ -209,6 +221,9 @@ def generate_acestep_song(
         key_scale=key_scale,
         thinking=thinking,
         audio_format=fmt,
+        inference_steps=inference_steps,
+        seed=seed,
+        model=model,
     )
     deadline = time.monotonic() + acestep_timeout_sec()
 
@@ -236,6 +251,10 @@ def generate_acestep_song(
                 if state["status"] == 1 and state["file"]:
                     break
                 touch_activity()  # long jobs must not trip the idle watchdog
+                if on_progress is not None:
+                    remaining = max(0.0, deadline - time.monotonic())
+                    frac = 1.0 - (remaining / max(acestep_timeout_sec(), 1.0))
+                    on_progress(0.15 + min(0.7, frac * 0.7), "ACE-Step generating")
                 time.sleep(_POLL_INTERVAL_SEC)
 
             file_url = state["file"]

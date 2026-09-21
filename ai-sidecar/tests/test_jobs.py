@@ -57,6 +57,29 @@ def test_cleanup_job_artifacts_removes_tmp_file(tmp_path, monkeypatch):
     assert not wav.exists()
 
 
+def test_start_reports_public_status_without_paths():
+    import time
+
+    from ai_sidecar.jobs import JobManager, public_job_status, register
+
+    @register("test.public-status")
+    def _runner(ctx):
+        ctx.set_progress(0.4, "working")
+        return {"path": "C:/secret.wav", "meta": {"model": "tiny", "duration_sec": 2, "mode": "text"}}
+
+    mgr = JobManager()
+    job = mgr.start("test.public-status", {"prompt": "x"}, label="t")
+    for _ in range(50):
+        if job.status in {"done", "error"}:
+            break
+        time.sleep(0.02)
+    body = public_job_status(job)
+    assert body["status"] == "done"
+    assert body["result"]["model"] == "tiny"
+    assert "path" not in body["result"]
+    assert "C:/secret" not in str(body)
+
+
 def test_cleanup_ignores_empty_result():
     cleanup_job_artifacts(None)
     cleanup_job_artifacts({})

@@ -620,15 +620,76 @@ export async function analyzeImageViaSidecar(
   return res.json() as Promise<SidecarImageAnalysis>;
 }
 
+async function readSidecarError(res: Response, fallback: string): Promise<never> {
+  let detail = "";
+  try {
+    const body = await res.json();
+    detail = body?.detail ?? JSON.stringify(body);
+  } catch {
+    detail = await res.text();
+  }
+  throw new Error(detail || fallback);
+}
+
+/** Poll a background sidecar job until it finishes. */
+export async function pollSidecarJob(
+  jobId: string,
+  options: { timeoutMs?: number; onProgress?: (progress: number, message: string) => void } = {},
+): Promise<{ model: string | null; durationSec: number | null; mode: string | null }> {
+  const deadline = Date.now() + (options.timeoutMs ?? 30 * 60_000);
+  while (Date.now() < deadline) {
+    const res = await fetch(`${sidecarBaseUrl()}/jobs/${jobId}`, {
+      headers: await sidecarAuthHeaders(),
+    });
+    if (!res.ok) await readSidecarError(res, `job poll failed (${res.status})`);
+    const body = (await res.json()) as {
+      status?: string;
+      progress?: number;
+      message?: string;
+      error?: string;
+      result?: { model?: string; duration_sec?: number; mode?: string };
+    };
+    options.onProgress?.(Number(body.progress) || 0, String(body.message || body.status || ""));
+    if (body.status === "done") {
+      return {
+        model: body.result?.model ?? null,
+        durationSec: body.result?.duration_sec ?? null,
+        mode: body.result?.mode ?? null,
+      };
+    }
+    if (body.status === "error" || body.status === "cancelled") {
+      throw new Error(body.error || body.message || `generation ${body.status}`);
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new Error("generation timed out");
+}
+
+async function downloadGenerateAudio(jobId: string): Promise<Blob> {
+  const res = await fetch(`${sidecarBaseUrl()}/generate/audio/${jobId}`, {
+    headers: await sidecarAuthHeaders(),
+  });
+  if (!res.ok) await readSidecarError(res, `audio download failed (${res.status})`);
+  return res.blob();
+}
+
 /**
- * POST text prompt to /generate (optional MusicGen when generate extra is installed).
+ * POST text prompt to /generate/jobs (optional MusicGen when generate extra is installed).
  */
 export async function generateMusicViaSidecar(
   prompt: string,
-  durationSec = 10,
-  options: { temperature?: number; topK?: number; topP?: number; cfgCoef?: number; seed?: number } = {},
+  durationSec = 8,
+  options: {
+    temperature?: number;
+    topK?: number;
+    topP?: number;
+    cfgCoef?: number;
+    seed?: number;
+    model?: string;
+    onProgress?: (progress: number, message: string) => void;
+  } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
-  const res = await fetch(`${sidecarBaseUrl()}/generate`, {
+  const res = await fetch(`${sidecarBaseUrl()}/generate/jobs`, {
     method: "POST",
     headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
@@ -639,6 +700,7 @@ export async function generateMusicViaSidecar(
       top_p: options.topP,
       cfg_coef: options.cfgCoef,
       seed: options.seed,
+      model: options.model,
     }),
   });
 
@@ -653,11 +715,14 @@ export async function generateMusicViaSidecar(
     throw new Error(detail || `sidecar generate failed (${res.status})`);
   }
 
+  const queued = (await res.json()) as { job_id?: string };
+  if (!queued.job_id) throw new Error("MusicGen job id missing");
+  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
   return {
-    blob: await res.blob(),
-    model: res.headers.get("X-MusicGen-Model"),
-    durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
-    mode: res.headers.get("X-MusicGen-Mode"),
+    blob: await downloadGenerateAudio(queued.job_id),
+    model: meta.model,
+    durationSec: meta.durationSec || durationSec,
+    mode: meta.mode,
   };
 }
 
@@ -716,8 +781,12 @@ export async function generateSongViaSidecar(options: {
   keyScale?: string;
   thinking?: boolean;
   audioFormat?: string;
+  inferenceSteps?: number | null;
+  seed?: number | null;
+  model?: string;
+  onProgress?: (progress: number, message: string) => void;
 }): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
-  const res = await fetch(`${sidecarBaseUrl()}/generate/song`, {
+  const res = await fetch(`${sidecarBaseUrl()}/generate/song/jobs`, {
     method: "POST",
     headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({
@@ -729,6 +798,9 @@ export async function generateSongViaSidecar(options: {
       key_scale: options.keyScale || "",
       thinking: options.thinking !== false,
       audio_format: options.audioFormat || "wav",
+      inference_steps: options.inferenceSteps ?? null,
+      seed: options.seed ?? null,
+      model: options.model || "",
     }),
   });
 
@@ -743,11 +815,14 @@ export async function generateSongViaSidecar(options: {
     throw new Error(detail || `sidecar ACE-Step song generate failed (${res.status})`);
   }
 
+  const queued = (await res.json()) as { job_id?: string };
+  if (!queued.job_id) throw new Error("ACE-Step job id missing");
+  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 35 * 60_000 });
   return {
-    blob: await res.blob(),
-    model: res.headers.get("X-AceStep-Model"),
-    durationSec: Number(res.headers.get("X-AceStep-Duration-Sec") || options.durationSec || 0) || null,
-    mode: res.headers.get("X-AceStep-Mode") || "song",
+    blob: await downloadGenerateAudio(queued.job_id),
+    model: meta.model,
+    durationSec: meta.durationSec || options.durationSec || null,
+    mode: meta.mode || "song",
   };
 }
 

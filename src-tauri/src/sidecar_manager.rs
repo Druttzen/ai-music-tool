@@ -150,6 +150,24 @@ impl SidecarManager {
             Err(e) => {
                 let probe = probe_health(Some(&token));
                 if probe.up && probe.owned != Some(true) {
+                    // Dev `npm run sidecar` (no token) blocks Studio. Reclaim only when the
+                    // listener looks like our uvicorn/ai_sidecar process, then retry once.
+                    if try_reclaim_foreign_sidecar_port() {
+                        match spawn_sidecar_process(app.as_ref(), &token, skip_user_venv) {
+                            Ok((child, bundled)) => {
+                                guard.child = Some(child);
+                                guard.spawned = true;
+                                guard.bundled = bundled;
+                                guard.spawn_started = Some(Instant::now());
+                                guard.error = None;
+                                return;
+                            }
+                            Err(retry_err) => {
+                                guard.error = Some(retry_err);
+                                return;
+                            }
+                        }
+                    }
                     guard.error = Some(format!(
                         "port {SIDECAR_PORT} is in use by a process that does not have this app's sidecar token. Stop the other listener and retry."
                     ));
@@ -391,6 +409,140 @@ fn probe_health(token: Option<&str>) -> HealthProbe {
 
 fn new_sidecar_token() -> String {
     uuid::Uuid::new_v4().to_string()
+}
+
+/// True when a process command line looks like the music AI sidecar (safe to reclaim).
+fn cmdline_looks_like_music_sidecar(cmdline: &str) -> bool {
+    let lower = cmdline.to_ascii_lowercase();
+    let has_port = lower.contains(&format!("--port {SIDECAR_PORT}"))
+        || lower.contains(&format!("--port={SIDECAR_PORT}"))
+        || lower.contains(&format!(":{SIDECAR_PORT}"));
+    let has_app = lower.contains("ai_sidecar") || lower.contains("ai-sidecar");
+    let has_uvicorn = lower.contains("uvicorn");
+    has_app && (has_uvicorn || has_port)
+}
+
+fn listener_pids_on_sidecar_port() -> Vec<u32> {
+    let mut pids = Vec::new();
+    #[cfg(windows)]
+    {
+        let output = Command::new("netstat")
+            .args(["-ano", "-p", "tcp"])
+            .output();
+        let Ok(output) = output else {
+            return pids;
+        };
+        let text = String::from_utf8_lossy(&output.stdout);
+        let needle = format!(":{SIDECAR_PORT}");
+        for line in text.lines() {
+            let lower = line.to_ascii_lowercase();
+            if !lower.contains("listen") || !line.contains(&needle) {
+                continue;
+            }
+            if let Some(pid_str) = line.split_whitespace().last() {
+                if let Ok(pid) = pid_str.parse::<u32>() {
+                    if pid > 0 && !pids.contains(&pid) {
+                        pids.push(pid);
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(unix)]
+    {
+        let output = Command::new("lsof")
+            .args([
+                "-nP",
+                &format!("-iTCP:{SIDECAR_PORT}"),
+                "-sTCP:LISTEN",
+                "-t",
+            ])
+            .output();
+        if let Ok(output) = output {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                if let Ok(pid) = line.trim().parse::<u32>() {
+                    if pid > 0 && !pids.contains(&pid) {
+                        pids.push(pid);
+                    }
+                }
+            }
+        }
+    }
+    pids
+}
+
+fn process_command_line(pid: u32) -> Option<String> {
+    #[cfg(windows)]
+    {
+        let output = Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!(
+                    "(Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\").CommandLine"
+                ),
+            ])
+            .output()
+            .ok()?;
+        let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if text.is_empty() {
+            None
+        } else {
+            Some(text)
+        }
+    }
+    #[cfg(unix)]
+    {
+        let path = format!("/proc/{pid}/cmdline");
+        let bytes = std::fs::read(path).ok()?;
+        let text = String::from_utf8_lossy(&bytes).replace('\0', " ");
+        let trimmed = text.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    }
+}
+
+fn kill_pid(pid: u32) -> bool {
+    #[cfg(windows)]
+    {
+        Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/F"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+    #[cfg(unix)]
+    {
+        Command::new("kill")
+            .args(["-TERM", &pid.to_string()])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    }
+}
+
+/// Stop a foreign music-sidecar listener on :8723 so Studio can spawn an owned process.
+fn try_reclaim_foreign_sidecar_port() -> bool {
+    let mut killed = false;
+    for pid in listener_pids_on_sidecar_port() {
+        let Some(cmdline) = process_command_line(pid) else {
+            continue;
+        };
+        if !cmdline_looks_like_music_sidecar(&cmdline) {
+            continue;
+        }
+        if kill_pid(pid) {
+            killed = true;
+        }
+    }
+    if killed {
+        std::thread::sleep(Duration::from_millis(400));
+    }
+    killed
 }
 
 fn apply_spawn_stdio(cmd: &mut Command) {
@@ -836,6 +988,19 @@ mod tests {
                 up: false,
                 owned: Some(true)
             }
+        ));
+    }
+
+    #[test]
+    fn recognizes_music_sidecar_command_lines() {
+        assert!(cmdline_looks_like_music_sidecar(
+            r#""C:\Python\python.exe" -m uvicorn ai_sidecar.main:app --host 127.0.0.1 --port 8723 --app-dir F:\ai-music-tool\ai-sidecar"#
+        ));
+        assert!(cmdline_looks_like_music_sidecar(
+            "/usr/bin/python -m uvicorn ai_sidecar.main:app --port=8723"
+        ));
+        assert!(!cmdline_looks_like_music_sidecar(
+            "C:\\nginx\\nginx.exe -p C:\\nginx"
         ));
     }
 }

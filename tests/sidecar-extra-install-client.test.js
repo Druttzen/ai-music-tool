@@ -71,11 +71,13 @@ describe("sidecar extra install client", () => {
     expect(isSidecarExtraAllowlisted("cover")).toBe(true);
     expect(isSidecarExtraAllowlisted("vocal_ml")).toBe(true);
     expect(isSidecarExtraAllowlisted("vocal-ml")).toBe(true);
+    expect(isSidecarExtraAllowlisted("acestep")).toBe(true);
     expect(isSidecarExtraAllowlisted("nope")).toBe(false);
   });
 
   it("maps extras to /health flags", () => {
     expect(sidecarExtraHealthFlag("generate")).toBe("generate_available");
+    expect(sidecarExtraHealthFlag("acestep")).toBe("acestep_available");
     expect(sidecarExtraHealthFlag("genre")).toBe("genre_available");
     expect(sidecarExtraHealthFlag("cover-ref")).toBe("cover_ref_available");
     expect(sidecarExtraHealthFlag("vocal_ml")).toBe("vocal_ml_available");

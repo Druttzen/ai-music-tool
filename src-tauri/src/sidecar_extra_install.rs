@@ -43,6 +43,7 @@ fn script_stem(extra_id: &str) -> Option<&'static str> {
         "stems" => Some("install-sidecar-stems"),
         "stems-melband" => Some("install-sidecar-stems-melband"),
         "generate" => Some("install-sidecar-generate"),
+        "acestep" | "acest" => Some("install-sidecar-acestep"),
         "classify" => Some("install-sidecar-classify"),
         "vision" => Some("install-sidecar-vision"),
         "cover" => Some("install-sidecar-cover"),
@@ -52,6 +53,11 @@ fn script_stem(extra_id: &str) -> Option<&'static str> {
         "vocal-rvc" => Some("install-sidecar-vocal-rvc"),
         _ => None,
     }
+}
+
+/// ACE-Step is an external API (not a pip extra). Prefer the checkout launcher script.
+fn is_external_api_extra(extra_id: &str) -> bool {
+    matches!(extra_id, "acestep" | "acest")
 }
 
 fn resolve_repo_root(sidecar_dir: &Path) -> Option<PathBuf> {
@@ -190,7 +196,10 @@ fn install_via_checkout_scripts(
     hint: &str,
 ) -> Option<SidecarExtraInstallResult> {
     let sidecar_dir = resolve_sidecar_dir()?;
-    let _venv = checkout_venv_python(&sidecar_dir)?;
+    // ACE-Step launcher only needs the repo checkout (writes .env.vocal + starts API).
+    if !is_external_api_extra(id) {
+        let _venv = checkout_venv_python(&sidecar_dir)?;
+    }
     let repo_root = resolve_repo_root(&sidecar_dir)?;
     let script = resolve_install_script(&repo_root, stem)?;
 
@@ -219,6 +228,7 @@ pub(crate) fn known_extra_ids() -> &'static [&'static str] {
         "stems",
         "stems-melband",
         "generate",
+        "acestep",
         "classify",
         "vision",
         "cover",
@@ -292,10 +302,21 @@ fn install_one_sidecar_extra_inner(
     emit_install_progress(app, &id, "start", Some("Starting extra install"), None);
 
     // Prefer the Studio app-data venv whenever STUDIO_DATA_DIR is set (canonical install root).
+    // ACE-Step is config + external API — never pip into the music sidecar venv.
     let force_app_data = std::env::var("STUDIO_DATA_DIR")
         .map(|v| !v.trim().is_empty())
         .unwrap_or(false);
-    let result = if skip_checkout || force_app_data {
+    let result = if is_external_api_extra(&id) {
+        match install_via_checkout_scripts(app, &id, stem, &hint) {
+            Some(result) => result,
+            None => fail(
+                id.clone(),
+                "install-failed",
+                "ACE-Step launcher script not found — clone ACE-Step 1.5 and set AIMC_ACESTEP_HOME, then retry.".to_string(),
+                hint,
+            ),
+        }
+    } else if skip_checkout || force_app_data {
         install_into_user_venv_result(app, &id, &hint)
     } else if let Some(result) = install_via_checkout_scripts(app, &id, stem, &hint) {
         result
@@ -303,7 +324,7 @@ fn install_one_sidecar_extra_inner(
         install_into_user_venv_result(app, &id, &hint)
     };
 
-    if result.ok {
+    if result.ok && !is_external_api_extra(&id) {
         record_installed_extra(app, &id);
     }
     emit_install_progress(
@@ -496,9 +517,12 @@ mod tests {
     #[test]
     fn script_stem_covers_allowlist() {
         assert_eq!(script_stem("generate"), Some("install-sidecar-generate"));
+        assert_eq!(script_stem("acestep"), Some("install-sidecar-acestep"));
         assert_eq!(script_stem("cover-ref"), Some("install-sidecar-cover-ref"));
         assert_eq!(script_stem("vocal-ml"), Some("install-sidecar-vocal-ml"));
         assert!(script_stem("nope").is_none());
+        assert!(is_external_api_extra("acestep"));
+        assert!(!is_external_api_extra("generate"));
     }
 
     #[test]

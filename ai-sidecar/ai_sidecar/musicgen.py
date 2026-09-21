@@ -15,6 +15,8 @@ from typing import Any
 
 DEFAULT_MODEL_ID = "facebook/musicgen-small"
 DEFAULT_MELODY_MODEL_ID = "facebook/musicgen-melody-small"
+MEDIUM_MODEL_ID = "facebook/musicgen-medium"
+_MEDIUM_MIN_VRAM_GB = 10.0
 _TARGET_SR = 32_000
 
 _MODEL: Any = None
@@ -36,11 +38,43 @@ def model_supports_melody(model_id: str) -> bool:
     return "melody" in str(model_id or "").lower()
 
 
-def resolve_musicgen_model_id(*, wants_melody: bool) -> str:
-    configured = active_musicgen_model_id()
+def resolve_musicgen_model_id(*, wants_melody: bool, requested: str | None = None) -> str:
+    preset = str(requested or "").strip().lower()
+    if preset in {"small", DEFAULT_MODEL_ID}:
+        configured = DEFAULT_MODEL_ID
+    elif preset in {"medium", MEDIUM_MODEL_ID}:
+        configured = MEDIUM_MODEL_ID if _medium_allowed() else DEFAULT_MODEL_ID
+    elif preset in {"melody", DEFAULT_MELODY_MODEL_ID}:
+        configured = DEFAULT_MELODY_MODEL_ID
+    elif preset.startswith("facebook/"):
+        configured = preset
+    else:
+        configured = active_musicgen_model_id()
     if wants_melody and not model_supports_melody(configured):
         return active_musicgen_melody_model_id()
     return configured
+
+
+def _medium_allowed() -> bool:
+    try:
+        from .device import peek_device
+
+        info = peek_device()
+        return float(getattr(info, "total_vram_gb", 0) or 0) >= _MEDIUM_MIN_VRAM_GB
+    except Exception:
+        return False
+
+
+def warmup_musicgen() -> None:
+    """Load the default text model so the first preview is not a cold start."""
+    if not generation_available():
+        return
+    from .device import select_device
+    from .idle import touch_activity
+
+    touch_activity()
+    _get_model(select_device(), DEFAULT_MODEL_ID)
+    touch_activity()
 
 
 def generation_available() -> bool:
@@ -96,10 +130,13 @@ def generate_music_wav(
     top_p: float | None = None,
     cfg_coef: float | None = None,
     seed: int | None = None,
+    model: str | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Return WAV bytes and metadata for a text prompt."""
     if not generation_available():
         raise RuntimeError("MusicGen deps missing — npm run sidecar:generate")
+
+    from .idle import touch_activity  # noqa: PLC0415 — keep long loads from idle-exiting
 
     text = str(prompt or "").strip()
     if not text:
@@ -107,8 +144,10 @@ def generate_music_wav(
 
     duration = max(1.0, min(float(duration_sec or 10.0), 30.0))
     wants_melody = bool(melody_wav)
-    model_id = resolve_musicgen_model_id(wants_melody=wants_melody)
+    model_id = resolve_musicgen_model_id(wants_melody=wants_melody, requested=model)
+    touch_activity()
     model, model_id = _get_model(device, model_id)
+    touch_activity()
     generation_params: dict[str, Any] = {"duration": duration}
     if temperature is not None:
         generation_params["temperature"] = max(0.1, min(float(temperature), 2.0))
@@ -125,6 +164,7 @@ def generate_music_wav(
     with torch.inference_mode():
         if seed is not None:
             torch.manual_seed(max(0, min(int(seed), 2**31 - 1)))
+        touch_activity()
         if melody_wav:
             import io as _io  # noqa: PLC0415
 
@@ -142,6 +182,7 @@ def generate_music_wav(
         else:
             wav = model.generate([text], progress=False)
             mode = "text"
+        touch_activity()
 
     import numpy as np  # noqa: PLC0415
     import soundfile as sf  # noqa: PLC0415

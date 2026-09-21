@@ -18,7 +18,8 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   compact = false,
 }) {
   const [promptOverride, setPromptOverride] = useState(null);
-  const [durationSec, setDurationSec] = useState(10);
+  const [durationSec, setDurationSec] = useState(8);
+  const [modelPreset, setModelPreset] = useState("small");
   const [mergeAfterGenerate, setMergeAfterGenerate] = useState(true);
   const [useMelodyReference, setUseMelodyReference] = useState(false);
   const [useHighlightMelody, setUseHighlightMelody] = useState(false);
@@ -30,7 +31,8 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
 
   useWorkspaceResetEffect(() => {
     setPromptOverride(null);
-    setDurationSec(10);
+    setDurationSec(8);
+    setModelPreset("small");
     setMergeAfterGenerate(true);
     setUseMelodyReference(false);
     setUseHighlightMelody(false);
@@ -51,6 +53,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
     useHighlightMelody:
       canUseMelodyReference && useMelodyReference && canUseHighlightMelody && useHighlightMelody,
     temperature,
+    model: modelPreset,
     cfgCoef,
     topK,
     topP,
@@ -116,6 +119,18 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           onChange={(e) => setSeed(e.target.value)}
           placeholder="Random"
           className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
+      </label>
+      <label className="block text-[10px] text-white/50">
+        Model
+        <select
+          value={modelPreset}
+          disabled={busy}
+          onChange={(e) => setModelPreset(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
+        >
+          <option value="small">Small (fast, default)</option>
+          <option value="medium">Medium (needs ~10 GB VRAM, else falls back)</option>
+        </select>
       </label>
       <label className="block text-[10px] text-white/50">
         Duration

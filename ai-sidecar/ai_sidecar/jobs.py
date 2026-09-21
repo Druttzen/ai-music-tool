@@ -157,12 +157,10 @@ class JobManager:
         with self._lock:
             return self._jobs.get(job_id)
 
-    def run_inline(self, kind: str, payload: dict[str, Any] | None = None, *, label: str = "") -> Job:
-        """Run a registered kind on the calling thread, one job at a time."""
+    def _new_job(self, kind: str, payload: dict[str, Any] | None, label: str) -> tuple[RunnerFn, Job]:
         runner = _RUNNERS.get(kind)
         if not runner:
             raise KeyError(f"unknown job kind: {kind}")
-
         job = Job(
             job_id=uuid.uuid4().hex[:16],
             kind=kind,
@@ -172,7 +170,9 @@ class JobManager:
         )
         with self._lock:
             self._jobs[job.job_id] = job
+        return runner, job
 
+    def _execute(self, runner: RunnerFn, job: Job) -> None:
         with self._worker_lock:
             job.status = "running"
             ctx = JobContext(job)
@@ -190,7 +190,43 @@ class JobManager:
                 job.error = str(exc)
                 job.message = str(exc)
                 raise
+
+    def run_inline(self, kind: str, payload: dict[str, Any] | None = None, *, label: str = "") -> Job:
+        """Run a registered kind on the calling thread, one job at a time."""
+        runner, job = self._new_job(kind, payload, label)
+        self._execute(runner, job)
         return job
+
+    def start(self, kind: str, payload: dict[str, Any] | None = None, *, label: str = "") -> Job:
+        """Queue a job on a background thread. Poll ``get`` for progress."""
+        runner, job = self._new_job(kind, payload, label)
+
+        def _run() -> None:
+            try:
+                self._execute(runner, job)
+            except Exception:
+                return
+
+        threading.Thread(target=_run, daemon=True, name=f"aimc-job-{job.job_id}").start()
+        return job
+
+
+def public_job_status(job: Job) -> dict[str, Any]:
+    """Status payload safe to return to clients (no temp paths or upload bytes)."""
+    body = job.to_status()
+    body.pop("result", None)
+    meta = (job.result or {}).get("meta") if isinstance(job.result, dict) else None
+    meta = meta if isinstance(meta, dict) else {}
+    body["result"] = {
+        "ready": bool(isinstance(job.result, dict) and job.result.get("path")),
+        "model": (job.result or {}).get("model") if isinstance(job.result, dict) else None,
+        "duration_sec": meta.get("duration_sec"),
+        "mode": meta.get("mode"),
+        "audio_format": (job.result or {}).get("audio_format") if isinstance(job.result, dict) else None,
+    }
+    if not body["result"]["model"]:
+        body["result"]["model"] = meta.get("model")
+    return body
 
 
 JOBS = JobManager()

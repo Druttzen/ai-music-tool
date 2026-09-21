@@ -78,4 +78,10 @@ def start_idle_watchdog() -> None:
 def is_activity_path(path: str) -> bool:
     if path in _ACTIVITY_PATHS:
         return True
-    return path.startswith("/separate/download/") or path.startswith("/vocal-transform/download/")
+    return (
+        path.startswith("/separate/download/")
+        or path.startswith("/vocal-transform/download/")
+        or path.startswith("/jobs/")
+        or path.startswith("/generate/")
+        or path == "/acestep/ensure"
+    )

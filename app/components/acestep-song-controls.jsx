@@ -12,11 +12,13 @@ const ACE_DOCS_URL =
 
 /**
  * ACE-Step full-song controls (requires AIMC_ACESTEP_API_URL).
- * @param {{ defaultPrompt?: string, defaultLyrics?: string, busy?: boolean, available?: boolean, installHint?: string, onGenerate?: (prompt: string, options?: { lyrics?: string, durationSec?: number, attach?: boolean, download?: boolean }) => void, compact?: boolean }} props
+ * @param {{ defaultPrompt?: string, defaultLyrics?: string, defaultBpm?: number|null, defaultKey?: string, busy?: boolean, available?: boolean, installHint?: string, onGenerate?: (prompt: string, options?: object) => void, compact?: boolean }} props
  */
 export const AceStepSongControls = memo(function AceStepSongControls({
   defaultPrompt = "",
   defaultLyrics = "",
+  defaultBpm = null,
+  defaultKey = "",
   busy = false,
   available = false,
   installHint = "Start ACE-Step (`uv run acestep-api`) and set AIMC_ACESTEP_API_URL — see docs/acestep.md",
@@ -26,12 +28,20 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   const [promptOverride, setPromptOverride] = useState(null);
   const [lyricsOverride, setLyricsOverride] = useState(null);
   const [durationSec, setDurationSec] = useState(60);
+  const [useDna, setUseDna] = useState(true);
+  const [thinking, setThinking] = useState(true);
+  const [quality, setQuality] = useState("turbo");
+  const [seed, setSeed] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
 
   useWorkspaceResetEffect(() => {
     setPromptOverride(null);
     setLyricsOverride(null);
     setDurationSec(60);
+    setUseDna(true);
+    setThinking(true);
+    setQuality("turbo");
+    setSeed("");
     setCopyStatus("");
   });
 
@@ -128,6 +138,32 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           className="mt-1 w-full resize-y rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-xs text-white outline-none focus:border-emerald-400/50"
         />
       </label>
+      <label className="flex items-center gap-2 text-[10px] text-white/55">
+        <input type="checkbox" checked={useDna} disabled={busy} onChange={(e) => setUseDna(e.target.checked)} />
+        Use track DNA
+        {defaultBpm || defaultKey ? ` (${[defaultBpm ? `${defaultBpm} BPM` : "", defaultKey].filter(Boolean).join(" · ")})` : ""}
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-[10px] text-white/50">
+          Quality
+          <select value={quality} disabled={busy} onChange={(e) => setQuality(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white">
+            <option value="turbo">Turbo (faster)</option>
+            <option value="quality">Quality (thinking + 32 steps)</option>
+          </select>
+        </label>
+        <label className="block text-[10px] text-white/50">
+          Seed
+          <input type="number" min="0" value={seed} disabled={busy} placeholder="Random"
+            onChange={(e) => setSeed(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
+        </label>
+      </div>
+      <label className="flex items-center gap-2 text-[10px] text-white/55">
+        <input type="checkbox" checked={thinking || quality === "quality"} disabled={busy || quality === "quality"}
+          onChange={(e) => setThinking(e.target.checked)} />
+        LM thinking
+      </label>
       <label className="block text-[10px] text-white/50">
         Duration
         <select
@@ -149,7 +185,17 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           disabled={busy || !available}
           onClick={(e) => {
             e.preventDefault();
-            onGenerate(prompt, { lyrics, durationSec, attach: true });
+            onGenerate(prompt, {
+              lyrics,
+              durationSec,
+              attach: true,
+              bpm: useDna ? defaultBpm : null,
+              keyScale: useDna ? defaultKey : "",
+              thinking: quality === "quality" ? true : thinking,
+              inferenceSteps: quality === "quality" ? 32 : 8,
+              seed: seed.trim() ? Number(seed) : null,
+              model: quality === "quality" ? "acestep-v15" : "acestep-v15-turbo",
+            });
           }}
           className="min-w-[140px] flex-1 rounded-xl border border-emerald-400/35 bg-emerald-500/20 py-2 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30 disabled:opacity-50"
         >
@@ -160,7 +206,18 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           disabled={busy || !available}
           onClick={(e) => {
             e.preventDefault();
-            onGenerate(prompt, { lyrics, durationSec, attach: false, download: true });
+            onGenerate(prompt, {
+              lyrics,
+              durationSec,
+              attach: false,
+              download: true,
+              bpm: useDna ? defaultBpm : null,
+              keyScale: useDna ? defaultKey : "",
+              thinking: quality === "quality" ? true : thinking,
+              inferenceSteps: quality === "quality" ? 32 : 8,
+              seed: seed.trim() ? Number(seed) : null,
+              model: quality === "quality" ? "acestep-v15" : "acestep-v15-turbo",
+            });
           }}
           className="rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-[10px] font-semibold text-white/70 hover:text-white disabled:opacity-50"
         >

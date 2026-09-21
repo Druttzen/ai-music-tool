@@ -46,6 +46,11 @@ def test_build_release_task_payload_basic(monkeypatch):
     assert payload["thinking"] is True
     assert payload["batch_size"] == 1
     assert "model" not in payload
+    stepped = build_release_task_payload("x", inference_steps=32, seed=7, model="acestep-v15")
+    assert stepped["inference_steps"] == 32
+    assert stepped["seed"] == 7
+    assert stepped["use_random_seed"] is False
+    assert stepped["model"] == "acestep-v15"
     assert "ai_token" not in payload
 
 

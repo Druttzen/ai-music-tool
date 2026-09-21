@@ -13,11 +13,11 @@ from .musicgen import active_musicgen_model_id, generate_music_wav, generation_a
 @register("generate.musicgen")
 def run_musicgen(ctx: JobContext) -> dict[str, Any]:
     prompt = str(ctx.payload.get("prompt") or "").strip()
-    duration_sec = float(ctx.payload.get("duration_sec") or 10.0)
+    duration_sec = float(ctx.payload.get("duration_sec") or 8.0)
     melody_wav = ctx.payload.get("melody_wav")
     generation_options = {
         key: ctx.payload.get(key)
-        for key in ("temperature", "top_k", "top_p", "cfg_coef", "seed")
+        for key in ("temperature", "top_k", "top_p", "cfg_coef", "seed", "model")
         if ctx.payload.get(key) is not None
     }
     policy = build_policy()
@@ -48,6 +48,18 @@ def run_acestep(ctx: JobContext) -> dict[str, Any]:
 
     prompt = str(ctx.payload.get("prompt") or "").strip()
     ctx.set_progress(0.1, "submitting ACE-Step task")
+    if ctx.payload.get("autostart"):
+        from .acestep_lifecycle import ensure_acestep_api
+
+        ctx.set_progress(0.05, "checking ACE-Step API")
+        ensure_acestep_api()
+    else:
+        from .acestep_bridge import acestep_configured, acestep_reachable
+
+        if not acestep_configured() or not acestep_reachable(timeout_sec=0.8):
+            raise RuntimeError(
+                "ACE-Step API unreachable — run npm run sidecar:acestep (see docs/acestep.md)"
+            )
     audio_format = normalize_song_format(ctx.payload.get("audio_format"))
     wav_bytes, meta = generate_acestep_song(
         prompt,
@@ -58,6 +70,10 @@ def run_acestep(ctx: JobContext) -> dict[str, Any]:
         key_scale=str(ctx.payload.get("key_scale") or ""),
         thinking=bool(ctx.payload.get("thinking", True)),
         audio_format=audio_format,
+        inference_steps=ctx.payload.get("inference_steps"),
+        seed=ctx.payload.get("seed"),
+        model=str(ctx.payload.get("model") or ""),
+        on_progress=ctx.set_progress,
     )
     ctx.set_progress(0.9, "writing audio")
     suffix = f".{audio_format}"
@@ -82,6 +98,7 @@ def generate_via_jobs(
     top_p: float | None = None,
     cfg_coef: float | None = None,
     seed: int | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     if not generation_available():
         raise RuntimeError("MusicGen deps missing — npm run sidecar:generate")
@@ -90,16 +107,17 @@ def generate_via_jobs(
         raise ValueError("prompt is required")
     job = JOBS.run_inline(
         "generate.musicgen",
-        {
-            "prompt": text,
-            "duration_sec": duration_sec,
-            "melody_wav": melody_wav,
-            "temperature": temperature,
-            "top_k": top_k,
-            "top_p": top_p,
-            "cfg_coef": cfg_coef,
-            "seed": seed,
-        },
+        _musicgen_payload(
+            text,
+            duration_sec=duration_sec,
+            melody_wav=melody_wav,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            cfg_coef=cfg_coef,
+            seed=seed,
+            model=model,
+        ),
         label="musicgen",
     )
     assert job.result is not None
@@ -116,29 +134,154 @@ def generate_song_via_jobs(
     key_scale: str = "",
     thinking: bool = True,
     audio_format: str = "wav",
+    inference_steps: int | None = None,
+    seed: int | None = None,
+    model: str = "",
 ) -> dict[str, Any]:
-    from .acestep_bridge import acestep_configured
-
-    if not acestep_configured():
-        raise RuntimeError(
-            "ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)"
-        )
     text = str(prompt or "").strip()
     if not text:
         raise ValueError("prompt is required")
     job = JOBS.run_inline(
         "generate.acestep",
-        {
-            "prompt": text,
-            "lyrics": lyrics,
-            "duration_sec": duration_sec,
-            "vocal_language": vocal_language,
-            "bpm": bpm,
-            "key_scale": key_scale,
-            "thinking": thinking,
-            "audio_format": audio_format,
-        },
+        _song_payload(
+            text,
+            lyrics=lyrics,
+            duration_sec=duration_sec,
+            vocal_language=vocal_language,
+            bpm=bpm,
+            key_scale=key_scale,
+            thinking=thinking,
+            audio_format=audio_format,
+            inference_steps=inference_steps,
+            seed=seed,
+            model=model,
+        ),
         label="acestep-song",
     )
     assert job.result is not None
     return {"job_id": job.job_id, **job.result}
+
+
+def _musicgen_payload(
+    prompt: str,
+    *,
+    duration_sec: float,
+    melody_wav: bytes | None,
+    temperature: float | None,
+    top_k: int | None,
+    top_p: float | None,
+    cfg_coef: float | None,
+    seed: int | None,
+    model: str | None,
+) -> dict[str, Any]:
+    return {
+        "prompt": prompt,
+        "duration_sec": duration_sec,
+        "melody_wav": melody_wav,
+        "temperature": temperature,
+        "top_k": top_k,
+        "top_p": top_p,
+        "cfg_coef": cfg_coef,
+        "seed": seed,
+        "model": model,
+    }
+
+
+def _song_payload(
+    prompt: str,
+    *,
+    lyrics: str,
+    duration_sec: float | None,
+    vocal_language: str,
+    bpm: int | None,
+    key_scale: str,
+    thinking: bool,
+    audio_format: str,
+    inference_steps: int | None,
+    seed: int | None,
+    model: str,
+) -> dict[str, Any]:
+    return {
+        "prompt": prompt,
+        "lyrics": lyrics,
+        "duration_sec": duration_sec,
+        "vocal_language": vocal_language,
+        "bpm": bpm,
+        "key_scale": key_scale,
+        "thinking": thinking,
+        "audio_format": audio_format,
+        "inference_steps": inference_steps,
+        "seed": seed,
+        "model": model,
+        "autostart": False,
+    }
+
+
+def enqueue_musicgen(
+    prompt: str,
+    *,
+    duration_sec: float = 8.0,
+    melody_wav: bytes | None = None,
+    temperature: float | None = None,
+    top_k: int | None = None,
+    top_p: float | None = None,
+    cfg_coef: float | None = None,
+    seed: int | None = None,
+    model: str | None = None,
+) -> str:
+    if not generation_available():
+        raise RuntimeError("MusicGen deps missing — npm run sidecar:generate")
+    text = str(prompt or "").strip()
+    if not text:
+        raise ValueError("prompt is required")
+    job = JOBS.start(
+        "generate.musicgen",
+        _musicgen_payload(
+            text,
+            duration_sec=duration_sec,
+            melody_wav=melody_wav,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            cfg_coef=cfg_coef,
+            seed=seed,
+            model=model,
+        ),
+        label="musicgen",
+    )
+    return job.job_id
+
+
+def enqueue_song(
+    prompt: str,
+    *,
+    lyrics: str = "",
+    duration_sec: float | None = None,
+    vocal_language: str = "",
+    bpm: int | None = None,
+    key_scale: str = "",
+    thinking: bool = True,
+    audio_format: str = "wav",
+    inference_steps: int | None = None,
+    seed: int | None = None,
+    model: str = "",
+) -> str:
+    text = str(prompt or "").strip()
+    if not text:
+        raise ValueError("prompt is required")
+    payload = _song_payload(
+        text,
+        lyrics=lyrics,
+        duration_sec=duration_sec,
+        vocal_language=vocal_language,
+        bpm=bpm,
+        key_scale=key_scale,
+        thinking=thinking,
+        audio_format=audio_format,
+        inference_steps=inference_steps,
+        seed=seed,
+        model=model,
+    )
+    payload["autostart"] = True
+    job = JOBS.start("generate.acestep", payload, label="acestep-song")
+    return job.job_id

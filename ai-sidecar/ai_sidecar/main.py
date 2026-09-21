@@ -74,7 +74,8 @@ from . import generate_jobs as _generate_jobs  # noqa: F401 — register runners
 from . import stems_separate as _stems_separate  # noqa: F401 — register runners
 from . import vocal_transform as _vocal_transform  # noqa: F401 — register runners
 from .stems_separate import separate_audio, stems_available
-from .generate_jobs import generate_song_via_jobs, generate_via_jobs
+from .generate_jobs import enqueue_musicgen, enqueue_song, generate_song_via_jobs, generate_via_jobs
+from .jobs import JOBS, public_job_status
 from .vocal_transform import transform_via_jobs, vocal_transform_available
 from .idle import (
     configure_idle_exit,
@@ -111,6 +112,16 @@ async def _lifespan(_app: FastAPI):
     import threading
 
     threading.Thread(target=detect_device, name="aimc-device-warmup", daemon=True).start()
+
+    def _warm_musicgen() -> None:
+        try:
+            from .musicgen import warmup_musicgen
+
+            warmup_musicgen()
+        except Exception:
+            return
+
+    threading.Thread(target=_warm_musicgen, name="aimc-musicgen-warmup", daemon=True).start()
     yield
 
 
@@ -625,12 +636,13 @@ async def analyze_image(
 
 class GenerateRequest(BaseModel):
     prompt: str
-    duration_sec: float = 10.0
+    duration_sec: float = 8.0
     temperature: float | None = None
     top_k: int | None = None
     top_p: float | None = None
     cfg_coef: float | None = None
     seed: int | None = None
+    model: str | None = None
 
 
 @app.post("/generate")
@@ -656,6 +668,7 @@ async def generate_music(body: GenerateRequest):
             top_p=body.top_p,
             cfg_coef=body.cfg_coef,
             seed=body.seed,
+            model=body.model,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -741,15 +754,25 @@ class GenerateSongRequest(BaseModel):
     key_scale: str = ""
     thinking: bool = True
     audio_format: str = "wav"
+    inference_steps: int | None = None
+    seed: int | None = None
+    model: str = ""
 
 
 @app.post("/generate/song")
 async def generate_full_song(body: GenerateSongRequest):
     """Full-song generation via ACE-Step API bridge (AIMC_ACESTEP_API_URL)."""
+    from .acestep_bridge import acestep_reachable
+
     if not acestep_configured():
         raise HTTPException(
             status_code=503,
             detail="ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+        )
+    if not acestep_reachable(timeout_sec=0.8):
+        raise HTTPException(
+            status_code=503,
+            detail="ACE-Step API unreachable — run npm run sidecar:acestep (see docs/acestep.md)",
         )
 
     prompt = str(body.prompt or "").strip()
@@ -768,6 +791,9 @@ async def generate_full_song(body: GenerateSongRequest):
             key_scale=body.key_scale,
             thinking=body.thinking,
             audio_format=fmt,
+            inference_steps=body.inference_steps,
+            seed=body.seed,
+            model=body.model,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -786,6 +812,90 @@ async def generate_full_song(body: GenerateSongRequest):
             "X-Job-Id": str(result.get("job_id") or ""),
         },
     )
+
+
+@app.post("/generate/jobs")
+def enqueue_generate(body: GenerateRequest):
+    """Queue MusicGen and return immediately. Poll GET /jobs/{id}."""
+    if not generation_available():
+        raise HTTPException(status_code=503, detail="generation deps missing — npm run sidecar:generate")
+    try:
+        job_id = enqueue_musicgen(
+            body.prompt,
+            duration_sec=body.duration_sec,
+            temperature=body.temperature,
+            top_k=body.top_k,
+            top_p=body.top_p,
+            cfg_coef=body.cfg_coef,
+            seed=body.seed,
+            model=body.model,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job_id": job_id}
+
+
+@app.post("/generate/song/jobs")
+def enqueue_generate_song(body: GenerateSongRequest):
+    """Queue ACE-Step. The worker starts the API if the checkout is available."""
+    try:
+        job_id = enqueue_song(
+            body.prompt,
+            lyrics=body.lyrics,
+            duration_sec=body.duration_sec,
+            vocal_language=body.vocal_language,
+            bpm=body.bpm,
+            key_scale=body.key_scale,
+            thinking=body.thinking,
+            audio_format=normalize_song_format(body.audio_format),
+            inference_steps=body.inference_steps,
+            seed=body.seed,
+            model=body.model,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job_id": job_id}
+
+
+@app.get("/jobs/{job_id}")
+def job_status(job_id: str):
+    job = JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown job")
+    return public_job_status(job)
+
+
+@app.get("/generate/audio/{job_id}")
+def generate_audio(job_id: str):
+    job = JOBS.get(job_id)
+    if job is None or job.status != "done" or not isinstance(job.result, dict):
+        raise HTTPException(status_code=404, detail="audio not ready")
+    path = str(job.result.get("path") or "")
+    if not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="audio file missing")
+    meta = job.result.get("meta") if isinstance(job.result.get("meta"), dict) else {}
+    fmt = str(job.result.get("audio_format") or "wav")
+    media = SONG_MEDIA_TYPES.get(fmt, "audio/wav") if job.kind == "generate.acestep" else "audio/wav"
+    headers = {
+        "X-MusicGen-Model": str(meta.get("model") or job.result.get("model") or ""),
+        "X-MusicGen-Duration-Sec": str(meta.get("duration_sec") or ""),
+        "X-MusicGen-Mode": str(meta.get("mode") or ""),
+        "X-AceStep-Model": str(meta.get("model") or job.result.get("model") or ""),
+        "X-AceStep-Duration-Sec": str(meta.get("duration_sec") or ""),
+        "X-AceStep-Mode": str(meta.get("mode") or ""),
+    }
+    return FileResponse(path, media_type=media, filename=os.path.basename(path), headers=headers)
+
+
+@app.post("/acestep/ensure")
+def ensure_acestep():
+    from .acestep_lifecycle import ensure_acestep_api
+
+    try:
+        url = ensure_acestep_api()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"ok": True, "url": url}
 
 
 @app.post("/vocal-transform")
