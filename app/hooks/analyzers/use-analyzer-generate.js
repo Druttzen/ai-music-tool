@@ -32,7 +32,6 @@ export function useAnalyzerGenerate({
   promptEngine,
   setGuidedStep,
   setSidecarGenerateAvailable,
-  setSidecarAcestepAvailable,
   setStatusWithTime,
 }) {
   const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
@@ -259,7 +258,6 @@ export function useAnalyzerGenerate({
       generateSongBusy,
       setAudioAnalysis,
       setAudioPreviewFromBlob,
-      setSidecarAcestepAvailable,
       setStatusWithTime,
       syncCacheKeysRef,
     ],

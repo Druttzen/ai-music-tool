@@ -95,7 +95,6 @@ export function useAnalyzers({
     promptEngine,
     setGuidedStep,
     setSidecarGenerateAvailable,
-    setSidecarAcestepAvailable,
     setStatusWithTime,
   });
 
