@@ -84,3 +84,165 @@ def test_cleanup_ignores_empty_result():
     cleanup_job_artifacts(None)
     cleanup_job_artifacts({})
     assert Path(".").exists()
+
+
+def test_cancel_queued_job_prevents_runner_execution():
+    import threading
+
+    from ai_sidecar.jobs import JobManager, register
+
+    ran = []
+    @register("test.cancel-queued")
+    def _runner(ctx):
+        ran.append(True)
+        return {"path": "should-not-exist"}
+
+    mgr = JobManager()
+    mgr._worker_lock.acquire()
+    try:
+        job = mgr.start("test.cancel-queued")
+        cancelled = mgr.cancel(job.job_id)
+        assert cancelled is job
+        assert job.status == "cancelled"
+        assert job.cancel is True
+    finally:
+        mgr._worker_lock.release()
+
+    import time
+    time.sleep(0.03)
+    assert ran == []
+
+
+def test_cancel_running_non_cancellable_job_completes():
+    import threading
+    import time
+
+    from ai_sidecar.jobs import JobManager, register
+
+    started = threading.Event()
+    release = threading.Event()
+
+    @register("test.cancel-running")
+    def _runner(ctx):
+        started.set()
+        release.wait(timeout=2)
+        return {"path": "C:/completed.wav"}
+
+    mgr = JobManager()
+    job = mgr.start("test.cancel-running")
+    assert started.wait(timeout=1)
+    requested = mgr.cancel(job.job_id)
+    assert requested is job
+    assert job.status == "cancellation_requested"
+    release.set()
+
+    for _ in range(50):
+        if job.status in {"done", "error"}:
+            break
+        time.sleep(0.02)
+    assert job.status == "done"
+    assert job.result == {"path": "C:/completed.wav"}
+
+
+def test_cancel_running_cooperative_job_becomes_cancelled():
+    import threading
+    import time
+
+    from ai_sidecar.jobs import JobManager, register
+
+    started = threading.Event()
+    release = threading.Event()
+
+    @register("test.cancel-cooperative")
+    def _runner(ctx):
+        started.set()
+        release.wait(timeout=2)
+        if ctx.cancelled:
+            ctx.acknowledge_cancellation()
+            return {"path": "C:/discarded.wav"}
+        return {"path": "C:/completed.wav"}
+
+    mgr = JobManager()
+    job = mgr.start("test.cancel-cooperative")
+    assert started.wait(timeout=1)
+    mgr.cancel(job.job_id)
+    assert job.status == "cancellation_requested"
+    release.set()
+
+    for _ in range(50):
+        if job.status in {"cancelled", "error", "done"}:
+            break
+        time.sleep(0.02)
+    assert job.status == "cancelled"
+
+
+def test_cancel_completed_or_failed_job_is_idempotent():
+    from ai_sidecar.jobs import JobManager, register
+
+    @register("test.cancel-done")
+    def _done(ctx):
+        return {"path": "C:/done.wav"}
+
+    @register("test.cancel-error")
+    def _error(ctx):
+        raise RuntimeError("boom")
+
+    mgr = JobManager()
+    done = mgr.run_inline("test.cancel-done")
+    assert mgr.cancel(done.job_id) is done
+    assert done.status == "done"
+
+    try:
+        mgr.run_inline("test.cancel-error")
+    except RuntimeError:
+        pass
+    failed = next(job for job in mgr._jobs.values() if job.kind == "test.cancel-error")
+    assert mgr.cancel(failed.job_id) is failed
+    assert failed.status == "error"
+
+
+def test_cancel_does_not_delete_existing_artifact():
+    import threading
+    import time
+
+    from ai_sidecar.jobs import JobManager, register
+
+    finished = threading.Event()
+    @register("test.cancel-artifact")
+    def _runner(ctx):
+        finished.wait(timeout=2)
+        return {"path": "C:/completed.wav"}
+
+    mgr = JobManager()
+    job = mgr.start("test.cancel-artifact")
+    mgr.cancel(job.job_id)
+    assert job.status == "cancellation_requested"
+    finished.set()
+
+    for _ in range(50):
+        if job.status in {"done", "error"}:
+            break
+        time.sleep(0.02)
+    assert job.status == "done"
+    assert job.result == {"path": "C:/completed.wav"}
+
+
+def test_public_status_exposes_cancellation_requested():
+    from ai_sidecar.jobs import JobManager, public_job_status, register
+
+    started = threading.Event()
+    release = threading.Event()
+
+    @register("test.public-cancel")
+    def _runner(ctx):
+        started.set()
+        release.wait(timeout=2)
+        return {}
+
+    mgr = JobManager()
+    job = mgr.start("test.public-cancel")
+    assert started.wait(timeout=1)
+    mgr.cancel(job.job_id)
+    body = public_job_status(job)
+    assert body["status"] == "cancellation_requested"
+    release.set()
