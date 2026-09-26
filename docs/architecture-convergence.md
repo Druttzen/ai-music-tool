@@ -31,8 +31,11 @@ Health exposes `device` (string), `device_info`, and `capabilities` while keepin
 
 MusicGen text, melody-conditioned generation, and ACE-Step use queued jobs that can be polled at
 `GET /jobs/{job_id}` and cancelled with `POST /jobs/{job_id}/cancel`. Cancellation is a request:
-non-cooperative model inference may finish, and its completed artifacts remain available. Studio
-keeps polling after a cancellation request so it can report whether the job stopped or completed.
+MusicGen checks cancellation at its generation-token callback and stops at that safe boundary;
+cancellation during model loading is applied as soon as loading finishes. A stopped MusicGen job
+does not write or retain a partial audio artifact. ACE-Step runs on a separate API server, so its
+inference may still finish after a cancellation request and any completed artifact remains available.
+Studio keeps polling after a cancellation request so it can report whether the job stopped or completed.
 
 Packaged user-data `pkg/` is **overlaid** from bundle sources (never `remove_dir_all`). Sidecar CORS includes `Access-Control-Allow-Private-Network` for the Tauri webview. BLIP caption negotiates Transformers 5 `image-text-to-text`. Lyrics synthesis can use transformers TTS when RVC/DiffSinger are not ready.
 

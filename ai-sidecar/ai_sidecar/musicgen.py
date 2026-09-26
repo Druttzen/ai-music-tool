@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import io
 import os
-from typing import Any
+from typing import Any, Callable
 
 DEFAULT_MODEL_ID = "facebook/musicgen-small"
 DEFAULT_MELODY_MODEL_ID = "facebook/musicgen-melody-small"
@@ -131,6 +131,8 @@ def generate_music_wav(
     cfg_coef: float | None = None,
     seed: int | None = None,
     model: str | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Return WAV bytes and metadata for a text prompt."""
     if not generation_available():
@@ -148,6 +150,8 @@ def generate_music_wav(
     touch_activity()
     model, model_id = _get_model(device, model_id)
     touch_activity()
+    if check_cancelled is not None:
+        check_cancelled()
     generation_params: dict[str, Any] = {"duration": duration}
     if temperature is not None:
         generation_params["temperature"] = max(0.1, min(float(temperature), 2.0))
@@ -161,28 +165,48 @@ def generate_music_wav(
 
     import torch  # noqa: PLC0415
 
-    with torch.inference_mode():
-        if seed is not None:
-            torch.manual_seed(max(0, min(int(seed), 2**31 - 1)))
-        touch_activity()
-        if melody_wav:
-            import io as _io  # noqa: PLC0415
+    previous_progress_callback = getattr(model, "_progress_callback", None)
 
-            import librosa  # noqa: PLC0415
+    def report_generation_progress(generated: int, total: int) -> None:
+        if check_cancelled is not None:
+            check_cancelled()
+        if on_progress is not None:
+            on_progress(generated, total)
 
-            y, melody_sr = librosa.load(_io.BytesIO(melody_wav), sr=None, mono=True)
-            melody_tensor = torch.from_numpy(y).float().unsqueeze(0)
-            wav = model.generate_with_chroma(
-                [text],
-                melody_tensor,
-                melody_sr,
-                progress=False,
-            )
-            mode = "melody"
-        else:
-            wav = model.generate([text], progress=False)
-            mode = "text"
-        touch_activity()
+    use_progress_callback = on_progress is not None or check_cancelled is not None
+    if use_progress_callback:
+        model.set_custom_progress_callback(report_generation_progress)
+
+    try:
+        with torch.inference_mode():
+            if seed is not None:
+                torch.manual_seed(max(0, min(int(seed), 2**31 - 1)))
+            touch_activity()
+            if melody_wav:
+                import io as _io  # noqa: PLC0415
+
+                import librosa  # noqa: PLC0415
+
+                y, melody_sr = librosa.load(_io.BytesIO(melody_wav), sr=None, mono=True)
+                if check_cancelled is not None:
+                    check_cancelled()
+                melody_tensor = torch.from_numpy(y).float().unsqueeze(0)
+                wav = model.generate_with_chroma(
+                    [text],
+                    melody_tensor,
+                    melody_sr,
+                    progress=use_progress_callback,
+                )
+                mode = "melody"
+            else:
+                wav = model.generate([text], progress=use_progress_callback)
+                mode = "text"
+            if check_cancelled is not None:
+                check_cancelled()
+            touch_activity()
+    finally:
+        if use_progress_callback:
+            model.set_custom_progress_callback(previous_progress_callback)
 
     import numpy as np  # noqa: PLC0415
     import soundfile as sf  # noqa: PLC0415

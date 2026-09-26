@@ -45,6 +45,10 @@ _RUNNERS: dict[str, RunnerFn] = {}
 _ARTIFACT_KEYS = ("out_dir", "output_dir", "path")
 
 
+class JobCancellationRequested(Exception):
+    """Raised by a runner after it has safely stopped cooperative work."""
+
+
 def _tmp_roots() -> list[Path]:
     roots: list[Path] = []
     for key in ("TMPDIR", "TEMP", "TMP"):
@@ -137,6 +141,12 @@ class JobContext:
         """Tell the manager that the runner stopped cooperatively."""
         self.job.cancellation_acknowledged = True
 
+    def raise_if_cancelled(self) -> None:
+        """Stop a cooperative runner at its next safe cancellation point."""
+        if self.cancelled:
+            self.acknowledge_cancellation()
+            raise JobCancellationRequested("cancelled")
+
 
 class JobManager:
     def __init__(self) -> None:
@@ -222,6 +232,20 @@ class JobManager:
                         job.progress = 1.0
                         job.result = result or {}
                         job.message = job.message or "done"
+            except JobCancellationRequested as exc:
+                with self._lock:
+                    if not job.cancel:
+                        job.status = "error"
+                        job.error = str(exc)
+                        job.message = str(exc)
+                    else:
+                        job.cancellation_acknowledged = True
+                        job.status = "cancelled"
+                        job.error = None
+                        job.result = None
+                        job.message = "cancelled"
+                if not job.cancel:
+                    raise
             except Exception as exc:
                 with self._lock:
                     job.status = "error"
