@@ -17,7 +17,7 @@ from typing import Any, Callable
 class Job:
     job_id: str
     kind: str
-    status: str = "queued"  # queued | running | done | error | cancelled
+    status: str = "queued"  # queued | running | cancellation_requested | done | error | cancelled
     progress: float = 0.0
     message: str = ""
     error: str | None = None
@@ -25,6 +25,7 @@ class Job:
     payload: dict[str, Any] = field(default_factory=dict)
     created: float = field(default_factory=time.time)
     cancel: bool = field(default=False, repr=False)
+    cancellation_acknowledged: bool = field(default=False, repr=False)
 
     def to_status(self) -> dict[str, Any]:
         return {
@@ -129,7 +130,12 @@ class JobContext:
 
     @property
     def cancelled(self) -> bool:
+        """Whether cancellation has been requested for this job."""
         return bool(self.job.cancel)
+
+    def acknowledge_cancellation(self) -> None:
+        """Tell the manager that the runner stopped cooperatively."""
+        self.job.cancellation_acknowledged = True
 
 
 class JobManager:
@@ -157,6 +163,24 @@ class JobManager:
         with self._lock:
             return self._jobs.get(job_id)
 
+    def cancel(self, job_id: str) -> Job | None:
+        """Request cancellation without touching artifacts or interrupting a runner."""
+        self.prune()
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return None
+            if job.status in {"done", "error", "cancelled"}:
+                return job
+            job.cancel = True
+            if job.status == "queued":
+                job.status = "cancelled"
+                job.message = job.message or "cancelled"
+            elif job.status == "running":
+                job.status = "cancellation_requested"
+                job.message = "cancellation requested"
+            return job
+
     def _new_job(self, kind: str, payload: dict[str, Any] | None, label: str) -> tuple[RunnerFn, Job]:
         runner = _RUNNERS.get(kind)
         if not runner:
@@ -174,21 +198,35 @@ class JobManager:
 
     def _execute(self, runner: RunnerFn, job: Job) -> None:
         with self._worker_lock:
-            job.status = "running"
+            with self._lock:
+                if job.cancel:
+                    job.status = "cancelled"
+                    job.message = job.message or "cancelled"
+                    return
+                job.status = "running"
             ctx = JobContext(job)
             try:
                 result = runner(ctx)
-                if job.cancel:
-                    job.status = "cancelled"
-                else:
-                    job.status = "done"
-                    job.progress = 1.0
-                    job.result = result or {}
-                    job.message = job.message or "done"
+                with self._lock:
+                    if job.cancel and job.cancellation_acknowledged:
+                        job.status = "cancelled"
+                        job.message = job.message or "cancelled"
+                    elif job.cancel:
+                        # The runner could not safely interrupt. Keep its completed result.
+                        job.status = "done"
+                        job.progress = 1.0
+                        job.result = result or {}
+                        job.message = "cancellation requested; generation completed"
+                    else:
+                        job.status = "done"
+                        job.progress = 1.0
+                        job.result = result or {}
+                        job.message = job.message or "done"
             except Exception as exc:
-                job.status = "error"
-                job.error = str(exc)
-                job.message = str(exc)
+                with self._lock:
+                    job.status = "error"
+                    job.error = str(exc)
+                    job.message = str(exc)
                 raise
 
     def run_inline(self, kind: str, payload: dict[str, Any] | None = None, *, label: str = "") -> Job:
