@@ -865,6 +865,15 @@ def job_status(job_id: str):
     return public_job_status(job)
 
 
+@app.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: str):
+    """Request cancellation of a queued or running job."""
+    job = JOBS.cancel(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="unknown job")
+    return {"job_id": job.job_id, "status": job.status}
+
+
 @app.get("/generate/audio/{job_id}")
 def generate_audio(job_id: str):
     job = JOBS.get(job_id)
