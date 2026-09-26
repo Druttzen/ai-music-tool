@@ -73,7 +73,7 @@ function joinTags(arr) {
 
 /**
  * Sonoteller-style editable local analysis report.
- * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number, shortTermLUFS?: number|null, momentaryLUFS?: number|null, engine?: string }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, onSeparateStems?: () => void, onDownloadStem?: (stem: object) => void, stemSeparationBusy?: boolean, stemSeparationStems?: object[], onGenerateMusic?: (prompt: string, durationSec?: number, options?: { attach?: boolean, download?: boolean }) => void, generateMusicBusy?: boolean, sidecarGenerateAvailable?: boolean, defaultMusicGenPrompt?: string, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
+ * @param {{ analysis: object, audioUrl?: string|null, loudness?: { integratedLUFS: number, truePeakDbTP: number, shortTermLUFS?: number|null, momentaryLUFS?: number|null, engine?: string }|null, loudnessBusy?: boolean, onChange: (patch: object) => void, onApply: () => void, onClear?: () => void, onAttachAudio?: (file: File) => void, onAddLyricsForTrack?: () => void, onAnalyzeVocalCharacter?: () => void, onExportEnhanced?: (presetId: string, opts?: { format?: string, scope?: string }) => void, onSeparateStems?: () => void, onDownloadStem?: (stem: object) => void, stemSeparationBusy?: boolean, stemSeparationStems?: object[], onGenerateMusic?: (prompt: string, durationSec?: number, options?: { attach?: boolean, download?: boolean }) => void, onCancelMusic?: () => void, onCancelSong?: () => void, generateMusicCanCancel?: boolean, generateSongCanCancel?: boolean, generateMusicCancelRequested?: boolean, generateSongCancelRequested?: boolean, generateMusicBusy?: boolean, sidecarGenerateAvailable?: boolean, defaultMusicGenPrompt?: string, exportBusy?: boolean, exportProgress?: { phase: string, pct: number }|null }} props
  */
 export const AudioTrackEditor = memo(function AudioTrackEditor({
   analysis,
@@ -93,6 +93,12 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   stemSeparationBusy = false,
   stemSeparationStems = [],
   onGenerateMusic,
+  onCancelMusic,
+  onCancelSong,
+  generateMusicCanCancel = false,
+  generateSongCanCancel = false,
+  generateMusicCancelRequested = false,
+  generateSongCancelRequested = false,
   generateMusicBusy = false,
   sidecarGenerateAvailable = false,
   onGenerateSong,
@@ -697,6 +703,9 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           music={{
             defaultPrompt: defaultMusicGenPrompt,
             busy: generateMusicBusy || exportBusy,
+            canCancel: generateMusicCanCancel,
+            cancelRequested: generateMusicCancelRequested,
+            onCancel: onCancelMusic,
             available: sidecarGenerateAvailable,
             installHint: musicGenHintProp,
             canUseMelodyReference: !!audioUrl,
@@ -709,6 +718,9 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             defaultBpm: analysis?.bpm ?? null,
             defaultKey: analysis?.estimatedKey || "",
             busy: generateSongBusy || exportBusy,
+            canCancel: generateSongCanCancel,
+            cancelRequested: generateSongCancelRequested,
+            onCancel: onCancelSong,
             available: sidecarAcestepAvailable,
             onGenerate: onGenerateSong,
           }}

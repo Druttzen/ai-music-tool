@@ -177,6 +177,82 @@ def test_cancel_running_cooperative_job_becomes_cancelled():
     assert job.status == "cancelled"
 
 
+def test_cancel_running_job_can_stop_by_raising_at_safe_point():
+    import threading
+    import time
+
+    from ai_sidecar.jobs import JobManager, register
+
+    started = threading.Event()
+    release = threading.Event()
+
+    @register("test.cancel-safe-point")
+    def _runner(ctx):
+        started.set()
+        release.wait(timeout=2)
+        ctx.raise_if_cancelled()
+        return {"path": "C:/completed.wav"}
+
+    mgr = JobManager()
+    job = mgr.start("test.cancel-safe-point")
+    assert started.wait(timeout=1)
+    mgr.cancel(job.job_id)
+    release.set()
+
+    for _ in range(50):
+        if job.status in {"cancelled", "error", "done"}:
+            break
+        time.sleep(0.02)
+    assert job.status == "cancelled"
+    assert job.error is None
+    assert job.result is None
+    assert job.cancellation_acknowledged is True
+
+
+def test_musicgen_job_stops_at_generation_progress_callback(monkeypatch):
+    import threading
+    import time
+    from types import SimpleNamespace
+
+    from ai_sidecar.generate_jobs import run_musicgen
+    from ai_sidecar.jobs import JobManager, register
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def generate(_prompt, **kwargs):
+        started.set()
+        release.wait(timeout=2)
+        kwargs["on_progress"](1, 10)
+        raise AssertionError("generation should stop at the cancellation callback")
+
+    monkeypatch.setattr("ai_sidecar.generate_jobs.generation_available", lambda: True)
+    monkeypatch.setattr(
+        "ai_sidecar.generate_jobs.build_policy",
+        lambda: SimpleNamespace(device="cpu", dtype="float32"),
+    )
+    monkeypatch.setattr("ai_sidecar.generate_jobs.select_device", lambda: "cpu")
+    monkeypatch.setattr("ai_sidecar.generate_jobs.generate_music_wav", generate)
+
+    @register("test.generate.musicgen-cancel")
+    def _runner(ctx):
+        return run_musicgen(ctx)
+
+    mgr = JobManager()
+    job = mgr.start("test.generate.musicgen-cancel", {"prompt": "test"})
+    assert started.wait(timeout=1)
+    mgr.cancel(job.job_id)
+    release.set()
+
+    for _ in range(50):
+        if job.status in {"cancelled", "error", "done"}:
+            break
+        time.sleep(0.02)
+    assert job.status == "cancelled"
+    assert job.error is None
+    assert job.result is None
+
+
 def test_cancel_completed_or_failed_job_is_idempotent():
     from ai_sidecar.jobs import JobManager, register
 

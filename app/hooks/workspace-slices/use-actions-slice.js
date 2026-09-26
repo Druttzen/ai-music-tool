@@ -20,6 +20,8 @@ const ACTION_KEYS = [
   "buildCoProducerAI",
   "captureSnapshot",
   "captureSunoPasteFromProject",
+  "cancelMusicGeneration",
+  "cancelSongGeneration",
   "clearAudioAnalysis",
   "clearHistory",
   "clearImageAnalysis",

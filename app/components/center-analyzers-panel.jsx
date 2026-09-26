@@ -61,8 +61,12 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     imagePreview,
     stemSeparationBusy,
     stemSeparationStems,
+    generateMusicCanCancel,
     generateMusicBusy,
+    generateMusicCancelRequested,
+    generateSongCanCancel,
     generateSongBusy,
+    generateSongCancelRequested,
     vocalTransformBusy,
     localCoverRemixBusy,
   } = useProjectWorkspaceAnalyzerState();
@@ -79,6 +83,8 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     exportEnhancedAudio,
     separateStems,
     downloadStem,
+    cancelMusicGeneration,
+    cancelSongGeneration,
     generateMusicFromPrompt,
     generateSongFromPrompt,
     transformVocalsOnTrack,
@@ -306,6 +312,9 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                   music={{
                     defaultPrompt: defaultMusicGenPrompt,
                     busy: generateMusicBusy,
+                    canCancel: generateMusicCanCancel,
+                    cancelRequested: generateMusicCancelRequested,
+                    onCancel: cancelMusicGeneration,
                     available: sidecarGenerateAvailable,
                     installHint: musicGenHint,
                     canUseMelodyReference: !!audioPreviewUrl,
@@ -318,6 +327,9 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                     defaultBpm: audioAnalysis?.bpm ?? null,
                     defaultKey: audioAnalysis?.estimatedKey || "",
                     busy: generateSongBusy,
+                    canCancel: generateSongCanCancel,
+                    cancelRequested: generateSongCancelRequested,
+                    onCancel: cancelSongGeneration,
                     available: sidecarAcestepAvailable,
                     onGenerate: generateSongFromPrompt,
                     compact: true,
@@ -355,9 +367,15 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 stemSeparationBusy={stemSeparationBusy}
                 stemSeparationStems={stemSeparationStems}
                 onGenerateMusic={generateMusicFromPrompt}
+                onCancelMusic={cancelMusicGeneration}
+                generateMusicCanCancel={generateMusicCanCancel}
+                generateMusicCancelRequested={generateMusicCancelRequested}
                 generateMusicBusy={generateMusicBusy}
                 sidecarGenerateAvailable={sidecarGenerateAvailable}
                 onGenerateSong={generateSongFromPrompt}
+                onCancelSong={cancelSongGeneration}
+                generateSongCanCancel={generateSongCanCancel}
+                generateSongCancelRequested={generateSongCancelRequested}
                 generateSongBusy={generateSongBusy}
                 sidecarAcestepAvailable={sidecarAcestepAvailable}
                 sidecarStemsMelbandAvailable={sidecarStemsMelbandAvailable}

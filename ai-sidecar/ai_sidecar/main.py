@@ -516,6 +516,14 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
     Returns true beat-tracked tempo, a chroma-based key estimate, and spectral
     centroid. This is the first 'real AI/DSP' capability in the migration.
     """
+    raw = await _read_upload_limited(file, MAX_AUDIO_UPLOAD_BYTES)
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty upload")
+
+    return await asyncio.to_thread(_analyze_audio_sync, raw)
+
+
+def _analyze_audio_sync(raw: bytes) -> Analysis:
     try:
         import librosa  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
@@ -524,14 +532,8 @@ async def analyze(file: UploadFile = File(...)) -> Analysis:
             status_code=503, detail=_http_safe_detail(exc, "analysis deps missing")
         ) from exc
 
-    raw = await _read_upload_limited(file, MAX_AUDIO_UPLOAD_BYTES)
-    if not raw:
-        raise HTTPException(status_code=400, detail="empty upload")
-
     try:
-        y, sr = await asyncio.to_thread(
-            librosa.load, io.BytesIO(raw), sr=None, mono=True
-        )
+        y, sr = librosa.load(io.BytesIO(raw), sr=None, mono=True)
     except Exception as exc:
         raise HTTPException(
             status_code=422, detail=_http_safe_detail(exc, "could not decode audio")
@@ -648,7 +650,7 @@ class GenerateRequest(BaseModel):
 @app.post("/generate")
 async def generate_music(body: GenerateRequest):
     """Optional MusicGen text-to-music (requires `generate` extra; CC-BY-NC weights)."""
-    if not generation_available():
+    if not await asyncio.to_thread(generation_available):
         raise HTTPException(
             status_code=503,
             detail="generation deps missing — npm run sidecar:generate",
@@ -743,6 +745,44 @@ async def generate_music_with_melody(
             "X-MusicGen-Mode": "melody",
         },
     )
+
+
+@app.post("/generate/melody/jobs")
+async def enqueue_generate_melody(
+    prompt: str = Form(...),
+    duration_sec: float = Form(8.0),
+    temperature: float | None = Form(None),
+    top_k: int | None = Form(None),
+    top_p: float | None = Form(None),
+    cfg_coef: float | None = Form(None),
+    seed: int | None = Form(None),
+    model: str | None = Form(None),
+    melody: UploadFile = File(...),
+):
+    """Queue melody-conditioned MusicGen. Poll GET /jobs/{id}."""
+    if not await asyncio.to_thread(generation_available):
+        raise HTTPException(status_code=503, detail="generation deps missing — npm run sidecar:generate")
+    text = str(prompt or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    melody_raw = await _read_upload_limited(melody, MAX_AUDIO_UPLOAD_BYTES)
+    if not melody_raw:
+        raise HTTPException(status_code=400, detail="empty melody upload")
+    try:
+        job_id = enqueue_musicgen(
+            text,
+            duration_sec=duration_sec,
+            melody_wav=melody_raw,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            cfg_coef=cfg_coef,
+            seed=seed,
+            model=model,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job_id": job_id}
 
 
 class GenerateSongRequest(BaseModel):

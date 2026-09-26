@@ -13,6 +13,7 @@ from .musicgen import active_musicgen_model_id, generate_music_wav, generation_a
 
 @register("generate.musicgen")
 def run_musicgen(ctx: JobContext) -> dict[str, Any]:
+    ctx.raise_if_cancelled()
     prompt = str(ctx.payload.get("prompt") or "").strip()
     duration_sec = float(ctx.payload.get("duration_sec") or 8.0)
     melody_wav = ctx.payload.get("melody_wav")
@@ -24,13 +25,22 @@ def run_musicgen(ctx: JobContext) -> dict[str, Any]:
     policy = build_policy()
     device = policy.device or select_device()
     ctx.set_progress(0.2, f"loading MusicGen ({device}, {policy.dtype})")
+
+    def on_progress(generated: int, total: int) -> None:
+        ctx.raise_if_cancelled()
+        fraction = generated / max(total, 1)
+        ctx.set_progress(0.2 + 0.7 * fraction, "generating MusicGen")
+
     wav_bytes, meta = generate_music_wav(
         prompt,
         duration_sec=duration_sec,
         melody_wav=melody_wav,
         device=device,
+        on_progress=on_progress,
+        check_cancelled=ctx.raise_if_cancelled,
         **generation_options,
     )
+    ctx.raise_if_cancelled()
     ctx.set_progress(0.9, "writing wav")
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.write(wav_bytes)

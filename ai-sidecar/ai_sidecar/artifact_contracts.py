@@ -7,43 +7,52 @@ artifact object for every sidecar operation.
 
 from __future__ import annotations
 
-from typing import Any, NotRequired, TypedDict
+from typing import Any, TypedDict
 
 
 class ArtifactContractError(ValueError):
     """Raised when a runner result violates its internal artifact contract."""
 
 
-class AudioArtifactResult(TypedDict):
+class _AudioOptionalFields(TypedDict, total=False):
+    model: str | None
+    device: str | None
+    audio_format: str | None
+
+
+class AudioArtifactResult(_AudioOptionalFields):
     artifact_type: str
     path: str
-    model: NotRequired[str | None]
-    device: NotRequired[str | None]
     meta: dict[str, Any]
-    audio_format: NotRequired[str | None]
 
 
-class StemsArtifactResult(TypedDict):
+class _StemsOptionalFields(TypedDict, total=False):
+    model: str | None
+    backend: str | None
+    device: str | None
+    policy: dict[str, Any]
+
+
+class StemsArtifactResult(_StemsOptionalFields):
     artifact_type: str
     paths: dict[str, str]
     out_dir: str
-    model: NotRequired[str | None]
-    backend: NotRequired[str | None]
-    device: NotRequired[str | None]
     sources: list[str]
-    policy: NotRequired[dict[str, Any]]
 
 
-class VocalTransformArtifactResult(TypedDict):
+class _VocalTransformOptionalFields(TypedDict, total=False):
+    model: str | None
+    device: str | None
+    vocals_path: str | None
+    remix_path: str | None
+
+
+class VocalTransformArtifactResult(_VocalTransformOptionalFields):
     artifact_type: str
     mode: str
     sample_rate: int
     regions: list[dict[str, float]]
     out_dir: str
-    model: NotRequired[str | None]
-    device: NotRequired[str | None]
-    vocals_path: NotRequired[str | None]
-    remix_path: NotRequired[str | None]
 
 
 def _required_text(result: dict[str, Any], key: str) -> str:

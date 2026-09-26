@@ -81,9 +81,15 @@ export function useAnalyzers({
   });
 
   const {
+    cancelMusicGeneration,
+    cancelSongGeneration,
+    generateMusicCanCancel,
     generateMusicBusy,
+    generateMusicCancelRequested,
     generateMusicFromPrompt,
+    generateSongCanCancel,
     generateSongBusy,
+    generateSongCancelRequested,
     generateSongFromPrompt,
   } = useAnalyzerGenerate({
     audioAnalysis: media.audioAnalysis,
@@ -158,9 +164,15 @@ export function useAnalyzers({
     clearAudioAnalysis: media.clearAudioAnalysis,
     clearImageAnalysis: media.clearImageAnalysis,
     downloadStem: stems.downloadStem,
+    cancelMusicGeneration,
+    cancelSongGeneration,
+    generateMusicCanCancel,
     generateMusicBusy,
+    generateMusicCancelRequested,
     generateMusicFromPrompt,
+    generateSongCanCancel,
     generateSongBusy,
+    generateSongCancelRequested,
     generateSongFromPrompt,
     vocalTransformBusy,
     transformVocalsOnTrack,

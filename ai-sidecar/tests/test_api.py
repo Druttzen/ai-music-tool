@@ -254,6 +254,50 @@ def test_analyze_wav_returns_tempo_and_key():
     assert body.get("genre_predictions") is None or isinstance(body["genre_predictions"], list)
 
 
+def test_analyze_cpu_work_does_not_block_health(monkeypatch):
+    import asyncio
+    import threading
+
+    from httpx import ASGITransport, AsyncClient
+
+    from ai_sidecar import main as main_module
+
+    entered = threading.Event()
+    release = threading.Event()
+    original = main_module._analyze_audio_sync
+
+    def slow_analysis(raw):
+        entered.set()
+        release.wait(timeout=2)
+        return original(raw)
+
+    monkeypatch.setattr(main_module, "_analyze_audio_sync", slow_analysis)
+
+    async def exercise_concurrent_health():
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as async_client:
+            analysis = asyncio.create_task(
+                async_client.post(
+                    "/analyze",
+                    files={"file": ("tone.wav", _make_tone_wav(), "audio/wav")},
+                )
+            )
+            assert await asyncio.to_thread(entered.wait, 1)
+            health = await asyncio.wait_for(async_client.get("/health"), timeout=1)
+            release.set()
+            response = await asyncio.wait_for(analysis, timeout=15)
+            assert health.status_code == 200
+            assert response.status_code == 200
+
+    release_timer = threading.Timer(1.5, release.set)
+    release_timer.start()
+    try:
+        asyncio.run(exercise_concurrent_health())
+    finally:
+        release.set()
+        release_timer.cancel()
+
+
 def test_analyze_image_requires_vision_extra():
     res = client.post(
         "/analyze-image",

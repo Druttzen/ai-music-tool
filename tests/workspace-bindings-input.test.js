@@ -51,6 +51,33 @@ describe("workspace-bindings-input", () => {
     expect(extras.sidecarAiStatus).toBe("ready");
   });
 
+  it("exposes generation cancellation actions and state", () => {
+    const cancelMusicGeneration = () => {};
+    const cancelSongGeneration = () => {};
+    const extras = pickWorkspaceContextExtras(
+      projectState,
+      {
+        ...analyzers,
+        cancelMusicGeneration,
+        cancelSongGeneration,
+        generateMusicCanCancel: true,
+        generateMusicCancelRequested: false,
+        generateSongCanCancel: false,
+        generateSongCancelRequested: true,
+      },
+      pipeline,
+      snapshot,
+      externals,
+    );
+
+    expect(extras.cancelMusicGeneration).toBe(cancelMusicGeneration);
+    expect(extras.cancelSongGeneration).toBe(cancelSongGeneration);
+    expect(extras.generateMusicCanCancel).toBe(true);
+    expect(extras.generateMusicCancelRequested).toBe(false);
+    expect(extras.generateSongCanCancel).toBe(false);
+    expect(extras.generateSongCancelRequested).toBe(true);
+  });
+
   it("pickPipelineInputFields passes analyzer refs through", () => {
     const fields = pickPipelineInputFields(projectState, {
       audioAnalysis: { summary: "audio" },
