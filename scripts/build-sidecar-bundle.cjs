@@ -1,15 +1,16 @@
 /**
  * Cross-platform entry for PyInstaller sidecar bundle (Windows .ps1 / Unix .sh).
- * Rebuilds when the host-triple binary is missing or its version stamp
- * does not match package.json (stale binaries reported /health 0.1.0).
+ * Rebuilds when the host-triple binary is missing or its version/source stamp
+ * does not match the packaged sidecar inputs.
  */
 const { spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { getSidecarBuildStamp } = require("./sidecar-build-stamp.cjs");
 
 const root = path.join(__dirname, "..");
 const binDir = path.join(root, "src-tauri", "binaries");
-const pkgVersion = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
+const buildStamp = getSidecarBuildStamp(root);
 
 function hostTriple() {
   const r = spawnSync("rustc", ["-vV"], { encoding: "utf8" });
@@ -31,19 +32,19 @@ function binaryIsCurrent(binaryPath) {
   if (!fs.existsSync(binaryPath)) return false;
   const stamp = stampPath(binaryPath);
   if (!fs.existsSync(stamp)) return false;
-  return fs.readFileSync(stamp, "utf8").trim() === String(pkgVersion);
+  return fs.readFileSync(stamp, "utf8").trim() === buildStamp;
 }
 
 const triple = hostTriple();
 if (triple && process.env.FORCE_SIDECAR_REBUILD !== "1") {
   const dest = path.join(binDir, expectedBinaryName(triple));
   if (binaryIsCurrent(dest)) {
-    console.log(`Sidecar binary current (${path.basename(dest)} ${pkgVersion}) — skip PyInstaller rebuild`);
+    console.log(`Sidecar binary current (${path.basename(dest)} ${buildStamp}) — skip PyInstaller rebuild`);
     process.exit(0);
   }
   if (fs.existsSync(dest)) {
     console.log(
-      `Sidecar binary stale or unstamped (${path.basename(dest)}) — rebuilding for ${pkgVersion}`,
+      `Sidecar binary stale or unstamped (${path.basename(dest)}) — rebuilding for ${buildStamp}`,
     );
   }
 }
@@ -62,8 +63,8 @@ const result = isWin
 if ((result.status ?? 1) === 0 && triple) {
   const dest = path.join(binDir, expectedBinaryName(triple));
   if (fs.existsSync(dest)) {
-    fs.writeFileSync(stampPath(dest), `${pkgVersion}\n`, "utf8");
-    console.log(`Sidecar binary stamped ${pkgVersion}`);
+    fs.writeFileSync(stampPath(dest), `${buildStamp}\n`, "utf8");
+    console.log(`Sidecar binary stamped ${buildStamp}`);
   }
 }
 
