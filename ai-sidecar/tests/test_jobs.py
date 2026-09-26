@@ -1,6 +1,7 @@
 """Job queue prune must delete temp artifacts, not just drop the in-memory job."""
 
 from pathlib import Path
+import threading
 
 from ai_sidecar.jobs import Job, JobManager, cleanup_job_artifacts, _is_under_tmp
 
