@@ -20,6 +20,7 @@ from typing import Any
 
 import numpy as np
 
+from .artifact_contracts import normalize_vocal_transform_result
 from .jobs import JOBS, JobContext, register
 from .stems_separate import any_stems_backend_available, preferred_stems_backend, separate_audio, stems_available
 
