@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 from typing import Any
 
+from .artifact_contracts import normalize_audio_result
 from .device import build_policy, select_device
 from .jobs import JOBS, JobContext, register
 from .musicgen import active_musicgen_model_id, generate_music_wav, generation_available
