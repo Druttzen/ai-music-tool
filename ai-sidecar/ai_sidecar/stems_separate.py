@@ -6,6 +6,7 @@ import os
 import tempfile
 from typing import Any
 
+from .artifact_contracts import normalize_stems_result
 from .device import build_policy, select_device
 from .jobs import JOBS, JobContext, register
 
@@ -92,7 +93,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
         else:
             if not is_melband_model_name(model_name):
                 ctx.payload["model_name"] = "melband"
-            return run_melband_separate(ctx)
+            return normalize_stems_result(run_melband_separate(ctx))
 
     from demucs.apply import apply_model
     from demucs.audio import AudioFile
