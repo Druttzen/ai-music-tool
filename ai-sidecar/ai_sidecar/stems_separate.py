@@ -128,7 +128,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
             _save_stem_wav(source, path, model.samplerate)
             stems[name] = path
         ctx.set_progress(0.95, "writing stems")
-        return {
+        return normalize_stems_result({
             "device": device,
             "model": model_name,
             "backend": "demucs",
@@ -136,7 +136,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
             "paths": {f"{name}.wav": p for name, p in stems.items()},
             "out_dir": out_dir,
             "policy": policy.as_dict(),
-        }
+        })
     finally:
         try:
             os.unlink(tmp_in.name)

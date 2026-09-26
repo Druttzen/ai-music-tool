@@ -53,11 +53,16 @@ def _required_text(result: dict[str, Any], key: str) -> str:
     return value
 
 
+def _required_dict(result: dict[str, Any], key: str) -> dict[str, Any]:
+    value = result.get(key)
+    if not isinstance(value, dict):
+        raise ArtifactContractError(f"{key} is required")
+    return value
+
+
 def normalize_audio_result(result: dict[str, Any]) -> AudioArtifactResult:
     path = _required_text(result, "path")
-    meta = result.get("meta")
-    if not isinstance(meta, dict):
-        meta = {}
+    meta = _required_dict(result, "meta")
     return {
         "artifact_type": "audio",
         "path": path,
@@ -83,8 +88,10 @@ def normalize_stems_result(result: dict[str, Any]) -> StemsArtifactResult:
         raise ArtifactContractError("paths must contain audio artifact paths")
     out_dir = _required_text(result, "out_dir")
     sources = result.get("sources")
-    if not isinstance(sources, list):
-        sources = []
+    if not isinstance(sources, list) or not sources:
+        raise ArtifactContractError("sources is required")
+    if any(not isinstance(source, str) or not source.strip() for source in sources):
+        raise ArtifactContractError("sources must contain non-empty text values")
     return {
         "artifact_type": "stems",
         "paths": normalized_paths,
@@ -92,7 +99,7 @@ def normalize_stems_result(result: dict[str, Any]) -> StemsArtifactResult:
         "model": result.get("model") if isinstance(result.get("model"), str) else None,
         "backend": result.get("backend") if isinstance(result.get("backend"), str) else None,
         "device": result.get("device") if isinstance(result.get("device"), str) else None,
-        "sources": [str(source) for source in sources],
+        "sources": sources,
         "policy": result.get("policy") if isinstance(result.get("policy"), dict) else {},
     }
 

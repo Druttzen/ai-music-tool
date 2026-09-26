@@ -317,7 +317,7 @@ def run_vocal_transform(ctx: JobContext) -> dict[str, Any]:
 
     result["out_dir"] = out_dir
     ctx.set_progress(0.95, "done")
-    return result
+    return normalize_vocal_transform_result(result)
 
 
 def transform_via_jobs(

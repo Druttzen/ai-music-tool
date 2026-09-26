@@ -30,6 +30,12 @@ def test_audio_result_contract_rejects_missing_path():
         normalize_audio_result({"model": "musicgen"})
 
 
+@pytest.mark.parametrize("meta", [None, "invalid"])
+def test_audio_result_contract_rejects_missing_or_invalid_meta(meta):
+    with pytest.raises(ArtifactContractError, match="meta"):
+        normalize_audio_result({"path": "/tmp/song.wav", "meta": meta})
+
+
 def test_stems_result_contract_requires_paths_and_output_dir():
     result = normalize_stems_result(
         {
@@ -43,6 +49,18 @@ def test_stems_result_contract_requires_paths_and_output_dir():
     assert result["artifact_type"] == "stems"
     assert result["paths"]["vocals.wav"].endswith("vocals.wav")
     assert result["out_dir"] == "/tmp/stems"
+
+
+@pytest.mark.parametrize("sources", [None, "vocals", []])
+def test_stems_result_contract_rejects_missing_or_invalid_sources(sources):
+    with pytest.raises(ArtifactContractError, match="sources"):
+        normalize_stems_result(
+            {
+                "paths": {"vocals.wav": "/tmp/stems/vocals.wav"},
+                "out_dir": "/tmp/stems",
+                "sources": sources,
+            }
+        )
 
 
 def test_vocal_transform_contract_preserves_parallel_outputs():
