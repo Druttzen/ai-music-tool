@@ -15,6 +15,7 @@
     "test:e2e:vocal": "node scripts/run-e2e-vocal.cjs",
     "test:e2e:musicgen": "node scripts/run-e2e-musicgen.cjs",
     "test:e2e:musicgen:live": "node scripts/run-e2e-musicgen.cjs --live",
+    "test:e2e:musicgen:cancel": "playwright test tests/e2e/musicgen-cancel.spec.js",
     "test:e2e:subset": "node scripts/run-e2e-subset.cjs",
     "test:smoke": "node scripts/run-sidecar-smoke.cjs",
     "test:smoke:stems": "node scripts/run-sidecar-smoke-stems.cjs",
