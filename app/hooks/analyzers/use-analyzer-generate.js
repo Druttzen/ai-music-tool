@@ -11,10 +11,12 @@ import {
 import { formatTime } from "../../lib/audio-analyzer";
 import { buildMusicGenAnalysisReport, downloadMusicGenBlob, enrichMusicGenReportWithSidecar } from "../../lib/musicgen-preview";
 import {
+  cancelSidecarJob,
   fetchSidecarHealth,
   generateMusicViaSidecar,
   generateMusicWithMelodyViaSidecar,
   generateSongViaSidecar,
+  SidecarJobCancelledError,
   waitForSidecar,
 } from "../../lib/sidecar-bridge";
 import { musicGenInstallHint } from "../../lib/sidecar-capabilities";
@@ -36,6 +38,48 @@ export function useAnalyzerGenerate({
 }) {
   const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
   const [generateSongBusy, setGenerateSongBusy] = useState(false);
+  const [musicJobId, setMusicJobId] = useState("");
+  const [songJobId, setSongJobId] = useState("");
+  const [musicCancelRequested, setMusicCancelRequested] = useState(false);
+  const [songCancelRequested, setSongCancelRequested] = useState(false);
+
+  const cancelMusicGeneration = useCallback(async () => {
+    if (!musicJobId || musicCancelRequested) return;
+    setMusicCancelRequested(true);
+    try {
+      const job = await cancelSidecarJob(musicJobId);
+      setStatusWithTime(
+        job.status === "cancelled"
+          ? "MusicGen generation cancelled"
+          : job.status === "done"
+            ? "MusicGen had already finished — keeping its result"
+            : "Cancellation requested — the current inference may finish safely",
+        "info",
+      );
+    } catch (err) {
+      setMusicCancelRequested(false);
+      setStatusWithTime(err instanceof Error ? err.message.slice(0, 120) : "Could not cancel MusicGen", "warning");
+    }
+  }, [musicCancelRequested, musicJobId, setStatusWithTime]);
+
+  const cancelSongGeneration = useCallback(async () => {
+    if (!songJobId || songCancelRequested) return;
+    setSongCancelRequested(true);
+    try {
+      const job = await cancelSidecarJob(songJobId);
+      setStatusWithTime(
+        job.status === "cancelled"
+          ? "ACE-Step generation cancelled"
+          : job.status === "done"
+            ? "ACE-Step had already finished — keeping its result"
+            : "Cancellation requested — the current inference may finish safely",
+        "info",
+      );
+    } catch (err) {
+      setSongCancelRequested(false);
+      setStatusWithTime(err instanceof Error ? err.message.slice(0, 120) : "Could not cancel ACE-Step", "warning");
+    }
+  }, [setStatusWithTime, songCancelRequested, songJobId]);
 
   const navigateToPolishStep = useCallback(() => {
     setGuidedStep(resolvePolishStepIndex());
@@ -54,6 +98,8 @@ export function useAnalyzerGenerate({
       const download = !!options.download;
 
       setGenerateMusicBusy(true);
+      setMusicJobId("");
+      setMusicCancelRequested(false);
       try {
         setStatusWithTime("MusicGen queued…");
         const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
@@ -70,6 +116,15 @@ export function useAnalyzerGenerate({
           setSidecarGenerateAvailable(false);
           return;
         }
+        const generationOptions = {
+          ...options,
+          onJobStarted: setMusicJobId,
+          onProgress: (progress, message) => {
+            setStatusWithTime(
+              `MusicGen ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
+            );
+          },
+        };
         const { blob, model, durationSec: dur, mode } = options.useMelodyReference
           ? await (async () => {
               let melodyBlob = options.melodyBlob;
@@ -97,16 +152,11 @@ export function useAnalyzerGenerate({
                 durationSec,
                 melodyBlob,
                 audioAnalysis?.fileName || "melody-reference.wav",
-                options,
+                generationOptions,
               );
             })()
           : await generateMusicViaSidecar(text, durationSec, {
-              ...options,
-              onProgress: (progress, message) => {
-                setStatusWithTime(
-                  `MusicGen ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
-                );
-              },
+              ...generationOptions,
             });
         const resolvedDuration = dur || durationSec;
         const fileName = `musicgen-preview-${Date.now()}.wav`;
@@ -165,11 +215,17 @@ export function useAnalyzerGenerate({
           }
         }
       } catch (err) {
+        if (err instanceof SidecarJobCancelledError) {
+          setStatusWithTime("MusicGen generation cancelled", "info");
+          return;
+        }
         reportCaughtError("analyzers.generateMusicFromPrompt", err);
         const msg = err instanceof Error ? err.message : "MusicGen generation failed";
         setStatusWithTime(msg.slice(0, 120), "warning");
       } finally {
         setGenerateMusicBusy(false);
+        setMusicJobId("");
+        setMusicCancelRequested(false);
       }
     },
     [applyAnalyzerPatch, generateMusicBusy, navigateToPolishStep, promptEngine, audioAnalysis, audioPreviewUrlRef, setAudioAnalysis, setAudioPreviewFromBlob, setSidecarGenerateAvailable, setStatusWithTime, syncCacheKeysRef],
@@ -185,6 +241,8 @@ export function useAnalyzerGenerate({
       const lyrics = String(options.lyrics || "").trim();
 
       setGenerateSongBusy(true);
+      setSongJobId("");
+      setSongCancelRequested(false);
       try {
         setStatusWithTime("ACE-Step queued — starting the API if it is down…");
         const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
@@ -208,6 +266,7 @@ export function useAnalyzerGenerate({
               `ACE-Step ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
             );
           },
+          onJobStarted: setSongJobId,
         });
         const resolvedDuration = dur || durationSec;
         const fileName = `acestep-song-${Date.now()}.wav`;
@@ -247,11 +306,17 @@ export function useAnalyzerGenerate({
           }
         }
       } catch (err) {
+        if (err instanceof SidecarJobCancelledError) {
+          setStatusWithTime("ACE-Step generation cancelled", "info");
+          return;
+        }
         reportCaughtError("analyzers.generateSongFromPrompt", err);
         const msg = err instanceof Error ? err.message : "ACE-Step generation failed";
         setStatusWithTime(msg.slice(0, 120), "warning");
       } finally {
         setGenerateSongBusy(false);
+        setSongJobId("");
+        setSongCancelRequested(false);
       }
     },
     [
@@ -264,9 +329,15 @@ export function useAnalyzerGenerate({
   );
 
   return {
+    cancelMusicGeneration,
+    cancelSongGeneration,
+    generateMusicCanCancel: !!musicJobId,
+    generateSongCanCancel: !!songJobId,
     generateMusicBusy,
     generateMusicFromPrompt,
+    generateMusicCancelRequested: musicCancelRequested,
     generateSongBusy,
     generateSongFromPrompt,
+    generateSongCancelRequested: songCancelRequested,
   };
 }

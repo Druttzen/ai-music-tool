@@ -638,7 +638,7 @@ export async function pollSidecarJob(
 ): Promise<{ model: string | null; durationSec: number | null; mode: string | null }> {
   const deadline = Date.now() + (options.timeoutMs ?? 30 * 60_000);
   while (Date.now() < deadline) {
-    const res = await fetch(`${sidecarBaseUrl()}/jobs/${jobId}`, {
+    const res = await fetch(`${sidecarBaseUrl()}/jobs/${encodeURIComponent(jobId)}`, {
       headers: await sidecarAuthHeaders(),
     });
     if (!res.ok) await readSidecarError(res, `job poll failed (${res.status})`);
@@ -658,11 +658,29 @@ export async function pollSidecarJob(
       };
     }
     if (body.status === "error" || body.status === "cancelled") {
+      if (body.status === "cancelled") throw new SidecarJobCancelledError(body.message || "Generation cancelled");
       throw new Error(body.error || body.message || `generation ${body.status}`);
     }
     await new Promise((r) => setTimeout(r, 1000));
   }
   throw new Error("generation timed out");
+}
+
+export class SidecarJobCancelledError extends Error {
+  constructor(message = "Generation cancelled") {
+    super(message);
+    this.name = "SidecarJobCancelledError";
+  }
+}
+
+/** Ask the sidecar to cancel a queued or running job without interrupting unsafe inference. */
+export async function cancelSidecarJob(jobId: string): Promise<{ job_id: string; status: string }> {
+  const res = await fetch(`${sidecarBaseUrl()}/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: "POST",
+    headers: await sidecarAuthHeaders(),
+  });
+  if (!res.ok) await readSidecarError(res, `job cancellation failed (${res.status})`);
+  return (await res.json()) as { job_id: string; status: string };
 }
 
 async function downloadGenerateAudio(jobId: string): Promise<Blob> {
@@ -687,6 +705,7 @@ export async function generateMusicViaSidecar(
     seed?: number;
     model?: string;
     onProgress?: (progress: number, message: string) => void;
+    onJobStarted?: (jobId: string) => void;
   } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const res = await fetch(`${sidecarBaseUrl()}/generate/jobs`, {
@@ -717,6 +736,7 @@ export async function generateMusicViaSidecar(
 
   const queued = (await res.json()) as { job_id?: string };
   if (!queued.job_id) throw new Error("MusicGen job id missing");
+  options.onJobStarted?.(queued.job_id);
   const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
   return {
     blob: await downloadGenerateAudio(queued.job_id),
@@ -726,13 +746,22 @@ export async function generateMusicViaSidecar(
   };
 }
 
-/** POST prompt + melody reference clip to /generate/melody. */
+/** Queue prompt + melody reference clip for cancellation-aware generation. */
 export async function generateMusicWithMelodyViaSidecar(
   prompt: string,
   durationSec: number,
   melody: Blob,
   melodyName = "melody-reference.wav",
-  options: { temperature?: number; topK?: number; topP?: number; cfgCoef?: number; seed?: number } = {},
+  options: {
+    temperature?: number;
+    topK?: number;
+    topP?: number;
+    cfgCoef?: number;
+    seed?: number;
+    model?: string;
+    onProgress?: (progress: number, message: string) => void;
+    onJobStarted?: (jobId: string) => void;
+  } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const form = new FormData();
   form.append("prompt", prompt);
@@ -743,8 +772,9 @@ export async function generateMusicWithMelodyViaSidecar(
   if (options.topP != null) form.append("top_p", String(options.topP));
   if (options.cfgCoef != null) form.append("cfg_coef", String(options.cfgCoef));
   if (options.seed != null) form.append("seed", String(options.seed));
+  if (options.model) form.append("model", options.model);
 
-  const res = await fetch(`${sidecarBaseUrl()}/generate/melody`, {
+  const res = await fetch(`${sidecarBaseUrl()}/generate/melody/jobs`, {
     method: "POST",
     headers: await sidecarAuthHeaders(),
     body: form,
@@ -761,11 +791,15 @@ export async function generateMusicWithMelodyViaSidecar(
     throw new Error(detail || `sidecar melody generate failed (${res.status})`);
   }
 
+  const queued = (await res.json()) as { job_id?: string };
+  if (!queued.job_id) throw new Error("MusicGen melody job id missing");
+  options.onJobStarted?.(queued.job_id);
+  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
   return {
-    blob: await res.blob(),
-    model: res.headers.get("X-MusicGen-Model"),
-    durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
-    mode: res.headers.get("X-MusicGen-Mode") || "melody",
+    blob: await downloadGenerateAudio(queued.job_id),
+    model: meta.model,
+    durationSec: meta.durationSec || durationSec,
+    mode: meta.mode || "melody",
   };
 }
 
@@ -785,6 +819,7 @@ export async function generateSongViaSidecar(options: {
   seed?: number | null;
   model?: string;
   onProgress?: (progress: number, message: string) => void;
+  onJobStarted?: (jobId: string) => void;
 }): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const res = await fetch(`${sidecarBaseUrl()}/generate/song/jobs`, {
     method: "POST",
@@ -817,6 +852,7 @@ export async function generateSongViaSidecar(options: {
 
   const queued = (await res.json()) as { job_id?: string };
   if (!queued.job_id) throw new Error("ACE-Step job id missing");
+  options.onJobStarted?.(queued.job_id);
   const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 35 * 60_000 });
   return {
     blob: await downloadGenerateAudio(queued.job_id),

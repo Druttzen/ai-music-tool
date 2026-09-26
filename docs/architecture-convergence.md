@@ -29,6 +29,11 @@ Do not add consumer-specific render settings, executable discovery, or launch IP
 
 Health exposes `device` (string), `device_info`, and `capabilities` while keeping legacy boolean flags.
 
+MusicGen text, melody-conditioned generation, and ACE-Step use queued jobs that can be polled at
+`GET /jobs/{job_id}` and cancelled with `POST /jobs/{job_id}/cancel`. Cancellation is a request:
+non-cooperative model inference may finish, and its completed artifacts remain available. Studio
+keeps polling after a cancellation request so it can report whether the job stopped or completed.
+
 Packaged user-data `pkg/` is **overlaid** from bundle sources (never `remove_dir_all`). Sidecar CORS includes `Access-Control-Allow-Private-Network` for the Tauri webview. BLIP caption negotiates Transformers 5 `image-text-to-text`. Lyrics synthesis can use transformers TTS when RVC/DiffSinger are not ready.
 
 Fable 5 was a soak-test studio for these packaging lessons. Useful runtime/packaging behavior now lives here; the Fable 5 test project is retired.

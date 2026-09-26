@@ -14,6 +14,7 @@ vi.mock("../app/lib/analyzer-suno-style-llm.js", () => ({
 }));
 
 vi.mock("../app/lib/sidecar-bridge.js", () => ({
+  cancelSidecarJob: vi.fn(),
   isSidecarAvailable: vi.fn(async () => true),
   fetchSidecarHealth: vi.fn(async () => ({
     status: "ok",
@@ -28,6 +29,8 @@ vi.mock("../app/lib/sidecar-bridge.js", () => ({
   downloadSidecarStem: vi.fn(),
   generateMusicViaSidecar: vi.fn(),
   generateMusicWithMelodyViaSidecar: vi.fn(),
+  generateSongViaSidecar: vi.fn(),
+  SidecarJobCancelledError: class SidecarJobCancelledError extends Error {},
   separateStemsViaSidecar: vi.fn(),
 }));
 

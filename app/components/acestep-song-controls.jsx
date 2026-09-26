@@ -12,7 +12,7 @@ const ACE_DOCS_URL =
 
 /**
  * ACE-Step full-song controls (requires AIMC_ACESTEP_API_URL).
- * @param {{ defaultPrompt?: string, defaultLyrics?: string, defaultBpm?: number|null, defaultKey?: string, busy?: boolean, available?: boolean, installHint?: string, onGenerate?: (prompt: string, options?: object) => void, compact?: boolean }} props
+ * @param {{ defaultPrompt?: string, defaultLyrics?: string, defaultBpm?: number|null, defaultKey?: string, busy?: boolean, canCancel?: boolean, cancelRequested?: boolean, onCancel?: () => void, available?: boolean, installHint?: string, onGenerate?: (prompt: string, options?: object) => void, compact?: boolean }} props
  */
 export const AceStepSongControls = memo(function AceStepSongControls({
   defaultPrompt = "",
@@ -20,6 +20,9 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   defaultBpm = null,
   defaultKey = "",
   busy = false,
+  canCancel = false,
+  cancelRequested = false,
+  onCancel,
   available = false,
   installHint = "Start ACE-Step (`uv run acestep-api`) and set AIMC_ACESTEP_API_URL — see docs/acestep.md",
   onGenerate,
@@ -223,7 +226,25 @@ export const AceStepSongControls = memo(function AceStepSongControls({
         >
           Download only
         </button>
+        {busy && canCancel && onCancel ? (
+          <button
+            type="button"
+            disabled={cancelRequested}
+            onClick={(e) => {
+              e.preventDefault();
+              void onCancel();
+            }}
+            className="rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-[10px] font-semibold text-rose-100 hover:bg-rose-500/20 disabled:opacity-50"
+          >
+            {cancelRequested ? "Cancel requested…" : "Cancel generation"}
+          </button>
+        ) : null}
       </div>
+      {cancelRequested ? (
+        <p role="status" className="text-[10px] text-amber-100/75">
+          Cancellation requested. Current inference may finish safely before it stops.
+        </p>
+      ) : null}
     </section>
   );
 });

@@ -5,11 +5,14 @@ import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 
 /**
  * Shared MusicGen prompt + duration controls.
- * @param {{ defaultPrompt?: string, busy?: boolean, available?: boolean, installHint?: string, canUseMelodyReference?: boolean, canUseHighlightMelody?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: object) => void, compact?: boolean }} props
+ * @param {{ defaultPrompt?: string, busy?: boolean, canCancel?: boolean, cancelRequested?: boolean, onCancel?: () => void, available?: boolean, installHint?: string, canUseMelodyReference?: boolean, canUseHighlightMelody?: boolean, onGenerate?: (prompt: string, durationSec: number, options?: object) => void, compact?: boolean }} props
  */
 export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   defaultPrompt = "",
   busy = false,
+  canCancel = false,
+  cancelRequested = false,
+  onCancel,
   available = false,
   installHint = "npm run sidecar:generate",
   canUseMelodyReference = false,
@@ -201,7 +204,25 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
         >
           Download only
         </button>
+        {busy && canCancel && onCancel ? (
+          <button
+            type="button"
+            disabled={cancelRequested}
+            onClick={(e) => {
+              e.preventDefault();
+              void onCancel();
+            }}
+            className="rounded-xl border border-rose-400/35 bg-rose-500/10 px-3 py-2 text-[10px] font-semibold text-rose-100 hover:bg-rose-500/20 disabled:opacity-50"
+          >
+            {cancelRequested ? "Cancel requested…" : "Cancel generation"}
+          </button>
+        ) : null}
       </div>
+      {cancelRequested ? (
+        <p role="status" className="text-[10px] text-amber-100/75">
+          Cancellation requested. Current inference may finish safely before it stops.
+        </p>
+      ) : null}
     </section>
   );
 });
