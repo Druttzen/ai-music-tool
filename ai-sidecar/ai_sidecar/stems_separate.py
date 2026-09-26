@@ -6,6 +6,7 @@ import os
 import tempfile
 from typing import Any
 
+from .artifact_contracts import normalize_stems_result
 from .device import build_policy, select_device
 from .jobs import JOBS, JobContext, register
 
@@ -92,7 +93,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
         else:
             if not is_melband_model_name(model_name):
                 ctx.payload["model_name"] = "melband"
-            return run_melband_separate(ctx)
+            return normalize_stems_result(run_melband_separate(ctx))
 
     from demucs.apply import apply_model
     from demucs.audio import AudioFile
@@ -127,7 +128,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
             _save_stem_wav(source, path, model.samplerate)
             stems[name] = path
         ctx.set_progress(0.95, "writing stems")
-        return {
+        return normalize_stems_result({
             "device": device,
             "model": model_name,
             "backend": "demucs",
@@ -135,7 +136,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
             "paths": {f"{name}.wav": p for name, p in stems.items()},
             "out_dir": out_dir,
             "policy": policy.as_dict(),
-        }
+        })
     finally:
         try:
             os.unlink(tmp_in.name)

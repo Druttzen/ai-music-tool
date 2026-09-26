@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 from typing import Any
 
+from .artifact_contracts import normalize_audio_result
 from .device import build_policy, select_device
 from .jobs import JOBS, JobContext, register
 from .musicgen import active_musicgen_model_id, generate_music_wav, generation_available
@@ -34,12 +35,12 @@ def run_musicgen(ctx: JobContext) -> dict[str, Any]:
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.write(wav_bytes)
     tmp.close()
-    return {
+    return normalize_audio_result({
         "path": tmp.name,
-        "meta": {**(meta or {}), "policy": policy.as_dict()},
+        "meta": {**meta, "policy": policy.as_dict()},
         "device": device,
-        "model": str((meta or {}).get("model") or active_musicgen_model_id()),
-    }
+        "model": str(meta.get("model") or active_musicgen_model_id()),
+    })
 
 
 @register("generate.acestep")
@@ -86,12 +87,12 @@ def run_acestep(ctx: JobContext) -> dict[str, Any]:
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     tmp.write(wav_bytes)
     tmp.close()
-    return {
+    return normalize_audio_result({
         "path": tmp.name,
-        "meta": meta or {},
-        "model": str((meta or {}).get("model") or "acestep"),
+        "meta": meta,
+        "model": str(meta.get("model") or "acestep"),
         "audio_format": audio_format,
-    }
+    })
 
 
 def generate_via_jobs(
