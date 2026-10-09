@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { usePromptPipeline } from "./use-prompt-pipeline";
 import type { ProjectState } from "../lib/project-schema";
+import { buildUsableAnalyzerStylePrompt } from "../lib/analyzer-guided-merge";
 
 type AnalyzerSummaryRef = { summary: string } | null;
 
@@ -168,5 +169,12 @@ export function usePipelineInput(fields: PipelineInputFields) {
     ],
   );
 
-  return usePromptPipeline(pipelineInput);
+  const pipeline = usePromptPipeline(pipelineInput);
+  // Style extraction needs the actual analyzer tags. The main prompt pipeline
+  // keeps its summary-only refs so waveform edits do not rebuild every prompt.
+  const sourcePrompt = useMemo(
+    () => buildUsableAnalyzerStylePrompt(audioAnalysis ?? null, imageAnalysis ?? null),
+    [audioAnalysis, imageAnalysis],
+  );
+  return { ...pipeline, sourcePrompt };
 }

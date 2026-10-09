@@ -14,6 +14,7 @@ import { z } from "zod";
 import { DEFAULT_STATE } from "./music-config";
 import { normalizeLyricLanguage } from "./suno-lyric-languages";
 import { normalizeAlbumRoles } from "./album-mode";
+import { HistoryEntrySchema, VariationEntrySchema, ProjectEntryIdSchema, normalizeHistoryEntries, normalizeVariationEntries } from "./project-entries";
 
 type LoadData = Record<string, unknown>;
 
@@ -117,7 +118,7 @@ export const PROJECT_FIELDS: ProjectFieldDef[] = [
     load: true,
     patch: true,
     snapshot: true,
-    normalize: (d) => (Array.isArray(d.variations) ? d.variations : []),
+    normalize: (d) => normalizeVariationEntries(d.variations),
   }),
   field("history", {
     load: true,
@@ -126,13 +127,16 @@ export const PROJECT_FIELDS: ProjectFieldDef[] = [
     // Only restore history when the payload actually carries an array, so a
     // partial LOAD does not wipe existing in-memory history.
     includeOnLoad: (d) => Array.isArray(d.history),
-    normalize: (d) => d.history,
+    normalize: (d) => normalizeHistoryEntries(d.history),
   }),
   field("selectedHistoryId", {
     load: true,
     patch: true,
     snapshot: true,
-    normalize: (d) => d.selectedHistoryId ?? null,
+    normalize: (d) => {
+      const parsed = ProjectEntryIdSchema.safeParse(d.selectedHistoryId);
+      return parsed.success ? parsed.data : null;
+    },
   }),
 
   // Runtime / settings: patchable, but never loaded from imported JSON or
@@ -236,9 +240,9 @@ export const ProjectStateSchema = z.object({
   sunoPasteLyrics: z.string(),
   sunoPasteActive: z.boolean(),
   guidedStep: z.number(),
-  variations: z.array(z.unknown()),
-  history: z.array(z.unknown()),
-  selectedHistoryId: z.string().nullable(),
+  variations: z.array(VariationEntrySchema),
+  history: z.array(HistoryEntrySchema),
+  selectedHistoryId: ProjectEntryIdSchema.nullable(),
 });
 
 export type ProjectState = z.infer<typeof ProjectStateSchema>;

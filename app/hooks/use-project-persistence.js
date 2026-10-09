@@ -13,6 +13,7 @@ import {
   slimStateForPersistence,
 } from "../lib/project-persistence";
 import { ProjectStateSchema } from "../lib/project-schema";
+import { normalizeHistoryEntries, normalizeProjectEntryCollections } from "../lib/project-entries";
 import {
   attachCharacterVoiceFieldsToProjectExport,
   extractCharacterVoiceStudioSessionFromProject,
@@ -58,6 +59,7 @@ export function useProjectPersistence({
     const t = window.setTimeout(() => {
       void (async () => {
         if (cancelled) return;
+        let recoveryFailed = false;
         try {
           const pendingReset = await consumeWorkspaceResetIfPending();
           if (cancelled) return;
@@ -77,7 +79,17 @@ export function useProjectPersistence({
           setSkipWorkspaceAutosave(false);
           const saved = safeLocalStorage.get(STORAGE_KEY, null);
           if (saved) {
-            const parsed = JSON.parse(saved);
+            const raw = JSON.parse(saved);
+            const parsed = normalizeProjectEntryCollections(raw);
+            // Keep the original autosave recoverable if individual entries were
+            // malformed, while still loading the valid project and its entries.
+            if (["history", "variations"].some((key) => Array.isArray(raw?.[key]) && raw[key].length !== parsed[key].length)) {
+              const recovery = safeLocalStorage.set(`${STORAGE_KEY}_collections_recovery_${Date.now()}`, saved);
+              if (!recovery.ok) {
+                recoveryFailed = true;
+                throw new Error("Could not preserve original project before recovery");
+              }
+            }
             const validation = ProjectStateSchema.partial().safeParse(parsed);
             if (!validation.success) {
               const recoveryKey = `${STORAGE_KEY}_corrupt_${Date.now()}`;
@@ -121,12 +133,22 @@ export function useProjectPersistence({
           const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
           if (presets) setCustomPresets(presets);
           const hist = safeLocalStorage.getJSON(HISTORY_KEY, null);
-          if (hist) setHistory(hist);
+          if (Array.isArray(hist)) {
+            const entries = normalizeHistoryEntries(hist);
+            if (entries.length !== hist.length) {
+              const recovery = safeLocalStorage.setJSON(`${HISTORY_KEY}_recovery_${Date.now()}`, hist);
+              if (!recovery.ok) {
+                recoveryFailed = true;
+                throw new Error("Could not preserve original history before recovery");
+              }
+            }
+            setHistory(entries);
+          }
         } catch {
           setSkipWorkspaceAutosave(false);
           setStatusWithTime("Could not load saved data", "error");
         } finally {
-          hydratedRef.current = true;
+          hydratedRef.current = !recoveryFailed;
         }
       })();
     }, 0);

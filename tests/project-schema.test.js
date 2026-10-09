@@ -150,8 +150,9 @@ describe("normalizeLoadPayloadFromFields", () => {
   it("only restores history when an array is provided", () => {
     expect("history" in normalizeLoadPayloadFromFields({})).toBe(false);
     expect("history" in normalizeLoadPayloadFromFields({ history: "bad" })).toBe(false);
-    const withHistory = normalizeLoadPayloadFromFields({ history: [{ id: "h1" }] });
-    expect(withHistory.history).toEqual([{ id: "h1" }]);
+    const entry = { id: "h1", label: "Snapshot", time: "12:00", prompt: "Techno", state: {} };
+    const withHistory = normalizeLoadPayloadFromFields({ history: [entry] });
+    expect(withHistory.history).toEqual([entry]);
   });
 
   it("defaults selectedHistoryId to null and never emits analyzer/settings fields", () => {

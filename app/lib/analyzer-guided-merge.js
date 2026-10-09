@@ -120,15 +120,15 @@ export function buildUsableAnalyzerStylePrompt(audioAnalysis, imageAnalysis) {
     add(audioAnalysis.suggestedSounds);
     add(audioAnalysis.suggestedInstruments);
     add(audioAnalysis.suggestedRhythms);
-    const v = normalizeSpace(audioAnalysis.vocals);
+    const v = normalizeSpace(audioAnalysis.vocals ?? "");
     if (v && v !== "—") tokens.push(v);
   }
 
   if (imageAnalysis) {
     add(imageAnalysis.suggestedGenres);
-    const mood = normalizeSpace(imageAnalysis.visualMood);
+    const mood = normalizeSpace(imageAnalysis.visualMood ?? "");
     if (mood) tokens.push(mood);
-    const caption = normalizeSpace(imageAnalysis.caption);
+    const caption = normalizeSpace(imageAnalysis.caption ?? "");
     if (caption) tokens.push(caption.slice(0, 120));
     add(imageAnalysis.suggestedSounds);
     add(imageAnalysis.suggestedRhythms);

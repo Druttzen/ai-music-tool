@@ -194,7 +194,7 @@ ${scoreBlock}`;
       output.push({ id: Date.now() + i, title: `Variation ${i + 1}`, prompt: varPrompt });
     }
     setVariations(output);
-    addHistory("Generated variations", output[0]?.prompt || prompt, currentState);
+    addHistory("Generated variations", output[0]?.prompt || prompt, { ...currentState, variations: output });
     setStatusWithTime(`Generated ${variationCount} variations`);
   }, [
     addHistory,

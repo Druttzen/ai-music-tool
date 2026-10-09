@@ -51,7 +51,10 @@ export function useHistoryActions(deps) {
 
   const restoreHistory = useCallback(
     (item) => {
-      loadState(item.state);
+      // A snapshot can contain an older history list. Restore the song fields
+      // while keeping the current compare list and selecting the clicked entry.
+      const { history: _history, selectedHistoryId: _selected, ...snapshot } = item.state;
+      loadState(snapshot);
       setSelectedHistoryId(item.id);
       const scoreNote = item.avgScore ? ` · score ${item.avgScore}/5` : "";
       setStatusWithTime(`Restored: ${item.label}${scoreNote}`);

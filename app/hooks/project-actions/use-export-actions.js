@@ -8,7 +8,8 @@ import {
 } from "../../lib/vocal-embed-handoff";
 import { buildVocalEmbedPlan } from "../../lib/vocal-embed-engine";
 import { buildOpenvpiDsExport } from "../../lib/openvpi-ds-export";
-import { APP_VERSION, PRESET_KEY, STORAGE_KEY } from "../../lib/music-config";
+import { APP_VERSION, HISTORY_KEY, PRESET_KEY, STORAGE_KEY } from "../../lib/music-config";
+import { normalizeHistoryEntries } from "../../lib/project-entries";
 import { slimStateForPersistence, migrateImportedProject } from "../../lib/project-persistence";
 import {
   extractCharacterVoicePresetsFromProject,
@@ -226,6 +227,17 @@ export function useExportActions(deps) {
           captureSnapshot("before import");
           const raw = JSON.parse(String(reader.result));
           const { project, customPresets: importedPresets, vocalEmbed } = parseProjectBundleImport(raw);
+          const migrated = migrateImportedProject(project, APP_VERSION);
+          // Hydration reads the separate history key after the project. An
+          // explicit imported list must replace both copies to survive reload.
+          if (Array.isArray(migrated.history)) {
+            migrated.history = normalizeHistoryEntries(migrated.history);
+            const historyResult = safeLocalStorage.setJSON(HISTORY_KEY, migrated.history);
+            if (!historyResult.ok) {
+              setStatusWithTime(storageFailureMessage(historyResult), "error");
+              return;
+            }
+          }
           const cvPresets = extractCharacterVoicePresetsFromProject(project);
           if (cvPresets && Object.keys(cvPresets).length > 0) {
             const presetResult = persistCharacterVoicePresets(cvPresets, { merge: true });
@@ -247,7 +259,7 @@ export function useExportActions(deps) {
               return next;
             });
           }
-          loadState(migrateImportedProject(project, APP_VERSION));
+          loadState(migrated);
           if (vocalEmbed?.preview) {
             writeStoredVocalAlignPreview({
               instrumentalName: vocalEmbed.instrumentalName || "",
