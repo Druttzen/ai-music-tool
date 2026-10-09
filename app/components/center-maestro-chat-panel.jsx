@@ -16,6 +16,7 @@ import {
   sanitizeMaestroPatch,
 } from "../lib/maestro-chat-engine";
 import { sendMaestroChatToLlm } from "../lib/maestro-chat-llm";
+import { runMaestroCommands } from "../lib/maestro-command-results";
 import { isCoProducerLlmReady } from "../lib/co-producer-llm";
 import { buildMoodWords } from "../lib/music-helpers";
 import { buildMusicGenPrompt } from "../lib/musicgen-prompt";
@@ -28,6 +29,13 @@ import { useGuidedFocus } from "../context/guided-focus-context";
 import { safeLocalStorage } from "../lib/safe-local-storage";
 import { PROJECT_WORKSPACE_RESET_EVENT } from "../lib/project-workspace-reset";
 import { readPendingMaestroPrefill } from "../lib/maestro-prefill";
+
+const COMMAND_LABELS = {
+  mergeAudio: "Audio style", mergeImage: "Image style", gotoPolish: "Polish",
+  gotoFinal: "Final step", focusVocalEmbed: "Vocal studio",
+  generateMusicGen: "Music preview", generateMusicGenMelody: "Melody preview",
+};
+const STATUS_LABELS = { started: "Started", completed: "Completed", failed: "Failed", cancelled: "Cancelled" };
 
 function loadStoredMessages() {
   const stored = safeLocalStorage.getJSON(MAESTRO_CHAT_STORAGE_KEY, null);
@@ -291,46 +299,40 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
   );
 
   const runCommands = useCallback(
-    (commands, artifacts) => {
-      for (const cmd of commands || []) {
-        if (cmd === "mergeAudio") {
-          captureSnapshot("before Maestro audio merge");
-          applyAudioToSunoStyle();
-        } else if (cmd === "mergeImage") {
-          captureSnapshot("before Maestro image merge");
-          applyImageToSunoStyle();
-        } else if (cmd === "gotoPolish") setGuidedStep(resolvePolishStepIndex());
-        else if (cmd === "gotoFinal") setGuidedStep(getStepCount() - 1);
-        else if (cmd === "focusVocalEmbed") {
+    (commands, artifacts, turnId) => {
+      const generate = (useMelodyReference, report) => {
+        const prompt = artifacts?.musicGenPrompt || buildMusicGenPrompt({
+          selectedGenres, selectedSounds, selectedRhythms, tempo, idea,
+          moodWords: buildMoodWords(mood), audioAnalysis,
+        });
+        return generateMusicFromPrompt(prompt, 10, {
+          attach: true, useMelodyReference,
+          useHighlightMelody: useMelodyReference && !!artifacts?.useHighlightMelody && hasMeaningfulHighlightRange(audioAnalysis),
+          onJobStarted: (jobId) => report({ status: "started", jobId }),
+        });
+      };
+      return runMaestroCommands(commands || [], {
+        mergeAudio: () => { captureSnapshot("before Maestro audio merge"); return applyAudioToSunoStyle(); },
+        mergeImage: () => { captureSnapshot("before Maestro image merge"); return applyImageToSunoStyle(); },
+        gotoPolish: () => { setGuidedStep(resolvePolishStepIndex()); return { status: "completed", message: "Polish step opened" }; },
+        gotoFinal: () => { setGuidedStep(getStepCount() - 1); return { status: "completed", message: "Final step opened" }; },
+        focusVocalEmbed: () => {
           setShowAll(true);
-          window.setTimeout(() => {
-            document
-              .querySelector('[data-testid="vocal-embed-studio"]')
-              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 80);
-          setStatusWithTime("Scroll to Vocal Embed Studio below", "info");
-        } else if (cmd === "generateMusicGen" || cmd === "generateMusicGenMelody") {
-          const prompt =
-            artifacts?.musicGenPrompt ||
-            buildMusicGenPrompt({
-              selectedGenres,
-              selectedSounds,
-              selectedRhythms,
-              tempo,
-              idea,
-              moodWords: buildMoodWords(mood),
-              audioAnalysis,
-            });
-          void generateMusicFromPrompt(prompt, 10, {
-            attach: true,
-            useMelodyReference: cmd === "generateMusicGenMelody",
-            useHighlightMelody:
-              cmd === "generateMusicGenMelody" &&
-              !!artifacts?.useHighlightMelody &&
-              hasMeaningfulHighlightRange(audioAnalysis),
-          });
-        }
-      }
+          return new Promise((resolve) => window.setTimeout(() => {
+            const target = document.querySelector('[data-testid="vocal-embed-studio"]');
+            target?.scrollIntoView({ behavior: "smooth", block: "start" });
+            const message = target ? "Vocal Embed Studio opened" : "Vocal Embed Studio could not be opened";
+            setStatusWithTime(message, target ? "info" : "warning");
+            resolve({ status: target ? "completed" : "failed", message });
+          }, 80));
+        },
+        generateMusicGen: (report) => generate(false, report),
+        generateMusicGenMelody: (report) => generate(true, report),
+      }, (index, result) => {
+        setMessages((previous) => previous.map((turn) => turn.id === turnId ? {
+          ...turn, commandResults: (turn.commandResults || []).map((entry, i) => i === index ? result : entry),
+        } : turn));
+      });
     },
     [
       applyAudioToSunoStyle,
@@ -367,6 +369,8 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
       const userTurn = { role: "user", text };
       setMessages((prev) => [...prev, userTurn].slice(-MAESTRO_CHAT_MAX_MESSAGES));
 
+      const turnId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      let commandResults = [];
       let assistantTurn;
       try {
         if (llmReady) {
@@ -374,7 +378,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           const llm = await sendMaestroChatToLlm(history, snapshotRef.current || snapshot, coProducerLlmSettings);
           const patch = sanitizeMaestroPatch(llm.patch, snapshotRef.current || snapshot);
           if (patch) applyPatch(patch);
-          if (llm.commands?.length) runCommands(llm.commands, llm.artifacts);
+          if (llm.commands?.length) commandResults = runCommands(llm.commands, llm.artifacts, turnId);
           assistantTurn = {
             role: "assistant",
             text: llm.reply,
@@ -392,7 +396,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
           applyPatch(local.patch);
           setStatusWithTime("Maestro updated the project");
         }
-        if (local.commands?.length) runCommands(local.commands, local.artifacts);
+        if (local.commands?.length) commandResults = runCommands(local.commands, local.artifacts, turnId);
         const fallbackNote =
           llmReady && err?.message !== "__use_heuristic__"
             ? `(LLM unavailable — answered locally: ${String(err?.message || "error").slice(0, 80)})\n\n`
@@ -405,6 +409,7 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
         };
       }
 
+      assistantTurn = { ...assistantTurn, id: turnId, commandResults };
       setMessages((prev) => [...prev, assistantTurn].slice(-MAESTRO_CHAT_MAX_MESSAGES));
       setBusy(false);
     },
@@ -442,6 +447,16 @@ export const CenterMaestroChatPanel = memo(function CenterMaestroChatPanel() {
               }
             >
               <div className="whitespace-pre-wrap">{m.text}</div>
+              {m.commandResults?.length > 0 && (
+                <ul className="mt-2 space-y-1 text-[11px]" data-testid="maestro-command-results" aria-live="polite">
+                  {m.commandResults.map((result, index) => (
+                    <li key={index} data-command={result.command} data-status={result.status}>
+                      {COMMAND_LABELS[result.command] || "Action"}: {STATUS_LABELS[result.status] || "Failed"}
+                      {(result.message || result.error) && ` — ${result.message || result.error}`}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {m.role === "assistant" && m.artifacts && (
                 <>
                   <ArtifactBlock

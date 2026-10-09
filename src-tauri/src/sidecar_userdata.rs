@@ -396,7 +396,7 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 /// Hatchling + editables must live in the user runtime before `pip install -e`.
-pub const SIDECAR_BUILD_BACKEND_PACKAGES: &[&str] = &["hatchling", "editables"];
+pub const SIDECAR_BUILD_BACKEND_PACKAGES: &[&str] = &["hatchling", "editables", "setuptools", "wheel"];
 
 /// Args for an editable install of the local sidecar package (`pkg` or `pkg[extra]`).
 pub fn pip_editable_pkg_args(pkg: &Path, extra: Option<&str>, upgrade: bool) -> Vec<String> {
@@ -444,6 +444,16 @@ pub fn run_pip(python: &Path, args: &[&str], root: &Path) -> Result<String, Stri
     run_pip_with_progress(python, args, root, None)
 }
 
+/// CPython's embedded `_pth` ignores pip's isolated-build PYTHONPATH overlay.
+/// Use the explicitly installed build backends in this runtime instead.
+fn pip_runtime_args(args: &[&str], embedded: bool) -> Vec<String> {
+    let mut out: Vec<String> = args.iter().map(|arg| arg.to_string()).collect();
+    if embedded && args.first() == Some(&"install") && !args.contains(&"--no-build-isolation") {
+        out.insert(1, "--no-build-isolation".to_string());
+    }
+    out
+}
+
 pub fn run_pip_with_progress(
     python: &Path,
     args: &[&str],
@@ -452,7 +462,8 @@ pub fn run_pip_with_progress(
 ) -> Result<String, String> {
     let mut cmd = Command::new(python);
     cmd.arg("-m").arg("pip");
-    for a in args {
+    let embedded = python.parent().is_some_and(|dir| dir.join("python312._pth").is_file());
+    for a in pip_runtime_args(args, embedded) {
         cmd.arg(a);
     }
     apply_runtime_cache_env(&mut cmd, root);
@@ -809,7 +820,15 @@ mod tests {
         assert!(args
             .iter()
             .any(|a| a.ends_with(r"\pkg[classify]") || a.ends_with("/pkg[classify]")));
-        assert_eq!(SIDECAR_BUILD_BACKEND_PACKAGES, &["hatchling", "editables"]);
+        assert_eq!(SIDECAR_BUILD_BACKEND_PACKAGES, &["hatchling", "editables", "setuptools", "wheel"]);
+    }
+
+    #[test]
+    fn embedded_pip_uses_preinstalled_build_backends_only_for_install() {
+        assert_eq!(pip_runtime_args(&["install", "flashy"], true), ["install", "--no-build-isolation", "flashy"]);
+        assert_eq!(pip_runtime_args(&["install", "flashy"], false), ["install", "flashy"]);
+        assert_eq!(pip_runtime_args(&["uninstall", "flashy"], true), ["uninstall", "flashy"]);
+        assert_eq!(pip_runtime_args(&["install", "--no-build-isolation", "flashy"], true), ["install", "--no-build-isolation", "flashy"]);
     }
 
     #[test]

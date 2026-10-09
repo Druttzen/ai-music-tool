@@ -90,9 +90,10 @@ export function useAnalyzerGenerate({
       const text = String(prompt || "").trim();
       if (!text) {
         setStatusWithTime("Enter a MusicGen prompt first", "warning");
-        return;
+        return { status: "failed", message: "Enter a MusicGen prompt first" };
       }
-      if (generateMusicBusy) return;
+      if (generateMusicBusy) return { status: "failed", message: "A MusicGen generation is already running" };
+      let jobId;
 
       const attach = options.attach !== false;
       const download = !!options.download;
@@ -105,7 +106,7 @@ export function useAnalyzerGenerate({
         const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
         if (!sidecarReady) {
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
-          return;
+          return { status: "failed", message: "Local AI service is offline" };
         }
         const health = await fetchSidecarHealth();
         if (!health?.generate_available) {
@@ -114,11 +115,15 @@ export function useAnalyzerGenerate({
             "warning",
           );
           setSidecarGenerateAvailable(false);
-          return;
+          return { status: "failed", message: "MusicGen is not installed" };
         }
         const generationOptions = {
           ...options,
-          onJobStarted: setMusicJobId,
+          onJobStarted: (id) => {
+            jobId = id;
+            setMusicJobId(id);
+            options.onJobStarted?.(id);
+          },
           onProgress: (progress, message) => {
             setStatusWithTime(
               `MusicGen ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
@@ -214,14 +219,16 @@ export function useAnalyzerGenerate({
             );
           }
         }
+        return { status: "completed", jobId, artifact: { kind: "audio", fileName, model, durationSec: resolvedDuration } };
       } catch (err) {
         if (err instanceof SidecarJobCancelledError) {
           setStatusWithTime("MusicGen generation cancelled", "info");
-          return;
+          return { status: "cancelled", jobId, message: "MusicGen generation cancelled" };
         }
         reportCaughtError("analyzers.generateMusicFromPrompt", err);
         const msg = err instanceof Error ? err.message : "MusicGen generation failed";
         setStatusWithTime(msg.slice(0, 120), "warning");
+        return { status: "failed", jobId, error: msg, message: msg };
       } finally {
         setGenerateMusicBusy(false);
         setMusicJobId("");

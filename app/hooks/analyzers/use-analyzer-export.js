@@ -75,7 +75,7 @@ export function useAnalyzerExport({ audioAnalysis, audioPreviewUrlRef, setStatus
             : "";
         if (result?.afterLufs != null && Number.isFinite(result.afterLufs)) {
           setStatusWithTime(
-            `${fmtLabel} downloaded${fallbackNote}${where} · ${result.afterLufs.toFixed(1)} LUFS (target ${result.targetLufs})`,
+            `${fmtLabel} downloaded${fallbackNote}${where} · ${result.afterLufs.toFixed(1)} LUFS${typeof result.targetLufs === "number" ? ` (target ${result.targetLufs})` : ""}`,
           );
         } else {
           setStatusWithTime(

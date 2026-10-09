@@ -54,6 +54,11 @@ class AceStepPresetCatalog(BaseModel):
     note: str
 
 
+class AceStepEnsureResult(BaseModel):
+    ok: bool
+    url: str
+
+
 class FailSafeCapabilities(BaseModel):
     maintainer_mode: bool
     fix_push_available: bool

@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState } from "react";
 import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
-import { fetchAceStepPresets } from "../lib/sidecar-bridge";
+import { ensureAceStepApi, fetchAceStepPresets } from "../lib/sidecar-bridge";
 
 const ACE_ENV_SNIPPET = `AIMC_ACESTEP_API_URL=http://127.0.0.1:8001
 # AIMC_ACESTEP_API_KEY=
@@ -39,6 +39,8 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   const [qualityNote, setQualityNote] = useState("");
   const [seed, setSeed] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+  const [startingApi, setStartingApi] = useState(false);
+  const [startupMessage, setStartupMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +99,22 @@ export const AceStepSongControls = memo(function AceStepSongControls({
     }
   };
 
+  const startApi = async () => {
+    if (startingApi) return;
+    setStartingApi(true);
+    setStartupMessage("Starting local ACE-Step…");
+    try {
+      const result = await ensureAceStepApi();
+      if (!result.ok) throw new Error("ACE-Step did not become ready");
+      setStartupMessage("ACE-Step started — checking readiness…");
+      window.dispatchEvent(new Event("aimc-sidecar-refresh"));
+    } catch (error) {
+      setStartupMessage(error instanceof Error ? error.message : "Could not start ACE-Step");
+    } finally {
+      setStartingApi(false);
+    }
+  };
+
   return (
     <section
       className={`rounded-2xl border border-emerald-400/25 bg-emerald-500/10 space-y-2 ${
@@ -115,6 +133,11 @@ export const AceStepSongControls = memo(function AceStepSongControls({
       {!available ? (
         <div className="space-y-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-2 py-2 text-[10px] text-amber-100/90">
           <p className="font-semibold text-amber-50">Not ready — start ACE-Step</p>
+          <button type="button" onClick={() => void startApi()} disabled={startingApi}
+            className="rounded-lg bg-emerald-300 px-3 py-2 font-bold text-black disabled:opacity-50">
+            {startingApi ? "Starting ACE-Step…" : "Start local ACE-Step"}
+          </button>
+          {startupMessage && <p role="status">{startupMessage}</p>}
           <ol className="list-decimal space-y-1 pl-4 text-amber-100/80">
             <li>
               In the ACE-Step repo: <code className="text-white/70">uv run acestep-api</code> (default{" "}

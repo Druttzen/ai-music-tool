@@ -18,6 +18,7 @@ def test_job_routes_have_explicit_public_response_models():
         ("/jobs/{job_id}", "get"): "PublicJobStatus",
         ("/jobs/{job_id}/cancel", "post"): "JobCancelResponse",
         ("/acestep/presets", "get"): "AceStepPresetCatalog",
+        ("/acestep/ensure", "post"): "AceStepEnsureResult",
         ("/fail-safe/capabilities", "get"): "FailSafeCapabilities",
         ("/vocal-embed/models", "get"): "VocalModelStatus",
         ("/vocal-embed/align-preview", "post"): "VocalAlignPreviewResponse",

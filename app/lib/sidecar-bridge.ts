@@ -528,6 +528,16 @@ export async function cancelSidecarJob(jobId: string): Promise<SidecarContracts.
 
 export type AceStepPresetCatalog = SidecarContracts.AceStepPresetCatalog;
 
+/** Start the installed local ACE API through the managed sidecar. */
+export async function ensureAceStepApi(): Promise<SidecarContracts.AceStepEnsureResult> {
+  if (!(await waitForSidecar(120_000))) throw new Error("Local AI service is offline");
+  const response = await fetch(`${sidecarBaseUrl()}/acestep/ensure`, {
+    method: "POST", headers: await sidecarAuthHeaders(),
+  });
+  if (!response.ok) await readSidecarError(response, `ACE-Step startup failed (${response.status})`);
+  return response.json() as Promise<SidecarContracts.AceStepEnsureResult>;
+}
+
 /** Report locally installed ACE-Step checkpoints so unsupported presets stay disabled. */
 export async function fetchAceStepPresets(): Promise<AceStepPresetCatalog | null> {
   try {

@@ -30,6 +30,7 @@ export function useSidecarStatus() {
 
     const scheduleNext = (status) => {
       if (cancelled) return;
+      if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
         void probeSidecar();
       }, sidecarProbeDelayMs(status));
@@ -78,9 +79,12 @@ export function useSidecarStatus() {
     };
 
     void probeSidecar();
+    const refresh = () => { void probeSidecar(); };
+    window.addEventListener("aimc-sidecar-refresh", refresh);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      window.removeEventListener("aimc-sidecar-refresh", refresh);
     };
   }, []);
 

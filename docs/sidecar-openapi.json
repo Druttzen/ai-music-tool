@@ -1,6 +1,24 @@
 {
   "components": {
     "schemas": {
+      "AceStepEnsureResult": {
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "url"
+        ],
+        "title": "AceStepEnsureResult",
+        "type": "object"
+      },
       "AceStepPresetCatalog": {
         "properties": {
           "home": {
@@ -2429,7 +2447,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AceStepEnsureResult"
+                }
               }
             },
             "description": "Successful Response"

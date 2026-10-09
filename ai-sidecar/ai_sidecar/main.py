@@ -69,7 +69,7 @@ from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer
 from .fail_safe_runtime import RuntimeDeliverRequest, RuntimeDeliverResponse, deliver_runtime_report
 from .device import DeviceInfo, detect_device, peek_device, select_device
 from .http_contracts import (
-    AceStepPresetCatalog, CapabilityContract, JobCancelResponse, JobSubmission, PublicJobStatus,
+    AceStepEnsureResult, AceStepPresetCatalog, CapabilityContract, JobCancelResponse, JobSubmission, PublicJobStatus,
     FailSafeCapabilities, VocalModelStatus, VocalAlignPreviewResponse, OpenvpiDsExportResponse,
 )
 from .registry import capability_flags, list_capabilities
@@ -940,7 +940,7 @@ def generate_audio(job_id: str):
     return FileResponse(path, media_type=media, filename=os.path.basename(path), headers=headers)
 
 
-@app.post("/acestep/ensure")
+@app.post("/acestep/ensure", response_model=AceStepEnsureResult)
 def ensure_acestep():
     from .acestep_lifecycle import ensure_acestep_api
 

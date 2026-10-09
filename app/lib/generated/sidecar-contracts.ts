@@ -1,6 +1,11 @@
 // Generated from the Python FastAPI OpenAPI contract. Do not edit by hand.
 // Regenerate: npm run contracts:sidecar
 
+export type AceStepEnsureResult = {
+  "ok": boolean;
+  "url": string;
+};
+
 export type AceStepPresetCatalog = {
   "home": string;
   "note": string;

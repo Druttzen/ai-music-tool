@@ -579,7 +579,7 @@ export function useAnalyzerMedia({
   const applyAudioToSunoStyle = useCallback(async ({ announce = true, navigate = true } = {}) => {
     if (!audioAnalysis) {
       setStatusWithTime("No audio analysis yet");
-      return;
+      return { status: "failed", message: "No audio analysis yet" };
     }
     const heuristic = buildSunoV55StyleFromAudioAnalysis(audioAnalysis);
     const built = await refineCurrentAnalyzerStyle(
@@ -587,7 +587,7 @@ export function useAnalyzerMedia({
       heuristic,
       audioAnalysis,
     );
-    if (!built) return;
+    if (!built) return { status: "cancelled", message: "Analyzer changed before the merge completed" };
     applyAnalyzerPatch(buildAudioSunoV55Patch(audioAnalysis, formatTime, built));
 
     const via = built.source === "llm" ? " (LLM refined)" : "";
@@ -599,6 +599,7 @@ export function useAnalyzerMedia({
     } else if (announce) {
       setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — Style buffer filled`);
     }
+    return { status: "completed", message: "Audio style merged" };
   }, [
     audioAnalysis,
     applyAnalyzerPatch,
@@ -611,7 +612,7 @@ export function useAnalyzerMedia({
   const applyImageToSunoStyle = useCallback(async () => {
     if (!imageAnalysis) {
       setStatusWithTime("No image analysis yet");
-      return;
+      return { status: "failed", message: "No image analysis yet" };
     }
     const heuristic = buildSunoV55StyleFromImageAnalysis(imageAnalysis);
     const built = await refineCurrentAnalyzerStyle(
@@ -619,7 +620,7 @@ export function useAnalyzerMedia({
       heuristic,
       imageAnalysis,
     );
-    if (!built) return;
+    if (!built) return { status: "cancelled", message: "Analyzer changed before the merge completed" };
     applyAnalyzerPatch(buildImageSunoV55Patch(imageAnalysis, built));
 
     const via = built.source === "llm" ? " (LLM refined)" : "";
@@ -629,6 +630,7 @@ export function useAnalyzerMedia({
     } else {
       setStatusWithTime(`Image → Suno v5.5 Style merged${via} — Style buffer filled`);
     }
+    return { status: "completed", message: "Image style merged" };
   }, [
     applyAnalyzerPatch,
     imageAnalysis,
