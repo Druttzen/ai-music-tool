@@ -67,7 +67,11 @@ from .cover_ref_generator import (
 )
 from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer_enabled, repo_root
 from .fail_safe_runtime import RuntimeDeliverRequest, RuntimeDeliverResponse, deliver_runtime_report
-from .device import detect_device, peek_device, select_device
+from .device import DeviceInfo, detect_device, peek_device, select_device
+from .http_contracts import (
+    AceStepPresetCatalog, CapabilityContract, JobCancelResponse, JobSubmission, PublicJobStatus,
+    FailSafeCapabilities, VocalModelStatus, VocalAlignPreviewResponse, OpenvpiDsExportResponse,
+)
 from .registry import capability_flags, list_capabilities
 from .jobs import JOBS
 from . import generate_jobs as _generate_jobs  # noqa: F401 — register runners
@@ -191,8 +195,8 @@ class Health(BaseModel):
     cover_ref_available: bool = False
     fix_push_available: bool = False
     maintainer_mode: bool = False
-    device_info: dict[str, Any] | None = None
-    capabilities: list[dict[str, Any]] | None = None
+    device_info: DeviceInfo | None = None
+    capabilities: list[CapabilityContract] | None = None
     policy: dict[str, Any] | None = None
     owned: bool = False
 
@@ -365,7 +369,7 @@ def health(request: Request) -> Health:
     )
 
 
-@app.get("/fail-safe/capabilities")
+@app.get("/fail-safe/capabilities", response_model=FailSafeCapabilities)
 def fail_safe_capabilities() -> dict[str, bool | str]:
     return {
         "maintainer_mode": maintainer_enabled(),
@@ -451,7 +455,7 @@ async def vocal_embed_plan(body: VocalEmbedPlanEnvelope) -> VocalEmbedPlanRespon
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@app.get("/vocal-embed/models")
+@app.get("/vocal-embed/models", response_model=VocalModelStatus)
 def vocal_embed_models() -> dict[str, Any]:
     """Report configured RVC / DiffSinger integrations (models are user-provided)."""
     return vocal_model_status()
@@ -747,7 +751,7 @@ async def generate_music_with_melody(
     )
 
 
-@app.post("/generate/melody/jobs")
+@app.post("/generate/melody/jobs", response_model=JobSubmission)
 async def enqueue_generate_melody(
     prompt: str = Form(...),
     duration_sec: float = Form(8.0),
@@ -854,7 +858,7 @@ async def generate_full_song(body: GenerateSongRequest):
     )
 
 
-@app.post("/generate/jobs")
+@app.post("/generate/jobs", response_model=JobSubmission)
 def enqueue_generate(body: GenerateRequest):
     """Queue MusicGen and return immediately. Poll GET /jobs/{id}."""
     if not generation_available():
@@ -875,7 +879,7 @@ def enqueue_generate(body: GenerateRequest):
     return {"job_id": job_id}
 
 
-@app.post("/generate/song/jobs")
+@app.post("/generate/song/jobs", response_model=JobSubmission)
 def enqueue_generate_song(body: GenerateSongRequest):
     """Queue ACE-Step. The worker starts the API if the checkout is available."""
     try:
@@ -897,7 +901,7 @@ def enqueue_generate_song(body: GenerateSongRequest):
     return {"job_id": job_id}
 
 
-@app.get("/jobs/{job_id}")
+@app.get("/jobs/{job_id}", response_model=PublicJobStatus)
 def job_status(job_id: str):
     job = JOBS.get(job_id)
     if job is None:
@@ -905,7 +909,7 @@ def job_status(job_id: str):
     return public_job_status(job)
 
 
-@app.post("/jobs/{job_id}/cancel")
+@app.post("/jobs/{job_id}/cancel", response_model=JobCancelResponse)
 def cancel_job(job_id: str):
     """Request cancellation of a queued or running job."""
     job = JOBS.cancel(job_id)
@@ -947,7 +951,7 @@ def ensure_acestep():
     return {"ok": True, "url": url}
 
 
-@app.get("/acestep/presets")
+@app.get("/acestep/presets", response_model=AceStepPresetCatalog)
 def acestep_presets():
     """List locally installed ACE-Step presets for the full-song controls."""
     from .acestep_lifecycle import preset_catalog
@@ -1150,7 +1154,7 @@ async def generate_cover_ref(
     )
 
 
-@app.post("/vocal-embed/align-preview")
+@app.post("/vocal-embed/align-preview", response_model=VocalAlignPreviewResponse)
 async def vocal_embed_align_preview(
     plan_json: str = Form(...),
     guide_vocal: UploadFile = File(...),
@@ -1186,7 +1190,7 @@ async def vocal_embed_align_preview(
     }
 
 
-@app.post("/vocal-embed/ds-export")
+@app.post("/vocal-embed/ds-export", response_model=OpenvpiDsExportResponse)
 async def vocal_embed_ds_export(
     plan_json: str = Form(...),
     guide_vocal: UploadFile | None = File(None),

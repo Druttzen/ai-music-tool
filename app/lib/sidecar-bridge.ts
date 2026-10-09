@@ -5,74 +5,18 @@
  * auto-stops after idle timeout. In browser/dev you can run it via `npm run sidecar`.
  */
 
+import type * as SidecarContracts from "./generated/sidecar-contracts";
+
 import { isTauriApp } from "./dsp-bridge";
 import { formatApiError } from "./api-error-messages";
 
-export interface SidecarCapability {
-  id: string;
-  title: string;
-  tasks: string[];
-  install_hint: string;
-  license: string;
-  commercial_use: boolean;
-  available: boolean;
-}
+export type SidecarCapability = SidecarContracts.CapabilityContract;
 
-export interface SidecarDeviceInfo {
-  backend: string;
-  device: string;
-  name: string;
-  total_vram_gb: number;
-  torch_available: boolean;
-  torch_version?: string | null;
-  cuda_version?: string | null;
-}
+export type SidecarDeviceInfo = SidecarContracts.DeviceInfo;
 
-export interface SidecarHealth {
-  status: string;
-  device: string;
-  version: string;
-  librosa_available?: boolean;
-  stems_available?: boolean;
-  stems_melband_available?: boolean;
-  genre_available?: boolean;
-  vision_available?: boolean;
-  vocal_embed_plan_available?: boolean;
-  vocal_synthesis_available?: boolean;
-  vocal_ml_available?: boolean;
-  vocal_models_available?: boolean;
-  vocal_rvc_available?: boolean;
-  vocal_diffsinger_available?: boolean;
-  generate_available?: boolean;
-  acestep_available?: boolean;
-  vocal_transform_available?: boolean;
-  cover_available?: boolean;
-  cover_ref_available?: boolean;
-  fix_push_available?: boolean;
-  maintainer_mode?: boolean;
-  device_info?: SidecarDeviceInfo | null;
-  capabilities?: SidecarCapability[] | null;
-  policy?: Record<string, unknown> | null;
-  owned?: boolean;
-}
+export type SidecarHealth = SidecarContracts.Health;
 
-export interface SidecarAnalysis {
-  duration_sec: number;
-  tempo_bpm: number;
-  key_estimate: string;
-  key_confidence?: number;
-  spectral_centroid_hz: number;
-  spectral_bandwidth_hz?: number;
-  spectral_rolloff_hz?: number;
-  onset_strength?: number;
-  beat_count?: number;
-  beat_density?: number;
-  percussive_ratio?: number;
-  harmonic_ratio?: number;
-  device: string;
-  genre_predictions?: { label: string; score: number }[];
-  genre_model?: string;
-}
+export type SidecarAnalysis = SidecarContracts.Analysis;
 
 export interface SidecarManagedStatus {
   ready: boolean;
@@ -254,21 +198,7 @@ export async function fetchSidecarHealthInventory(): Promise<SidecarHealth | nul
   return requestSidecarHealthJson();
 }
 
-export interface YoutubeResolvePayload {
-  video_id: string;
-  watch_url: string;
-  title: string;
-  author_name: string;
-  thumbnail_url: string;
-  duration_sec: number | null;
-  parsed_artist: string;
-  parsed_track: string;
-  search_query: string;
-  tags: string[];
-  categories: string[];
-  description_excerpt: string;
-  provider: string;
-}
+export type YoutubeResolvePayload = SidecarContracts.YoutubeResolveResponse;
 
 /** Resolve YouTube metadata server-side (avoids browser CORS on oEmbed). */
 export async function resolveYoutubeViaSidecar(watchUrl: string): Promise<YoutubeResolvePayload> {
@@ -284,45 +214,13 @@ export async function resolveYoutubeViaSidecar(watchUrl: string): Promise<Youtub
   return res.json() as Promise<YoutubeResolvePayload>;
 }
 
-export interface SonicChordPoint {
-  time_sec: number;
-  chord: string;
-  strength: number;
-}
+export type SonicChordPoint = SidecarContracts.ChordPoint;
 
-export interface SonicTimelineSegment {
-  start_sec: number;
-  end_sec: number;
-  energy: number;
-  brightness_hz: number;
-}
+export type SonicTimelineSegment = SidecarContracts.TimelineSegment;
 
-export interface SonicSignaturePayload {
-  duration_sec: number;
-  tempo_bpm: number;
-  key_estimate: string;
-  key_confidence: number;
-  time_signature: number;
-  loudness_db: number;
-  spectral_centroid_hz: number;
-  harmonic_ratio: number;
-  percussive_ratio: number;
-  beat_count: number;
-  chord_progression: SonicChordPoint[];
-  timeline_segments: SonicTimelineSegment[];
-  provider: string;
-}
+export type SonicSignaturePayload = SidecarContracts.SonicSignatureResponse;
 
-export interface AcousticBrainzPayload {
-  recording_mbid: string;
-  provider: string;
-  bpm?: number | null;
-  key_key?: string | null;
-  key_scale?: string | null;
-  key_strength?: number | null;
-  moods?: string[];
-  genres?: string[];
-}
+export type AcousticBrainzPayload = SidecarContracts.AcousticBrainzResponse;
 
 export async function fetchYoutubeSonicViaSidecar(watchUrl: string): Promise<SonicSignaturePayload> {
   const res = await fetch(`${sidecarBaseUrl()}/youtube/sonic-signature`, {
@@ -377,19 +275,9 @@ export async function fetchAcousticBrainzViaSidecar(
   }
 }
 
-export interface SidecarStemFile {
-  name: string;
-  download_url: string;
-  filename: string;
-}
+export type SidecarStemFile = SidecarContracts.StemFile;
 
-export interface SidecarSeparateResult {
-  device: string;
-  model: string;
-  sources: string[];
-  job_id: string;
-  stems: SidecarStemFile[];
-}
+export type SidecarSeparateResult = SidecarContracts.SeparateResult;
 
 /**
  * POST audio to /separate and return Demucs stem download URLs.
@@ -435,52 +323,13 @@ export async function downloadSidecarStem(relativeUrl: string, saveAs: string): 
   await saveOrDownloadBlob(blob, saveAs);
 }
 
-export interface SidecarVocalEmbedPlanResponse {
-  ok: boolean;
-  stage: string;
-  mode: string;
-  section_count: number;
-  message: string;
-  synthesis_available: boolean;
-  next_steps: string[];
-}
+export type SidecarVocalEmbedPlanResponse = SidecarContracts.VocalEmbedPlanResponse;
 
-export interface SidecarOpenVpiStatus {
-  root: string | null;
-  acoustic_exp: string | null;
-  variance_exp: string | null;
-  python: string | null;
-  speaker: string | null;
-  language: string | null;
-  configured: boolean;
-  ready: boolean;
-}
+export type SidecarOpenVpiStatus = SidecarContracts.OpenVpiStatus;
 
-export interface SidecarImageAnalysis {
-  caption: string | null;
-  caption_model: string | null;
-  clip_tags: Array<{ label: string; score: number }> | null;
-  clip_model: string | null;
-  device: string;
-}
+export type SidecarImageAnalysis = SidecarContracts.ImageAnalysis;
 
-export interface SidecarVocalModelStatus {
-  rvc_python: boolean;
-  rvc_api: boolean;
-  rvc_model_configured: boolean;
-  rvc_ready: boolean;
-  rvc_model: string | null;
-  rvc_index: string | null;
-  rvc_models_dir: string | null;
-  rvc_api_url: string | null;
-  diffsinger_configured: boolean;
-  diffsinger_ready?: boolean;
-  diffsinger_cmd: string | null;
-  diffsinger_url: string | null;
-  diffsinger_model_dir: string | null;
-  diffsinger_openvpi?: SidecarOpenVpiStatus;
-  models_ready: boolean;
-}
+export type SidecarVocalModelStatus = SidecarContracts.VocalModelStatus;
 
 /** GET /vocal-embed/models — RVC / DiffSinger configuration status. */
 export async function fetchVocalEmbedModels(): Promise<SidecarVocalModelStatus | null> {
@@ -642,13 +491,7 @@ export async function pollSidecarJob(
       headers: await sidecarAuthHeaders(),
     });
     if (!res.ok) await readSidecarError(res, `job poll failed (${res.status})`);
-    const body = (await res.json()) as {
-      status?: string;
-      progress?: number;
-      message?: string;
-      error?: string;
-      result?: { model?: string; duration_sec?: number; mode?: string };
-    };
+    const body = (await res.json()) as SidecarContracts.PublicJobStatus;
     options.onProgress?.(Number(body.progress) || 0, String(body.message || body.status || ""));
     if (body.status === "done") {
       return {
@@ -674,22 +517,16 @@ export class SidecarJobCancelledError extends Error {
 }
 
 /** Ask the sidecar to cancel a queued or running job without interrupting unsafe inference. */
-export async function cancelSidecarJob(jobId: string): Promise<{ job_id: string; status: string }> {
+export async function cancelSidecarJob(jobId: string): Promise<SidecarContracts.JobCancelResponse> {
   const res = await fetch(`${sidecarBaseUrl()}/jobs/${encodeURIComponent(jobId)}/cancel`, {
     method: "POST",
     headers: await sidecarAuthHeaders(),
   });
   if (!res.ok) await readSidecarError(res, `job cancellation failed (${res.status})`);
-  return (await res.json()) as { job_id: string; status: string };
+  return (await res.json()) as SidecarContracts.JobCancelResponse;
 }
 
-export type AceStepPresetCatalog = {
-  turbo_model: string;
-  quality_model: string;
-  quality_available: boolean;
-  home: string;
-  note: string;
-};
+export type AceStepPresetCatalog = SidecarContracts.AceStepPresetCatalog;
 
 /** Report locally installed ACE-Step checkpoints so unsupported presets stay disabled. */
 export async function fetchAceStepPresets(): Promise<AceStepPresetCatalog | null> {
@@ -755,7 +592,7 @@ export async function generateMusicViaSidecar(
     throw new Error(detail || `sidecar generate failed (${res.status})`);
   }
 
-  const queued = (await res.json()) as { job_id?: string };
+  const queued = (await res.json()) as SidecarContracts.JobSubmission;
   if (!queued.job_id) throw new Error("MusicGen job id missing");
   options.onJobStarted?.(queued.job_id);
   const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
@@ -812,7 +649,7 @@ export async function generateMusicWithMelodyViaSidecar(
     throw new Error(detail || `sidecar melody generate failed (${res.status})`);
   }
 
-  const queued = (await res.json()) as { job_id?: string };
+  const queued = (await res.json()) as SidecarContracts.JobSubmission;
   if (!queued.job_id) throw new Error("MusicGen melody job id missing");
   options.onJobStarted?.(queued.job_id);
   const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
@@ -871,7 +708,7 @@ export async function generateSongViaSidecar(options: {
     throw new Error(detail || `sidecar ACE-Step song generate failed (${res.status})`);
   }
 
-  const queued = (await res.json()) as { job_id?: string };
+  const queued = (await res.json()) as SidecarContracts.JobSubmission;
   if (!queued.job_id) throw new Error("ACE-Step job id missing");
   options.onJobStarted?.(queued.job_id);
   const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 35 * 60_000 });
@@ -1042,13 +879,7 @@ export async function generateCoverRefViaSidecar(options: {
   };
 }
 
-export interface VocalAlignPreviewResponse {
-  align_method: string;
-  mfa_configured: boolean;
-  mfa_ready?: boolean;
-  word_count: number;
-  sections: object[];
-}
+export type VocalAlignPreviewResponse = SidecarContracts.VocalAlignPreviewResponse;
 
 export async function previewVocalAlignViaSidecar(
   envelope: Record<string, unknown>,
@@ -1079,13 +910,7 @@ export async function previewVocalAlignViaSidecar(
   return res.json() as Promise<VocalAlignPreviewResponse>;
 }
 
-export type OpenvpiDsExportResponse = {
-  format: string;
-  version?: number;
-  align_method?: string | null;
-  segment_count: number;
-  segments: Array<Record<string, string | number>>;
-};
+export type OpenvpiDsExportResponse = SidecarContracts.OpenvpiDsExportResponse;
 
 export async function exportOpenvpiDsViaSidecar(
   envelope: Record<string, unknown>,
@@ -1118,23 +943,9 @@ export async function exportOpenvpiDsViaSidecar(
   return res.json() as Promise<OpenvpiDsExportResponse>;
 }
 
-export interface FailSafeFixPushResult {
-  ok: boolean;
-  stage: string;
-  message: string;
-  branch?: string | null;
-  commit?: string | null;
-  pr_url?: string | null;
-  changed?: boolean | null;
-  workflow_url?: string | null;
-}
+export type FailSafeFixPushResult = SidecarContracts.FixPushResponse;
 
-export async function fetchFailSafeCapabilities(): Promise<{
-  maintainer_mode: boolean;
-  fix_push_available: boolean;
-  runtime_deliver_available?: boolean;
-  repo_root?: string;
-} | null> {
+export async function fetchFailSafeCapabilities(): Promise<SidecarContracts.FailSafeCapabilities | null> {
   try {
     const headers = await sidecarAuthHeaders();
     const res = await fetch(`${sidecarBaseUrl()}/fail-safe/capabilities`, { headers });
@@ -1145,16 +956,7 @@ export async function fetchFailSafeCapabilities(): Promise<{
   }
 }
 
-export interface RuntimeDeliverResult {
-  ok: boolean;
-  stage: string;
-  message: string;
-  issue_url?: string | null;
-  issue_number?: number | null;
-  branch?: string | null;
-  commit?: string | null;
-  pr_url?: string | null;
-}
+export type RuntimeDeliverResult = SidecarContracts.RuntimeDeliverResponse;
 
 /** Maintainer mode: deliver top Runtime report to GitHub (issue / branch / draft PR). */
 export async function deliverRuntimeReport(options: {

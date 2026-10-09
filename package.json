@@ -59,6 +59,8 @@
     "check:full:e2e": "node scripts/run-check-full.cjs --e2e",
     "check:full:e2e:subset": "node scripts/run-check-full.cjs --e2e-subset",
     "check:rust-locks": "node scripts/verify-rust-locks.cjs",
+    "contracts:sidecar": "node scripts/generate-sidecar-contracts.cjs",
+    "check:sidecar-contracts": "node scripts/generate-sidecar-contracts.cjs --check",
     "check:ci": "node scripts/run-ci-gates.cjs",
     "check:ci:e2e-subset": "node scripts/run-ci-gates.cjs --e2e-subset",
     "hooks:install": "node scripts/install-git-hooks.cjs",

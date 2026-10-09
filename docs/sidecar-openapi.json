@@ -1,0 +1,3592 @@
+{
+  "components": {
+    "schemas": {
+      "AceStepPresetCatalog": {
+        "properties": {
+          "home": {
+            "title": "Home",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "quality_available": {
+            "title": "Quality Available",
+            "type": "boolean"
+          },
+          "quality_model": {
+            "title": "Quality Model",
+            "type": "string"
+          },
+          "turbo_model": {
+            "title": "Turbo Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turbo_model",
+          "quality_model",
+          "quality_available",
+          "home",
+          "note"
+        ],
+        "title": "AceStepPresetCatalog",
+        "type": "object"
+      },
+      "AcousticBrainzResponse": {
+        "properties": {
+          "bpm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bpm"
+          },
+          "danceability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Danceability"
+          },
+          "danceability_prob": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Danceability Prob"
+          },
+          "genres": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Genres",
+            "type": "array"
+          },
+          "key_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Key"
+          },
+          "key_scale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Scale"
+          },
+          "key_strength": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Strength"
+          },
+          "loudness": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loudness"
+          },
+          "moods": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Moods",
+            "type": "array"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "recording_mbid": {
+            "title": "Recording Mbid",
+            "type": "string"
+          },
+          "voice_instrumental": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice Instrumental"
+          }
+        },
+        "required": [
+          "recording_mbid",
+          "provider"
+        ],
+        "title": "AcousticBrainzResponse",
+        "type": "object"
+      },
+      "Analysis": {
+        "properties": {
+          "beat_count": {
+            "title": "Beat Count",
+            "type": "integer"
+          },
+          "beat_density": {
+            "title": "Beat Density",
+            "type": "number"
+          },
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "duration_sec": {
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "genre_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Genre Model"
+          },
+          "genre_predictions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GenrePrediction"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Genre Predictions"
+          },
+          "harmonic_ratio": {
+            "title": "Harmonic Ratio",
+            "type": "number"
+          },
+          "key_confidence": {
+            "title": "Key Confidence",
+            "type": "number"
+          },
+          "key_estimate": {
+            "title": "Key Estimate",
+            "type": "string"
+          },
+          "onset_strength": {
+            "title": "Onset Strength",
+            "type": "number"
+          },
+          "percussive_ratio": {
+            "title": "Percussive Ratio",
+            "type": "number"
+          },
+          "spectral_bandwidth_hz": {
+            "title": "Spectral Bandwidth Hz",
+            "type": "number"
+          },
+          "spectral_centroid_hz": {
+            "title": "Spectral Centroid Hz",
+            "type": "number"
+          },
+          "spectral_rolloff_hz": {
+            "title": "Spectral Rolloff Hz",
+            "type": "number"
+          },
+          "tempo_bpm": {
+            "title": "Tempo Bpm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "duration_sec",
+          "tempo_bpm",
+          "key_estimate",
+          "key_confidence",
+          "spectral_centroid_hz",
+          "spectral_bandwidth_hz",
+          "spectral_rolloff_hz",
+          "onset_strength",
+          "beat_count",
+          "beat_density",
+          "percussive_ratio",
+          "harmonic_ratio",
+          "device"
+        ],
+        "title": "Analysis",
+        "type": "object"
+      },
+      "Body_analyze_analyze_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_analyze_post",
+        "type": "object"
+      },
+      "Body_analyze_image_analyze_image_post": {
+        "properties": {
+          "caption": {
+            "default": true,
+            "title": "Caption",
+            "type": "boolean"
+          },
+          "clip_tags": {
+            "default": true,
+            "title": "Clip Tags",
+            "type": "boolean"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_image_analyze_image_post",
+        "type": "object"
+      },
+      "Body_enqueue_generate_melody_generate_melody_jobs_post": {
+        "properties": {
+          "cfg_coef": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cfg Coef"
+          },
+          "duration_sec": {
+            "default": 8,
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "melody": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Melody",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          }
+        },
+        "required": [
+          "prompt",
+          "melody"
+        ],
+        "title": "Body_enqueue_generate_melody_generate_melody_jobs_post",
+        "type": "object"
+      },
+      "Body_generate_cover_ref_cover_ref_post": {
+        "properties": {
+          "height": {
+            "default": 1024,
+            "title": "Height",
+            "type": "integer"
+          },
+          "image": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Image",
+            "type": "string"
+          },
+          "num_inference_steps": {
+            "default": 4,
+            "title": "Num Inference Steps",
+            "type": "integer"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "strength": {
+            "default": 0.55,
+            "title": "Strength",
+            "type": "number"
+          },
+          "width": {
+            "default": 1024,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt",
+          "image"
+        ],
+        "title": "Body_generate_cover_ref_cover_ref_post",
+        "type": "object"
+      },
+      "Body_generate_music_with_melody_generate_melody_post": {
+        "properties": {
+          "cfg_coef": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cfg Coef"
+          },
+          "duration_sec": {
+            "default": 10,
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "melody": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Melody",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          }
+        },
+        "required": [
+          "prompt",
+          "melody"
+        ],
+        "title": "Body_generate_music_with_melody_generate_melody_post",
+        "type": "object"
+      },
+      "Body_separate_separate_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "model_name": {
+            "default": "htdemucs",
+            "title": "Model Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_separate_separate_post",
+        "type": "object"
+      },
+      "Body_sonic_signature_sonic_signature_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_sonic_signature_sonic_signature_post",
+        "type": "object"
+      },
+      "Body_vocal_embed_align_preview_vocal_embed_align_preview_post": {
+        "properties": {
+          "guide_vocal": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Guide Vocal",
+            "type": "string"
+          },
+          "plan_json": {
+            "title": "Plan Json",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_json",
+          "guide_vocal"
+        ],
+        "title": "Body_vocal_embed_align_preview_vocal_embed_align_preview_post",
+        "type": "object"
+      },
+      "Body_vocal_embed_ds_export_vocal_embed_ds_export_post": {
+        "properties": {
+          "guide_vocal": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Vocal"
+          },
+          "plan_json": {
+            "title": "Plan Json",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_json"
+        ],
+        "title": "Body_vocal_embed_ds_export_vocal_embed_ds_export_post",
+        "type": "object"
+      },
+      "Body_vocal_embed_synthesize_vocal_embed_synthesize_post": {
+        "properties": {
+          "guide_vocal": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guide Vocal"
+          },
+          "instrumental": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Instrumental",
+            "type": "string"
+          },
+          "plan_json": {
+            "title": "Plan Json",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_json",
+          "instrumental"
+        ],
+        "title": "Body_vocal_embed_synthesize_vocal_embed_synthesize_post",
+        "type": "object"
+      },
+      "Body_vocal_transform_mix_vocal_transform_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "formant_shift": {
+            "default": 0,
+            "title": "Formant Shift",
+            "type": "number"
+          },
+          "mode": {
+            "default": "pitch",
+            "title": "Mode",
+            "type": "string"
+          },
+          "output": {
+            "default": "both",
+            "title": "Output",
+            "type": "string"
+          },
+          "pitch_semitones": {
+            "default": 0,
+            "title": "Pitch Semitones",
+            "type": "number"
+          },
+          "regions_json": {
+            "default": "[]",
+            "title": "Regions Json",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_vocal_transform_mix_vocal_transform_post",
+        "type": "object"
+      },
+      "CapabilityContract": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "commercial_use": {
+            "title": "Commercial Use",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "install_hint": {
+            "title": "Install Hint",
+            "type": "string"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "prompt_install": {
+            "default": true,
+            "title": "Prompt Install",
+            "type": "boolean"
+          },
+          "tasks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "tasks",
+          "install_hint",
+          "license",
+          "commercial_use",
+          "available"
+        ],
+        "title": "CapabilityContract",
+        "type": "object"
+      },
+      "ChordPoint": {
+        "properties": {
+          "chord": {
+            "title": "Chord",
+            "type": "string"
+          },
+          "strength": {
+            "title": "Strength",
+            "type": "number"
+          },
+          "time_sec": {
+            "title": "Time Sec",
+            "type": "number"
+          }
+        },
+        "required": [
+          "time_sec",
+          "chord",
+          "strength"
+        ],
+        "title": "ChordPoint",
+        "type": "object"
+      },
+      "CoverRequest": {
+        "properties": {
+          "height": {
+            "default": 1024,
+            "title": "Height",
+            "type": "integer"
+          },
+          "num_inference_steps": {
+            "default": 4,
+            "title": "Num Inference Steps",
+            "type": "integer"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "width": {
+            "default": 1024,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "CoverRequest",
+        "type": "object"
+      },
+      "DeviceInfo": {
+        "properties": {
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "cuda_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuda Version"
+          },
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "torch_available": {
+            "title": "Torch Available",
+            "type": "boolean"
+          },
+          "torch_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Torch Version"
+          },
+          "total_vram_gb": {
+            "title": "Total Vram Gb",
+            "type": "number"
+          }
+        },
+        "required": [
+          "backend",
+          "device",
+          "name",
+          "total_vram_gb",
+          "torch_available"
+        ],
+        "title": "DeviceInfo",
+        "type": "object"
+      },
+      "FailSafeCapabilities": {
+        "properties": {
+          "fix_push_available": {
+            "title": "Fix Push Available",
+            "type": "boolean"
+          },
+          "maintainer_mode": {
+            "title": "Maintainer Mode",
+            "type": "boolean"
+          },
+          "repo_root": {
+            "title": "Repo Root",
+            "type": "string"
+          },
+          "runtime_deliver_available": {
+            "title": "Runtime Deliver Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "maintainer_mode",
+          "fix_push_available",
+          "runtime_deliver_available",
+          "repo_root"
+        ],
+        "title": "FailSafeCapabilities",
+        "type": "object"
+      },
+      "FixPushRequest": {
+        "properties": {
+          "github_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Token"
+          },
+          "mode": {
+            "default": "local",
+            "enum": [
+              "local",
+              "cloud"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "title": "FixPushRequest",
+        "type": "object"
+      },
+      "FixPushResponse": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "changed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "pr_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Url"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "workflow_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Url"
+          }
+        },
+        "required": [
+          "ok",
+          "stage",
+          "message"
+        ],
+        "title": "FixPushResponse",
+        "type": "object"
+      },
+      "GenerateRequest": {
+        "properties": {
+          "cfg_coef": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cfg Coef"
+          },
+          "duration_sec": {
+            "default": 8,
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "GenerateRequest",
+        "type": "object"
+      },
+      "GenerateSongRequest": {
+        "properties": {
+          "audio_format": {
+            "default": "wav",
+            "title": "Audio Format",
+            "type": "string"
+          },
+          "bpm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bpm"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "inference_steps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Steps"
+          },
+          "key_scale": {
+            "default": "",
+            "title": "Key Scale",
+            "type": "string"
+          },
+          "lyrics": {
+            "default": "",
+            "title": "Lyrics",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "thinking": {
+            "default": true,
+            "title": "Thinking",
+            "type": "boolean"
+          },
+          "vocal_language": {
+            "default": "",
+            "title": "Vocal Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "GenerateSongRequest",
+        "type": "object"
+      },
+      "GenrePrediction": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "score"
+        ],
+        "title": "GenrePrediction",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "acestep_available": {
+            "default": false,
+            "title": "Acestep Available",
+            "type": "boolean"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CapabilityContract"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
+          },
+          "cover_available": {
+            "default": false,
+            "title": "Cover Available",
+            "type": "boolean"
+          },
+          "cover_ref_available": {
+            "default": false,
+            "title": "Cover Ref Available",
+            "type": "boolean"
+          },
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "device_info": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviceInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fix_push_available": {
+            "default": false,
+            "title": "Fix Push Available",
+            "type": "boolean"
+          },
+          "generate_available": {
+            "title": "Generate Available",
+            "type": "boolean"
+          },
+          "genre_available": {
+            "title": "Genre Available",
+            "type": "boolean"
+          },
+          "librosa_available": {
+            "default": true,
+            "title": "Librosa Available",
+            "type": "boolean"
+          },
+          "maintainer_mode": {
+            "default": false,
+            "title": "Maintainer Mode",
+            "type": "boolean"
+          },
+          "owned": {
+            "default": false,
+            "title": "Owned",
+            "type": "boolean"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "stems_available": {
+            "title": "Stems Available",
+            "type": "boolean"
+          },
+          "stems_melband_available": {
+            "default": false,
+            "title": "Stems Melband Available",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "vision_available": {
+            "title": "Vision Available",
+            "type": "boolean"
+          },
+          "vocal_diffsinger_available": {
+            "title": "Vocal Diffsinger Available",
+            "type": "boolean"
+          },
+          "vocal_embed_plan_available": {
+            "title": "Vocal Embed Plan Available",
+            "type": "boolean"
+          },
+          "vocal_ml_available": {
+            "title": "Vocal Ml Available",
+            "type": "boolean"
+          },
+          "vocal_models_available": {
+            "title": "Vocal Models Available",
+            "type": "boolean"
+          },
+          "vocal_rvc_available": {
+            "title": "Vocal Rvc Available",
+            "type": "boolean"
+          },
+          "vocal_synthesis_available": {
+            "title": "Vocal Synthesis Available",
+            "type": "boolean"
+          },
+          "vocal_transform_available": {
+            "default": false,
+            "title": "Vocal Transform Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status",
+          "device",
+          "version",
+          "stems_available",
+          "genre_available",
+          "vision_available",
+          "vocal_embed_plan_available",
+          "vocal_synthesis_available",
+          "vocal_ml_available",
+          "vocal_models_available",
+          "vocal_rvc_available",
+          "vocal_diffsinger_available",
+          "generate_available"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "ImageAnalysis": {
+        "properties": {
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          },
+          "caption_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption Model"
+          },
+          "clip_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip Model"
+          },
+          "clip_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GenrePrediction"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip Tags"
+          },
+          "device": {
+            "title": "Device",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device"
+        ],
+        "title": "ImageAnalysis",
+        "type": "object"
+      },
+      "JobCancelResponse": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "cancellation_requested",
+              "done",
+              "error",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "status"
+        ],
+        "title": "JobCancelResponse",
+        "type": "object"
+      },
+      "JobSubmission": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobSubmission",
+        "type": "object"
+      },
+      "OpenVpiStatus": {
+        "properties": {
+          "acoustic_exp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acoustic Exp"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "python": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Python"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speaker"
+          },
+          "variance_exp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variance Exp"
+          }
+        },
+        "required": [
+          "root",
+          "acoustic_exp",
+          "variance_exp",
+          "python",
+          "speaker",
+          "language",
+          "configured",
+          "ready"
+        ],
+        "title": "OpenVpiStatus",
+        "type": "object"
+      },
+      "OpenvpiDsExportResponse": {
+        "properties": {
+          "align_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Align Method"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "segment_count": {
+            "title": "Segment Count",
+            "type": "integer"
+          },
+          "segments": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Segments",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "version",
+          "align_method",
+          "segment_count",
+          "segments"
+        ],
+        "title": "OpenvpiDsExportResponse",
+        "type": "object"
+      },
+      "PublicAudioResult": {
+        "additionalProperties": false,
+        "properties": {
+          "audio_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Format"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready",
+          "model",
+          "duration_sec",
+          "mode",
+          "audio_format"
+        ],
+        "title": "PublicAudioResult",
+        "type": "object"
+      },
+      "PublicJobStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "number"
+          },
+          "result": {
+            "$ref": "#/components/schemas/PublicAudioResult"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "cancellation_requested",
+              "done",
+              "error",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "kind",
+          "status",
+          "progress",
+          "message",
+          "error",
+          "result"
+        ],
+        "title": "PublicJobStatus",
+        "type": "object"
+      },
+      "RuntimeDeliverRequest": {
+        "properties": {
+          "github_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Github Token"
+          },
+          "mode": {
+            "default": "issue",
+            "enum": [
+              "issue",
+              "branch",
+              "pr"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "title": "RuntimeDeliverRequest",
+        "type": "object"
+      },
+      "RuntimeDeliverResponse": {
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "issue_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue Number"
+          },
+          "issue_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue Url"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "pr_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Url"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "stage",
+          "message"
+        ],
+        "title": "RuntimeDeliverResponse",
+        "type": "object"
+      },
+      "SeparateResult": {
+        "properties": {
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "stems": {
+            "items": {
+              "$ref": "#/components/schemas/StemFile"
+            },
+            "title": "Stems",
+            "type": "array"
+          }
+        },
+        "required": [
+          "device",
+          "model",
+          "sources",
+          "job_id",
+          "stems"
+        ],
+        "title": "SeparateResult",
+        "type": "object"
+      },
+      "SonicSignatureResponse": {
+        "properties": {
+          "beat_count": {
+            "title": "Beat Count",
+            "type": "integer"
+          },
+          "chord_progression": {
+            "items": {
+              "$ref": "#/components/schemas/ChordPoint"
+            },
+            "title": "Chord Progression",
+            "type": "array"
+          },
+          "duration_sec": {
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "harmonic_ratio": {
+            "title": "Harmonic Ratio",
+            "type": "number"
+          },
+          "key_confidence": {
+            "title": "Key Confidence",
+            "type": "number"
+          },
+          "key_estimate": {
+            "title": "Key Estimate",
+            "type": "string"
+          },
+          "loudness_db": {
+            "title": "Loudness Db",
+            "type": "number"
+          },
+          "percussive_ratio": {
+            "title": "Percussive Ratio",
+            "type": "number"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "spectral_centroid_hz": {
+            "title": "Spectral Centroid Hz",
+            "type": "number"
+          },
+          "tempo_bpm": {
+            "title": "Tempo Bpm",
+            "type": "number"
+          },
+          "time_signature": {
+            "title": "Time Signature",
+            "type": "integer"
+          },
+          "timeline_segments": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineSegment"
+            },
+            "title": "Timeline Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "duration_sec",
+          "tempo_bpm",
+          "key_estimate",
+          "key_confidence",
+          "time_signature",
+          "loudness_db",
+          "spectral_centroid_hz",
+          "harmonic_ratio",
+          "percussive_ratio",
+          "beat_count",
+          "chord_progression",
+          "timeline_segments",
+          "provider"
+        ],
+        "title": "SonicSignatureResponse",
+        "type": "object"
+      },
+      "StemFile": {
+        "properties": {
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "download_url",
+          "filename"
+        ],
+        "title": "StemFile",
+        "type": "object"
+      },
+      "TimelineSegment": {
+        "properties": {
+          "brightness_hz": {
+            "title": "Brightness Hz",
+            "type": "number"
+          },
+          "end_sec": {
+            "title": "End Sec",
+            "type": "number"
+          },
+          "energy": {
+            "title": "Energy",
+            "type": "number"
+          },
+          "start_sec": {
+            "title": "Start Sec",
+            "type": "number"
+          }
+        },
+        "required": [
+          "start_sec",
+          "end_sec",
+          "energy",
+          "brightness_hz"
+        ],
+        "title": "TimelineSegment",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VocalAlignPreviewResponse": {
+        "properties": {
+          "align_method": {
+            "title": "Align Method",
+            "type": "string"
+          },
+          "mfa_configured": {
+            "title": "Mfa Configured",
+            "type": "boolean"
+          },
+          "mfa_ready": {
+            "title": "Mfa Ready",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "word_count": {
+            "title": "Word Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mfa_configured",
+          "mfa_ready",
+          "align_method",
+          "word_count",
+          "sections"
+        ],
+        "title": "VocalAlignPreviewResponse",
+        "type": "object"
+      },
+      "VocalAlignStatus": {
+        "properties": {
+          "mfa_configured": {
+            "title": "Mfa Configured",
+            "type": "boolean"
+          },
+          "mfa_ready": {
+            "title": "Mfa Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mfa_configured",
+          "mfa_ready"
+        ],
+        "title": "VocalAlignStatus",
+        "type": "object"
+      },
+      "VocalEmbedPlanEnvelope": {
+        "properties": {
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "openvpiDs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvpids"
+          },
+          "plan": {
+            "additionalProperties": true,
+            "title": "Plan",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "version",
+          "createdAt",
+          "plan"
+        ],
+        "title": "VocalEmbedPlanEnvelope",
+        "type": "object"
+      },
+      "VocalEmbedPlanResponse": {
+        "properties": {
+          "align_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Align Method"
+          },
+          "align_word_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Align Word Count"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Next Steps",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "openvpi_ds_segments": {
+            "default": 0,
+            "title": "Openvpi Ds Segments",
+            "type": "integer"
+          },
+          "section_count": {
+            "title": "Section Count",
+            "type": "integer"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "synthesis_available": {
+            "default": false,
+            "title": "Synthesis Available",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "stage",
+          "mode",
+          "section_count",
+          "message"
+        ],
+        "title": "VocalEmbedPlanResponse",
+        "type": "object"
+      },
+      "VocalModelStatus": {
+        "properties": {
+          "align": {
+            "$ref": "#/components/schemas/VocalAlignStatus"
+          },
+          "diffsinger_cmd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diffsinger Cmd"
+          },
+          "diffsinger_configured": {
+            "title": "Diffsinger Configured",
+            "type": "boolean"
+          },
+          "diffsinger_model_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diffsinger Model Dir"
+          },
+          "diffsinger_openvpi": {
+            "$ref": "#/components/schemas/OpenVpiStatus"
+          },
+          "diffsinger_ready": {
+            "title": "Diffsinger Ready",
+            "type": "boolean"
+          },
+          "diffsinger_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diffsinger Url"
+          },
+          "models_ready": {
+            "title": "Models Ready",
+            "type": "boolean"
+          },
+          "rvc_api": {
+            "title": "Rvc Api",
+            "type": "boolean"
+          },
+          "rvc_api_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rvc Api Url"
+          },
+          "rvc_index": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rvc Index"
+          },
+          "rvc_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rvc Model"
+          },
+          "rvc_model_configured": {
+            "title": "Rvc Model Configured",
+            "type": "boolean"
+          },
+          "rvc_models_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rvc Models Dir"
+          },
+          "rvc_python": {
+            "title": "Rvc Python",
+            "type": "boolean"
+          },
+          "rvc_ready": {
+            "title": "Rvc Ready",
+            "type": "boolean"
+          },
+          "transformers_tts": {
+            "title": "Transformers Tts",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rvc_python",
+          "rvc_api",
+          "rvc_model_configured",
+          "rvc_ready",
+          "rvc_model",
+          "rvc_index",
+          "rvc_models_dir",
+          "rvc_api_url",
+          "diffsinger_configured",
+          "diffsinger_ready",
+          "diffsinger_cmd",
+          "diffsinger_url",
+          "diffsinger_model_dir",
+          "diffsinger_openvpi",
+          "transformers_tts",
+          "models_ready",
+          "align"
+        ],
+        "title": "VocalModelStatus",
+        "type": "object"
+      },
+      "YoutubeResolveRequest": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "YoutubeResolveRequest",
+        "type": "object"
+      },
+      "YoutubeResolveResponse": {
+        "properties": {
+          "author_name": {
+            "title": "Author Name",
+            "type": "string"
+          },
+          "categories": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "description_excerpt": {
+            "default": "",
+            "title": "Description Excerpt",
+            "type": "string"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "parsed_artist": {
+            "title": "Parsed Artist",
+            "type": "string"
+          },
+          "parsed_track": {
+            "title": "Parsed Track",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "search_query": {
+            "title": "Search Query",
+            "type": "string"
+          },
+          "tags": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "thumbnail_url": {
+            "title": "Thumbnail Url",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "video_id": {
+            "title": "Video Id",
+            "type": "string"
+          },
+          "watch_url": {
+            "title": "Watch Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "video_id",
+          "watch_url",
+          "title",
+          "author_name",
+          "thumbnail_url",
+          "parsed_artist",
+          "parsed_track",
+          "search_query",
+          "provider"
+        ],
+        "title": "YoutubeResolveResponse",
+        "type": "object"
+      },
+      "YoutubeSonicRequest": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "YoutubeSonicRequest",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "AI Music Creator — AI Sidecar",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/acestep/ensure": {
+      "post": {
+        "operationId": "ensure_acestep_acestep_ensure_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ensure Acestep"
+      }
+    },
+    "/acestep/presets": {
+      "get": {
+        "description": "List locally installed ACE-Step presets for the full-song controls.",
+        "operationId": "acestep_presets_acestep_presets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AceStepPresetCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Acestep Presets"
+      }
+    },
+    "/acousticbrainz/{recording_mbid}": {
+      "get": {
+        "description": "Fetch archived AcousticBrainz features for a MusicBrainz recording MBID.",
+        "operationId": "acousticbrainz_lookup_acousticbrainz__recording_mbid__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_mbid",
+            "required": true,
+            "schema": {
+              "title": "Recording Mbid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcousticBrainzResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acousticbrainz Lookup"
+      }
+    },
+    "/analyze": {
+      "post": {
+        "description": "Real signal analysis with librosa — replaces the JS heuristic analyzer.\n\nReturns true beat-tracked tempo, a chroma-based key estimate, and spectral\ncentroid. This is the first 'real AI/DSP' capability in the migration.",
+        "operationId": "analyze_analyze_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_analyze_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Analysis"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze"
+      }
+    },
+    "/analyze-image": {
+      "post": {
+        "description": "Optional BLIP captioning + CLIP tags when the vision extra is installed.",
+        "operationId": "analyze_image_analyze_image_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_image_analyze_image_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageAnalysis"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze Image"
+      }
+    },
+    "/cover": {
+      "post": {
+        "description": "Optional FLUX text→album cover (requires `cover` extra).",
+        "operationId": "generate_cover_cover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Cover"
+      }
+    },
+    "/cover-ref": {
+      "post": {
+        "description": "Optional FLUX img2img cover from a reference image (requires `cover-ref` extra).",
+        "operationId": "generate_cover_ref_cover_ref_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_generate_cover_ref_cover_ref_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Cover Ref"
+      }
+    },
+    "/dev-session/ping": {
+      "post": {
+        "description": "Keep the sidecar alive while local dev tools (Next/Tauri/Electron) are running.",
+        "operationId": "dev_session_ping_dev_session_ping_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Dev Session Ping Dev Session Ping Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Dev Session Ping"
+      }
+    },
+    "/fail-safe/capabilities": {
+      "get": {
+        "operationId": "fail_safe_capabilities_fail_safe_capabilities_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FailSafeCapabilities"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Fail Safe Capabilities"
+      }
+    },
+    "/fail-safe/fix-push": {
+      "post": {
+        "operationId": "fail_safe_fix_push_fail_safe_fix_push_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixPushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FixPushResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fail Safe Fix Push"
+      }
+    },
+    "/fail-safe/runtime-deliver": {
+      "post": {
+        "operationId": "fail_safe_runtime_deliver_fail_safe_runtime_deliver_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeDeliverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeDeliverResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fail Safe Runtime Deliver"
+      }
+    },
+    "/generate": {
+      "post": {
+        "description": "Optional MusicGen text-to-music (requires `generate` extra; CC-BY-NC weights).",
+        "operationId": "generate_music_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Music"
+      }
+    },
+    "/generate/audio/{job_id}": {
+      "get": {
+        "operationId": "generate_audio_generate_audio__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Audio"
+      }
+    },
+    "/generate/jobs": {
+      "post": {
+        "description": "Queue MusicGen and return immediately. Poll GET /jobs/{id}.",
+        "operationId": "enqueue_generate_generate_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobSubmission"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Generate"
+      }
+    },
+    "/generate/melody": {
+      "post": {
+        "description": "MusicGen with melody conditioning from a reference WAV/MP3 clip.",
+        "operationId": "generate_music_with_melody_generate_melody_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_generate_music_with_melody_generate_melody_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Music With Melody"
+      }
+    },
+    "/generate/melody/jobs": {
+      "post": {
+        "description": "Queue melody-conditioned MusicGen. Poll GET /jobs/{id}.",
+        "operationId": "enqueue_generate_melody_generate_melody_jobs_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_enqueue_generate_melody_generate_melody_jobs_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobSubmission"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Generate Melody"
+      }
+    },
+    "/generate/song": {
+      "post": {
+        "description": "Full-song generation via ACE-Step API bridge (AIMC_ACESTEP_API_URL).",
+        "operationId": "generate_full_song_generate_song_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateSongRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Generate Full Song"
+      }
+    },
+    "/generate/song/jobs": {
+      "post": {
+        "description": "Queue ACE-Step. The worker starts the API if the checkout is available.",
+        "operationId": "enqueue_generate_song_generate_song_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateSongRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobSubmission"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Generate Song"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/jobs/{job_id}": {
+      "get": {
+        "operationId": "job_status_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicJobStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Job Status"
+      }
+    },
+    "/jobs/{job_id}/cancel": {
+      "post": {
+        "description": "Request cancellation of a queued or running job.",
+        "operationId": "cancel_job_jobs__job_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCancelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Job"
+      }
+    },
+    "/separate": {
+      "post": {
+        "description": "Stem separation via Demucs or Mel-Band RoFormer — returns HTTP download URLs.",
+        "operationId": "separate_separate_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_separate_separate_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeparateResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Separate"
+      }
+    },
+    "/separate/download/{job_id}/{filename}": {
+      "get": {
+        "description": "Download one separated stem WAV by job token.",
+        "operationId": "separate_download_separate_download__job_id___filename__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "title": "Filename",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Separate Download"
+      }
+    },
+    "/sonic-signature": {
+      "post": {
+        "description": "Rich librosa sonic signature — BPM, key+mode, chord progression, timeline.",
+        "operationId": "sonic_signature_sonic_signature_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_sonic_signature_sonic_signature_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SonicSignatureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sonic Signature"
+      }
+    },
+    "/vocal-embed/align-preview": {
+      "post": {
+        "description": "Preview per-section word alignment from a guide vocal (MFA or heuristic).",
+        "operationId": "vocal_embed_align_preview_vocal_embed_align_preview_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_vocal_embed_align_preview_vocal_embed_align_preview_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocalAlignPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vocal Embed Align Preview"
+      }
+    },
+    "/vocal-embed/ds-export": {
+      "post": {
+        "description": "Build OpenVPI DiffSinger `.ds` segment JSON from a vocal embed plan.",
+        "operationId": "vocal_embed_ds_export_vocal_embed_ds_export_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_vocal_embed_ds_export_vocal_embed_ds_export_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenvpiDsExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vocal Embed Ds Export"
+      }
+    },
+    "/vocal-embed/models": {
+      "get": {
+        "description": "Report configured RVC / DiffSinger integrations (models are user-provided).",
+        "operationId": "vocal_embed_models_vocal_embed_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocalModelStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Vocal Embed Models"
+      }
+    },
+    "/vocal-embed/plan": {
+      "post": {
+        "description": "Validate a Vocal Embed Studio JSON plan from the app.",
+        "operationId": "vocal_embed_plan_vocal_embed_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VocalEmbedPlanEnvelope"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocalEmbedPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vocal Embed Plan"
+      }
+    },
+    "/vocal-embed/synthesize": {
+      "post": {
+        "description": "Placement-mix v1: duck instrumental under plan sections and overlay guide vocal.",
+        "operationId": "vocal_embed_synthesize_vocal_embed_synthesize_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_vocal_embed_synthesize_vocal_embed_synthesize_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vocal Embed Synthesize"
+      }
+    },
+    "/vocal-transform": {
+      "post": {
+        "description": "Separate vocals, transform selected regions, return remix and/or acapella.",
+        "operationId": "vocal_transform_mix_vocal_transform_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_vocal_transform_mix_vocal_transform_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vocal Transform Mix"
+      }
+    },
+    "/vocal-transform/download/{job_id}/{kind}": {
+      "get": {
+        "description": "Download remix or vocals artifact from a completed vocal-transform job.",
+        "operationId": "vocal_transform_download_vocal_transform_download__job_id___kind__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Vocal Transform Download"
+      }
+    },
+    "/youtube/resolve": {
+      "post": {
+        "description": "Resolve YouTube watch URL to public metadata (server-side oEmbed / optional yt-dlp).",
+        "operationId": "youtube_resolve_youtube_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YoutubeResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/YoutubeResolveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Youtube Resolve"
+      }
+    },
+    "/youtube/sonic-signature": {
+      "post": {
+        "description": "Download YouTube audio via yt-dlp and extract sonic signature (BPM, key, chords).",
+        "operationId": "youtube_sonic_signature_youtube_sonic_signature_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YoutubeSonicRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SonicSignatureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Youtube Sonic Signature"
+      }
+    }
+  }
+}
