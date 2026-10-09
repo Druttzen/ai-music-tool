@@ -683,6 +683,27 @@ export async function cancelSidecarJob(jobId: string): Promise<{ job_id: string;
   return (await res.json()) as { job_id: string; status: string };
 }
 
+export type AceStepPresetCatalog = {
+  turbo_model: string;
+  quality_model: string;
+  quality_available: boolean;
+  home: string;
+  note: string;
+};
+
+/** Report locally installed ACE-Step checkpoints so unsupported presets stay disabled. */
+export async function fetchAceStepPresets(): Promise<AceStepPresetCatalog | null> {
+  try {
+    const res = await fetch(`${sidecarBaseUrl()}/acestep/presets`, {
+      headers: await sidecarAuthHeaders(),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as AceStepPresetCatalog;
+  } catch {
+    return null;
+  }
+}
+
 async function downloadGenerateAudio(jobId: string): Promise<Blob> {
   const res = await fetch(`${sidecarBaseUrl()}/generate/audio/${jobId}`, {
     headers: await sidecarAuthHeaders(),

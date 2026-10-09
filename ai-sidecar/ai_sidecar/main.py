@@ -947,6 +947,14 @@ def ensure_acestep():
     return {"ok": True, "url": url}
 
 
+@app.get("/acestep/presets")
+def acestep_presets():
+    """List locally installed ACE-Step presets for the full-song controls."""
+    from .acestep_lifecycle import preset_catalog
+
+    return preset_catalog()
+
+
 @app.post("/vocal-transform")
 async def vocal_transform_mix(
     file: UploadFile = File(...),

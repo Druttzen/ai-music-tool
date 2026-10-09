@@ -17,20 +17,50 @@ from typing import Any
 _START_LOCK = __import__("threading").Lock()
 _CHILD: subprocess.Popen | None = None
 _CHILD_CONFIG: str = ""
+_LOG_HANDLE: Any = None
 
 TURBO_MODEL = "acestep-v15-turbo"
 QUALITY_MODEL = "acestep-v15-base"
 
 
-def _ace_home() -> Path | None:
+def _fixed_drive_roots() -> list[str]:
+    """Return local fixed drive roots on Windows without probing network drives."""
+    if os.name != "nt":
+        return []
+    try:
+        import ctypes
+
+        kernel = ctypes.windll.kernel32
+        mask = int(kernel.GetLogicalDrives())
+        return [
+            f"{chr(65 + index)}:\\"
+            for index in range(26)
+            if mask & (1 << index)
+            and int(kernel.GetDriveTypeW(f"{chr(65 + index)}:\\")) == 3
+        ]
+    except (AttributeError, OSError):
+        return []
+
+
+def ace_home_candidates() -> list[str]:
+    """Likely ACE-Step checkouts, ordered from explicit config to broad discovery."""
     candidates = [
         os.environ.get("AIMC_ACESTEP_HOME", ""),
         os.environ.get("ACESTEP_HOME", ""),
-        r"F:\ACE-Step-1.5",
     ]
     repo = os.environ.get("AIMC_REPO_ROOT", "")
     if repo:
         candidates.append(str(Path(repo).parent / "ACE-Step-1.5"))
+    here = Path(__file__).resolve()
+    if len(here.parents) >= 3:
+        candidates.append(str(here.parents[2].parent / "ACE-Step-1.5"))
+    candidates.append(str(Path.home() / "ACE-Step-1.5"))
+    candidates.extend(str(Path(root) / "ACE-Step-1.5") for root in _fixed_drive_roots())
+    return list(dict.fromkeys(candidates))
+
+
+def _ace_home() -> Path | None:
+    candidates = ace_home_candidates()
     for raw in candidates:
         text = str(raw or "").strip()
         if not text:
@@ -57,6 +87,19 @@ def _checkpoint_exists(model_id: str, *, home: Path | None = None) -> bool:
     if root is None:
         return False
     return (root / name).is_dir()
+
+
+def preset_catalog() -> dict[str, Any]:
+    """Report installed presets so the UI cannot select a missing checkpoint."""
+    home = _ace_home()
+    quality_ok = _checkpoint_exists(QUALITY_MODEL, home=home)
+    return {
+        "turbo_model": TURBO_MODEL,
+        "quality_model": QUALITY_MODEL,
+        "quality_available": quality_ok,
+        "home": str(home) if home else "",
+        "note": "" if quality_ok else f"checkpoint {QUALITY_MODEL} is not installed",
+    }
 
 
 def resolve_acestep_dit_model(
@@ -188,13 +231,16 @@ def _parse_loaded_model(body: Any) -> str:
 
 
 def _stop_our_child(*, wait_sec: float = 20.0) -> None:
-    global _CHILD, _CHILD_CONFIG
+    global _CHILD, _CHILD_CONFIG, _LOG_HANDLE
     child = _CHILD
     _CHILD = None
     _CHILD_CONFIG = ""
     if child is None:
         return
     if child.poll() is not None:
+        if _LOG_HANDLE is not None:
+            _LOG_HANDLE.close()
+            _LOG_HANDLE = None
         return
     try:
         child.terminate()
@@ -203,16 +249,22 @@ def _stop_our_child(*, wait_sec: float = 20.0) -> None:
     deadline = time.monotonic() + max(2.0, wait_sec)
     while time.monotonic() < deadline:
         if child.poll() is not None:
+            if _LOG_HANDLE is not None:
+                _LOG_HANDLE.close()
+                _LOG_HANDLE = None
             return
         time.sleep(0.4)
     try:
         child.kill()
     except OSError:
         pass
+    if _LOG_HANDLE is not None:
+        _LOG_HANDLE.close()
+        _LOG_HANDLE = None
 
 
 def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess.Popen:
-    global _CHILD, _CHILD_CONFIG
+    global _CHILD, _CHILD_CONFIG, _LOG_HANDLE
     uv = "uv"
     venv_py = home / ".venv" / "Scripts" / "python.exe"
     if os.name != "nt":
@@ -251,12 +303,18 @@ def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess
     env.pop("ACESTEP_CONFIG_PATH2", None)
     env.pop("ACESTEP_CONFIG_PATH3", None)
 
+    if _LOG_HANDLE is not None:
+        try:
+            _LOG_HANDLE.close()
+        except OSError:
+            pass
+    _LOG_HANDLE = open(home / "acestep-api.log", "ab", buffering=0)
     _CHILD = subprocess.Popen(
         cmd,
         cwd=str(home),
         env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=_LOG_HANDLE,
+        stderr=subprocess.STDOUT,
     )
     _CHILD_CONFIG = config_path
     return _CHILD
@@ -295,6 +353,10 @@ def ensure_acestep_api(*, wait_sec: float = 90.0, model: str = "") -> str:
             reachable = False
 
         if reachable:
+            if not own and loaded and loaded != desired:
+                raise RuntimeError(
+                    f"ACE-Step is already running {loaded} at {base}; close or switch that server to use {desired}"
+                )
             return base
 
         if home is None:

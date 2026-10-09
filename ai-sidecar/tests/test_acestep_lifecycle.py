@@ -6,6 +6,8 @@ from ai_sidecar.acestep_lifecycle import (
     QUALITY_MODEL,
     TURBO_MODEL,
     _parse_loaded_model,
+    ace_home_candidates,
+    preset_catalog,
     resolve_acestep_dit_model,
     should_restart_our_acestep_child,
 )
@@ -43,6 +45,25 @@ def test_resolve_unknown_falls_back_to_turbo(tmp_path: Path):
     model, warning = resolve_acestep_dit_model("not-a-model", home=tmp_path)
     assert model == TURBO_MODEL
     assert warning is not None
+
+
+def test_ace_home_candidates_prefer_explicit_environment(monkeypatch):
+    monkeypatch.setenv("AIMC_ACESTEP_HOME", r"D:\custom\ACE-Step-1.5")
+    monkeypatch.setenv("ACESTEP_HOME", r"E:\other\ACE-Step-1.5")
+    candidates = ace_home_candidates()
+    assert candidates[:2] == [r"D:\custom\ACE-Step-1.5", r"E:\other\ACE-Step-1.5"]
+
+
+def test_preset_catalog_tracks_quality_checkpoint(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("ai_sidecar.acestep_lifecycle._ace_home", lambda: tmp_path)
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='ace'\n", encoding="utf-8")
+    catalog = preset_catalog()
+    assert catalog["quality_available"] is False
+    assert QUALITY_MODEL in catalog["note"]
+    (tmp_path / "checkpoints" / QUALITY_MODEL).mkdir(parents=True)
+    catalog = preset_catalog()
+    assert catalog["quality_available"] is True
+    assert catalog["note"] == ""
 
 
 def test_should_restart_only_when_we_own_and_model_differs():

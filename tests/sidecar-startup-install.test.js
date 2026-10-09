@@ -133,7 +133,7 @@ describe("startup addon install runner", () => {
     expect(states.at(-1)?.open).toBe(false);
   });
 
-  it("installs missing extras even when /health is unowned", async () => {
+  it("keeps missing extras optional even when /health is unowned", async () => {
     const installExtra = vi.fn().mockResolvedValue({ ok: true, mode: "installed", extraId: "vision" });
     const result = await runStartupAddonInstall(
       {
@@ -162,8 +162,8 @@ describe("startup addon install runner", () => {
       },
       () => {},
     );
-    expect(installExtra).toHaveBeenCalledWith("vision");
-    expect(result.completedIds).toEqual(["vision"]);
+    expect(installExtra).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ skipped: true, reason: "optional-addons" });
   });
 
   it("does not pretend extras are installed when sidecar health is missing", async () => {
@@ -184,7 +184,7 @@ describe("startup addon install runner", () => {
     expect(result.reason).toBe("no-health");
   });
 
-  it("auto-installs missing extras and reports progress fields", async () => {
+  it("offers missing extras without downloading them at startup", async () => {
     const installExtra = vi.fn().mockResolvedValue({ ok: true, mode: "installed", extraId: "vocal" });
     const states = [];
     const result = await runStartupAddonInstall(
@@ -208,15 +208,17 @@ describe("startup addon install runner", () => {
       },
       (state) => states.push(state),
     );
-    expect(installExtra).toHaveBeenCalledWith("vocal");
-    expect(result.skipped).toBe(false);
-    expect(result.completedIds).toEqual(["vocal"]);
-    expect(states.some((s) => s.phase === "installing" && s.sizeLabel)).toBe(true);
-    expect(states.some((s) => s.etaLabel)).toBe(true);
-    expect(states.filter((s) => s.phase === "installing").some((s) => s.open)).toBe(true);
+    expect(installExtra).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ skipped: true, reason: "optional-addons" });
+    expect(states.at(-1)).toMatchObject({
+      phase: "blocked",
+      open: true,
+      dismissable: true,
+      statusLine: "Optional add-ons are not installed",
+    });
   });
 
-  it("blocks pip extras when the venv is read-only", async () => {
+  it("keeps pip extras optional when the venv is read-only", async () => {
     const installExtra = vi.fn();
     const result = await runStartupAddonInstall(
       {
@@ -241,6 +243,6 @@ describe("startup addon install runner", () => {
       () => {},
     );
     expect(installExtra).not.toHaveBeenCalled();
-    expect(result.reason).toBe("blocked-env");
+    expect(result.reason).toBe("optional-addons");
   });
 });

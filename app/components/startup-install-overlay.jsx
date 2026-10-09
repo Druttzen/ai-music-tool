@@ -31,7 +31,9 @@ export function StartupInstallOverlay({
         <div className="text-xs font-black uppercase tracking-[0.35em] text-orange-300">
           Studio setup
         </div>
-        <h2 className="mt-3 text-2xl font-black tracking-tight text-white">Installing addons</h2>
+        <h2 className="mt-3 text-2xl font-black tracking-tight text-white">
+          {phase === "blocked" ? "Optional add-ons" : "Installing addons"}
+        </h2>
         <p data-testid="startup-install-status" className="mt-3 text-sm text-white/70">
           {statusLine || "Preparing…"}
         </p>
@@ -91,7 +93,7 @@ export function StartupInstallOverlay({
             onClick={dismiss}
             className="mt-6 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-bold text-white/80 hover:bg-white/20"
           >
-            Continue
+            {phase === "blocked" ? "Continue to Studio" : "Continue"}
           </button>
         ) : (
           <p className="mt-6 text-[11px] text-white/35">This window stays open until setup finishes.</p>

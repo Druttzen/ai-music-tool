@@ -23,26 +23,33 @@ _VOCAL_ENV_KEYS = (
 
 
 def load_vocal_env_file(env_path: Path | None = None) -> list[str]:
-    """Apply key=value pairs from ai-sidecar/.env.vocal (does not override existing env)."""
-    path = env_path or Path(__file__).resolve().parents[1] / ".env.vocal"
-    if not path.is_file():
-        return []
+    """Load sidecar env config, including the writable packaged Studio data dir."""
+    if env_path is not None:
+        candidates = [env_path]
+    else:
+        candidates: list[Path] = []
+        studio_data = os.environ.get("STUDIO_DATA_DIR", "").strip()
+        if studio_data:
+            sidecar_data = Path(studio_data) / "sidecar"
+            candidates.extend((sidecar_data / "pkg" / ".env.vocal", sidecar_data / ".env.vocal"))
+        candidates.append(Path(__file__).resolve().parents[1] / ".env.vocal")
 
     loaded: list[str] = []
-    text = path.read_text(encoding="utf-8-sig")  # strip UTF-8 BOM if present
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
+    for path in dict.fromkeys(candidates):
+        if not path.is_file():
             continue
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip().lstrip("\ufeff")
-        value = value.strip().strip('"').strip("'")
-        if key not in _VOCAL_ENV_KEYS:
-            continue
-        if key in os.environ and os.environ[key].strip():
-            continue
-        os.environ[key] = value
-        loaded.append(key)
+        text = path.read_text(encoding="utf-8-sig")  # strip UTF-8 BOM if present
+        for raw in text.splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip().lstrip("\ufeff")
+            value = value.strip().strip('"').strip("'")
+            if key not in _VOCAL_ENV_KEYS:
+                continue
+            if key in os.environ and os.environ[key].strip():
+                continue
+            os.environ[key] = value
+            loaded.append(key)
     return loaded

@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
+import { fetchAceStepPresets } from "../lib/sidecar-bridge";
 
 const ACE_ENV_SNIPPET = `AIMC_ACESTEP_API_URL=http://127.0.0.1:8001
 # AIMC_ACESTEP_API_KEY=
@@ -34,8 +35,38 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   const [useDna, setUseDna] = useState(true);
   const [thinking, setThinking] = useState(true);
   const [quality, setQuality] = useState("turbo");
+  const [qualityAvailable, setQualityAvailable] = useState(false);
+  const [qualityNote, setQualityNote] = useState("");
   const [seed, setSeed] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!available) {
+      setQualityAvailable(false);
+      setQualityNote("");
+      setQuality("turbo");
+      return () => {
+        cancelled = true;
+      };
+    }
+    setQualityAvailable(false);
+    setQualityNote("Checking installed ACE-Step presets…");
+    void fetchAceStepPresets().then((catalog) => {
+      if (cancelled) return;
+      const canUseQuality = !!catalog?.quality_available;
+      setQualityAvailable(canUseQuality);
+      setQualityNote(
+        canUseQuality
+          ? ""
+          : catalog?.note || "Could not verify the base checkpoint; Quality is disabled.",
+      );
+      if (!canUseQuality) setQuality("turbo");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [available]);
 
   useWorkspaceResetEffect(() => {
     setPromptOverride(null);
@@ -152,8 +183,11 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           <select value={quality} disabled={busy} onChange={(e) => setQuality(e.target.value)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white">
             <option value="turbo">Turbo (faster)</option>
-            <option value="quality">Quality (thinking + 32 steps)</option>
+            <option value="quality" disabled={!qualityAvailable}>
+              {qualityAvailable ? "Quality (thinking + 32 steps)" : "Quality (base checkpoint not installed)"}
+            </option>
           </select>
+          {qualityNote ? <span className="mt-1 block text-[10px] text-amber-100/80">{qualityNote}</span> : null}
         </label>
         <label className="block text-[10px] text-white/50">
           Seed

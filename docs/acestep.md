@@ -17,7 +17,8 @@ npm run sidecar:acestep
 
 That writes `AIMC_ACESTEP_API_URL` into `ai-sidecar/.env.vocal` (and Studio
 `data/sidecar/pkg/.env.vocal` when present) and starts the ACE-Step API if a
-checkout is found (`AIMC_ACESTEP_HOME`, `ACESTEP_HOME`, or `F:\ACE-Step-1.5`).
+checkout is found. Discovery checks `AIMC_ACESTEP_HOME`, `ACESTEP_HOME`, a
+sibling checkout, the user home, then local fixed Windows drives.
 
 Manual alternative:
 
@@ -28,7 +29,8 @@ Manual alternative:
    # default: http://127.0.0.1:8001
    ```
 
-2. Configure the music sidecar (env or `ai-sidecar/.env.vocal`):
+2. Configure the music sidecar (process environment, `ai-sidecar/.env.vocal`,
+   or the installed app's `{STUDIO_DATA_DIR}/sidecar/pkg/.env.vocal`):
 
    ```bash
    AIMC_ACESTEP_API_URL=http://127.0.0.1:8001
@@ -42,10 +44,11 @@ Manual alternative:
    `acestep-v15-base` when that checkpoint exists) and
    `ACESTEP_ON_DEMAND_MODEL_LOAD=true` so a later quality switch can load
    another `acestep-v15-*` id. Only one DiT is kept in memory (consumer GPUs).
-   If Quality is selected but `checkpoints/acestep-v15-base` is missing, the
-   sidecar falls back to turbo and reports that in the job status line.
-   Studio only restarts an ACE process it spawned — a manually started API on
-   `:8001` is left alone.
+   If `checkpoints/acestep-v15-base` is missing, the UI disables Quality. If an
+   already-running server has a different model, Studio reports the mismatch
+   and leaves that process untouched. When Studio starts its own API, output
+   is recorded in `acestep-api.log` in the checkout. `GET /acestep/presets`
+   reports local checkpoint availability.
 
 3. Restart the sidecar (`npm run sidecar`). `/health` shows
    `acestep_available: true` only when the ACE-Step API at

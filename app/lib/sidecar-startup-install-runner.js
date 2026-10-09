@@ -1,22 +1,15 @@
 /**
  * One-shot desktop startup install: missing sidecar extras + Canvas addon.
  */
-import { isDesktopAddonHost, getCanvasAddonStatus, installCanvasAddon } from "./canvas-addon-client";
+import { isDesktopAddonHost, getCanvasAddonStatus } from "./canvas-addon-client";
 import {
   fetchSidecarHealthAfterExtraInstall,
-  installSidecarExtra,
-  probeSidecarExtraInstallEnv,
-  sidecarExtraInstallCompleted,
-  sidecarExtraInstallEnvAllowsPip,
-  subscribeSidecarExtraInstallProgress,
-  waitForSidecarExtraReady,
 } from "./sidecar-extra-install-client";
 import { fetchSidecarHealthInventory, waitForSidecar } from "./sidecar-bridge";
 import {
   buildStartupInstallJobs,
   computeStartupInstallSnapshot,
   listMissingSidecarExtrasForInstall,
-  parsePipProgressBytes,
   shouldSkipStartupAddonInstall,
   SIDECAR_EXTRAS_CHANGED_EVENT,
 } from "./sidecar-startup-install";
@@ -39,31 +32,6 @@ export const STARTUP_INSTALL_INITIAL = {
   dismissable: false,
 };
 
-function emitExtrasChanged() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(SIDECAR_EXTRAS_CHANGED_EVENT));
-}
-
-function progressFromPayload(payload) {
-  if (!payload || typeof payload !== "object") return { extraId: "", line: "", parsedBytes: null };
-  const extraId = String(payload.extraId || payload.extra_id || "");
-  const line = String(payload.line || "").trim();
-  const parsed =
-    typeof payload.parsedBytes === "number"
-      ? payload.parsedBytes
-      : typeof payload.parsed_bytes === "number"
-        ? payload.parsed_bytes
-        : parsePipProgressBytes(line);
-  return { extraId, line, parsedBytes: parsed };
-}
-
-function jobOk(job, result) {
-  if (job.kind === "canvas") {
-    return Boolean(result?.ok || result?.alreadyInstalled || result?.mode === "installed");
-  }
-  return sidecarExtraInstallCompleted(result) || Boolean(result?.ok);
-}
-
 /**
  * @param {typeof STARTUP_INSTALL_INITIAL} state
  * @param {Partial<typeof STARTUP_INSTALL_INITIAL>} patch
@@ -78,15 +46,8 @@ function mergeState(state, patch) {
  *   isDesktop?: boolean,
  *   waitForSidecar?: (ms: number) => Promise<boolean>,
  *   fetchHealth?: () => Promise<object|null>,
- *   probeEnv?: () => Promise<{ mode?: string, writable?: boolean, message?: string }>,
  *   getCanvasStatus?: () => Promise<{ installed?: boolean }>,
- *   installExtra?: (id: string) => Promise<object>,
- *   installCanvas?: () => Promise<object>,
- *   waitExtraReady?: (id: string, opts?: object) => Promise<unknown>,
- *   subscribeProgress?: (handler: Function) => () => void,
  *   now?: () => number,
- *   sleep?: (ms: number) => Promise<void>,
- *   tickMs?: number,
  * }} [deps]
  * @param {(state: object) => void} onState
  */
@@ -107,15 +68,8 @@ export async function runStartupAddonInstall(deps = {}, onState = () => {}) {
       if (owned) return owned;
       return fetchSidecarHealthInventory();
     });
-  const probeEnv = deps.probeEnv ?? probeSidecarExtraInstallEnv;
   const getCanvasStatus = deps.getCanvasStatus ?? getCanvasAddonStatus;
-  const installExtra = deps.installExtra ?? installSidecarExtra;
-  const installCanvas = deps.installCanvas ?? installCanvasAddon;
-  const waitExtraReady = deps.waitExtraReady ?? waitForSidecarExtraReady;
-  const subscribeProgress = deps.subscribeProgress ?? subscribeSidecarExtraInstallProgress;
   const now = deps.now ?? Date.now;
-  const sleep = deps.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
-  const tickMs = deps.tickMs ?? 500;
 
   let state = {
     ...STARTUP_INSTALL_INITIAL,
@@ -131,11 +85,6 @@ export async function runStartupAddonInstall(deps = {}, onState = () => {}) {
     await waitSidecar(45_000);
     health = await fetchHealth().catch(() => null);
   }
-  const env = await probeEnv().catch(() => ({
-    mode: "bundled-readonly",
-    writable: false,
-    message: "Could not probe sidecar install environment",
-  }));
   let canvasInstalled = true;
   try {
     const canvas = await getCanvasStatus();
@@ -167,155 +116,22 @@ export async function runStartupAddonInstall(deps = {}, onState = () => {}) {
     return { skipped: true, reason: "all-installed" };
   }
 
-  const pipJobs = jobs.filter((job) => job.kind === "sidecar-extra");
-  const canPip = sidecarExtraInstallEnvAllowsPip(env);
-
-  const runnable = [];
-  if (canPip) {
-    runnable.push(...jobs);
-  } else {
-    runnable.push(...jobs.filter((job) => job.kind === "canvas"));
-  }
-
-  if (!runnable.length) {
-    const next = mergeState(state, {
-      open: true,
-      phase: "blocked",
-      jobs,
-      totalCount: jobs.length,
-      statusLine: "Sidecar extras cannot auto-install here",
-      detailLine: env?.message || "Need a writable sidecar venv (Python 3.10–3.12) or a local checkout.",
-      dismissable: true,
-      percent: 0,
-      sizeLabel: computeStartupInstallSnapshot({ jobs, now: now() }).sizeLabel,
-      etaLabel: "",
-    });
-    onState(next);
-    return { skipped: true, reason: "blocked-env", jobs };
-  }
-
-  const completedIds = [];
-  const errors = [];
-  const startedAt = now();
-  let currentId = null;
-  let currentStartedAt = startedAt;
-  let liveParsedBytes = null;
-  let detailLine = "";
-  let unlisten = () => {};
-
-  const snapshotPatch = (phase, statusLine, extra = {}) => {
-    const snap = computeStartupInstallSnapshot({
-      jobs: runnable,
-      completedIds,
-      currentId,
-      startedAt,
-      currentStartedAt,
-      now: now(),
-      liveParsedBytes,
-    });
-    state = mergeState(state, {
-      open: true,
-      phase,
-      jobs: runnable,
-      statusLine,
-      detailLine,
-      currentTitle: runnable.find((job) => job.id === currentId)?.title || "",
-      dismissable: false,
-      percent: snap.percent,
-      etaLabel: snap.etaLabel,
-      sizeLabel: snap.sizeLabel,
-      completedCount: snap.completedCount,
-      totalCount: snap.totalCount,
-      errors: [...errors],
-      ...extra,
-    });
-    onState(state);
-  };
-
-  unlisten = subscribeProgress((payload) => {
-    const parsed = progressFromPayload(payload);
-    if (parsed.extraId && currentId && parsed.extraId !== currentId) return;
-    if (parsed.parsedBytes != null) liveParsedBytes = parsed.parsedBytes;
-    if (parsed.line) detailLine = parsed.line.slice(0, 220);
-    snapshotPatch("installing", state.statusLine);
-  });
-
-  const tick = setInterval(() => {
-    if (currentId) snapshotPatch("installing", state.statusLine);
-  }, tickMs);
-
-  try {
-    for (let i = 0; i < runnable.length; i += 1) {
-      const job = runnable[i];
-      currentId = job.id;
-      currentStartedAt = now();
-      liveParsedBytes = null;
-      detailLine = "";
-      const statusLine = `Installing ${job.title} (${i + 1} of ${runnable.length})…`;
-      snapshotPatch("installing", statusLine);
-
-      let result;
-      try {
-        result = job.kind === "canvas" ? await installCanvas() : await installExtra(job.id);
-        if (job.kind === "sidecar-extra" && result?.ok) {
-          await waitExtraReady(job.id, { timeoutMs: 45_000, intervalMs: 1_000 });
-        }
-      } catch (error) {
-        result = { ok: false, error: error instanceof Error ? error.message : String(error) };
-      }
-
-      if (jobOk(job, result)) {
-        completedIds.push(job.id);
-      } else {
-        const message =
-          result?.error || result?.message || `Could not install ${job.title}`;
-        errors.push(`${job.title}: ${message}`);
-      }
-      emitExtrasChanged();
-    }
-  } finally {
-    clearInterval(tick);
-    unlisten();
-  }
-
-  currentId = null;
-  liveParsedBytes = null;
-  const doneSnap = computeStartupInstallSnapshot({
-    jobs: runnable,
-    completedIds,
-    startedAt,
-    now: now(),
-  });
-  const blockedRemainder =
-    !canPip && pipJobs.length
-      ? env?.message || "Sidecar extras need a writable venv — they were skipped."
-      : "";
-  const failed = errors.length > 0 || Boolean(blockedRemainder);
-  state = mergeState(state, {
+  const optionalState = mergeState(state, {
     open: true,
-    phase: failed ? "error" : "done",
-    percent: failed ? doneSnap.percent : 100,
-    etaLabel: failed ? "" : "Done",
-    sizeLabel: doneSnap.sizeLabel,
-    statusLine: failed
-      ? "Finished with issues"
-      : "All detected addons are installed",
-    detailLine: [...errors, blockedRemainder].filter(Boolean).join(" · "),
-    currentTitle: "",
-    completedCount: completedIds.length,
-    totalCount: runnable.length,
-    errors,
+    phase: "blocked",
+    jobs,
+    totalCount: jobs.length,
+    statusLine: "Optional add-ons are not installed",
+    detailLine: "Studio works without these downloads. Install add-ons later from Plugins when you need them.",
     dismissable: true,
-    jobs: runnable,
+    percent: 0,
+    sizeLabel: computeStartupInstallSnapshot({ jobs, now: now() }).sizeLabel,
+    etaLabel: "",
   });
-  onState(state);
-  emitExtrasChanged();
+  onState(optionalState);
+  return { skipped: true, reason: "optional-addons", jobs };
 
-  if (!failed) {
-    await sleep(2_000);
-    onState({ ...STARTUP_INSTALL_INITIAL, open: false, phase: "idle" });
-  }
-  return { skipped: false, completedIds, errors, jobs: runnable };
+  return { skipped: true, reason: "optional-addons", jobs };
 }
 
 let started = false;

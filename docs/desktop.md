@@ -54,6 +54,8 @@ The desktop shell only launches Canvas. Other projects consume the neutral Music
 
 Left sidebar **Addons**:
 
+- On first launch, Studio checks which optional addons are missing and lets you continue. It does not download them automatically; install each addon from this panel when you need it.
+
 - **Canvas** — Download / Install and Open work in Tauri Studio. The web UI alone cannot install Canvas.
 - **Sidecar extras** (MusicGen, cover, stems, vision, …) —
   - **Dev / checkout:** **Install** prefers `{STUDIO_DATA}/sidecar/runtime` (bundled embeddable CPython after `npm run fetch:python-embed`) or falls back to `ai-sidecar/.venv` via system Python.
