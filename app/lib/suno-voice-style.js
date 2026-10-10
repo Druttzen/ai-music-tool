@@ -3,14 +3,14 @@
  * Copy is phrased as stylistic direction only — not voice cloning or impersonation.
  *
  * Quick presets include MusicBrainz-sourced genre/gender seeds (public tags) so offline
- * generation still yields Suno 5.5 triple-stack tokens before any live lookup.
+ * generation still yields Suno v6 triple-stack tokens before any live lookup.
  */
 
 /** @typedef {import("./voice-style-lookup").ArtistVoiceProfile} ArtistVoiceProfile */
 
 /**
  * Quick-pick presets with authentic public metadata seeds (MusicBrainz genre/gender tags).
- * `profileSeed` mirrors live lookup shape for offline Suno 5.5 token generation.
+ * `profileSeed` mirrors live lookup shape for offline Suno v6 token generation.
  */
 export const FAMOUS_VOICE_PRESETS = [
   {
@@ -229,7 +229,7 @@ export function presetToVoiceProfile(preset) {
 
 /**
  * Paste-ready Style-field line (comma-separated tokens, no disclaimers).
- * @deprecated Prefer buildSunoVoiceStyleFromProfile for Suno 5.5 triple-stack output.
+ * @deprecated Prefer buildSunoVoiceStyleFromProfile for Suno v6 triple-stack output.
  */
 export function buildSunoVoiceStyleLine({
   firstName,

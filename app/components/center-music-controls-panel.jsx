@@ -34,7 +34,7 @@ export const CenterMusicControlsPanel = memo(function CenterMusicControlsPanel()
   return (
     <Panel
       title="Step 3 — Clickable Music Controls"
-      hint={`Suno-aligned genres (${genreOptions.length}), instruments (${soundOptions.length}), and rhythms. Style Prompt Library adds ${SUNO_GENRE_WHEEL_COUNT}+ fusion phrases from the Suno v5.5 genre wheel.`}
+      hint={`Genres (${genreOptions.length}), instruments (${soundOptions.length}), and rhythms. Style Prompt Library includes ${SUNO_GENRE_WHEEL_COUNT}+ phrases checked against Suno's public genre wheel on 2026-10-10.`}
     >
       <SearchablePillGrid
         label="Genres"

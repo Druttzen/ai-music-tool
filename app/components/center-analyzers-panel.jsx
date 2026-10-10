@@ -169,7 +169,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
       <Panel
         title="Drag & Drop Analyzers"
         data-testid="drag-drop-analyzers"
-        hint="Optional Polish-step tools — track report with waveform, Preview monitor, EBU R128 LUFS/dBTP, studio export (WAV16/24/32 · FLAC · MP3 · AAC/M4A; Streaming −14 LUFS), merge into Suno v5.5 Style, Goal, and Notes. Image/audio DNA builds paste-ready Style tags (genre → mood → sounds → production)."
+        hint="Optional Polish-step tools — track report with waveform, Preview monitor, EBU R128 LUFS/dBTP, studio export (WAV16/24/32 · FLAC · MP3 · AAC/M4A; Streaming −14 LUFS), merge into Suno v6 Style, Goal, and Notes. Image/audio DNA builds paste-ready Style tags (genre → mood → sounds → production)."
       >
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <span
@@ -341,7 +341,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
               <>
                 {audioStylePreview ? (
                   <p className="mb-2 rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-[10px] leading-relaxed text-cyan-50/90">
-                    <span className="font-bold text-cyan-100">Suno v5.5 Style preview:</span>{" "}
+                    <span className="font-bold text-cyan-100">Suno v6 Style preview:</span>{" "}
                     {audioStylePreview}
                     {llmStyleReady ? " · Co-Producer LLM will refine on merge" : ""}
                   </p>
@@ -447,7 +447,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 </div>
                 {imageStylePreview ? (
                   <p className="mt-2 rounded-xl border border-fuchsia-400/25 bg-fuchsia-500/10 px-3 py-2 text-[10px] leading-relaxed text-fuchsia-50/90">
-                    <span className="font-bold text-fuchsia-100">Suno v5.5 Style preview:</span>{" "}
+                    <span className="font-bold text-fuchsia-100">Suno v6 Style preview:</span>{" "}
                     {imageStylePreview}
                     {llmStyleReady ? " · Co-Producer LLM will refine on merge" : ""}
                   </p>
@@ -462,7 +462,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                   }}
                   className="mt-2 w-full rounded-2xl border border-fuchsia-400/40 bg-fuchsia-500/20 py-2 text-xs font-bold text-fuchsia-50 hover:bg-fuchsia-500/30"
                 >
-                  Build Suno v5.5 Style from image → merge
+                  Build Suno v6 Style from image → merge
                 </button>
               </div>
             ) : null}

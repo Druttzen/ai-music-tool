@@ -702,6 +702,11 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
         <LocalGeneratePanel
           music={{
             defaultPrompt: defaultMusicGenPrompt,
+            lastTake: analysis.sourceEngine === "musicgen" ? {
+              ...analysis.musicGenSettings,
+              prompt: analysis.musicGenPrompt,
+              durationSec: analysis.musicGenDurationSec,
+            } : undefined,
             busy: generateMusicBusy || exportBusy,
             canCancel: generateMusicCanCancel,
             cancelRequested: generateMusicCancelRequested,
@@ -841,7 +846,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           }}
           className="flex-1 min-w-[140px] rounded-2xl border border-cyan-400/40 bg-cyan-500/20 py-2 text-xs font-bold text-cyan-50 hover:bg-cyan-500/30"
         >
-          Merge into Suno v5.5 Style →
+          Merge into Suno v6 Style →
         </button>
         {onClear ? (
           <button

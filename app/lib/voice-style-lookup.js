@@ -1,6 +1,6 @@
 /**
  * Online artist voice-style lookup — MusicBrainz + Wikipedia (+ optional Spotify genres).
- * Fetches real public metadata; maps to Suno 5.5 vocal tokens via voice-style-mapper.
+ * Fetches real public metadata; maps to Suno v6 vocal tokens via voice-style-mapper.
  */
 
 import { searchMusicBrainzArtists, fetchMusicBrainzArtist } from "./musicbrainz-artist";

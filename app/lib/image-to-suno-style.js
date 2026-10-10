@@ -1,5 +1,5 @@
 /**
- * Build paste-ready Suno v5.5 Style tokens from image analysis (palette + caption + CLIP).
+ * Build paste-ready Suno v6 Style tokens from image analysis (palette + caption + CLIP).
  * Order: genre → mood → instruments/sounds → production → era/vocal.
  */
 

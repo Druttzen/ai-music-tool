@@ -95,11 +95,11 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
   return (
     <Panel
       title="Suno Voice Style Generator"
-      hint="Search MusicBrainz (+ Wikipedia, optional Spotify genres) for real artist metadata, then map to Suno 5.5 vocal tokens — stylistic reference only."
+      hint="Search MusicBrainz (+ Wikipedia, optional Spotify genres) for real artist metadata, then map to Suno v6 vocal tokens — stylistic reference only."
       data-testid="voice-style-panel"
     >
       <p className="mb-3 text-xs text-white/50">
-        Suno 5.5 works best with Character + Delivery + Effects tokens (not just a celebrity name).
+        Describe vocal character, delivery and effects to make your intended sound clear.
         Search loads public genre/gender/wiki data; presets use curated MusicBrainz tag seeds offline.
       </p>
 
@@ -249,7 +249,7 @@ export const CenterVoiceStylePanel = memo(function CenterVoiceStylePanel() {
       )}
       {voiceStyleCompact.style ? (
         <div className="mt-3 space-y-2">
-          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Style box (Suno 5.5)</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-white/45">Style box (Suno v6)</div>
           <pre
             data-testid="voice-style-output"
             className="max-h-24 overflow-auto whitespace-pre-wrap rounded-2xl border border-cyan-300/20 bg-black/50 p-3 text-[11px] text-cyan-50"

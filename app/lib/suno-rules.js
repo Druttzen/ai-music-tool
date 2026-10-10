@@ -11,7 +11,7 @@ function scoreFocusBlock(scores) {
   return `\n\nSCORE FOCUS:\n${hints.join(", ")}`;
 }
 
-/** Suno v5.5 community guidance: focused Style tag count. */
+/** Community starting point for concise prompts; not a model requirement. */
 export const SUNO_STYLE_DESCRIPTOR_RANGE = { min: 4, max: 8 };
 
 /** Shared defaults for Suno-like auto-fix and blank-slate guidance. */
@@ -288,7 +288,7 @@ export function validateSunoLikePrompt(params) {
     (selectedGenres?.length || 0) + moodCount + Math.min(selectedSounds?.length || 0, 4);
   if (descriptorCount > 0 && descriptorCount < SUNO_STYLE_DESCRIPTOR_RANGE.min) {
     warnings.push(
-      `Style DNA has ~${descriptorCount} strong descriptors — Suno v5.5 guidance suggests ${SUNO_STYLE_DESCRIPTOR_RANGE.min}–${SUNO_STYLE_DESCRIPTOR_RANGE.max} focused Style tags.`,
+      `Style DNA has ~${descriptorCount} strong descriptors. A compact starting point is ${SUNO_STYLE_DESCRIPTOR_RANGE.min}–${SUNO_STYLE_DESCRIPTOR_RANGE.max}; keep extra detail when it clarifies the sound. This is community guidance, not a v6 limit.`,
     );
   } else if (descriptorCount > SUNO_STYLE_DESCRIPTOR_RANGE.max + 2) {
     warnings.push(

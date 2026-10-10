@@ -187,7 +187,7 @@ const CenterSunoProToolsPanel = lazyCenter(
     import("./center-suno-pro-tools-panel").then((mod) => ({
       default: mod.CenterSunoProToolsPanel,
     })),
-  "Suno 5.5 Pro tools",
+  "Suno v6 · draft to final",
 );
 const CenterProModePanel = lazyCenter(
   () =>

@@ -78,7 +78,7 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
               data-testid="youtube-replication-pack"
             >
               <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-200/80">
-                Suno 5.5 replication pack
+                Suno v6 replication pack
               </div>
               {studio.youtubeMusicDna.replication.confidenceBadge ? (
                 <p className="mt-1 text-[10px] text-emerald-100/70">
@@ -164,7 +164,7 @@ export const CenterVoiceCharacterStudio = memo(function CenterVoiceCharacterStud
                   data-testid="voices-prep-kit"
                 >
                   <div className="text-[10px] font-bold uppercase tracking-wider text-violet-200/80">
-                    Suno 5.5 Voices prep kit
+                    Suno v6 Voices prep kit
                   </div>
                   <ul className="mt-2 space-y-1 text-[10px] text-violet-50/90">
                     {voicesPrep.checks.map((c) => (

@@ -288,7 +288,7 @@ export function useCharacterVoiceStudio() {
     if (rep.structure) setStructure(rep.structure);
     if (rep.ideaLine) setIdea(rep.ideaLine);
     if (rep.styleLine) setVoiceStyleLine(rep.styleLine);
-    setStatusWithTime("Applied YouTube track DNA + Suno 5.5 replication pack to project");
+    setStatusWithTime("Applied YouTube track DNA + Suno v6 replication pack to project");
   }, [
     applyStyleDnaToProject,
     captureSnapshot,

@@ -1,5 +1,5 @@
 {
-  "syncedAt": "2026-07-09T10:40:50.157Z",
+  "syncedAt": "2026-10-09T22:50:32.909Z",
   "upstreamModified": "2025, November 20.",
   "sources": [
     {
@@ -12,7 +12,7 @@
     {
       "id": "suno-genre-wheel",
       "url": "https://suno.com/labs/genre-wheel",
-      "note": "Login-gated — refresh suno-v55-genre-wheel.js manually when Suno updates the wheel.",
+      "note": "Rendered public wheel verified 2026-10-10. Refresh suno-v55-genre-wheel.js from the rendered page; its initial HTML does not contain the phrases.",
       "embeddedIn": "app/lib/suno-v55-genre-wheel.js"
     }
   ],
@@ -1199,7 +1199,7 @@
     "Defines the speed (BPM) and pacing of the track"
   ],
   "principles": [
-    "Style field: use 4–8 strong tags; put instrumental-only guards last when present (v5.5 community guidance).",
+    "Community starting point: 4–8 focused descriptors. v6 also accepts detailed natural-language direction; tag counts and bracket syntax are not guaranteed controls.",
     "Lyrics field: bracketed section tags + pipe overrides for local changes — e.g. [chorus | style: hook, vocals: autotune-light].",
     "Open with [track: genre:, mood:, length:, instruments:] for global defaults when building long prompts.",
     "Avoid protected trademark names in Style — use descriptive substitutes (see trademarkSubstitutions in sync manifest).",

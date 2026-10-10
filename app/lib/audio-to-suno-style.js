@@ -1,5 +1,5 @@
 /**
- * Build paste-ready Suno v5.5 Style tokens from audio analysis.
+ * Build paste-ready Suno v6 Style tokens from audio analysis.
  * Order: genre → mood → tempo/key → instruments → production.
  */
 

@@ -4,23 +4,24 @@ Model weights are CC-BY-NC — opt-in only via `npm run sidecar:generate`.
 Configure with AIMC_MUSICGEN_MODEL (default: facebook/musicgen-small).
 Melody conditioning requires a melody-capable checkpoint; when a non-melody
 model is configured, /generate/melody auto-switches to
-AIMC_MUSICGEN_MELODY_MODEL (default: facebook/musicgen-melody-small).
+AIMC_MUSICGEN_MELODY_MODEL (default: facebook/musicgen-melody).
 """
 
 from __future__ import annotations
 
 import io
 import os
+import gc
 from typing import Any, Callable
 
 DEFAULT_MODEL_ID = "facebook/musicgen-small"
-DEFAULT_MELODY_MODEL_ID = "facebook/musicgen-melody-small"
+DEFAULT_MELODY_MODEL_ID = "facebook/musicgen-melody"
 MEDIUM_MODEL_ID = "facebook/musicgen-medium"
-_MEDIUM_MIN_VRAM_GB = 10.0
 _TARGET_SR = 32_000
 
 _MODEL: Any = None
 _ACTIVE_MODEL_ID: str | None = None
+_ACTIVE_DEVICE: str | None = None
 
 
 def active_musicgen_model_id() -> str:
@@ -43,7 +44,9 @@ def resolve_musicgen_model_id(*, wants_melody: bool, requested: str | None = Non
     if preset in {"small", DEFAULT_MODEL_ID}:
         configured = DEFAULT_MODEL_ID
     elif preset in {"medium", MEDIUM_MODEL_ID}:
-        configured = MEDIUM_MODEL_ID if _medium_allowed() else DEFAULT_MODEL_ID
+        configured = MEDIUM_MODEL_ID
+    elif preset in {"stereo-small", "stereo-medium", "stereo-melody"}:
+        configured = f"facebook/musicgen-{preset}"
     elif preset in {"melody", DEFAULT_MELODY_MODEL_ID}:
         configured = DEFAULT_MELODY_MODEL_ID
     elif preset.startswith("facebook/"):
@@ -51,18 +54,10 @@ def resolve_musicgen_model_id(*, wants_melody: bool, requested: str | None = Non
     else:
         configured = active_musicgen_model_id()
     if wants_melody and not model_supports_melody(configured):
+        if "stereo" in configured:
+            return "facebook/musicgen-stereo-melody"
         return active_musicgen_melody_model_id()
     return configured
-
-
-def _medium_allowed() -> bool:
-    try:
-        from .device import peek_device
-
-        info = peek_device()
-        return float(getattr(info, "total_vram_gb", 0) or 0) >= _MEDIUM_MIN_VRAM_GB
-    except Exception:
-        return False
 
 
 def warmup_musicgen() -> None:
@@ -73,7 +68,7 @@ def warmup_musicgen() -> None:
     from .idle import touch_activity
 
     touch_activity()
-    _get_model(select_device(), DEFAULT_MODEL_ID)
+    _get_model(select_device(), active_musicgen_model_id())
     touch_activity()
 
 
@@ -105,17 +100,26 @@ def _select_torch_device(device_name: str) -> str:
 
 
 def _get_model(device_name: str, model_id: str | None = None):
-    global _MODEL, _ACTIVE_MODEL_ID
+    global _MODEL, _ACTIVE_MODEL_ID, _ACTIVE_DEVICE
     resolved = model_id or active_musicgen_model_id()
-    if _MODEL is not None and _ACTIVE_MODEL_ID == resolved:
+    torch_device = _select_torch_device(device_name)
+    if _MODEL is not None and _ACTIVE_MODEL_ID == resolved and _ACTIVE_DEVICE == torch_device:
         return _MODEL, resolved
 
     from audiocraft.models import MusicGen  # noqa: PLC0415
 
-    torch_device = _select_torch_device(device_name)
+    # Release the old model before loading another checkpoint on a consumer GPU.
+    _MODEL = None
+    _ACTIVE_MODEL_ID = None
+    _ACTIVE_DEVICE = None
+    gc.collect()
+    if torch_device == "cuda":
+        import torch
+        torch.cuda.empty_cache()
     model = MusicGen.get_pretrained(resolved, device=torch_device)
     _MODEL = model
     _ACTIVE_MODEL_ID = resolved
+    _ACTIVE_DEVICE = torch_device
     return model, resolved
 
 
@@ -152,7 +156,9 @@ def generate_music_wav(
     touch_activity()
     if check_cancelled is not None:
         check_cancelled()
-    generation_params: dict[str, Any] = {"duration": duration}
+    # Separate guidance passes reduce peak VRAM rather than silently downgrading
+    # a requested checkpoint to small.
+    generation_params: dict[str, Any] = {"duration": duration, "two_step_cfg": True}
     if temperature is not None:
         generation_params["temperature"] = max(0.1, min(float(temperature), 2.0))
     if top_k is not None:
@@ -208,25 +214,12 @@ def generate_music_wav(
         if use_progress_callback:
             model.set_custom_progress_callback(previous_progress_callback)
 
-    import numpy as np  # noqa: PLC0415
-    import soundfile as sf  # noqa: PLC0415
-
     tensor = wav[0].detach().cpu().numpy()
-    if tensor.ndim == 2:
-        mono = tensor.mean(axis=0)
-    else:
-        mono = tensor
-    mono = np.asarray(mono, dtype=np.float32)
-    peak = float(np.max(np.abs(mono))) or 1.0
-    if peak > 0.98:
-        mono = (mono * (0.95 / peak)).astype(np.float32)
-
-    buf = io.BytesIO()
-    sf.write(buf, mono, _TARGET_SR, subtype="PCM_16", format="WAV")
+    sample_rate = int(getattr(model, "sample_rate", _TARGET_SR))
+    wav_bytes, audio_meta = encode_musicgen_wav(tensor, sample_rate)
     meta = {
         "model": model_id,
-        "duration_sec": duration,
-        "sample_rate": _TARGET_SR,
+        **audio_meta,
         "device": _select_torch_device(device),
         "mode": mode,
         "temperature": generation_params.get("temperature"),
@@ -235,4 +228,35 @@ def generate_music_wav(
         "cfg_coef": generation_params.get("cfg_coef"),
         "seed": seed,
     }
-    return buf.getvalue(), meta
+    return wav_bytes, meta
+
+
+def encode_musicgen_wav(channels_first: Any, sample_rate: int) -> tuple[bytes, dict[str, Any]]:
+    """Preserve model channels and sample rate, with linked peak headroom.
+
+    PCM24 preserves the decoder output for further editing; it does not create
+    information beyond the model's bandwidth or improve a poor composition.
+    """
+    import numpy as np
+    import soundfile as sf
+
+    audio = np.asarray(channels_first, dtype=np.float32)
+    if audio.ndim == 1:
+        audio = audio[None, :]
+    if audio.ndim != 2 or audio.shape[0] not in (1, 2) or not audio.shape[1]:
+        raise ValueError("MusicGen returned an invalid audio shape")
+    if sample_rate <= 0 or not np.isfinite(audio).all():
+        raise ValueError("MusicGen returned invalid audio samples")
+    peak = float(np.max(np.abs(audio)))
+    if peak < 1e-8:
+        raise ValueError("MusicGen returned silent audio; try another seed or prompt")
+    if peak > 0.95:
+        audio = audio * (0.95 / peak)
+    buf = io.BytesIO()
+    sf.write(buf, audio.T, sample_rate, subtype="PCM_24", format="WAV")
+    return buf.getvalue(), {
+        "duration_sec": audio.shape[1] / sample_rate,
+        "sample_rate": sample_rate,
+        "channels": audio.shape[0],
+        "bit_depth": 24,
+    }

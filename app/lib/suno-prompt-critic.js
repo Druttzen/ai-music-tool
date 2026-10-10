@@ -1,5 +1,5 @@
 /**
- * Suno 5.5 prompt quality critic — score style + lyrics before generation.
+ * Suno v6 prompt quality critic — score style + lyrics before generation.
  */
 
 import { SUNO_LYRICS_CHAR_TYPICAL_MAX, SUNO_STYLE_CHAR_CAP } from "./suno-limits";

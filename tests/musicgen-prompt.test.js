@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { buildMusicGenPrompt } from "../app/lib/musicgen-prompt.js";
 
 describe("buildMusicGenPrompt", () => {
+  it("reuses the musical prompt without recursively including generated report labels", () => {
+    const audioAnalysis = { sourceEngine: "musicgen", musicGenPrompt: "French house, 121 bpm", trackSummary: "MusicGen preview: French house, 121 bpm" };
+    expect(buildMusicGenPrompt({ audioAnalysis, moodWords: "balanced" })).toBe("French house, 121 bpm");
+    const changed = buildMusicGenPrompt({ audioAnalysis, selectedGenres: ["Techno"], tempo: "140 BPM" });
+    expect(changed).toContain("Techno");
+    expect(changed).not.toContain("MusicGen preview");
+    expect(changed).not.toContain("French house");
+  });
   it("prefers a trimmed custom prompt", () => {
     expect(buildMusicGenPrompt({ customPrompt: "  dark techno loop  " })).toBe("dark techno loop");
   });

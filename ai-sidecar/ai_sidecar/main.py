@@ -125,7 +125,10 @@ async def _lifespan(_app: FastAPI):
         except Exception:
             return
 
-    threading.Thread(target=_warm_musicgen, name="aimc-musicgen-warmup", daemon=True).start()
+    # Model loading is normally owned by the serialized generation queue.
+    # Avoid surprise downloads and allocating a second model at app startup.
+    if os.environ.get("AIMC_MUSICGEN_WARMUP") == "1":
+        threading.Thread(target=_warm_musicgen, name="aimc-musicgen-warmup", daemon=True).start()
     yield
 
 

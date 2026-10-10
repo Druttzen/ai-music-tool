@@ -297,7 +297,7 @@ export const CenterStyleDnaSearchPanel = memo(function CenterStyleDnaSearchPanel
           {replication && (
             <div className="rounded-2xl border border-cyan-400/25 bg-cyan-950/20 p-3" data-testid="style-dna-replication-pack">
               <div className="mb-2 text-xs font-bold uppercase tracking-wider text-cyan-200/80">
-                Suno 5.5 replication style line
+                Suno v6 replication style line
               </div>
               {replication.confidenceBadge && (
                 <p className="mb-2 text-[10px] text-cyan-100/70" data-testid="style-dna-confidence">

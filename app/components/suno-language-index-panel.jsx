@@ -49,7 +49,7 @@ export function SunoLanguageIndexPanel({ copyToClipboard, onApplyGenreAnchors })
             {sunoLanguageIndex.catalogSync.upstreamModified
               ? ` (upstream ${sunoLanguageIndex.catalogSync.upstreamModified})`
               : ""}
-            . Re-run <code className="text-white/60">npm run sync:suno-catalog</code> to refresh.
+            . Community examples are suggestions; their syntax is not guaranteed by Suno.
           </p>
         ) : null}
         <p className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-3 text-[11px] text-white/55">

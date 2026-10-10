@@ -420,7 +420,7 @@ export const promptSymbolExamples = {
   ],
   backtick: [
     "`BPM=128` — exact token for automation",
-    "`model=v4` — lock model version in metadata",
+    "Select the model in Suno's model picker; a text metadata tag does not lock its version",
     "`export=wav` — exact export flag",
     "`stems=true` — precise instruction token",
     "`voice=airy_female` — exact persona token",

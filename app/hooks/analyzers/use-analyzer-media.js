@@ -594,10 +594,10 @@ export function useAnalyzerMedia({
     if (promptEngine === "Suno-like") {
       if (navigate) navigateToPolishStep();
       if (announce) {
-        setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — guided path: Polish`);
+        setStatusWithTime(`Audio → Suno v6 Style merged${via} — guided path: Polish`);
       }
     } else if (announce) {
-      setStatusWithTime(`Audio → Suno v5.5 Style merged${via} — Style buffer filled`);
+      setStatusWithTime(`Audio → Suno v6 Style merged${via} — Style buffer filled`);
     }
     return { status: "completed", message: "Audio style merged" };
   }, [
@@ -626,9 +626,9 @@ export function useAnalyzerMedia({
     const via = built.source === "llm" ? " (LLM refined)" : "";
     if (promptEngine === "Suno-like") {
       navigateToPolishStep();
-      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — guided path: Polish`);
+      setStatusWithTime(`Image → Suno v6 Style merged${via} — guided path: Polish`);
     } else {
-      setStatusWithTime(`Image → Suno v5.5 Style merged${via} — Style buffer filled`);
+      setStatusWithTime(`Image → Suno v6 Style merged${via} — Style buffer filled`);
     }
     return { status: "completed", message: "Image style merged" };
   }, [

@@ -1,5 +1,5 @@
 /**
- * Suno 5.5 lyrics metatag generator from structure + delivery hints.
+ * Suno v6 lyrics metatag generator from structure + delivery hints.
  */
 
 const DELIVERY_BY_MOOD = {

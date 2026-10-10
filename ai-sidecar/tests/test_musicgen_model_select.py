@@ -7,7 +7,7 @@ from ai_sidecar.musicgen import (
 
 
 def test_model_supports_melody_detects_melody_checkpoints():
-    assert model_supports_melody("facebook/musicgen-melody-small") is True
+    assert model_supports_melody("facebook/musicgen-stereo-melody") is True
     assert model_supports_melody("facebook/musicgen-small") is False
 
 
@@ -15,7 +15,13 @@ def test_resolve_musicgen_model_id_auto_switches_for_melody(monkeypatch):
     monkeypatch.delenv("AIMC_MUSICGEN_MODEL", raising=False)
     monkeypatch.delenv("AIMC_MUSICGEN_MELODY_MODEL", raising=False)
     assert resolve_musicgen_model_id(wants_melody=False) == "facebook/musicgen-small"
-    assert resolve_musicgen_model_id(wants_melody=True) == "facebook/musicgen-melody-small"
+    assert resolve_musicgen_model_id(wants_melody=True) == "facebook/musicgen-melody"
+
+
+def test_explicit_medium_is_not_silently_downgraded():
+    assert resolve_musicgen_model_id(wants_melody=False, requested="medium") == "facebook/musicgen-medium"
+    assert resolve_musicgen_model_id(wants_melody=False, requested="stereo-small") == "facebook/musicgen-stereo-small"
+    assert resolve_musicgen_model_id(wants_melody=True, requested="stereo-small") == "facebook/musicgen-stereo-melody"
 
 
 def test_resolve_musicgen_model_id_keeps_configured_melody(monkeypatch):

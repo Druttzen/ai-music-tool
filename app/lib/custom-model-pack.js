@@ -1,5 +1,5 @@
 /**
- * Suno 5.5 Custom Model pack — checklist from project/bundle history.
+ * Suno v6 Custom Model pack — checklist from project/bundle history.
  */
 
 /**

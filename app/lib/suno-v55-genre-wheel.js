@@ -1,7 +1,5 @@
-/**
- * Suno v5.5 genre wheel style phrases extracted from the public labs genre wheel.
- * Source: https://suno.com/labs/genre-wheel
- */
+/** Suno public genre wheel, verified 2026-10-10 at https://suno.com/labs/genre-wheel.
+ * The legacy export name is kept for existing consumers. */
 export const sunoV55GenreWheelStyles = [
   "acoustic chicago blues cape verdean",
   "afro-jazz",

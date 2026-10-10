@@ -1,5 +1,5 @@
 /**
- * Map online artist metadata (MusicBrainz, Wikipedia, Spotify) to Suno 5.5 vocal
+ * Map online artist metadata (MusicBrainz, Wikipedia, Spotify) to Suno v6 vocal
  * triple-stack tokens: Character + Delivery + Effects — not celebrity impersonation.
  */
 

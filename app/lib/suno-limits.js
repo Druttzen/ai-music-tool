@@ -1,9 +1,9 @@
 /**
  * Suno field limits for this tool.
- * Style (“Style of Music”) cap: 1000 characters — confirmed in Suno chat for current product behaviour.
+ * Conservative local copy budgets. These are not verified v6 platform limits.
  */
 
-/** Hard cap for the Style field (characters). Confirmed in Suno chat — treat as authoritative for this app. */
+/** App copy budget retained for compatibility with existing projects. */
 export const SUNO_STYLE_CHAR_CAP = 1000;
 
 /** Warn when approaching the Style cap so users can trim before truncation. */
@@ -14,10 +14,10 @@ export const SUNO_LYRICS_CHAR_TYPICAL_MAX = 5000;
 export const SUNO_LYRICS_CHAR_WARN = 4800;
 
 export const SUNO_LIMITS_PRINCIPLE =
-  "Suno Style field is limited to 1000 characters (confirmed). Put genre, vocal role, BPM, and strongest mood tokens first — overflow truncates silently. Lyrics field limits may differ by version.";
+  "Keep the musical identity clear: genre, vocal role, tempo, instruments and arrangement. This app uses a 1000-character Style copy budget; Suno v6 platform limits should be checked in its current form.";
 
 export const SUNO_LIMITS_NOTE =
-  "Style cap 1000 characters confirmed in Suno chat. Lyrics/title caps are typical ranges — verify in-app if outputs clip.";
+  "Local copy budgets: Style 1000, Lyrics 5000 characters. Official v6 hard limits are unconfirmed; check the current Suno form.";
 
 /**
  * @param {number} styleLen - Suno “Style of Music” paste length (sound-focused block).
@@ -29,21 +29,21 @@ export function validateSunoFieldLengths(styleLen, lyricsLen) {
 
   if (styleLen > SUNO_STYLE_CHAR_CAP) {
     w.push(
-      `Style box is ${styleLen} characters — over the ${SUNO_STYLE_CHAR_CAP}-character Suno Style limit (confirmed). Extra text may be cut — shorten or move detail to Lyrics; strongest tokens must come first.`,
+      `Style box is ${styleLen} characters — over this app's ${SUNO_STYLE_CHAR_CAP}-character copy budget. Shorten the brief while preserving the main musical direction.`,
     );
   } else if (styleLen > SUNO_STYLE_CHAR_WARN) {
     w.push(
-      `Style box is ${styleLen}/${SUNO_STYLE_CHAR_CAP} characters — close to the ${SUNO_STYLE_CHAR_CAP}-character limit; prioritize opening lines.`,
+      `Style box is ${styleLen}/${SUNO_STYLE_CHAR_CAP} characters — close to this app's copy budget; prioritize the main musical direction.`,
     );
   }
 
   if (lyricsLen > SUNO_LYRICS_CHAR_TYPICAL_MAX) {
     w.push(
-      `Lyrics direction is ${lyricsLen} characters (often ~${SUNO_LYRICS_CHAR_TYPICAL_MAX} max on newer models). Reduce section notes or split into another pass — tail may drop silently.`,
+      `Lyrics direction is ${lyricsLen} characters — over this app's ${SUNO_LYRICS_CHAR_TYPICAL_MAX}-character copy budget. Reduce section notes or split into another pass.`,
     );
   } else if (lyricsLen > SUNO_LYRICS_CHAR_WARN) {
     w.push(
-      `Lyrics direction is ${lyricsLen}/${SUNO_LYRICS_CHAR_TYPICAL_MAX} characters — close to the usual ceiling.`,
+      `Lyrics direction is ${lyricsLen}/${SUNO_LYRICS_CHAR_TYPICAL_MAX} characters — close to this app's copy budget.`,
     );
   }
 

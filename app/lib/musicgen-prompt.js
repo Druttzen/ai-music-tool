@@ -23,9 +23,7 @@ export function buildMusicGenPrompt(input = {}) {
   const custom = normalizeToken(input.customPrompt);
   if (custom) return custom.slice(0, 480);
 
-  if (
-    !input.audioAnalysis &&
-    isGuidedPasteBlank({
+  const projectBlank = isGuidedPasteBlank({
       selectedGenres: input.selectedGenres,
       selectedSounds: input.selectedSounds,
       selectedRhythms: input.selectedRhythms,
@@ -33,8 +31,11 @@ export function buildMusicGenPrompt(input = {}) {
       idea: input.idea,
       moodWords: input.moodWords,
       vocal: "",
-    })
-  ) {
+    });
+  if (projectBlank && input.audioAnalysis?.sourceEngine === "musicgen" && input.audioAnalysis.musicGenPrompt) {
+    return normalizeToken(input.audioAnalysis.musicGenPrompt).slice(0, 480);
+  }
+  if (!input.audioAnalysis && projectBlank) {
     return "";
   }
 
@@ -53,9 +54,10 @@ export function buildMusicGenPrompt(input = {}) {
   if (idea) parts.push(idea.slice(0, 120));
 
   const analysis = input.audioAnalysis;
-  if (analysis?.trackSummary) {
+  // Generated report labels are not musical instructions for the next take.
+  if (analysis?.sourceEngine !== "musicgen" && analysis?.trackSummary) {
     parts.push(normalizeToken(analysis.trackSummary).slice(0, 140));
-  } else if (analysis?.estimatedBpm && analysis?.estimatedKey) {
+  } else if (analysis?.sourceEngine !== "musicgen" && analysis?.estimatedBpm && analysis?.estimatedKey) {
     parts.push(`${analysis.estimatedBpm}, ${analysis.estimatedKey}`);
   }
 

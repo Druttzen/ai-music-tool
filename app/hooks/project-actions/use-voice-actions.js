@@ -52,7 +52,7 @@ export function useVoiceActions(deps) {
         });
         setVoiceStyleLine(built.voiceStyleLine);
         setStatusWithTime(
-          `Voice style from ${built.sources.join(" + ") || "reference"} — Suno 5.5 tokens ready`,
+          `Voice style from ${built.sources.join(" + ") || "reference"} — Suno v6 tokens ready`,
         );
         return built;
       }

@@ -23,6 +23,7 @@ import { musicGenInstallHint } from "../../lib/sidecar-capabilities";
 import { isTauriApp } from "../../lib/dsp-bridge";
 import { resolvePolishStepIndex } from "../../lib/suno-guided-workflow";
 import { reportCaughtError } from "../../lib/fail-safe-runtime-capture";
+import { cacheGeneratedAudioDraft } from "../../lib/generated-audio-cache";
 
 export function useAnalyzerGenerate({
   audioAnalysis,
@@ -119,6 +120,7 @@ export function useAnalyzerGenerate({
         }
         const generationOptions = {
           ...options,
+          seed: Number.isInteger(options.seed) ? Math.max(0, Math.min(options.seed, 0x7fffffff)) : (crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff),
           onJobStarted: (id) => {
             jobId = id;
             setMusicJobId(id);
@@ -181,6 +183,16 @@ export function useAnalyzerGenerate({
               hasMeaningfulHighlightRange(audioAnalysis),
           });
           report = await enrichMusicGenReportWithSidecar(file, report);
+          report.musicGenSettings = {
+            seed: generationOptions.seed,
+            temperature: options.temperature ?? 1,
+            topK: options.topK ?? 250,
+            topP: options.topP ?? 0,
+            cfgCoef: options.cfgCoef ?? 3,
+            model,
+            mode: mode || "text",
+          };
+          report = await cacheGeneratedAudioDraft(file, report);
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
           syncCacheKeysRef(report);
@@ -208,10 +220,11 @@ export function useAnalyzerGenerate({
               "success",
             );
           }
+          if (report.audioCacheWarning) setStatusWithTime(report.audioCacheWarning, "warning");
         }
 
         if (download) {
-          downloadMusicGenBlob(file, fileName);
+          await downloadMusicGenBlob(file, fileName);
           if (!attach) {
             setStatusWithTime(
               `MusicGen preview downloaded (${model || "musicgen"} · ${resolvedDuration}s)`,
@@ -294,6 +307,7 @@ export function useAnalyzerGenerate({
             trackSummary: `ACE-Step song (${model || "acestep"}, ${resolvedDuration}s): ${text.slice(0, 160)}`,
             vocals: lyrics ? "Vocals (ACE-Step)" : report.vocals,
           };
+          report = await cacheGeneratedAudioDraft(file, report);
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
           syncCacheKeysRef(report);
@@ -301,10 +315,11 @@ export function useAnalyzerGenerate({
             `ACE-Step song loaded (${model || "acestep"} · ${resolvedDuration}s)`,
             "success",
           );
+          if (report.audioCacheWarning) setStatusWithTime(report.audioCacheWarning, "warning");
         }
 
         if (download) {
-          downloadMusicGenBlob(file, fileName);
+          await downloadMusicGenBlob(file, fileName);
           if (!attach) {
             setStatusWithTime(
               `ACE-Step song downloaded (${model || "acestep"} · ${resolvedDuration}s)`,

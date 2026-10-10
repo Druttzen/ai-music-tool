@@ -101,7 +101,7 @@ describe("analyzer-suno-style-llm", () => {
       { styleLine: "Ambient, dark" },
       { caption: "forest at dusk", clipTags: [{ label: "dark ambient drone", score: 0.8 }] },
     );
-    expect(system).toMatch(/Suno v5\.5/);
+    expect(system).toMatch(/Suno v6/);
     expect(user).toContain("forest at dusk");
     expect(user).toContain("Ambient, dark");
   });

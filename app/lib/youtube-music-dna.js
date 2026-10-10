@@ -1,5 +1,5 @@
 /**
- * YouTube URL → track Style-DNA + Suno 5.5 replication pack.
+ * YouTube URL → track Style-DNA + Suno v6 replication pack.
  */
 
 import { buildStyleDnaFromHit, compactStyleDnaRule, searchTrackStyleDna } from "./track-style-dna";
@@ -95,7 +95,7 @@ export function buildSunoReplicationPack(dna, youtube = {}) {
     lyricsMetatag,
     structure,
     ruleLine: compactStyleDnaRule(dna),
-    ideaLine: `Recreate the feel of ${dna.artist} — ${dna.title}${youtube.parsedTrack ? ` (${youtube.parsedTrack})` : ""} for Suno 5.5 — match tempo, key, groove, and vocal lane.`,
+    ideaLine: `Recreate the feel of ${dna.artist} — ${dna.title}${youtube.parsedTrack ? ` (${youtube.parsedTrack})` : ""} for Suno v6 — match tempo, key, groove, and vocal lane.`,
     excludeHints: "no random genre drift, no spoken word unless original is rap",
     udioProse: buildUdioProsePrompt(dna, {
       reference: `${dna.artist} — ${dna.title}`,

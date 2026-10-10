@@ -5,7 +5,7 @@
  * Primary source: stayen/suno-reference (MIT) tag-reference.md
  * https://github.com/stayen/suno-reference
  *
- * Genre wheel phrases remain in suno-v55-genre-wheel.js (Suno login required to scrape live).
+ * Genre wheel phrases remain in suno-v55-genre-wheel.js (rendered browser extraction).
  */
 
 const fs = require("fs");
@@ -23,7 +23,7 @@ const SOURCES = {
   },
   genreWheel: {
     url: "https://suno.com/labs/genre-wheel",
-    note: "Login-gated — refresh suno-v55-genre-wheel.js manually when Suno updates the wheel.",
+    note: "Rendered public wheel verified 2026-10-10. Refresh suno-v55-genre-wheel.js from the rendered page; its initial HTML does not contain the phrases.",
   },
 };
 
@@ -179,7 +179,7 @@ function extractProductionTokens(metaTags) {
 
 function buildPrinciples(trademarkSubstitutions) {
   const principles = [
-    "Style field: use 4–8 strong tags; put instrumental-only guards last when present (v5.5 community guidance).",
+    "Community starting point: 4–8 focused descriptors. v6 also accepts detailed natural-language direction; tag counts and bracket syntax are not guaranteed controls.",
     "Lyrics field: bracketed section tags + pipe overrides for local changes — e.g. [chorus | style: hook, vocals: autotune-light].",
     "Open with [track: genre:, mood:, length:, instruments:] for global defaults when building long prompts.",
     "Avoid protected trademark names in Style — use descriptive substitutes (see trademarkSubstitutions in sync manifest).",

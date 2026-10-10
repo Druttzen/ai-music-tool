@@ -1,9 +1,10 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { Panel } from "./ui-blocks";
 import {
   useProjectWorkspaceActions,
+  useProjectWorkspaceAnalyzerState,
   useProjectWorkspaceProjectState,
   useProjectWorkspacePromptState,
 } from "../context/project-workspace-context";
@@ -15,10 +16,15 @@ import {
 } from "../lib/album-mode";
 import { buildCustomModelPack } from "../lib/custom-model-pack";
 import { buildMyTasteProfile, trackSummariesFromWorkspace } from "../lib/my-taste-profile";
+import { SunoCurrentReference } from "./suno-current-reference";
+import { exportSunoDraft } from "../lib/suno-draft-export";
+import { resolveAudioCacheBlob } from "../lib/audio-cache";
 
 export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
   const state = useProjectWorkspaceProjectState();
   const { sunoFieldSlices } = useProjectWorkspacePromptState();
+  const { audioAnalysis, audioPreviewUrl } = useProjectWorkspaceAnalyzerState();
+  const [draftExportBusy, setDraftExportBusy] = useState(false);
   const {
     copyToClipboard,
     setStatusWithTime,
@@ -55,6 +61,26 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
 
   const updateRoles = (next) => setAlbumRoles(normalizeAlbumRoles(next));
 
+  const exportDraft = async () => {
+    setDraftExportBusy(true);
+    try {
+      let blob;
+      if (audioPreviewUrl) {
+        const response = await fetch(audioPreviewUrl);
+        if (!response.ok) throw new Error("Could not read the current audio draft");
+        blob = await response.blob();
+      } else {
+        blob = (await resolveAudioCacheBlob(audioAnalysis))?.blob;
+      }
+      const saved = await exportSunoDraft({ blob, analysis: audioAnalysis, style: sunoFieldSlices?.style, lyrics: sunoFieldSlices?.lyrics });
+      setStatusWithTime(`Audio + Suno brief saved${saved.audio.path ? `: ${saved.audio.path}` : ""}`, "success");
+    } catch (error) {
+      setStatusWithTime(error instanceof Error ? error.message : "Could not export draft", "error");
+    } finally {
+      setDraftExportBusy(false);
+    }
+  };
+
   const updateRole = (index, field, value) => {
     updateRoles(albumRoles.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
   };
@@ -85,11 +111,20 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
 
   return (
     <Panel
-      title="Suno 5.5 Pro tools"
+      title="Suno v6 · draft to final"
       hint="My Taste, Album cohesion, Custom Model checklist, and multi-engine exports."
       data-testid="suno-pro-tools-panel"
     >
       <div className="space-y-4">
+        <SunoCurrentReference />
+        <section className="rounded-2xl border border-cyan-400/25 bg-cyan-950/20 p-3">
+          <p className="text-xs text-white/70">Choose your local take, then save its original audio and a Suno brief with Style, Lyrics and generation settings. Upload the audio in Suno when you are ready.</p>
+          <button type="button" disabled={!audioAnalysis || draftExportBusy} onClick={exportDraft}
+            className="mt-2 rounded-xl bg-cyan-300 px-3 py-2 text-xs font-bold text-black disabled:opacity-40">
+            {draftExportBusy ? "Saving draft…" : "Export audio + Suno brief"}
+          </button>
+          {audioAnalysis?.musicGenSettings?.seed != null ? <p className="mt-2 text-[10px] text-white/55">Last take seed: {audioAnalysis.musicGenSettings.seed} · {audioAnalysis.musicGenModel}</p> : null}
+        </section>
         <section
           className="rounded-2xl border border-violet-400/25 bg-violet-950/20 p-3"
           data-testid="my-taste-profile"

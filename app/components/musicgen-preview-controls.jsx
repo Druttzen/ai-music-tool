@@ -9,6 +9,7 @@ import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
  */
 export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   defaultPrompt = "",
+  lastTake,
   busy = false,
   canCancel = false,
   cancelRequested = false,
@@ -20,23 +21,24 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   onGenerate,
   compact = false,
 }) {
-  const [promptOverride, setPromptOverride] = useState(null);
-  const [durationSec, setDurationSec] = useState(8);
-  const [modelPreset, setModelPreset] = useState("small");
-  const [mergeAfterGenerate, setMergeAfterGenerate] = useState(true);
+  const [promptOverride, setPromptOverride] = useState(lastTake?.prompt ?? null);
+  const [durationSec, setDurationSec] = useState(lastTake?.durationSec ?? 30);
+  const previousPreset = String(lastTake?.model || "").replace("facebook/musicgen-", "");
+  const [modelPreset, setModelPreset] = useState(["small", "medium", "stereo-small", "stereo-medium"].includes(previousPreset) ? previousPreset : "stereo-small");
+  const [mergeAfterGenerate, setMergeAfterGenerate] = useState(false);
   const [useMelodyReference, setUseMelodyReference] = useState(false);
   const [useHighlightMelody, setUseHighlightMelody] = useState(false);
-  const [temperature, setTemperature] = useState(1);
-  const [cfgCoef, setCfgCoef] = useState(3);
-  const [topK, setTopK] = useState(250);
-  const [topP, setTopP] = useState(0);
-  const [seed, setSeed] = useState("");
+  const [temperature, setTemperature] = useState(lastTake?.temperature ?? 1);
+  const [cfgCoef, setCfgCoef] = useState(lastTake?.cfgCoef ?? 3);
+  const [topK, setTopK] = useState(lastTake?.topK ?? 250);
+  const [topP, setTopP] = useState(lastTake?.topP ?? 0);
+  const [seed, setSeed] = useState(lastTake?.seed == null ? "" : String(lastTake.seed));
 
   useWorkspaceResetEffect(() => {
     setPromptOverride(null);
-    setDurationSec(8);
-    setModelPreset("small");
-    setMergeAfterGenerate(true);
+    setDurationSec(30);
+    setModelPreset("stereo-small");
+    setMergeAfterGenerate(false);
     setUseMelodyReference(false);
     setUseHighlightMelody(false);
     setTemperature(1);
@@ -71,13 +73,14 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       }`}
     >
       <div className="text-[10px] font-bold uppercase tracking-wider text-violet-100/90">
-        MusicGen preview
+        MusicGen · offline draft for Suno
       </div>
       <p className="text-[10px] leading-relaxed text-white/45">
-        Short WAV sketch from your project style (
-        <code className="text-white/60">{installHint}</code>
-        ). Loads in the waveform player — CC-BY-NC weights, preview only.
+        Audition the groove and instruments locally, then export your chosen WAV for Suno.
+        Stereo models keep their stereo image. Models download on first use; cached models run locally.
+        MusicGen makes instrumental drafts and does not reproduce Suno vocals. CC-BY-NC weights.
       </p>
+      {!available ? <p className="text-[10px] text-white/50">Setup: {installHint}</p> : null}
       <label className="block text-[10px] text-white/50">
         Prompt
         <textarea
@@ -131,10 +134,16 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           onChange={(e) => setModelPreset(e.target.value)}
           className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
         >
-          <option value="small">Small (fast, default)</option>
-          <option value="medium">Medium (needs ~10 GB VRAM, else falls back)</option>
+          <option value="stereo-small">Stereo draft (fast)</option>
+          <option value="stereo-medium">Stereo detail (slower; 16 GB GPU recommended)</option>
+          <option value="small">Small mono</option>
+          <option value="medium">Medium mono (slower; 16 GB GPU recommended)</option>
         </select>
       </label>
+      <p className="text-[10px] text-white/45">
+        Melody mode uses a larger melody model. Keep the seed fixed while refining a prompt;
+        change it to explore another take. A larger model is never silently replaced with Small.
+      </p>
       <label className="block text-[10px] text-white/50">
         Duration
         <select
@@ -157,7 +166,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           disabled={busy}
           onChange={(e) => setMergeAfterGenerate(e.target.checked)}
         />
-        Merge into Suno fields after generate
+        Replace project style with the analyzed result
       </label>
       {canUseMelodyReference ? (
         <label className="flex items-center gap-2 text-[10px] text-white/55">

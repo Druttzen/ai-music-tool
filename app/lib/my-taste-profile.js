@@ -1,5 +1,5 @@
 /**
- * My Taste profile — local Suno 5.5 L1 personalization from project history.
+ * My Taste profile — local Suno v6 L1 personalization from project history.
  */
 
 /**

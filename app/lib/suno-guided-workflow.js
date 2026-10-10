@@ -87,7 +87,7 @@ export const SUNO_GUIDED_STEPS = [
     name: "Copy to Suno",
     line: "You’re ready: use the two copy blocks — Style (≤1000 chars) into Suno’s Style of Music, Lyrics into Lyrics. Re-import here to iterate.",
     where: "Below. Other copies (full prompt, style-only from Prompt Preview) still work for power users.",
-    next: "In Suno: generate → if drift, return here, shorten Style first, then tweak Lyrics.",
+    next: "Audition a local draft first. Export audio + Suno brief from Suno v6 · draft to final, then upload the chosen take to Suno and describe what to preserve or change.",
     optimal: "If you use a new factory preset, walk steps 0–1 again; custom presets you saved are great for *your* recurring sound.",
   },
 ];

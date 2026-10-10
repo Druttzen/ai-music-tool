@@ -1,5 +1,5 @@
 /**
- * Suno 5.5 Voices prep kit — sample QA and verification guidance.
+ * Suno v6 Voices prep kit — sample QA and verification guidance.
  */
 
 /**
