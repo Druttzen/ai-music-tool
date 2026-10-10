@@ -124,3 +124,14 @@ it("sends the selected vocal language to the learned composer", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Compose and generate song" }));
   expect(generate).toHaveBeenCalledWith("A song", expect.objectContaining({ compose: true, vocalLanguage: "sv" }));
 });
+
+it("defaults to English when switching an instrumental take with unknown language to vocals", () => {
+  fetchAceStepPresets.mockResolvedValue({ sft_available: true });
+  const generate = vi.fn();
+  render(React.createElement(AceStepSongControls, { available: true, defaultPrompt: "A song", onGenerate: generate,
+    lastTake: { compose: true, instrumental: true, vocalLanguage: "unknown" } }));
+  fireEvent.click(screen.getByLabelText("Instrumental (uncheck to let AI write lyrics)"));
+  expect(screen.getByRole("combobox", { name: "Vocal language" }).value).toBe("en");
+  fireEvent.click(screen.getByRole("button", { name: "Compose and generate song" }));
+  expect(generate).toHaveBeenCalledWith("A song", expect.objectContaining({ instrumental: false, vocalLanguage: "en" }));
+});

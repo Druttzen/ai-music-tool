@@ -11,6 +11,7 @@ from ai_sidecar.main import app
 
 
 def mock_api(monkeypatch, *, initialized=True, caption="Learned musical arrangement", fail=False, samples=None):
+    monkeypatch.setattr("ai_sidecar.composition.instruction_composer_available", lambda: False)
     calls = []
     def handle(request):
         body = json.loads(request.content) if request.content else {}
@@ -111,7 +112,7 @@ def test_job_runner_uses_plan_and_forces_semantic_planning(monkeypatch):
     from ai_sidecar.generate_jobs import run_acestep
     plan = {"caption": "Expanded arrangement", "generation_prompt": "Idea\n\nExpanded arrangement", "lyrics": "[Instrumental]", "duration_sec": 30,
             "bpm": 130, "key_scale": "F major", "vocal_language": "unknown",
-            "planner_model": "acestep-5Hz-lm-1.7B", "time_signature": "4"}
+            "planner_model": "Qwen3-4B-Q4_K_M", "semantic_model": "acestep-5Hz-lm-1.7B", "time_signature": "4"}
     monkeypatch.setattr("ai_sidecar.acestep_bridge.acestep_configured", lambda: True)
     monkeypatch.setattr("ai_sidecar.acestep_bridge.acestep_reachable", lambda **_: True)
     monkeypatch.setattr("ai_sidecar.composition.plan_composition", lambda *_, **__: plan.copy())
@@ -152,3 +153,34 @@ def test_public_plan_contract_and_request_forwarding(monkeypatch):
     assert "path" not in response.json()
     job.status = "running"
     assert client.get("/generate/song/plan/composer-job").status_code == 404
+
+
+def test_instruction_plan_is_not_rewritten_by_audio_formatter(monkeypatch):
+    calls = mock_api(monkeypatch)
+    monkeypatch.setattr("ai_sidecar.composition.instruction_composer_available", lambda: True)
+    from test_instruction_composer import proposal
+    learned = {**proposal(), "arrangement": ["0–10s verse", "10–30s chorus and ending"], "planner_model": "Qwen3-4B-Q4_K_M", "planner_device": "cuda", "planner_gpu_layers": 37}
+    monkeypatch.setattr("ai_sidecar.composition.plan_with_instructions", lambda *args, **kwargs: learned)
+    plan = plan_composition("Synthpop dream", duration_sec=30, instrumental=False)
+    assert plan["lyrics"] == learned["lyrics"]
+    assert plan["semantic_model"] == "acestep-5Hz-lm-1.7B"
+    assert plan["planner_model"] == "Qwen3-4B-Q4_K_M"
+    assert plan["motif"] in plan["generation_prompt"]
+    assert [path for path, _ in calls] == ["/v1/model_inventory"]
+
+
+def test_instruction_failure_does_not_silently_fall_back(monkeypatch):
+    calls = mock_api(monkeypatch)
+    monkeypatch.setattr("ai_sidecar.composition.instruction_composer_available", lambda: True)
+    def fail(*args, **kwargs): raise RuntimeError("Instruction failure")
+    monkeypatch.setattr("ai_sidecar.composition.plan_with_instructions", fail)
+    with pytest.raises(RuntimeError, match="Instruction failure"):
+        plan_composition("Idea")
+    assert not calls
+
+
+def test_instrumental_language_unknown_is_normalized_when_switching_to_vocals(monkeypatch):
+    calls = mock_api(monkeypatch)
+    plan = plan_composition("English song", duration_sec=30, instrumental=False, vocal_language="unknown")
+    assert calls[0][1]["vocal_language"] == "en"
+    assert plan["vocal_language"] == "en"

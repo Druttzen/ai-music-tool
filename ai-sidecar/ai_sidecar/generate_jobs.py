@@ -103,7 +103,7 @@ def run_acestep(ctx: JobContext) -> dict[str, Any]:
         guidance_scale=ctx.payload.get("guidance_scale"),
         seed=ctx.payload.get("seed"),
         model=str(ctx.payload.get("model") or ""),
-        **({"lm_model": plan["planner_model"], "time_signature": plan["time_signature"]} if plan else {}),
+        **({"lm_model": plan.get("semantic_model") or plan["planner_model"], "time_signature": plan["time_signature"]} if plan else {}),
         on_progress=ctx.set_progress,
     )
     if plan:

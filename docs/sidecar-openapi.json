@@ -853,6 +853,20 @@
       "CompositionPlan": {
         "additionalProperties": false,
         "properties": {
+          "arrangement": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arrangement"
+          },
           "bpm": {
             "anyOf": [
               {
@@ -876,6 +890,17 @@
             "title": "Generation Prompt",
             "type": "string"
           },
+          "harmony": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Harmony"
+          },
           "instrumental": {
             "title": "Instrumental",
             "type": "boolean"
@@ -892,9 +917,42 @@
             "title": "Method",
             "type": "string"
           },
+          "motif": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motif"
+          },
           "original_prompt": {
             "title": "Original Prompt",
             "type": "string"
+          },
+          "planner_device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planner Device"
+          },
+          "planner_gpu_layers": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planner Gpu Layers"
           },
           "planner_model": {
             "title": "Planner Model",
@@ -904,6 +962,17 @@
             "default": "",
             "title": "Reported Lm Model",
             "type": "string"
+          },
+          "semantic_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Model"
           },
           "semantic_planning_requested": {
             "title": "Semantic Planning Requested",

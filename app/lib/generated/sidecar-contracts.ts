@@ -158,17 +158,23 @@ export type ChordPoint = {
 };
 
 export type CompositionPlan = {
+  "arrangement"?: Array<string> | null;
   "bpm": number | null;
   "caption": string;
   "duration_sec": number;
   "generation_prompt": string;
+  "harmony"?: string | null;
   "instrumental": boolean;
   "key_scale": string;
   "lyrics": string;
   "method": string;
+  "motif"?: string | null;
   "original_prompt": string;
+  "planner_device"?: string | null;
+  "planner_gpu_layers"?: number | null;
   "planner_model": string;
   "reported_lm_model"?: string;
+  "semantic_model"?: string | null;
   "semantic_planning_requested": boolean;
   "suggested_duration_sec": number | null;
   "time_signature": string;

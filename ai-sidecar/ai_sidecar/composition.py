@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from .acestep_bridge import _auth_headers, acestep_api_url
+from .instruction_composer import instruction_composer_available, plan_with_instructions
 
 
 def _data(response: Any) -> dict[str, Any]:
@@ -34,7 +35,7 @@ def plan_composition(prompt: str, *, lyrics: str = "", duration_sec: float | Non
     if not math.isfinite(duration) or not 10 <= duration <= 600:
         raise ValueError("composition duration must be between 10 and 600 seconds")
     instrumental = bool(instrumental and not lyrics.strip())
-    language = vocal_language or ("unknown" if instrumental else "en")
+    language = vocal_language if vocal_language and (instrumental or vocal_language != "unknown") else ("unknown" if instrumental else "en")
     metadata = {"duration": duration}
     if bpm is not None:
         metadata["bpm"] = max(30, min(int(bpm), 300))
@@ -46,6 +47,28 @@ def plan_composition(prompt: str, *, lyrics: str = "", duration_sec: float | Non
     base = acestep_api_url()
     if check_cancelled:
         check_cancelled()
+    if instruction_composer_available():
+        # The owned instruction runtime releases its GPU allocation before ACE inference.
+        proposal = plan_with_instructions(text, duration_sec=duration, instrumental=instrumental,
+            lyrics=lyrics, language=language, bpm=metadata.get("bpm"), key_scale=key_scale,
+            on_progress=on_progress, check_cancelled=check_cancelled)
+        try:
+            with httpx.Client(timeout=15) as client:
+                inventory = _data(client.get(f"{base}/v1/model_inventory", headers=headers))
+        except httpx.HTTPError as exc:
+            raise RuntimeError("Local semantic music planner unavailable") from exc
+        semantic_model = str(inventory.get("loaded_lm_model") or "")
+        if not inventory.get("llm_initialized") or not semantic_model.startswith("acestep-5Hz-lm-"):
+            raise RuntimeError("Enable the cached semantic music language model before generating")
+        if check_cancelled:
+            check_cancelled()
+        instructions = (proposal["caption"] + "\nMotif: " + proposal["motif"]
+            + "\nHarmony: " + proposal["harmony"] + "\nArrangement: "
+            + " | ".join(proposal["arrangement"]))
+        return {**proposal, "original_prompt": text, "generation_prompt": text + "\n\n" + instructions,
+                "duration_sec": duration, "suggested_duration_sec": duration,
+                "instrumental": instrumental, "semantic_model": semantic_model,
+                "method": "qwen3-instruction-plan", "semantic_planning_requested": True}
     if on_progress:
         on_progress(0.10, "AI composing the musical idea")
     try:

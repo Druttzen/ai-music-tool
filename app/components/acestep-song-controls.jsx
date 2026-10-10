@@ -39,7 +39,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   const [thinking, setThinking] = useState(lastTake?.thinking ?? true);
   const [compose, setCompose] = useState(lastTake?.compose ?? false);
   const [instrumental, setInstrumental] = useState(lastTake?.instrumental ?? true);
-  const [vocalLanguage, setVocalLanguage] = useState(lastTake?.vocalLanguage || "en");
+  const [vocalLanguage, setVocalLanguage] = useState(["en", "sv", "de", "es", "fr"].includes(lastTake?.vocalLanguage) ? lastTake.vocalLanguage : "en");
   const [quality, setQuality] = useState(lastTake?.model === "acestep-v15-sft" ? "sft" : lastTake?.model === "acestep-v15-base" ? "quality" : "turbo");
   const [qualityAvailable, setQualityAvailable] = useState(false);
   const [sftAvailable, setSftAvailable] = useState(false);
@@ -220,6 +220,10 @@ export const AceStepSongControls = memo(function AceStepSongControls({
         <summary className="cursor-pointer font-semibold text-emerald-100">Saved AI composition plan</summary>
         <p className="mt-2">{lastTake.compositionPlan.planner_model} · {lastTake.compositionPlan.bpm ?? "?"} BPM · {lastTake.compositionPlan.key_scale} · {lastTake.compositionPlan.duration_sec}s</p>
         <p className="mt-2">{lastTake.compositionPlan.caption}</p>
+        {lastTake.compositionPlan.motif && <p className="mt-2">Motif: {lastTake.compositionPlan.motif}</p>}
+        {lastTake.compositionPlan.harmony && <p className="mt-2">Harmony: {lastTake.compositionPlan.harmony}</p>}
+        {lastTake.compositionPlan.arrangement?.length > 0 && <ol className="mt-2 list-decimal pl-4">{lastTake.compositionPlan.arrangement.map((section, index) => <li key={index}>{section}</li>)}</ol>}
+        {lastTake.compositionPlan.semantic_model && <p className="mt-2">Music planner: {lastTake.compositionPlan.semantic_model} · Composer: {lastTake.compositionPlan.planner_device}</p>}
         <pre className="mt-2 whitespace-pre-wrap font-sans">{lastTake.compositionPlan.lyrics}</pre>
       </details>}
       <label className="block text-[10px] text-white/50">

@@ -92,6 +92,12 @@ class CompositionPlan(BaseModel):
     vocal_language: str
     instrumental: bool
     planner_model: str
+    semantic_model: str | None = None
+    planner_device: str | None = None
+    planner_gpu_layers: int | None = None
+    motif: str | None = None
+    harmony: str | None = None
+    arrangement: list[str] | None = None
     reported_lm_model: str = ""
     method: str
     semantic_planning_requested: bool

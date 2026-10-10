@@ -1,6 +1,6 @@
 {
   "name": "ai-music-tool",
-  "version": "0.50.58",
+  "version": "0.50.60",
   "description": "AI Music Creator — Suno guided path, local analyzers, EBU R128, Preview monitor, studio WAV/FLAC/MP3/M4A export",
   "author": "DJ M@D",
   "private": true,
@@ -42,6 +42,7 @@
     "sidecar:cover-ref": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-cover-ref.ps1",
     "sidecar:classify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-classify.ps1",
     "sidecar:acestep": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-acestep.ps1",
+    "sidecar:composer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-composer.ps1",
     "sidecar:acest": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-acestep.ps1",
     "sidecar:all": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-sidecar-all.ps1",
     "sidecar:fg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-sidecar.ps1 -Foreground -IdleExitSec 0",
