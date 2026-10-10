@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 from typing import Any
 
@@ -22,21 +23,19 @@ def stems_available() -> bool:
 
 
 def preferred_stems_backend() -> str:
-    """Prefer Mel-Band when forced via env, or when Mel-Band is the only backend installed."""
+    """Prefer the dedicated vocal backend unless explicitly overridden."""
     raw = os.environ.get("AIMC_STEMS_BACKEND", "").strip().lower()
     if raw in {"demucs", "htdemucs"}:
         return "demucs"
     if raw in {"melband", "melband-roformer", "mel-band"}:
         return "melband"
-    # Mel-Band-only installs (no Demucs): use Mel-Band. When both exist, keep Demucs default.
-    if not stems_available():
-        try:
-            from .stems_melband import melband_available
+    try:
+        from .stems_melband import melband_available
 
-            if melband_available():
-                return "melband"
-        except Exception:
-            pass
+        if melband_available():
+            return "melband"
+    except Exception:
+        pass
     return "demucs"
 
 
@@ -62,6 +61,8 @@ def _load_demucs(model_name: str, device: str | None = None):
         model.to(target)
         model.eval()
         _MODEL_CACHE[model_name] = model
+    else:
+        _MODEL_CACHE[model_name].to(device or (build_policy().device or select_device()))
     return _MODEL_CACHE[model_name], torch
 
 
@@ -75,16 +76,45 @@ def _save_stem_wav(source, path: str, samplerate: int) -> None:
         data = np.asarray(source)
     if data.ndim == 2:
         data = data.T
-    sf.write(path, data, samplerate, subtype="PCM_16")
+    if not np.isfinite(data).all():
+        raise RuntimeError("Separation produced non-finite audio")
+    sf.write(path, data, samplerate, subtype="FLOAT")
+
+
+def _read_demucs_audio(path, model, torch):
+    """Read WAV/MP3/FLAC directly; avoid requiring external ffprobe/ffmpeg."""
+    import numpy as np
+    import soundfile as sf
+    from .stems_melband import _resample_audio
+
+    try:
+        audio, rate = sf.read(path, dtype="float32", always_2d=True)
+    except RuntimeError:
+        # Retain the optional FFmpeg decoder for formats libsndfile cannot read.
+        from demucs.audio import AudioFile
+        try:
+            return AudioFile(path).read(streams=0, samplerate=model.samplerate, channels=model.audio_channels)
+        except FileNotFoundError as exc:
+            raise RuntimeError("This audio format needs FFmpeg. Convert the track to WAV before separation.") from exc
+    if not len(audio) or not np.isfinite(audio).all():
+        raise ValueError("Separation requires non-empty finite audio")
+    if model.audio_channels == 1:
+        audio = audio.mean(axis=1, keepdims=True)
+    elif audio.shape[1] == 1:
+        audio = np.repeat(audio, model.audio_channels, axis=1)
+    elif audio.shape[1] != model.audio_channels:
+        audio = audio[:, :model.audio_channels]
+    audio = _resample_audio(audio, rate, model.samplerate)
+    return torch.from_numpy(np.ascontiguousarray(audio.T))
 
 
 @register("stems.separate")
 def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
     from .stems_melband import is_melband_model_name, melband_available, run_melband_separate
 
-    model_name = str(ctx.payload.get("model_name") or "htdemucs")
+    model_name = str(ctx.payload.get("model_name") or "auto")
     want_melband = is_melband_model_name(model_name) or (
-        preferred_stems_backend() == "melband" and model_name in {"htdemucs", "auto"}
+        preferred_stems_backend() == "melband" and model_name == "auto"
     )
     if want_melband:
         if not melband_available():
@@ -92,11 +122,13 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
                 raise RuntimeError("Mel-Band RoFormer deps missing — npm run sidecar:stems-melband")
         else:
             if not is_melband_model_name(model_name):
-                ctx.payload["model_name"] = "melband"
+                ctx.payload["model_name"] = "melband-clean"
             return normalize_stems_result(run_melband_separate(ctx))
 
+    if model_name == "auto":
+        model_name = "htdemucs"
+
     from demucs.apply import apply_model
-    from demucs.audio import AudioFile
 
     raw: bytes = ctx.payload["raw"]
     filename = str(ctx.payload.get("filename") or "in.wav")
@@ -108,14 +140,14 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
     tmp_in.write(raw)
     tmp_in.close()
     out_dir = tempfile.mkdtemp(prefix="stems_")
+    model = None
+    completed = False
 
     try:
         ctx.set_progress(0.1, f"loading model ({device})")
         model, torch = _load_demucs(model_name, device=device)
         ctx.set_progress(0.3, "reading audio")
-        wav = AudioFile(tmp_in.name).read(
-            streams=0, samplerate=model.samplerate, channels=model.audio_channels
-        )
+        wav = _read_demucs_audio(tmp_in.name, model, torch)
         ref = wav.mean(0)
         wav = (wav - ref.mean()) / (ref.std() + 1e-8)
         ctx.set_progress(0.5, "separating")
@@ -128,6 +160,7 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
             _save_stem_wav(source, path, model.samplerate)
             stems[name] = path
         ctx.set_progress(0.95, "writing stems")
+        completed = True
         return normalize_stems_result({
             "device": device,
             "model": model_name,
@@ -138,13 +171,19 @@ def run_stem_separate(ctx: JobContext) -> dict[str, Any]:
             "policy": policy.as_dict(),
         })
     finally:
+        if model is not None:
+            model.to("cpu")
+            if device.startswith("cuda"):
+                torch.cuda.empty_cache()
+        if not completed:
+            shutil.rmtree(out_dir, ignore_errors=True)
         try:
             os.unlink(tmp_in.name)
         except OSError:
             pass
 
 
-def separate_audio(raw: bytes, *, filename: str = "in.wav", model_name: str = "htdemucs") -> dict[str, Any]:
+def separate_audio(raw: bytes, *, filename: str = "in.wav", model_name: str = "auto") -> dict[str, Any]:
     if not raw:
         raise ValueError("empty upload")
     job = JOBS.run_inline(

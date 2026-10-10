@@ -94,6 +94,7 @@ def _install_fake_demucs_modules():
     sys.modules["demucs.pretrained"] = fake_pretrained
 
     fake_torch = MagicMock()
+    fake_torch.from_numpy.side_effect = lambda array: array
     fake_torch.__version__ = "0.0-test"
     fake_torch.cuda.is_available.return_value = False
     fake_torch.backends.mps.is_available.return_value = False
@@ -115,6 +116,7 @@ def test_separate_mocked_demucs_roundtrip():
         res = client.post(
             "/separate",
             files={"file": ("tone.wav", BytesIO(wav), "audio/wav")},
+            data={"model_name": "htdemucs"},
         )
 
     assert res.status_code == 200, res.text

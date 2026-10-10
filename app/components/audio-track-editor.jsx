@@ -117,7 +117,8 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
 }) {
   const audioRef = useRef(null);
   const [playhead, setPlayhead] = useState(null);
-  const [stemsModel, setStemsModel] = useState("htdemucs");
+  const [stemsModelChoice, setStemsModel] = useState(null);
+  const stemsModel = stemsModelChoice ?? (sidecarStemsMelbandAvailable ? "melband-clean" : "htdemucs");
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
   const [waveSurferPrototype, setWaveSurferPrototype] = useState(ENABLE_WAVESURFER_DEFAULT);
@@ -640,22 +641,25 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             Stem separation
           </div>
           <p className="text-[10px] leading-relaxed text-white/45">
-            Demucs returns four stems (vocals, drums, bass, other). Mel-Band RoFormer returns
-            vocals + instrumental when{" "}
-            <code className="text-white/60">npm run sidecar:stems-melband</code> is installed.
+            Clean vocals prioritizes removing instruments from the voice. Some mixes can
+            retain bleed or lose faint vocal details. Demucs separates four instrument groups.
           </p>
           <label className="block space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Model</span>
             <select
+              aria-label="Stem separation model"
               value={stemsModel}
               disabled={stemSeparationBusy || exportBusy}
               onChange={(e) => setStemsModel(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-black/40 px-2.5 py-2 text-xs text-white outline-none focus:border-fuchsia-400/50 disabled:opacity-50"
             >
-              <option value="htdemucs">Demucs (4 stems)</option>
-              <option value="melband" disabled={!sidecarStemsMelbandAvailable}>
-                Mel-Band RoFormer{sidecarStemsMelbandAvailable ? "" : " — install stems-melband"}
+              <option value="melband-clean" disabled={!sidecarStemsMelbandAvailable}>
+                Clean vocals (FT2 Bleedless — recommended)
               </option>
+              <option value="melband" disabled={!sidecarStemsMelbandAvailable}>
+                Mel-Band (standard vocals){sidecarStemsMelbandAvailable ? "" : " — unavailable"}
+              </option>
+              <option value="htdemucs">Demucs (4 stems)</option>
             </select>
           </label>
           <button
@@ -663,7 +667,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             disabled={
               stemSeparationBusy ||
               exportBusy ||
-              (stemsModel === "melband" && !sidecarStemsMelbandAvailable)
+              (stemsModel.startsWith("melband") && !sidecarStemsMelbandAvailable)
             }
             onClick={(e) => {
               e.preventDefault();
@@ -673,7 +677,9 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           >
             {stemSeparationBusy
               ? "Separating stems…"
-              : stemsModel === "melband"
+              : stemsModel === "melband-clean"
+                ? "Separate clean vocals"
+                : stemsModel === "melband"
                 ? "Separate stems (Mel-Band)"
                 : "Separate stems (Demucs)"}
           </button>

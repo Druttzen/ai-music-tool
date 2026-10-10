@@ -261,7 +261,7 @@ def run_vocal_transform(ctx: JobContext) -> dict[str, Any]:
 
     ctx.set_progress(0.1, "separating stems")
 
-    model_name = "melband" if preferred_stems_backend() == "melband" else "htdemucs"
+    model_name = "melband-clean" if preferred_stems_backend() == "melband" else "htdemucs"
     separated = separate_audio(raw, filename=filename, model_name=model_name)
     paths: dict[str, str] = separated.get("paths") or {}
     vocals_path = None

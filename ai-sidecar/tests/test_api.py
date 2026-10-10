@@ -25,6 +25,37 @@ from ai_sidecar.vision_analyzer import vision_analysis_available
 
 client = TestClient(app)
 
+
+def test_separation_keeps_async_event_loop_responsive(monkeypatch):
+    import asyncio
+    import threading
+    import time
+    from starlette.datastructures import UploadFile
+    import ai_sidecar.main as main
+
+    release = threading.Event()
+    entered = threading.Event()
+    def blocking_separate(*args, **kwargs):
+        entered.set()
+        assert release.wait(2), "Separation blocked the event loop"
+        return {"job_id": "test-threadpool", "sources": ["vocals", "instrumental"], "device": "cpu", "model": "test"}
+    monkeypatch.setattr(main, "stems_available", lambda: True)
+    monkeypatch.setattr(main, "separate_audio", blocking_separate)
+    async def exercise():
+        start = time.monotonic()
+        task = asyncio.create_task(main.separate(UploadFile(io.BytesIO(b"wav"), filename="x.wav"), "htdemucs"))
+        try:
+            for _ in range(100):
+                if entered.is_set():
+                    break
+                await asyncio.sleep(0.01)
+            assert entered.is_set()
+            assert time.monotonic() - start < 1
+        finally:
+            release.set()
+        assert (await task).sources == ["vocals", "instrumental"]
+    asyncio.run(exercise())
+
 _MIN_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
 )

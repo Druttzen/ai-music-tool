@@ -36,6 +36,7 @@ test.describe("Sidecar Demucs stems (requires stems extra)", () => {
 
     await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, FIXTURE_NAME);
 
+    await panel.getByRole("combobox", { name: "Stem separation model" }).selectOption("htdemucs");
     await panel.getByRole("button", { name: "Separate stems (Demucs)" }).click();
 
     const toast = page.getByTestId("action-toast");

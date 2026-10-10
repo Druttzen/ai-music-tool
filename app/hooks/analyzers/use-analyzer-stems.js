@@ -15,14 +15,14 @@ export function useAnalyzerStems({ audioAnalysis, setStatusWithTime }) {
   }, []);
 
   const separateStems = useCallback(
-    async (modelName = "htdemucs") => {
+    async (modelName = "auto") => {
       if (!audioAnalysis) {
         setStatusWithTime("No track loaded for stem separation");
         return;
       }
       if (stemSeparationBusy) return;
 
-      const model = String(modelName || "htdemucs").trim() || "htdemucs";
+      const model = String(modelName || "auto").trim() || "auto";
       const isMelband = model.toLowerCase().startsWith("melband");
       setStemSeparationBusy(true);
       setStemSeparationStems([]);

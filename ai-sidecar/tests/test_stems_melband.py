@@ -20,6 +20,7 @@ def test_is_melband_model_name():
 def test_resolve_melband_model_id(monkeypatch):
     monkeypatch.delenv("AIMC_MELBAND_MODEL", raising=False)
     assert resolve_melband_model_id("melband") == "melband-roformer-kim-vocals"
+    assert resolve_melband_model_id("melband-clean") == "melband-roformer-kimmel-ft2-bleedless"
     monkeypatch.setenv("AIMC_MELBAND_MODEL", "melband-roformer-big-beta7")
     assert resolve_melband_model_id("melband") == "melband-roformer-big-beta7"
     assert resolve_melband_model_id("melband-roformer-kim-vocals") == "melband-roformer-kim-vocals"
@@ -29,7 +30,7 @@ def test_preferred_stems_backend(monkeypatch):
     monkeypatch.delenv("AIMC_STEMS_BACKEND", raising=False)
     monkeypatch.setattr("ai_sidecar.stems_separate.stems_available", lambda: True)
     monkeypatch.setattr("ai_sidecar.stems_melband.melband_available", lambda: True)
-    assert preferred_stems_backend() == "demucs"
+    assert preferred_stems_backend() == "melband"
     monkeypatch.setattr("ai_sidecar.stems_separate.stems_available", lambda: False)
     assert preferred_stems_backend() == "melband"
     monkeypatch.setenv("AIMC_STEMS_BACKEND", "demucs")

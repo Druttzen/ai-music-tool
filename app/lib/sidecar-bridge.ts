@@ -280,12 +280,12 @@ export type SidecarStemFile = SidecarContracts.StemFile;
 export type SidecarSeparateResult = SidecarContracts.SeparateResult;
 
 /**
- * POST audio to /separate and return Demucs stem download URLs.
+ * POST audio to /separate and return stem download URLs.
  */
 export async function separateStemsViaSidecar(
   file: Blob,
   fileName = "audio",
-  modelName = "htdemucs",
+  modelName = "auto",
 ): Promise<SidecarSeparateResult> {
   const form = new FormData();
   form.append("file", file, fileName);

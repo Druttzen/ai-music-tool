@@ -53,6 +53,7 @@ def test_separate_real_demucs_tone(client):
     res = client.post(
         "/separate",
         files={"file": ("tone.wav", BytesIO(wav), "audio/wav")},
+        data={"model_name": "htdemucs"},
     )
     assert res.status_code == 200, res.text
     body = res.json()

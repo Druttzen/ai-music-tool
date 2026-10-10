@@ -158,7 +158,8 @@ class JobManager:
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
         # Serialize long GPU/CPU jobs across FastAPI threadpool workers.
-        self._worker_lock = threading.Lock()
+        # Vocal transform runs stem separation inline on the same worker thread.
+        self._worker_lock = threading.RLock()
         self._ttl_sec = 3600.0
 
     def prune(self) -> None:

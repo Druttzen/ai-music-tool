@@ -716,6 +716,22 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
             out = format!("{out}\n{ac}");
         }
     }
+    if spec == "stems-melband" {
+        emit_install_progress(app, extra_id, "log", Some("Preparing verified clean vocal model for offline use (~913 MB)"), None);
+        let mut cmd = Command::new(&py);
+        cmd.args(["-m", "ai_sidecar.stems_melband", "--download-clean-model"])
+            .env("PYTHONUNBUFFERED", "1")
+            .current_dir(&root);
+        apply_runtime_cache_env(&mut cmd, &root);
+        apply_create_no_window(&mut cmd);
+        let output = run_command_streaming(cmd, Duration::from_secs(20 * 60), |line| {
+            emit_install_progress(app, extra_id, "log", Some(line), None);
+        })?;
+        if !output.status.success() {
+            return Err(format!("Clean vocal model setup failed: {}", String::from_utf8_lossy(&output.stderr)));
+        }
+        out.push_str(&String::from_utf8_lossy(&output.stdout));
+    }
     let _ = fs::write(
         root.join("state.json"),
         format!(

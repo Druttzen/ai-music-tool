@@ -30,6 +30,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from .private_network_cors import PrivateNetworkCorsMiddleware
 
@@ -1319,7 +1320,7 @@ def separate_download(job_id: str, filename: str):
 
 
 @app.post("/separate", response_model=SeparateResult)
-async def separate(file: UploadFile = File(...), model_name: str = Form("htdemucs")):
+async def separate(file: UploadFile = File(...), model_name: str = Form("auto")):
     """Stem separation via Demucs or Mel-Band RoFormer — returns HTTP download URLs."""
     from .stems_melband import is_melband_model_name, melband_available
 
@@ -1329,7 +1330,7 @@ async def separate(file: UploadFile = File(...), model_name: str = Form("htdemuc
                 status_code=503,
                 detail="Mel-Band RoFormer deps missing — npm run sidecar:stems-melband",
             )
-    elif not stems_available():
+    elif not stems_available() and not (model_name == "auto" and melband_available()):
         raise HTTPException(
             status_code=503,
             detail="stem separation unavailable — install the 'stems' extra",
@@ -1340,7 +1341,9 @@ async def separate(file: UploadFile = File(...), model_name: str = Form("htdemuc
         raise HTTPException(status_code=400, detail="empty upload")
 
     try:
-        result = separate_audio(raw, filename=file.filename or "in.wav", model_name=model_name)
+        result = await run_in_threadpool(
+            separate_audio, raw, filename=file.filename or "in.wav", model_name=model_name,
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:

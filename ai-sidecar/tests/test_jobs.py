@@ -6,6 +6,25 @@ import threading
 from ai_sidecar.jobs import Job, JobManager, cleanup_job_artifacts, _is_under_tmp
 
 
+def test_inline_nested_separation_does_not_deadlock():
+    from ai_sidecar.jobs import register
+
+    manager = JobManager()
+    @register("test.nested-stems")
+    def child(ctx):
+        return {"sources": ["vocals"]}
+    @register("test.nested-vocal-transform")
+    def parent(ctx):
+        return manager.run_inline("test.nested-stems").result
+    results = []
+    worker = threading.Thread(target=lambda: results.append(manager.run_inline("test.nested-vocal-transform")), daemon=True)
+    worker.start()
+    worker.join(timeout=2)
+    assert not worker.is_alive(), "Nested stem job deadlocked"
+    assert results[0].status == "done"
+    assert results[0].result["sources"] == ["vocals"]
+
+
 def test_cleanup_job_artifacts_removes_tmp_dir(tmp_path, monkeypatch):
     monkeypatch.setattr("ai_sidecar.jobs._tmp_roots", lambda: [tmp_path.resolve()])
     out = tmp_path / "job-out"
