@@ -1,7 +1,5 @@
 //! Install opt-in sidecar pip extras via checkout scripts or packaged user-data venv.
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,11 +8,11 @@ use tauri::AppHandle;
 
 use crate::app_layout;
 use crate::process_progress::{
-    emit_install_progress, parse_pip_progress_bytes, run_command_streaming,
+    emit_install_progress,
 };
-use crate::sidecar_manager::{resolve_sidecar_dir, SidecarManager};
+use crate::sidecar_manager::SidecarManager;
 use crate::sidecar_userdata::{
-    checkout_venv_python, find_system_python_310_312, install_extra_into_user_venv,
+    find_system_python_310_312, install_extra_into_user_venv,
     detect_installed_extras_from_venv, load_installed_extras, record_installed_extra,
     resolve_package_source, uninstall_extra_from_user_venv, user_sidecar_root, user_venv_python,
 };
@@ -55,129 +53,6 @@ fn script_stem(extra_id: &str) -> Option<&'static str> {
     }
 }
 
-/// ACE-Step is an external API (not a pip extra). Prefer the checkout launcher script.
-fn is_external_api_extra(extra_id: &str) -> bool {
-    matches!(extra_id, "acestep" | "acest")
-}
-
-fn resolve_repo_root(sidecar_dir: &Path) -> Option<PathBuf> {
-    sidecar_dir.parent().map(|p| p.to_path_buf())
-}
-
-/// PowerShell Join-Path rejects Windows verbatim (`\\?\`) paths.
-fn for_child_process(path: &Path) -> PathBuf {
-    let raw = path.to_string_lossy();
-    if let Some(rest) = raw.strip_prefix(r"\\?\") {
-        PathBuf::from(rest)
-    } else {
-        path.to_path_buf()
-    }
-}
-
-fn resolve_install_script(repo_root: &Path, stem: &str) -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        let ps1 = repo_root.join("scripts").join(format!("{stem}.ps1"));
-        if ps1.is_file() {
-            return Some(ps1);
-        }
-    }
-    #[cfg(not(windows))]
-    {
-        let sh = repo_root.join("scripts").join(format!("{stem}.sh"));
-        if sh.is_file() {
-            return Some(sh);
-        }
-    }
-    let ps1 = repo_root.join("scripts").join(format!("{stem}.ps1"));
-    let sh = repo_root.join("scripts").join(format!("{stem}.sh"));
-    if cfg!(windows) && ps1.is_file() {
-        Some(ps1)
-    } else if sh.is_file() {
-        Some(sh)
-    } else if ps1.is_file() {
-        Some(ps1)
-    } else {
-        None
-    }
-}
-
-const INSTALL_TIMEOUT: Duration = Duration::from_secs(20 * 60);
-
-fn run_install_script(app: &AppHandle, extra_id: &str, script: &Path, repo_root: &Path) -> Result<String, String> {
-    let script = for_child_process(script);
-    let repo_root = for_child_process(repo_root);
-    let script_str = script.to_str().ok_or("Invalid script path")?;
-    let output = if script
-        .extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| e.eq_ignore_ascii_case("ps1"))
-    {
-        let mut cmd = Command::new("powershell");
-        cmd.args([
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            script_str,
-        ])
-        .env("PYTHONUNBUFFERED", "1")
-        .env("PIP_PROGRESS_BAR", "on")
-        .current_dir(repo_root);
-        run_command_streaming(cmd, INSTALL_TIMEOUT, |line| {
-            emit_install_progress(
-                app,
-                extra_id,
-                "log",
-                Some(line),
-                parse_pip_progress_bytes(line),
-            );
-        })?
-    } else {
-        let mut cmd = Command::new("bash");
-        cmd.arg(script_str)
-            .env("PYTHONUNBUFFERED", "1")
-            .env("PIP_PROGRESS_BAR", "on")
-            .current_dir(repo_root);
-        run_command_streaming(cmd, INSTALL_TIMEOUT, |line| {
-            emit_install_progress(
-                app,
-                extra_id,
-                "log",
-                Some(line),
-                parse_pip_progress_bytes(line),
-            );
-        })?
-    };
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let combined = format!("{stdout}{stderr}");
-    let tail: String = combined
-        .lines()
-        .rev()
-        .take(12)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    if output.status.success() {
-        Ok(if tail.is_empty() {
-            "Install finished".to_string()
-        } else {
-            tail
-        })
-    } else {
-        Err(if tail.is_empty() {
-            format!("Install failed (exit {})", output.status)
-        } else {
-            tail
-        })
-    }
-}
-
 fn fail(id: String, mode: &str, error: String, hint: String) -> SidecarExtraInstallResult {
     SidecarExtraInstallResult {
         ok: false,
@@ -187,40 +62,6 @@ fn fail(id: String, mode: &str, error: String, hint: String) -> SidecarExtraInst
         error: Some(error),
         install_hint: Some(hint),
     }
-}
-
-fn install_via_checkout_scripts(
-    app: &AppHandle,
-    id: &str,
-    stem: &str,
-    hint: &str,
-) -> Option<SidecarExtraInstallResult> {
-    let sidecar_dir = resolve_sidecar_dir()?;
-    // ACE-Step launcher only needs the repo checkout (writes .env.vocal + starts API).
-    if !is_external_api_extra(id) {
-        let _venv = checkout_venv_python(&sidecar_dir)?;
-    }
-    let repo_root = resolve_repo_root(&sidecar_dir)?;
-    let script = resolve_install_script(&repo_root, stem)?;
-
-    Some(match run_install_script(app, id, &script, &repo_root) {
-        Ok(tail) => SidecarExtraInstallResult {
-            ok: true,
-            extra_id: id.to_string(),
-            mode: Some("installed".to_string()),
-            message: Some(format!("Installed — sidecar restarting. {tail}")),
-            error: None,
-            install_hint: Some(hint.to_string()),
-        },
-        Err(err) => {
-            let mode = if err.to_ascii_lowercase().contains("timed out") {
-                "install-timeout"
-            } else {
-                "install-failed"
-            };
-            fail(id.to_string(), mode, err, hint.to_string())
-        }
-    })
 }
 
 pub(crate) fn known_extra_ids() -> &'static [&'static str] {
@@ -301,30 +142,21 @@ fn install_one_sidecar_extra_inner(
 
     emit_install_progress(app, &id, "start", Some("Starting extra install"), None);
 
-    // Prefer the Studio app-data venv whenever STUDIO_DATA_DIR is set (canonical install root).
-    // ACE-Step is config + external API — never pip into the music sidecar venv.
-    let force_app_data = std::env::var("STUDIO_DATA_DIR")
-        .map(|v| !v.trim().is_empty())
-        .unwrap_or(false);
-    let mut result = if is_external_api_extra(&id) {
-        match install_via_checkout_scripts(app, &id, stem, &hint) {
-            Some(result) => result,
-            None => fail(
-                id.clone(),
-                "install-failed",
-                "ACE-Step launcher script not found — clone ACE-Step 1.5 and set AIMC_ACESTEP_HOME, then retry.".to_string(),
-                hint,
-            ),
+    // All plugins belong to the app-managed data root, including development.
+    let _ = (stem, skip_checkout);
+    let mut result = if id == "acestep" || id == "acest" {
+        match crate::internal_plugins::install_acestep(app) {
+            Ok(message) => SidecarExtraInstallResult {
+                ok: true, extra_id: "acestep".into(), mode: Some("installed".into()),
+                message: Some(message), error: None, install_hint: None,
+            },
+            Err(error) => fail(id.clone(), "install-failed", error, String::new()),
         }
-    } else if skip_checkout || force_app_data {
-        install_into_user_venv_result(app, &id, &hint)
-    } else if let Some(result) = install_via_checkout_scripts(app, &id, stem, &hint) {
-        result
     } else {
         install_into_user_venv_result(app, &id, &hint)
     };
 
-    if result.ok && !is_external_api_extra(&id) {
+    if result.ok {
         if let Err(err) = record_installed_extra(app, &id) {
             result.ok = false;
             result.mode = Some("activation-failed".to_string());
@@ -371,16 +203,6 @@ pub struct SidecarExtraInstallEnv {
 }
 
 fn probe_install_env(app: &AppHandle) -> SidecarExtraInstallEnv {
-    if let Some(sidecar_dir) = resolve_sidecar_dir() {
-        if checkout_venv_python(&sidecar_dir).is_some() {
-            return SidecarExtraInstallEnv {
-                mode: "writable".to_string(),
-                writable: true,
-                message: "Local ai-sidecar/.venv found — Install can run pip extras.".to_string(),
-            };
-        }
-    }
-
     if let Ok(root) = user_sidecar_root(app) {
         if user_venv_python(&root).is_some() {
             return SidecarExtraInstallEnv {
@@ -471,7 +293,11 @@ pub async fn uninstall_sidecar_extra(
     let mgr = Arc::clone(manager.inner());
     tauri::async_runtime::spawn_blocking(move || {
         mgr.stop();
-        let result = uninstall_extra_from_user_venv(&app, &id);
+        let result = if id == "acestep" || id == "acest" {
+            crate::internal_plugins::uninstall_acestep(&app)
+        } else {
+            uninstall_extra_from_user_venv(&app, &id)
+        };
         mgr.restart();
         match result {
             Ok(log) => SidecarExtraInstallResult {
@@ -516,7 +342,6 @@ pub fn list_installed_sidecar_extras(app: AppHandle) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn script_stem_covers_allowlist() {
@@ -525,18 +350,6 @@ mod tests {
         assert_eq!(script_stem("cover-ref"), Some("install-sidecar-cover-ref"));
         assert_eq!(script_stem("vocal-ml"), Some("install-sidecar-vocal-ml"));
         assert!(script_stem("nope").is_none());
-        assert!(is_external_api_extra("acestep"));
-        assert!(!is_external_api_extra("generate"));
     }
 
-    #[test]
-    fn strips_windows_verbatim_prefix_for_powershell() {
-        let verbatim = PathBuf::from(r"\\?\F:\ai-music-tool\scripts\install-sidecar-vision.ps1");
-        assert_eq!(
-            for_child_process(&verbatim),
-            PathBuf::from(r"F:\ai-music-tool\scripts\install-sidecar-vision.ps1")
-        );
-        let normal = PathBuf::from(r"F:\ai-music-tool");
-        assert_eq!(for_child_process(&normal), normal);
-    }
 }

@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ai-music-studio"
-version = "0.50.65"
+version = "0.50.66"
 dependencies = [
  "chrono",
  "dsp-core",
@@ -36,6 +36,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "uuid",
+ "winreg",
  "zip 2.4.2",
 ]
 
@@ -956,7 +957,7 @@ dependencies = [
 
 [[package]]
 name = "dsp-core"
-version = "0.50.65"
+version = "0.50.66"
 dependencies = [
  "anyhow",
  "ebur128",

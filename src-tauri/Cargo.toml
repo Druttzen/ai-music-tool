@@ -1,6 +1,6 @@
 [package]
 name = "ai-music-studio"
-version = "0.50.65"
+version = "0.50.66"
 edition = "2021"
 description = "Tauri shell for AI Music Creator (Path B). Hosts the web UI and bridges to the native Rust DSP core."
 license = "MIT"
@@ -31,3 +31,6 @@ tokio = { version = "1", default-features = false, features = ["time"] }
 
 # Native DSP core (loudness today; mastering/analysis next).
 dsp-core = { path = "../dsp-core" }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"

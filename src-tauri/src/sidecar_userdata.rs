@@ -101,6 +101,7 @@ pub fn runtime_cache_env_map(root: &Path) -> HashMap<String, OsString> {
     let transformers = cache.join("transformers");
     let tmp = user_tmp_dir(root);
     HashMap::from([
+        ("STUDIO_DATA_DIR".into(), root.parent().unwrap_or(root).as_os_str().to_os_string()),
         ("AIMC_DISABLED_EXTRAS_FILE".into(), root.join("disabled-extras.json").into_os_string()),
         ("HF_HOME".into(), hf.as_os_str().to_os_string()),
         ("HF_HUB_CACHE".into(), hf.as_os_str().to_os_string()),
@@ -142,7 +143,6 @@ pub fn user_venv_python(root: &Path) -> Option<PathBuf> {
     resolve_user_python(root)
 }
 
-/// Version stamp from `version.txt` or `state.json` `packageVersion`.
 pub fn user_sidecar_version_stamp(root: &Path) -> Option<String> {
     if let Ok(raw) = fs::read_to_string(root.join("version.txt")) {
         let trimmed = raw.trim();
@@ -163,18 +163,6 @@ pub fn user_sidecar_version_stamp(root: &Path) -> Option<String> {
 
 pub fn user_sidecar_stamp_matches_package(root: &Path) -> bool {
     user_sidecar_version_stamp(root).as_deref() == Some(PACKAGE_VERSION)
-}
-
-pub fn checkout_venv_python(sidecar_dir: &Path) -> Option<PathBuf> {
-    #[cfg(windows)]
-    let py = sidecar_dir.join(".venv/Scripts/python.exe");
-    #[cfg(not(windows))]
-    let py = sidecar_dir.join(".venv/bin/python");
-    if py.is_file() {
-        Some(py)
-    } else {
-        None
-    }
 }
 
 /// Windows `py` launcher version flag. Must be one argv token (`-3.10`), never `py - 3.10`.
@@ -359,12 +347,12 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
         // Existing installs predate AAC/ALAC support. Provision the decoder once
         // during a version upgrade; cached wheels work without model downloads.
         let mut check = Command::new(&existing);
-        check.args(["-c", "import av"]).current_dir(&root);
+        check.args(["-c", "import av, PIL"]).current_dir(&root);
         apply_runtime_cache_env(&mut check, &root);
         apply_create_no_window(&mut check);
         let available = check.output().map_err(|e| e.to_string())?.status.success();
         if !available {
-            run_pip(&existing, &["install", "av>=10.0"], &root)?;
+            run_pip(&existing, &["install", "av>=10.0", "pillow>=10.0"], &root)?;
         }
         return Ok(existing);
     }
@@ -524,6 +512,7 @@ pub fn pip_extra_spec(extra_id: &str) -> Option<&'static str> {
         "stems" => Some("stems"),
         "stems-melband" | "stems_melband" | "melband" => Some("stems-melband"),
         "generate" => Some("generate"),
+        "acestep" | "acest" => Some("acestep"),
         "classify" | "genre" => Some("classify"),
         "vision" => Some("vision"),
         "cover" => Some("cover"),
@@ -703,7 +692,7 @@ pub fn uninstall_extra_from_user_venv(
     // All stacks share this Python environment. Uninstalling a package can break
     // base analysis or another addon, so remove activation, not shared libraries.
     let mut verify = Command::new(&py);
-    verify.args(["-c", "import numpy, scipy, librosa, soundfile, av"]).current_dir(&root);
+    verify.args(["-c", "import numpy, scipy, librosa, soundfile, av, PIL"]).current_dir(&root);
     apply_runtime_cache_env(&mut verify, &root);
     apply_create_no_window(&mut verify);
     let output = verify.output().map_err(|e| e.to_string())?;
@@ -842,7 +831,7 @@ fn generate_windows_fallback(
     root: &Path,
     progress: Option<(&AppHandle, &str)>,
 ) -> Result<String, String> {
-    let mut log = run_pip_with_progress(python, &["install", "--only-binary=:all:", "av"], root, progress)?;
+    let mut log = run_pip_with_progress(python, &["install", "--only-binary=:all:", "av", "pillow"], root, progress)?;
     let mut deps = vec!["install"];
     deps.extend_from_slice(GENERATE_FALLBACK_DEPS);
     log.push_str(&run_pip_with_progress(python, &deps, root, progress)?);

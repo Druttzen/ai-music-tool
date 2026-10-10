@@ -43,7 +43,6 @@ import {
   probeSidecarExtraInstallEnv,
   reportSidecarExtraInstallIfFailed,
   sidecarExtraInstallStatusTone,
-  sidecarExtraNpmHint,
   sidecarExtraRowIsInstalled,
   subscribeSidecarExtraInstallProgress,
 } from "../lib/sidecar-extra-install-client";
@@ -190,7 +189,7 @@ export function AddonsPanel() {
     }
     setBusyKey("canvas");
     try {
-      setStatusWithTime("Downloading / installing AI Canvas Tool…");
+      setStatusWithTime("Activating the internal Canvas plugin…");
       const result = await installCanvasAddon();
       setStatusWithTime(formatCanvasInstallStatus(result), result.ok ? "info" : "error");
       if (!result?.ok) {
@@ -212,10 +211,10 @@ export function AddonsPanel() {
     }
     setBusyKey("canvas-open");
     try {
-      setStatusWithTime("Opening AI Canvas Tool…");
+      setStatusWithTime("Opening Canvas inside Studio…");
       const result = await launchCanvasAddon();
       const ok = result?.ok && result?.launched !== false;
-      setStatusWithTime(ok ? "AI Canvas Tool opened" : result?.error || "Install AI Canvas Tool first", ok ? "info" : "error");
+      setStatusWithTime(ok ? "Canvas opened inside Studio" : result?.error || "Activate the Canvas plugin first", ok ? "info" : "error");
       await refreshCanvas();
     } catch (error) {
       setStatusWithTime(error instanceof Error ? error.message : "Could not open Canvas", "error");
@@ -231,7 +230,7 @@ export function AddonsPanel() {
     }
     setBusyKey("canvas-uninstall");
     try {
-      setStatusWithTime("Opening AI Canvas Tool uninstall app…");
+      setStatusWithTime("Deactivating internal Canvas plugin…");
       const result = await uninstallCanvasAddon();
       setStatusWithTime(
         formatCanvasInstallStatus(result),
@@ -257,47 +256,12 @@ export function AddonsPanel() {
       if (id === "vocal-transform") {
         id = "stems";
       }
-      if (!isSidecarExtraAllowlisted(id)) {
-        const hint = sidecarExtraNpmHint(id);
-        try {
-          if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(hint);
-            setStatusWithTime(`Copied setup hint — ${hint}`, "info");
-          } else {
-            setStatusWithTime(hint, "info");
-          }
-        } catch {
-          setStatusWithTime(hint, "info");
-        }
+      if (!desktop || !isSidecarExtraAllowlisted(id)) {
+        setStatusWithTime("Internal plugins are installed from Studio’s desktop Plugins panel.", "info");
         return;
       }
-      const hint = sidecarExtraNpmHint(id);
-      // ACE-Step is an external API launcher, not a pip extra — still runnable when the
-      // music sidecar venv is packaged read-only.
-      if (installEnv?.mode === "bundled-readonly" && id !== "acestep") {
-        setBusyKey(`extra:${id}`);
-        try {
-          if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(hint);
-            setStatusWithTime(
-              `${installEnv.message || "Packaged Studio cannot pip-install extras"} — copied “${hint}”`,
-              "warning",
-            );
-          } else {
-            setStatusWithTime(
-              installEnv.message ||
-                `Packaged Studio cannot pip-install extras — run ${hint} in a local checkout`,
-              "warning",
-            );
-          }
-        } catch {
-          setStatusWithTime(
-            installEnv.message || `Run in a local checkout: ${hint}`,
-            "warning",
-          );
-        } finally {
-          setBusyKey(null);
-        }
+      if (installEnv?.mode === "bundled-readonly") {
+        setStatusWithTime("Studio’s internal runtime is incomplete. Uninstall Studio, then reinstall it using the current installer.", "warning");
         return;
       }
       setBusyKey(`extra:${id}`);
@@ -333,7 +297,7 @@ export function AddonsPanel() {
         setInstallProgress(null);
       }
     },
-    [installEnv, refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
+    [desktop, installEnv, refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
   );
 
   const onUninstallExtra = useCallback(
@@ -375,8 +339,8 @@ export function AddonsPanel() {
     installEnv?.mode === "user-data-bootstrap";
   const installButtonLabel = (rowBusy) => {
     if (rowBusy) return "Installing…";
-    if (bundledReadonly || !canPipInstall) return "Copy hint";
-    if (!desktop) return "Copy hint";
+    if (bundledReadonly || !canPipInstall) return "Unavailable";
+    if (!desktop) return "Unavailable";
     return userDataBootstrap ? "Install (first-time setup)" : "Install";
   };
 
@@ -384,7 +348,7 @@ export function AddonsPanel() {
   const envChip = formatSidecarInstallEnvChip(installEnv);
   const extrasEmptyHint =
     sidecarAiStatus !== "ready"
-      ? "Sidecar offline — plugins stay listed; Install copies the command or waits for Studio."
+      ? "Sidecar offline — internal plugins stay listed while Studio reconnects."
       : extrasLoaded
         ? "No installable sidecar plugins reported."
         : "Checking sidecar plugins…";
@@ -393,12 +357,12 @@ export function AddonsPanel() {
     <GuidedFocusPanel panelId={GUIDED_PANEL_IDS.canvasIntegration} column="left">
       <Panel
         title="Plugins"
-        hint="Left-menu catalog: Canvas plus sidecar extras. Each row has Install. Browser copies the npm command; Studio installs into the app data folder (profile, addons, extras, tools)."
+        hint="All plugins run internally inside Studio. Install or deactivate them here; no separate application is installed."
         className="max-w-full"
       >
         {desktop ? null : (
           <p className="mb-3 break-words rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
-            {CANVAS_DESKTOP_REQUIRED}. In the browser, each plugin’s Install copies its npm command.
+            {CANVAS_DESKTOP_REQUIRED}. Internal plugins require the Studio desktop app.
           </p>
         )}
 
@@ -467,7 +431,7 @@ export function AddonsPanel() {
               onClick={() => void onInstallCanvas()}
               className="w-full max-w-full break-words rounded-2xl bg-emerald-300 px-3 py-2 text-sm font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
             >
-              {canvasStatus?.installed ? "Installed" : "Download / Install Canvas"}
+              {canvasStatus?.installed ? "Installed" : "Activate Canvas plugin"}
             </button>
             <button
               type="button"
@@ -475,7 +439,7 @@ export function AddonsPanel() {
               onClick={() => void onOpenCanvas()}
               className="w-full max-w-full break-words rounded-2xl border border-emerald-300/40 bg-black/25 px-3 py-2 text-sm font-bold text-emerald-50 hover:bg-emerald-500/20 disabled:opacity-50"
             >
-              Open AI Canvas Tool
+              Open Canvas plugin
             </button>
             {canvasStatus?.installed && canvasStatus?.uninstallerPath ? (
               <button
@@ -621,7 +585,7 @@ export function AddonsPanel() {
                         <button
                           type="button"
                           data-testid={`addons-install-${id}`}
-                          disabled={busy || (installed && cap.runtimeReady !== false)}
+                          disabled={busy || !desktop || !canPipInstall || (installed && cap.runtimeReady !== false)}
                           title={actionLabel}
                           onClick={() => void onInstallExtra(id)}
                           className="w-full max-w-full truncate rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-2 py-1.5 text-center text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"

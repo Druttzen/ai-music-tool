@@ -1,23 +1,14 @@
 {
-  "suitePathFromHome": ["Documents", "AI Suite"],
+  "suitePathFromHome": [
+    "Documents",
+    "AI Suite"
+  ],
   "exportsSubdir": "exports",
   "handoffFile": "handoff.json",
   "canvasCandidates": {
-    "windows": [
-      "$STUDIO_DATA/addons/canvas/AI Canvas Tool.exe",
-      "$STUDIO_DATA/addons/canvas/ai-canvas-tool.exe",
-      "$APPDIR/data/addons/canvas/AI Canvas Tool.exe",
-      "$APPDIR/addons/canvas/AI Canvas Tool.exe",
-      "$APPDIR/tools/canvas/AI Canvas Tool.exe"
-    ],
-    "macos": [
-      "$STUDIO_DATA/addons/canvas/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool",
-      "$APPDIR/data/addons/canvas/AI Canvas Tool.app/Contents/MacOS/AI Canvas Tool"
-    ],
-    "linux": [
-      "$STUDIO_DATA/addons/canvas/ai-canvas-tool",
-      "$APPDIR/data/addons/canvas/ai-canvas-tool"
-    ]
+    "windows": [],
+    "macos": [],
+    "linux": []
   },
   "canvas": {
     "id": "canvas",
@@ -29,17 +20,8 @@
     "githubOwner": "Druttzen",
     "githubRepo": "ai-canvas-tool",
     "installerCandidates": {
-      "windows": [
-        "$STUDIO_DATA/archives/canvas-setup/AI.Canvas.Tool-Setup.exe",
-        "$STUDIO_DATA/archives/canvas-setup/AI Canvas Tool Setup.exe",
-        "$APPDIR/data/archives/canvas-setup/AI.Canvas.Tool-Setup.exe",
-        "$STUDIO_DATA/addons/canvas/.cache/AI.Canvas.Tool-Setup.exe",
-        "$STUDIO_DATA/addons/canvas/.cache/AI Canvas Tool Setup.exe"
-      ],
-      "macos": [
-        "$STUDIO_DATA/archives/canvas-setup/AI.Canvas.Tool.dmg",
-        "$STUDIO_DATA/archives/canvas-setup/AI Canvas Tool.dmg"
-      ],
+      "windows": [],
+      "macos": [],
       "linux": []
     }
   }

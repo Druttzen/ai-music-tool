@@ -46,9 +46,9 @@ export function useAnalyzerCanvas({
         setStatusWithTime(
           result.launched
             ? audioPreviewUrl
-              ? "AI Canvas Tool opened — artwork + track imported"
-              : "AI Canvas Tool opened — artwork imported"
-            : "Artwork exported — exports opened. Install AI Canvas Tool to launch automatically",
+              ? "Canvas loop created inside Studio"
+              : "Canvas loop created inside Studio"
+            : "Canvas created and saved in Studio’s exports",
         );
       } else {
         setStatusWithTime(result?.error || "Could not open Canvas Tool", "error");

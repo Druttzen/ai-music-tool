@@ -1,6 +1,8 @@
 //! Tauri application logic for AI Music Creator (Path B).
 
 mod app_layout;
+mod internal_plugins;
+mod installation_policy;
 mod canvas_handoff;
 mod process_progress;
 mod python_embed;
@@ -17,7 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use canvas_handoff::{
-    export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
+    canvas_preview_bytes, export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
     uninstall_canvas_addon,
 };
 use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness, StereoPhase};
@@ -131,6 +133,10 @@ async fn ensure_sidecar(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if let Err(error) = installation_policy::enforce() {
+        rfd::MessageDialog::new().set_title("Studio installation required").set_description(error).set_level(rfd::MessageLevel::Error).show();
+        return;
+    }
     app_layout::prepare_app_layout();
     let sidecar = Arc::new(SidecarManager::default());
     sidecar.start_health_poller();
@@ -172,6 +178,7 @@ pub fn run() {
             sidecar_status,
             sidecar_auth_token,
             ensure_sidecar,
+            canvas_preview_bytes,
             export_canvas_handoff,
             suite_canvas_addon_status,
             launch_canvas_addon,
@@ -190,6 +197,13 @@ pub fn run() {
             workspace_reset_pending,
             consume_workspace_reset_flag,
         ])
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                for (label, plugin_window) in window.app_handle().webview_windows() {
+                    if label != "main" { let _ = plugin_window.close(); }
+                }
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {

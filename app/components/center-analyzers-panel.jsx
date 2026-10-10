@@ -220,13 +220,13 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                   ? "border-amber-400/35 bg-amber-500/10 text-amber-50"
                   : "border-white/15 bg-black/30 text-white/45"
             }`}
-            title="ACE-Step full-song via AIMC_ACESTEP_API_URL (docs/acestep.md)"
+            title="Full-song generation through the internal ACE-Step plugin"
           >
             ACE-Step:{" "}
             {sidecarAcestepAvailable
               ? "ready"
               : sidecarAiStatus === "ready"
-                ? "set AIMC_ACESTEP_API_URL"
+                ? "Activate ACE-Step in Plugins"
                 : "needs sidecar"}
           </span>
           <span

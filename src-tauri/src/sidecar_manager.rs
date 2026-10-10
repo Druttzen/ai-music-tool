@@ -37,6 +37,14 @@ enum SidecarChild {
 
 impl SidecarChild {
     fn kill(self) {
+        #[cfg(windows)]
+        {
+            let pid = match &self { SidecarChild::Process(c) => c.id(), SidecarChild::Bundled(c) => c.pid() };
+            let mut cmd = Command::new("taskkill");
+            cmd.args(["/PID", &pid.to_string(), "/T", "/F"]);
+            crate::process_progress::apply_create_no_window(&mut cmd);
+            let _ = cmd.output();
+        }
         match self {
             SidecarChild::Process(mut c) => {
                 let _ = c.kill();
@@ -798,15 +806,12 @@ fn sidecar_spawn_steps(skip_user_venv: bool, user_venv_current: bool, debug: boo
     if !skip_user_venv {
         steps.push(SidecarSpawnStep::AnyUserVenv);
     }
-    if !debug {
-        steps.push(SidecarSpawnStep::Dev);
-    }
     steps
 }
 
 /// Prefer a current user-data venv; then packaged binary (including `ai-sidecar.exe`
 /// next to the app when Tauri's triple-suffixed sidecar name is missing); then a
-/// leftover venv; then checkout uvicorn.
+/// leftover internal venv. Release builds never launch a checkout.
 fn spawn_sidecar_process(
     app: Option<&AppHandle>,
     token: &str,
@@ -904,11 +909,10 @@ mod tests {
                 SidecarSpawnStep::BootstrapUserVenv,
                 SidecarSpawnStep::Bundled,
                 SidecarSpawnStep::AnyUserVenv,
-                SidecarSpawnStep::Dev,
             ]
         );
         let skipped = sidecar_spawn_steps(true, true, false);
-        assert_eq!(skipped, vec![SidecarSpawnStep::Bundled, SidecarSpawnStep::Dev]);
+        assert_eq!(skipped, vec![SidecarSpawnStep::Bundled]);
         let current = sidecar_spawn_steps(false, true, false);
         assert_eq!(current.first(), Some(&SidecarSpawnStep::CurrentUserVenv));
         assert!(current.contains(&SidecarSpawnStep::Bundled));

@@ -15,7 +15,7 @@ use crate::sidecar_extra_install::{known_extra_ids, upgrade_one_sidecar_extra};
 use crate::sidecar_manager::SidecarManager;
 use crate::sidecar_tools::refresh_sidecar_toolchain;
 use crate::sidecar_userdata::{ensure_user_sidecar_pkg, load_installed_extras};
-use crate::studio_updater::{install_studio_update, StudioUpdateCheckResult};
+use crate::studio_updater::{check_studio_update, StudioUpdateCheckResult};
 
 pub const STUDIO_COMPONENT_UPDATE_PROGRESS_EVENT: &str = "studio-component-update-progress";
 
@@ -424,9 +424,9 @@ fn summarize(components: &[ComponentUpdateItem], studio: &StudioUpdateCheckResul
     }
     if studio.available {
         if let Some(version) = &studio.version {
-            parts.push(format!("Studio update {version} installed"));
+            parts.push(format!("Studio {version} available; uninstall Studio before installing"));
         } else {
-            parts.push("Studio update installed".to_string());
+            parts.push("Studio update available; uninstall Studio before installing".to_string());
         }
     } else {
         parts.push("Studio app is current".to_string());
@@ -454,7 +454,8 @@ pub async fn update_studio_all(
         "Checking Studio app update…",
         Some(85),
     );
-    let studio = install_studio_update(app.clone()).await;
+    let mut studio = check_studio_update(app.clone()).await;
+    if studio.available { studio.notes = Some("Uninstall Studio first, then install the new version. Projects and exports are preserved.".into()); }
     emit_progress_pct(
         &app,
         "studio",

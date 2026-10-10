@@ -28,7 +28,8 @@ def mock_api(monkeypatch, *, initialized=True, caption="Learned musical arrangem
         return httpx.Response(200, json={"code": 200, "data": data})
     real_client = httpx.Client
     monkeypatch.setattr(httpx, "Client", lambda **kwargs: real_client(transport=httpx.MockTransport(handle), **kwargs))
-    monkeypatch.setenv("AIMC_ACESTEP_API_URL", "http://127.0.0.1:8001")
+    monkeypatch.setattr("ai_sidecar.acestep_bridge._PLUGIN_URL", "http://127.0.0.1:8001")
+    monkeypatch.setattr("ai_sidecar.acestep_bridge.configure_internal_acestep", lambda: None)
     return calls
 
 

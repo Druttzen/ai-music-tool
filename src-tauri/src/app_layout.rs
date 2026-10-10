@@ -130,6 +130,12 @@ pub fn data_dir(app: Option<&AppHandle>) -> Result<PathBuf, String> {
         }
     }
     if let Some(install) = install_dir() {
+        // Program Files must select the same data root for elevated and normal launches.
+        #[cfg(windows)]
+        if ["ProgramFiles", "ProgramFiles(x86)"].iter().filter_map(std::env::var_os)
+            .any(|root| install.starts_with(PathBuf::from(root))) {
+            return fallback_data_root(app);
+        }
         let candidate = preferred_data_dir(&install);
         if dir_is_writable(&candidate) {
             return Ok(candidate);

@@ -159,10 +159,16 @@ def readiness(capability: str) -> dict:
         cached = diffsinger_ready()
         offline = not bool(os.environ.get("AIMC_DIFFSINGER_URL", ""))
     elif capability == "acestep":
-        # Reachability is probed separately. An HTTP service alone is not proof
-        # that its weights can run without internet.
-        cached = False
-        offline = False
+        from .internal_plugins import active_plugin
+        root = active_plugin("acestep")
+        configured = root is not None
+        if root:
+            checkpoints = root / "source" / "checkpoints"
+            models = {name: (checkpoints / name / "config.json").is_file() and _weights_ready(checkpoints / name)
+                      for name in ("acestep-v15-turbo", "vae", "Qwen3-Embedding-0.6B", "acestep-5Hz-lm-0.6B", "acestep-5Hz-lm-1.7B")}
+            cached = all(models[name] for name in ("acestep-v15-turbo", "vae", "Qwen3-Embedding-0.6B")) and (models["acestep-5Hz-lm-0.6B"] or models["acestep-5Hz-lm-1.7B"])
+        else:
+            cached = False
     return {"modelCached": cached, "configured": configured,
             "offlineReady": bool(cached and configured and offline),
             "runtimeReady": bool(configured and (cached or not offline)), "models": models}

@@ -1,19 +1,4 @@
-"""ACE-Step 1.5 full-song generation via a locally run ACE-Step API server.
-
-ACE-Step 1.5 (MIT-licensed weights) needs Python 3.11+ and its own model
-runtime, so it is not a pip extra of this sidecar. Run its API server
-separately (`uv run acestep-api`, launch script, or portable package) and
-point the sidecar at it:
-
-    AIMC_ACESTEP_API_URL=http://127.0.0.1:8001
-    AIMC_ACESTEP_API_KEY=...                 # only when ACESTEP_API_KEY is set
-    AIMC_ACESTEP_MODEL=acestep-v15-turbo     # optional DiT model override
-    AIMC_ACESTEP_TIMEOUT_SEC=1800           # optional poll budget (first-run model download)
-
-Protocol (see ACE-Step docs/en/API.md): POST /release_task -> task_id,
-poll POST /query_result until status 1 (done) / 2 (failed), then download
-the audio from GET /v1/audio?path=... — see docs/acestep.md in this repo.
-"""
+"""Full-song generation through the app-owned internal ACE-Step plugin."""
 
 from __future__ import annotations
 
@@ -39,12 +24,29 @@ SONG_MEDIA_TYPES = {
 }
 
 
+_PLUGIN_URL = ""
+_PLUGIN_KEY = ""
+
+def configure_internal_acestep() -> None:
+    global _PLUGIN_URL, _PLUGIN_KEY
+    import secrets
+    import socket
+    from .internal_plugins import active_plugin
+    _PLUGIN_URL = ""
+    _PLUGIN_KEY = ""
+    if active_plugin("acestep"):
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        _PLUGIN_URL = f"http://127.0.0.1:{port}"
+        _PLUGIN_KEY = secrets.token_urlsafe(32)
+
 def acestep_api_url() -> str:
-    return os.environ.get("AIMC_ACESTEP_API_URL", "").strip().rstrip("/")
+    return _PLUGIN_URL
 
 
 def acestep_api_key() -> str:
-    return os.environ.get("AIMC_ACESTEP_API_KEY", "").strip()
+    return _PLUGIN_KEY
 
 
 def acestep_model() -> str:
@@ -222,7 +224,7 @@ def generate_acestep_song(
     """Generate a full song via the configured ACE-Step API; returns (audio bytes, meta)."""
     if not acestep_configured():
         raise RuntimeError(
-            "ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)"
+            "Activate the internal ACE-Step plugin in Plugins"
         )
 
     import httpx  # noqa: PLC0415 — keep import lazy like other optional stacks

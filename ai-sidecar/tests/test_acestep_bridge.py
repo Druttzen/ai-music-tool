@@ -28,7 +28,7 @@ def test_normalize_song_format():
 
 def test_build_release_task_payload_basic(monkeypatch):
     monkeypatch.delenv("AIMC_ACESTEP_MODEL", raising=False)
-    monkeypatch.delenv("AIMC_ACESTEP_API_KEY", raising=False)
+    monkeypatch.setattr("ai_sidecar.acestep_bridge._PLUGIN_KEY", "")
     payload = build_release_task_payload(
         "upbeat pop",
         lyrics="[Verse]\nHello",
@@ -56,7 +56,7 @@ def test_build_release_task_payload_basic(monkeypatch):
 
 def test_build_release_task_payload_clamps_and_auth(monkeypatch):
     monkeypatch.setenv("AIMC_ACESTEP_MODEL", "acestep-v15-turbo")
-    monkeypatch.setenv("AIMC_ACESTEP_API_KEY", "secret")
+    monkeypatch.setattr("ai_sidecar.acestep_bridge._PLUGIN_KEY", "secret")
     payload = build_release_task_payload("x", duration_sec=5)
     assert payload["audio_duration"] == 10.0  # min clamp
     assert payload["model"] == "acestep-v15-turbo"
@@ -115,13 +115,13 @@ def test_parse_query_result_running():
 
 
 def test_acestep_reachable_requires_url(monkeypatch):
-    monkeypatch.delenv("AIMC_ACESTEP_API_URL", raising=False)
+    monkeypatch.setattr("ai_sidecar.acestep_bridge._PLUGIN_URL", "")
     assert acestep_configured() is False
     assert acestep_reachable() is False
 
 
 def test_acestep_reachable_probes_http(monkeypatch):
-    monkeypatch.setenv("AIMC_ACESTEP_API_URL", "http://127.0.0.1:18001")
+    monkeypatch.setattr("ai_sidecar.acestep_bridge._PLUGIN_URL", "http://127.0.0.1:18001")
     assert acestep_configured() is True
 
     class _Resp:
@@ -143,7 +143,7 @@ def test_acestep_reachable_probes_http(monkeypatch):
 def test_acestep_reachable_false_when_offline(monkeypatch):
     import urllib.error
 
-    monkeypatch.setenv("AIMC_ACESTEP_API_URL", "http://127.0.0.1:18001")
+    monkeypatch.setattr("ai_sidecar.acestep_bridge._PLUGIN_URL", "http://127.0.0.1:18001")
 
     def boom(*args, **kwargs):  # noqa: ARG001
         raise urllib.error.URLError("down")

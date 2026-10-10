@@ -15,7 +15,7 @@ export const STUDIO_SIDECAR_PLUGIN_CATALOG = [
     blurb: "Higher-quality vocals/instrumental separation (Kim checkpoint).",
   },
   { id: "generate", title: "MusicGen preview", blurb: "Local text-to-music preview clips." },
-  { id: "acestep", title: "ACE-Step full song", blurb: "Full songs via local ACE-Step API (AIMC_ACESTEP_API_URL)." },
+  { id: "acestep", title: "ACE-Step full song", blurb: "Full songs through Studio’s internal ACE-Step plugin." },
   { id: "vocal-transform", title: "Vocal region transform", blurb: "Rewrite selected vocal regions; export remix + acapella." },
   { id: "genre", title: "Genre classifier", blurb: "Tag tracks with predicted genres." },
   { id: "vision", title: "Image caption / CLIP", blurb: "Caption stills and score image tags." },

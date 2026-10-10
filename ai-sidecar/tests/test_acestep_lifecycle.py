@@ -66,11 +66,13 @@ def test_missing_explicit_sft_never_silently_downgrades(tmp_path):
     assert resolve_acestep_dit_model(SFT_MODEL, home=tmp_path) == (SFT_MODEL, None)
 
 
-def test_ace_home_candidates_prefer_explicit_environment(monkeypatch):
-    monkeypatch.setenv("AIMC_ACESTEP_HOME", r"D:\custom\ACE-Step-1.5")
-    monkeypatch.setenv("ACESTEP_HOME", r"E:\other\ACE-Step-1.5")
-    candidates = ace_home_candidates()
-    assert candidates[:2] == [r"D:\custom\ACE-Step-1.5", r"E:\other\ACE-Step-1.5"]
+def test_ace_home_candidates_only_internal(tmp_path, monkeypatch):
+    from ai_sidecar.internal_plugins import activate
+    monkeypatch.setenv("STUDIO_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("AIMC_ACESTEP_HOME", "F:/external")
+    assert ace_home_candidates() == []
+    activate("acestep")
+    assert ace_home_candidates() == [str(tmp_path / "addons" / "acestep" / "source")]
 
 
 def test_preset_catalog_tracks_quality_checkpoint(tmp_path: Path, monkeypatch):
@@ -169,6 +171,9 @@ def test_managed_server_enables_cached_planner_with_memory_offload(tmp_path, mon
         captured.update(kwargs)
         return object()
     monkeypatch.setattr(lifecycle.subprocess, "Popen", spawn)
+    runtime = tmp_path.parent / "runtime" / ("Scripts/python.exe" if __import__("os").name == "nt" else "bin/python")
+    runtime.parent.mkdir(parents=True, exist_ok=True)
+    runtime.touch()
     lifecycle._spawn_acestep_api(tmp_path, port="8001", config_path=SFT_MODEL)
     try:
         env = captured["env"]

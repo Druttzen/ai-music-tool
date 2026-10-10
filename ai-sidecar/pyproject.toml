@@ -1,6 +1,6 @@
 [project]
 name = "ai-music-sidecar"
-version = "0.50.65"
+version = "0.50.66"
 description = "Local AI inference sidecar for AI Music Creator (analysis, stem separation, generation)."
 requires-python = ">=3.10,<3.13"  # PyTorch / audiocraft / demucs have no 3.13+ wheels yet
 
@@ -11,6 +11,7 @@ dependencies = [
     "numpy>=1.26",
     "soundfile>=0.12",
     "av>=10.0",  # Bundled AAC/ALAC decoder; works offline without system FFmpeg
+    "pillow>=10.0",  # Internal offline Canvas rendering
     "librosa>=0.10",
     "httpx>=0.27",
 ]

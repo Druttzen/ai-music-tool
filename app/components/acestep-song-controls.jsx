@@ -4,15 +4,11 @@ import { memo, useEffect, useState } from "react";
 import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 import { ensureAceStepApi, fetchAceStepPresets } from "../lib/sidecar-bridge";
 
-const ACE_ENV_SNIPPET = `AIMC_ACESTEP_API_URL=http://127.0.0.1:8001
-# AIMC_ACESTEP_API_KEY=
-# AIMC_ACESTEP_MODEL=acestep-v15-turbo`;
-
 const ACE_DOCS_URL =
   "https://github.com/Druttzen/ai-music-tool/blob/master/docs/acestep.md";
 
 /**
- * ACE-Step full-song controls (requires AIMC_ACESTEP_API_URL).
+ * ACE-Step full-song controls (internal Studio sidecar plugin).
  * @param {{ defaultPrompt?: string, defaultLyrics?: string, defaultBpm?: number|null, defaultKey?: string, busy?: boolean, canCancel?: boolean, cancelRequested?: boolean, onCancel?: () => void, available?: boolean, installHint?: string, onGenerate?: (prompt: string, options?: object) => void, compact?: boolean }} props
  */
 export const AceStepSongControls = memo(function AceStepSongControls({
@@ -26,7 +22,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   cancelRequested = false,
   onCancel,
   available = false,
-  installHint = "Start ACE-Step (`uv run acestep-api`) and set AIMC_ACESTEP_API_URL — see docs/acestep.md",
+  installHint = "Activate the internal ACE-Step plugin in Plugins.",
   onGenerate,
   compact = false,
 }) {
@@ -46,7 +42,6 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   const [guidanceScale, setGuidanceScale] = useState(lastTake?.guidanceScale ?? 7);
   const [qualityNote, setQualityNote] = useState("");
   const [seed, setSeed] = useState(lastTake?.seed == null ? "" : String(lastTake.seed));
-  const [copyStatus, setCopyStatus] = useState("");
   const [startingApi, setStartingApi] = useState(false);
   const [startupMessage, setStartupMessage] = useState("");
 
@@ -99,19 +94,6 @@ export const AceStepSongControls = memo(function AceStepSongControls({
 
   if (!onGenerate) return null;
 
-  const copyEnv = async () => {
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(ACE_ENV_SNIPPET);
-        setCopyStatus("Env snippet copied");
-      } else {
-        setCopyStatus("Clipboard blocked");
-      }
-    } catch {
-      setCopyStatus("Copy failed");
-    }
-  };
-
   const startApi = async () => {
     if (startingApi) return;
     setStartingApi(true);
@@ -149,31 +131,9 @@ export const AceStepSongControls = memo(function AceStepSongControls({
             {startingApi ? "Starting ACE-Step…" : "Start local ACE-Step"}
           </button>
           {startupMessage && <p role="status">{startupMessage}</p>}
-          <ol className="list-decimal space-y-1 pl-4 text-amber-100/80">
-            <li>
-              In the ACE-Step repo: <code className="text-white/70">uv run acestep-api</code> (default{" "}
-              <code className="text-white/70">http://127.0.0.1:8001</code>)
-            </li>
-            <li>
-              Put the env snippet in <code className="text-white/70">ai-sidecar/.env.vocal</code> (or
-              process env)
-            </li>
-            <li>
-              Restart the music sidecar (<code className="text-white/70">npm run sidecar</code>)
-            </li>
-          </ol>
+          <p>Install ACE-Step in Studio’s Plugins panel, then start it here.</p>
           <p className="text-amber-100/70">{installHint}</p>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                void copyEnv();
-              }}
-              className="rounded-lg border border-amber-400/35 bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-50 hover:bg-amber-500/30"
-            >
-              Copy env snippet
-            </button>
             <a
               href={ACE_DOCS_URL}
               target="_blank"
@@ -183,7 +143,6 @@ export const AceStepSongControls = memo(function AceStepSongControls({
               Open docs/acestep.md
             </a>
           </div>
-          {copyStatus ? <p className="text-white/45">{copyStatus}</p> : null}
         </div>
       ) : null}
       <label className="block text-[10px] text-white/50">

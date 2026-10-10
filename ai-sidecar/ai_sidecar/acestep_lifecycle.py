@@ -1,4 +1,4 @@
-"""Start the external ACE-Step API when Studio asks for a full song and :8001 is down.
+"""Start only the internal ACE-Step sidecar plugin when Studio requests a song.
 
 Also restarts *our* child when the UI asks for a different DiT than the one loaded
 at ACESTEP_CONFIG_PATH (one model at a time on a 12 GB card). Never kills an ACE
@@ -24,52 +24,15 @@ QUALITY_MODEL = "acestep-v15-base"
 SFT_MODEL = "acestep-v15-sft"
 
 
-def _fixed_drive_roots() -> list[str]:
-    """Return local fixed drive roots on Windows without probing network drives."""
-    if os.name != "nt":
-        return []
-    try:
-        import ctypes
-
-        kernel = ctypes.windll.kernel32
-        mask = int(kernel.GetLogicalDrives())
-        return [
-            f"{chr(65 + index)}:\\"
-            for index in range(26)
-            if mask & (1 << index)
-            and int(kernel.GetDriveTypeW(f"{chr(65 + index)}:\\")) == 3
-        ]
-    except (AttributeError, OSError):
-        return []
-
-
 def ace_home_candidates() -> list[str]:
-    """Likely ACE-Step checkouts, ordered from explicit config to broad discovery."""
-    candidates = [
-        os.environ.get("AIMC_ACESTEP_HOME", ""),
-        os.environ.get("ACESTEP_HOME", ""),
-    ]
-    repo = os.environ.get("AIMC_REPO_ROOT", "")
-    if repo:
-        candidates.append(str(Path(repo).parent / "ACE-Step-1.5"))
-    here = Path(__file__).resolve()
-    if len(here.parents) >= 3:
-        candidates.append(str(here.parents[2].parent / "ACE-Step-1.5"))
-    candidates.append(str(Path.home() / "ACE-Step-1.5"))
-    candidates.extend(str(Path(root) / "ACE-Step-1.5") for root in _fixed_drive_roots())
-    return list(dict.fromkeys(candidates))
+    from .internal_plugins import active_plugin
+    root = active_plugin("acestep")
+    return [str(root / "source")] if root else []
 
 
 def _ace_home() -> Path | None:
-    candidates = ace_home_candidates()
-    for raw in candidates:
-        text = str(raw or "").strip()
-        if not text:
-            continue
-        path = Path(text)
-        if (path / "pyproject.toml").is_file() or (path / "start_api_server.bat").is_file():
-            return path
-    return None
+    paths = ace_home_candidates()
+    return Path(paths[0]) if paths else None
 
 
 def _checkpoint_dir(home: Path | None = None) -> Path | None:
@@ -286,38 +249,21 @@ def _stop_our_child(*, wait_sec: float = 20.0) -> None:
 
 def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess.Popen:
     global _CHILD, _CHILD_CONFIG, _LOG_HANDLE
-    uv = "uv"
-    venv_py = home / ".venv" / "Scripts" / "python.exe"
-    if os.name != "nt":
-        venv_py = home / ".venv" / "bin" / "python"
-    if _which(uv):
-        cmd = [
-            uv,
-            "run",
-            "--directory",
-            str(home),
-            "--no-sync",
-            "acestep-api",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            port,
-        ]
-    elif venv_py.is_file():
-        cmd = [
-            str(venv_py),
-            "-m",
-            "uvicorn",
-            "acestep.api_server:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            port,
-        ]
-    else:
-        raise RuntimeError(f"Need uv or {venv_py} to start ACE-Step")
+    plugin = home.parent
+    venv_py = plugin / "runtime" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    if not venv_py.is_file():
+        raise RuntimeError("Install the internal ACE-Step plugin from Studio's Plugins panel")
+    import sys
+    host_script = (Path(os.environ["STUDIO_DATA_DIR"]) / "sidecar" / "pkg" / "ai_sidecar" / "acestep_plugin_host.py") if getattr(sys, "frozen", False) else Path(__file__).with_name("acestep_plugin_host.py")
+    if not host_script.is_file():
+        raise RuntimeError("Internal ACE-Step host script is missing; reactivate the plugin in Studio")
+    cmd = [str(venv_py), str(host_script), "--port", port]
 
     env = os.environ.copy()
+    from .acestep_bridge import acestep_api_key
+    env["ACESTEP_API_KEY"] = acestep_api_key()
+    env["ACESTEP_CHECKPOINTS_DIR"] = str(home / "checkpoints")
+    env["HF_HOME"] = str(plugin / "cache" / "huggingface")
     env["ACESTEP_CONFIG_PATH"] = config_path
     env["ACESTEP_ON_DEMAND_MODEL_LOAD"] = "true"
     # A managed offline composer needs the learned planner as well as the DiT.
@@ -339,6 +285,7 @@ def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess
     _LOG_HANDLE = open(home / "acestep-api.log", "ab", buffering=0)
     _CHILD = subprocess.Popen(
         cmd,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         cwd=str(home),
         env=env,
         stdout=_LOG_HANDLE,
@@ -352,9 +299,9 @@ def ensure_acestep_api(*, wait_sec: float = 90.0, model: str = "") -> str:
     """Return the API base URL, starting or restarting our ACE child when needed."""
     from .acestep_bridge import acestep_api_url, acestep_reachable
 
-    base = acestep_api_url() or "http://127.0.0.1:8001"
-    if not os.environ.get("AIMC_ACESTEP_API_URL", "").strip():
-        os.environ["AIMC_ACESTEP_API_URL"] = base
+    base = acestep_api_url()
+    if not base:
+        raise RuntimeError("Activate the internal ACE-Step plugin in Studio")
 
     desired, warning = resolve_acestep_dit_model(model)
     if warning:
@@ -362,7 +309,7 @@ def ensure_acestep_api(*, wait_sec: float = 90.0, model: str = "") -> str:
         print(f"[acestep_lifecycle] {warning}", flush=True)
 
     home = _ace_home()
-    port = "8001"
+    port = "0"
     if ":" in base.rsplit("/", 1)[-1]:
         port = base.rsplit(":", 1)[-1]
 
@@ -381,20 +328,21 @@ def ensure_acestep_api(*, wait_sec: float = 90.0, model: str = "") -> str:
             reachable = False
 
         if reachable:
-            if not own and loaded and loaded != desired:
-                raise RuntimeError(
-                    f"ACE-Step is already running {loaded} at {base}; close or switch that server to use {desired}"
-                )
+            if not own:
+                raise RuntimeError("The internal plugin port is occupied by an unmanaged process")
             return base
 
         if home is None:
             raise RuntimeError(
-                "ACE-Step API unreachable and no checkout found — set AIMC_ACESTEP_HOME or run npm run sidecar:acestep"
+                "Activate the internal ACE-Step plugin in Studio"
             )
 
         if acestep_reachable(timeout_sec=0.4):
-            return base
+            raise RuntimeError("Internal plugin port is occupied")
 
+        from .model_readiness import readiness
+        if not readiness("acestep")["offlineReady"]:
+            raise RuntimeError("Internal ACE-Step models are incomplete. Reactivate the plugin in Studio before generating offline.")
         _spawn_acestep_api(home, port=port, config_path=desired)
 
     deadline = time.monotonic() + max(5.0, wait_sec)

@@ -40,11 +40,8 @@ describe("Canvas integration", () => {
 
   it("formats install modes", () => {
     expect(formatCanvasInstallStatus({ ok: true, mode: "installed", alreadyInstalled: true })).toMatch(
-      /already installed/i,
+      /internal.*installed/i,
     );
-    expect(formatCanvasInstallStatus({ ok: true, mode: "downloaded" })).toMatch(/Downloaded/i);
-    expect(formatCanvasInstallStatus({ ok: true, mode: "no-release" })).toMatch(/releases page/i);
-    expect(formatCanvasInstallStatus({ ok: true, mode: "docs" })).toMatch(/instructions/i);
     expect(formatCanvasInstallStatus({ ok: false, mode: "download-failed", error: "network down" })).toBe(
       "network down",
     );
@@ -65,12 +62,11 @@ describe("Canvas integration", () => {
     expect(meta.releasesUrl).toContain("/releases");
     const windows = require("../lib/suite-handoff-paths.json").canvas.installerCandidates.windows;
     expect(windows.every((p) => !/Downloads/i.test(p))).toBe(true);
-    expect(windows.some((p) => p.includes("$STUDIO_DATA/archives/canvas-setup"))).toBe(true);
-    expect(windows.some((p) => p.includes("AI.Canvas.Tool-Setup.exe"))).toBe(true);
+    expect(windows).toEqual([]);
   });
 
-  it("describes GitHub release download in the install hint", () => {
-    expect(CANVAS_INSTALL_HINT).toMatch(/GitHub Releases/i);
+  it("describes internal plugin activation", () => {
+    expect(CANVAS_INSTALL_HINT).toMatch(/internal.*sidecar/i);
     expect(CANVAS_INSTALL_HINT).not.toMatch(/No GitHub release yet/i);
   });
 

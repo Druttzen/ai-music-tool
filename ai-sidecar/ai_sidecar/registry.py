@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import importlib.util
+import os
 import sys
 from threading import Lock
 from time import monotonic
@@ -79,11 +80,11 @@ def _probe_generate() -> bool:
 
 
 def _probe_acestep() -> bool:
-    # Match UI copy: available only when the external ACE-Step API answers.
-    # Short timeout so /health stays fast when the API is down (connection refused).
-    from .acestep_bridge import acestep_reachable
-
-    return acestep_reachable(timeout_sec=0.4)
+    from .internal_plugins import active_plugin
+    root = active_plugin("acestep")
+    if root is None:
+        return False
+    return (root / "runtime" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")).is_file()
 
 
 def _probe_mfa() -> bool:
@@ -172,7 +173,7 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         license="MIT (ACE-Step 1.5)",
         commercial_use=True,
         probe=_probe_acestep,
-        prompt_install=True,  # runs scripts/install-sidecar-acestep (starts API + writes env)
+        prompt_install=True,  # isolated internal plugin managed by Studio
     ),
     CapabilitySpec(
         id="mfa-align",

@@ -118,6 +118,10 @@ async def _lifespan(_app: FastAPI):
     from .vocal_env import load_vocal_env_file
 
     load_vocal_env_file()
+    from .internal_plugins import enforce_internal_integrations
+    enforce_internal_integrations()
+    from .acestep_bridge import configure_internal_acestep
+    configure_internal_acestep()
     configure_idle_exit(float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "300")))
     touch_activity()
     start_idle_watchdog()
@@ -137,7 +141,11 @@ async def _lifespan(_app: FastAPI):
     # Avoid surprise downloads and allocating a second model at app startup.
     if os.environ.get("AIMC_MUSICGEN_WARMUP") == "1":
         threading.Thread(target=_warm_musicgen, name="aimc-musicgen-warmup", daemon=True).start()
-    yield
+    try:
+        yield
+    finally:
+        from .acestep_lifecycle import _stop_our_child
+        _stop_our_child()
 
 
 app = FastAPI(
@@ -832,7 +840,7 @@ async def generate_full_song(body: GenerateSongRequest):
     if not acestep_configured():
         raise HTTPException(
             status_code=503,
-            detail="ACE-Step not configured — set AIMC_ACESTEP_API_URL (see docs/acestep.md)",
+            detail="Activate the internal ACE-Step plugin in Plugins",
         )
     if not acestep_reachable(timeout_sec=0.8):
         raise HTTPException(
