@@ -11,6 +11,7 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 #[cfg(not(windows))]
@@ -100,6 +101,7 @@ pub fn runtime_cache_env_map(root: &Path) -> HashMap<String, OsString> {
     let transformers = cache.join("transformers");
     let tmp = user_tmp_dir(root);
     HashMap::from([
+        ("AIMC_DISABLED_EXTRAS_FILE".into(), root.join("disabled-extras.json").into_os_string()),
         ("HF_HOME".into(), hf.as_os_str().to_os_string()),
         ("HF_HUB_CACHE".into(), hf.as_os_str().to_os_string()),
         (
@@ -525,6 +527,25 @@ pub fn pip_extra_spec(extra_id: &str) -> Option<&'static str> {
 
 const INSTALLED_EXTRAS_FILE: &str = "installed-extras.json";
 
+fn disabled_extras(root: &Path) -> Vec<String> {
+    fs::read_to_string(root.join("disabled-extras.json"))
+        .ok().and_then(|raw| serde_json::from_str(raw.trim_start_matches('\u{feff}')).ok())
+        .unwrap_or_default()
+}
+
+fn set_extra_enabled(root: &Path, id: &str, enabled: bool) -> Result<(), String> {
+    let mut disabled = disabled_extras(root);
+    disabled.retain(|value| value != id);
+    if !enabled { disabled.push(id.to_string()); }
+    disabled.sort();
+    disabled.dedup();
+    let mut file = tempfile::NamedTempFile::new_in(root).map_err(|e| e.to_string())?;
+    file.write_all(&serde_json::to_vec_pretty(&disabled).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    file.as_file().sync_all().map_err(|e| e.to_string())?;
+    file.persist(root.join("disabled-extras.json")).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn installed_extras_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(user_sidecar_root(app)?.join(INSTALLED_EXTRAS_FILE))
 }
@@ -558,39 +579,34 @@ pub fn load_installed_extras(app: &AppHandle) -> Vec<String> {
     }
     // Do not merge state.json lastExtra here — that re-adds phantom Uninstall
     // targets after a real uninstall (lastExtra is install history, not inventory).
+    if let Ok(root) = user_sidecar_root(app) {
+        let disabled = disabled_extras(&root);
+        ids.retain(|id| !disabled.contains(id));
+    }
     ids.sort();
     ids.dedup();
     ids
 }
 
-pub fn record_installed_extra(app: &AppHandle, extra_id: &str) {
-    let Some(id) = pip_extra_spec(extra_id) else {
-        return;
-    };
-
-    let Ok(path) = installed_extras_path(app) else {
-        return;
-    };
+pub fn record_installed_extra(app: &AppHandle, extra_id: &str) -> Result<(), String> {
+    let id = pip_extra_spec(extra_id).ok_or_else(|| format!("Unknown sidecar extra: {extra_id}"))?;
+    let root = user_sidecar_root(app)?;
+    set_extra_enabled(&root, id, true)?;
+    let path = installed_extras_path(app)?;
     let mut extras = load_installed_extras(app);
-    if extras.iter().any(|existing| existing == id) {
-        return;
-    }
     extras.push(id.to_string());
     extras.sort();
     extras.dedup();
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-    let _ = fs::write(
-        path,
-        serde_json::to_string_pretty(&extras).unwrap_or_else(|_| "[]".to_string()),
-    );
+    let mut file = tempfile::NamedTempFile::new_in(&root).map_err(|e| e.to_string())?;
+    file.write_all(&serde_json::to_vec_pretty(&extras).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    file.as_file().sync_all().map_err(|e| e.to_string())?;
+    file.persist(path).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
-/// Extras that share one pip package (uninstall one removes all siblings from tracking).
+/// Activation is per addon, even when packages are shared.
 fn shared_tracking_ids(extra_id: &str) -> Vec<&'static str> {
     match pip_extra_spec(extra_id) {
-        Some("cover") | Some("cover-ref") => vec!["cover", "cover-ref"],
         Some(id) => vec![id],
         None => Vec::new(),
     }
@@ -645,8 +661,10 @@ pub fn detect_installed_extras_from_venv(app: &AppHandle) -> Vec<String> {
         "vocal-ml",
         "vocal-rvc",
     ];
+    let disabled = disabled_extras(&root);
     let mut found = Vec::new();
     for id in CANDIDATES {
+        if disabled.iter().any(|value| value == id) { continue; }
         let Some(module) = extra_probe_module(id) else {
             continue;
         };
@@ -671,21 +689,20 @@ pub fn uninstall_extra_from_user_venv(
     let root = user_sidecar_root(app)?;
     let py = user_venv_python(&root)
         .ok_or_else(|| "Sidecar addon environment is not installed".to_string())?;
-    let package = match pip_extra_spec(extra_id) {
-        Some("stems") => "demucs",
-        Some("stems-melband") => "melband-roformer-infer",
-        Some("generate") => "audiocraft",
-        Some("classify") => "transformers",
-        Some("vision") => "pillow",
-        Some("cover" | "cover-ref") => "diffusers",
-        Some("vocal") => "scipy",
-        Some("vocal-ml") => "torchaudio",
-        Some("vocal-rvc") => "rvc-python",
-        _ => return Err(format!("Unknown sidecar extra: {extra_id}")),
-    };
-    let result = run_pip(&py, &["uninstall", "-y", package], &root)?;
-    remove_installed_extra(app, extra_id);
-    Ok(result)
+    let id = pip_extra_spec(extra_id).ok_or_else(|| format!("Unknown sidecar extra: {extra_id}"))?;
+    // All stacks share this Python environment. Uninstalling a package can break
+    // base analysis or another addon, so remove activation, not shared libraries.
+    let mut verify = Command::new(&py);
+    verify.args(["-c", "import numpy, scipy, librosa, soundfile"]).current_dir(&root);
+    apply_runtime_cache_env(&mut verify, &root);
+    apply_create_no_window(&mut verify);
+    let output = verify.output().map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(format!("Base audio runtime verification failed: {}", String::from_utf8_lossy(&output.stderr)));
+    }
+    set_extra_enabled(&root, id, false)?;
+    remove_installed_extra(app, id);
+    Ok(format!("{id} deactivated. Shared libraries and cached models were preserved."))
 }
 
 pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<String, String> {
@@ -693,6 +710,24 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
     let py = bootstrap_user_venv(app)?;
     let pkg = ensure_user_sidecar_pkg(app)?;
     let spec = pip_extra_spec(extra_id).ok_or_else(|| format!("Unknown sidecar extra: {extra_id}"))?;
+    // Re-enabling an intact addon is an offline action; do not upgrade its
+    // shared environment or contact package servers just to restore activation.
+    if disabled_extras(&root).iter().any(|id| id == spec) {
+        let capability = match spec { "classify" => "genre", "vocal" => "vocal_ml", "vocal-rvc" => "rvc", other => other };
+        if let Some(module) = extra_probe_module(spec) {
+            let import_check = if spec == "generate" { "from audiocraft.models import MusicGen".to_string() }
+                else { format!("import importlib; importlib.import_module({module:?})") };
+            let code = format!("{import_check}; from ai_sidecar.model_readiness import readiness; import sys; sys.exit(0 if readiness({capability:?})['offlineReady'] else 1)");
+            let mut check = Command::new(&py);
+            check.args(["-c", &code]).current_dir(&root);
+            apply_runtime_cache_env(&mut check, &root);
+            apply_create_no_window(&mut check);
+            if check.output().is_ok_and(|out| out.status.success()) {
+                set_extra_enabled(&root, spec, true)?;
+                return Ok(format!("{spec} reactivated from verified local dependencies and cached models."));
+            }
+        }
+    }
     let progress = Some((app, extra_id));
     let mut out = match install_sidecar_pkg_editable(&py, &root, &pkg, Some(spec), true, progress) {
         Ok(log) => log,
@@ -707,13 +742,21 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
         Err(err) => return Err(err),
     };
     if extra_id == "generate" {
-        if let Ok(ac) = run_pip_with_progress(
+        let ac = run_pip_with_progress(
             &py,
             &["install", "audiocraft>=1.3", "--no-deps"],
             &root,
             progress,
-        ) {
-            out = format!("{out}\n{ac}");
+        )?;
+        out = format!("{out}\n{ac}");
+        let mut verify = Command::new(&py);
+        verify.args(["-c", "from audiocraft.models import MusicGen"])
+            .current_dir(&root);
+        apply_runtime_cache_env(&mut verify, &root);
+        apply_create_no_window(&mut verify);
+        let result = verify.output().map_err(|e| format!("Verify MusicGen: {e}"))?;
+        if !result.status.success() {
+            return Err(format!("MusicGen import verification failed: {}", String::from_utf8_lossy(&result.stderr)));
         }
     }
     if spec == "stems-melband" {
@@ -732,12 +775,28 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
         }
         out.push_str(&String::from_utf8_lossy(&output.stdout));
     }
+    if matches!(spec, "generate" | "stems" | "classify" | "vision" | "cover" | "cover-ref") {
+        emit_install_progress(app, extra_id, "log", Some("Preparing model files for offline use"), None);
+        let mut setup = Command::new(&py);
+        setup.args(["-m", "ai_sidecar.model_readiness", "--provision", spec]).current_dir(&root);
+        apply_runtime_cache_env(&mut setup, &root);
+        setup.env("HF_HUB_OFFLINE", "0").env("TRANSFORMERS_OFFLINE", "0").env("PYTHONUNBUFFERED", "1");
+        apply_create_no_window(&mut setup);
+        let result = run_command_streaming(setup, Duration::from_secs(20 * 60), |line| {
+            emit_install_progress(app, extra_id, "log", Some(line), None);
+        })?;
+        if !result.status.success() {
+            return Err(format!("Offline model setup failed: {}", String::from_utf8_lossy(&result.stderr)));
+        }
+        out.push_str(&String::from_utf8_lossy(&result.stdout));
+    }
     let _ = fs::write(
         root.join("state.json"),
         format!(
             "{{\n  \"preferUserVenv\": true,\n  \"packageVersion\": \"{PACKAGE_VERSION}\",\n  \"lastExtra\": \"{extra_id}\"\n}}\n"
         ),
     );
+    set_extra_enabled(&root, spec, true)?;
     Ok(out)
 }
 
@@ -806,6 +865,17 @@ fn vocal_rvc_windows_fallback(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn deactivation_preserves_sibling_and_reactivation_clears_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        set_extra_enabled(dir.path(), "cover", false).unwrap();
+        assert_eq!(disabled_extras(dir.path()), vec!["cover"]);
+        set_extra_enabled(dir.path(), "cover-ref", true).unwrap();
+        assert_eq!(disabled_extras(dir.path()), vec!["cover"]);
+        set_extra_enabled(dir.path(), "cover", true).unwrap();
+        assert!(disabled_extras(dir.path()).is_empty());
+    }
+
     use super::*;
 
     #[test]
@@ -865,9 +935,9 @@ mod tests {
     }
 
     #[test]
-    fn shared_tracking_ids_covers_cover_twins() {
-        assert_eq!(shared_tracking_ids("cover"), vec!["cover", "cover-ref"]);
-        assert_eq!(shared_tracking_ids("cover-ref"), vec!["cover", "cover-ref"]);
+    fn shared_packages_keep_independent_activation() {
+        assert_eq!(shared_tracking_ids("cover"), vec!["cover"]);
+        assert_eq!(shared_tracking_ids("cover-ref"), vec!["cover-ref"]);
         assert_eq!(shared_tracking_ids("stems"), vec!["stems"]);
         assert!(shared_tracking_ids("nope").is_empty());
     }

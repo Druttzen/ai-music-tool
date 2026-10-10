@@ -42,6 +42,7 @@ const ACTION_KEYS = [
   "generateMusicFromPrompt",
   "generateSongFromPrompt",
   "transformVocalsOnTrack",
+  "runLocalCoverRemix",
   "generateVariations",
   "generateVoiceStyleFromArtistId",
   "generateVoiceStyleFromPreset",

@@ -69,6 +69,9 @@ def _download_clean_assets(base):
 
 
 def melband_available() -> bool:
+    from .model_readiness import addon_enabled
+    if not addon_enabled("stems-melband"):
+        return False
     try:
         from mel_band_roformer import demix_track, ensure_model_assets, get_model_from_config  # noqa: F401
     except Exception:
@@ -93,6 +96,8 @@ def resolve_melband_model_id(model_name: str | None) -> str:
 
 
 def _select_torch_device(preferred: str) -> str:
+    if preferred == "cpu":
+        return "cpu"
     """Pick cuda/mps/cpu from real torch capability (prefer GPU when available)."""
     try:
         import torch
@@ -156,6 +161,8 @@ def _ensure_model_assets(model_id: str, *, download_missing: bool = False):
 
 
 def _load_melband(model_id: str, device: str):
+    from .model_resources import require_free_vram
+    require_free_vram(device, 1)
     key = f"{model_id}@{device}"
     if key in _MODEL_CACHE:
         _MODEL_CACHE[key]["model"].to(device)

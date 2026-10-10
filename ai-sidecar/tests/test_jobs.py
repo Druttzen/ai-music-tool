@@ -59,7 +59,7 @@ def test_prune_deletes_expired_tmp_artifacts(tmp_path, monkeypatch):
     (out / "x.wav").write_bytes(b"x")
     mgr = JobManager()
     mgr._ttl_sec = 0.0
-    job = Job(job_id="expired1", kind="stems", result={"out_dir": str(out)})
+    job = Job(job_id="expired1", kind="stems", status="done", result={"out_dir": str(out)})
     job.created = 0.0
     with mgr._lock:
         mgr._jobs[job.job_id] = job

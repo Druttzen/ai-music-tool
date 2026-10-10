@@ -76,6 +76,7 @@ export function useAnalyzers({
   });
 
   const stems = useAnalyzerStems({
+    audioEpochRef: refs.audioEpochRef,
     audioAnalysis: media.audioAnalysis,
     setStatusWithTime,
   });
@@ -92,6 +93,7 @@ export function useAnalyzers({
     generateSongCancelRequested,
     generateSongFromPrompt,
   } = useAnalyzerGenerate({
+    audioEpochRef: refs.audioEpochRef,
     audioAnalysis: media.audioAnalysis,
     setAudioAnalysis: media.setAudioAnalysis,
     setAudioPreviewFromBlob: media.setAudioPreviewFromBlob,
@@ -108,6 +110,7 @@ export function useAnalyzers({
     vocalTransformBusy,
     transformVocalsOnTrack,
   } = useAnalyzerVocals({
+    audioEpochRef: refs.audioEpochRef,
     audioAnalysis: media.audioAnalysis,
     setAudioAnalysis: media.setAudioAnalysis,
     setAudioPreviewFromBlob: media.setAudioPreviewFromBlob,
@@ -121,6 +124,7 @@ export function useAnalyzers({
     localCoverRemixBusy,
     runLocalCoverRemix,
   } = useLocalCoverRemix({
+    audioEpochRef: refs.audioEpochRef,
     audioAnalysis: media.audioAnalysis,
     setAudioAnalysis: media.setAudioAnalysis,
     setAudioPreviewFromBlob: media.setAudioPreviewFromBlob,
@@ -157,6 +161,8 @@ export function useAnalyzers({
     audioExportProgress,
     audioLoudness: media.audioLoudness,
     audioLoudnessBusy: media.audioLoudnessBusy,
+    analyzeAudioBusy: media.analyzeAudioBusy,
+    analyzeImageBusy: media.analyzeImageBusy,
     audioStereoPhase: media.audioStereoPhase,
     audioPreviewUrl: media.audioPreviewUrl,
     canvasRef: media.canvasRef,

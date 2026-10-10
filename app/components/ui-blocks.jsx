@@ -142,17 +142,18 @@ export function TextBox({ label, value, setValue }) {
   );
 }
 
-export function DropBox({ title, hint, accept, onFile, children }) {
+export function DropBox({ title, hint, accept, onFile, children, busy = false }) {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef(null);
 
   const handleFiles = (fileList) => {
     const file = fileList?.[0];
-    if (file) onFile(file);
+    if (file && !busy) onFile(file);
   };
 
   return (
     <div
+      aria-busy={busy}
       onDragOver={(e) => {
         e.preventDefault();
         setDrag(true);
@@ -170,16 +171,18 @@ export function DropBox({ title, hint, accept, onFile, children }) {
     >
       <button
         type="button"
+        disabled={busy}
         onClick={() => inputRef.current?.click()}
         className="w-full cursor-pointer rounded-2xl text-center transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
       >
         <div className="text-sm font-black text-cyan-100">{title}</div>
         <div className="mt-1 text-xs text-white/45">{hint}</div>
-        <div className="mt-2 text-[10px] font-semibold text-cyan-200/80">Click to browse or drop a file</div>
+        <div className="mt-2 text-[10px] font-semibold text-cyan-200/80">{busy ? "Analyzing…" : "Click to browse or drop a file"}</div>
       </button>
       <input
         ref={inputRef}
         type="file"
+        disabled={busy}
         accept={accept}
         onChange={(e) => {
           handleFiles(e.target.files);

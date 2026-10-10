@@ -9,6 +9,8 @@ AIMC_MUSICGEN_MELODY_MODEL (default: facebook/musicgen-melody).
 
 from __future__ import annotations
 
+from .model_resources import model_operation
+
 import io
 import os
 import gc
@@ -60,6 +62,7 @@ def resolve_musicgen_model_id(*, wants_melody: bool, requested: str | None = Non
     return configured
 
 
+@model_operation(0)
 def warmup_musicgen() -> None:
     """Load the default text model so the first preview is not a cold start."""
     if not generation_available():
@@ -73,6 +76,9 @@ def warmup_musicgen() -> None:
 
 
 def generation_available() -> bool:
+    from .model_readiness import addon_enabled
+    if not addon_enabled("generate"):
+        return False
     try:
         import torch  # noqa: F401, PLC0415
         from audiocraft.models import MusicGen  # noqa: F401, PLC0415
@@ -108,6 +114,10 @@ def _get_model(device_name: str, model_id: str | None = None):
 
     from audiocraft.models import MusicGen  # noqa: PLC0415
 
+    from .model_resources import require_free_vram
+    budget = 7 if "medium" in resolved else 10 if "large" in resolved else 2
+    require_free_vram(torch_device, budget)
+
     # Release the old model before loading another checkpoint on a consumer GPU.
     _MODEL = None
     _ACTIVE_MODEL_ID = None
@@ -123,6 +133,7 @@ def _get_model(device_name: str, model_id: str | None = None):
     return model, resolved
 
 
+@model_operation(2)
 def generate_music_wav(
     prompt: str,
     *,
@@ -152,6 +163,9 @@ def generate_music_wav(
     wants_melody = bool(melody_wav)
     model_id = resolve_musicgen_model_id(wants_melody=wants_melody, requested=model)
     touch_activity()
+    from .model_resources import require_free_vram
+    budget = 7 if "medium" in model_id else 10 if "large" in model_id else 2
+    require_free_vram(_select_torch_device(device), budget)
     model, model_id = _get_model(device, model_id)
     touch_activity()
     if check_cancelled is not None:

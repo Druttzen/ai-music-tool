@@ -1,6 +1,6 @@
 [package]
 name = "ai-music-studio"
-version = "0.50.63"
+version = "0.50.64"
 edition = "2021"
 description = "Tauri shell for AI Music Creator (Path B). Hosts the web UI and bridges to the native Rust DSP core."
 license = "MIT"
@@ -25,6 +25,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10"
+tempfile = "3"
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 tokio = { version = "1", default-features = false, features = ["time"] }
 

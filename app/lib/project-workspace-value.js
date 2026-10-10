@@ -161,6 +161,8 @@ export function buildProjectWorkspaceProjectState(s) {
 /** @param {Record<string, unknown>} s */
 export function buildProjectWorkspaceAnalyzerState(s) {
   return {
+    analyzeAudioBusy: s.analyzeAudioBusy,
+    analyzeImageBusy: s.analyzeImageBusy,
     audioAnalysis: s.audioAnalysis,
     audioExportBusy: s.audioExportBusy,
     audioExportProgress: s.audioExportProgress,

@@ -6,7 +6,6 @@ import { makeAudioLookupKey } from "./audio-cache";
 import { buildAudioAnalyzerSuggestions } from "./analyzer-suggestions";
 import { clamp, uniq } from "./music-helpers";
 
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 /**
  * @param {Float32Array} channel
@@ -91,17 +90,6 @@ function estimateSpectralCentroidHz(channel, sampleRate) {
   const ratio = hf / total;
   const level = total / frames;
   return clamp(200 + ratio * 3800 + level * 1200, 120, 4500);
-}
-
-/**
- * Very rough key hint from spectral centroid (not true key detection).
- * @param {number} centroidHz
- */
-function guessKeyFromCentroid(centroidHz) {
-  if (!centroidHz || centroidHz < 80) return "Key unclear";
-  const midi = 12 * Math.log2(centroidHz / 440) + 69;
-  const note = NOTE_NAMES[clamp(Math.round(midi) % 12, 0, 11)];
-  return centroidHz > 2200 ? `${note} minor` : `${note} major`;
 }
 
 /**
@@ -329,7 +317,7 @@ export function analyzeAudioBuffer(buffer, fileName) {
   const estimatedBpm = formatBpmLabel(bpmFinal);
 
   const centroidHz = estimateSpectralCentroidHz(channel, sampleRate);
-  const estimatedKey = guessKeyFromCentroid(centroidHz);
+  const estimatedKey = "Key unclear";
   const loudnessDb = Math.round(20 * Math.log10(Math.max(rms, 1e-6)));
 
   const highlight = findHighlightWindow(channel, sampleRate, duration);

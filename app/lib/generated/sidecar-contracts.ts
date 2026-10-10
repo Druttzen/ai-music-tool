@@ -143,10 +143,17 @@ export type Body_vocal_transform_mix_vocal_transform_post = {
 export type CapabilityContract = {
   "available": boolean;
   "commercial_use": boolean;
+  "configured"?: boolean | null;
+  "dependenciesInstalled"?: boolean | null;
+  "enabled"?: boolean;
   "id": string;
   "install_hint": string;
   "license": string;
+  "modelCached"?: boolean | null;
+  "models"?: Record<string, boolean> | null;
+  "offlineReady"?: boolean | null;
   "prompt_install"?: boolean;
+  "runtimeReady"?: boolean | null;
   "tasks": Array<string>;
   "title": string;
 };
@@ -395,7 +402,8 @@ export type SonicSignatureResponse = {
   "provider": string;
   "spectral_centroid_hz": number;
   "tempo_bpm": number;
-  "time_signature": number;
+  "time_signature"?: number | null;
+  "time_signature_confidence"?: number;
   "timeline_segments": Array<TimelineSegment>;
 };
 

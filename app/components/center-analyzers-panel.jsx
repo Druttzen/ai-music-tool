@@ -51,6 +51,8 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
     sidecarStemsMelbandAvailable,
     sidecarVocalTransformAvailable,
     audioAnalysis,
+    analyzeAudioBusy,
+    analyzeImageBusy,
     audioPreviewUrl,
     audioLoudness,
     audioLoudnessBusy,
@@ -305,6 +307,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             hint={SUPPORTED_AUDIO_LABEL}
             accept={SUPPORTED_AUDIO_ACCEPT}
             onFile={analyzeAudioFile}
+            busy={analyzeAudioBusy}
           >
             {!audioAnalysis ? (
               <div className="mt-3 space-y-3">
@@ -316,6 +319,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                     cancelRequested: generateMusicCancelRequested,
                     onCancel: cancelMusicGeneration,
                     available: sidecarGenerateAvailable,
+                    models: sidecarHealth?.capabilities?.find(cap => cap.id === "generate")?.models,
                     installHint: musicGenHint,
                     canUseMelodyReference: !!audioPreviewUrl,
                     onGenerate: generateMusicFromPrompt,
@@ -372,6 +376,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 generateMusicCancelRequested={generateMusicCancelRequested}
                 generateMusicBusy={generateMusicBusy}
                 sidecarGenerateAvailable={sidecarGenerateAvailable}
+                musicgenModels={sidecarHealth?.capabilities?.find(cap => cap.id === "generate")?.models}
                 onGenerateSong={generateSongFromPrompt}
                 onCancelSong={cancelSongGeneration}
                 generateSongCanCancel={generateSongCanCancel}
@@ -379,6 +384,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 generateSongBusy={generateSongBusy}
                 sidecarAcestepAvailable={sidecarAcestepAvailable}
                 sidecarStemsMelbandAvailable={sidecarStemsMelbandAvailable}
+                melbandModels={sidecarHealth?.capabilities?.find(cap => cap.id === "stems-melband")?.models}
                 onTransformVocals={transformVocalsOnTrack}
                 vocalTransformBusy={vocalTransformBusy}
                 sidecarVocalTransformAvailable={sidecarVocalTransformAvailable}
@@ -408,6 +414,7 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
             hint={SUPPORTED_IMAGE_LABEL}
             accept={SUPPORTED_IMAGE_ACCEPT}
             onFile={analyzeImageFile}
+            busy={analyzeImageBusy}
           >
             {imagePreview ? (
               /* eslint-disable-next-line @next/next/no-img-element -- blob Object URLs from analyzer */

@@ -9,6 +9,8 @@ Heavy — install via `npm run sidecar:vision`.
 
 from __future__ import annotations
 
+from .model_resources import model_operation
+
 import os
 from typing import Any
 
@@ -47,6 +49,9 @@ CLIP_CANDIDATE_LABELS = [
 
 
 def vision_analysis_available() -> bool:
+    from .model_readiness import addon_enabled
+    if not addon_enabled("vision"):
+        return False
     try:
         import PIL  # noqa: F401, PLC0415
         import torch  # noqa: F401, PLC0415
@@ -113,6 +118,7 @@ def _get_clip_pipeline(device_name: str):
     return _CLIP_PIPE
 
 
+@model_operation(0)
 def clip_tags_for_image_bytes(
     raw: bytes,
     *,
@@ -143,6 +149,7 @@ def clip_tags_for_image_bytes(
         return None
 
 
+@model_operation(0)
 def caption_image_bytes(raw: bytes, *, device: str = "cpu") -> str | None:
     """Return a short BLIP caption or None when vision deps/model fail."""
     if os.environ.get(CAPTION_OFF_ENV) == "1":

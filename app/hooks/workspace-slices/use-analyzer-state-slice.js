@@ -5,6 +5,8 @@ import { buildProjectWorkspaceAnalyzerState } from "../../lib/project-workspace-
 
 const ANALYZER_KEYS = [
   "audioAnalysis",
+  "analyzeAudioBusy",
+  "analyzeImageBusy",
   "audioExportBusy",
   "audioExportProgress",
   "audioLoudness",
@@ -18,6 +20,7 @@ const ANALYZER_KEYS = [
   "generateSongCanCancel",
   "generateSongCancelRequested",
   "vocalTransformBusy",
+  "localCoverRemixBusy",
   "imageAnalysis",
   "imagePreview",
   "sidecarAiStatus",

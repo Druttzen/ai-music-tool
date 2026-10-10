@@ -119,7 +119,7 @@ export function AddonsPanel() {
     setCapabilityRows(catalog);
     setDeviceSummary(formatSidecarDeviceSummary(health));
     setCapabilityCounts({
-      available: catalog.filter((r) => r.available).length,
+      available: catalog.filter((r) => r.runtimeReady ?? r.available).length,
       total: catalog.length,
     });
     setExtrasLoaded(true);
@@ -544,6 +544,8 @@ export function AddonsPanel() {
                   ? "Retry"
                   : rowBusy
                     ? formatSidecarPluginInstallBusyLabel(rowProgress)
+                    : cap.runtimeReady === false && installed
+                      ? "Repair setup"
                     : installed
                       ? "Installed"
                       : installButtonLabel(false);
@@ -619,7 +621,7 @@ export function AddonsPanel() {
                         <button
                           type="button"
                           data-testid={`addons-install-${id}`}
-                          disabled={busy || installed}
+                          disabled={busy || (installed && cap.runtimeReady !== false)}
                           title={actionLabel}
                           onClick={() => void onInstallExtra(id)}
                           className="w-full max-w-full truncate rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-2 py-1.5 text-center text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"

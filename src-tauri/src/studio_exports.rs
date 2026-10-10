@@ -2,6 +2,7 @@
 //! or into a folder the user picks in Studio export.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 
@@ -150,8 +151,22 @@ pub fn write_export_bytes(dir: &Path, file_name: &str, bytes: &[u8]) -> Result<P
     if !paths_match(parent, dir) && !path.starts_with(dir) {
         return Err("export path escaped destination folder".to_string());
     }
-    fs::write(&path, bytes).map_err(|e| format!("write export: {e}"))?;
-    Ok(path)
+    // Publish a complete file atomically without replacing an existing take.
+    let mut pending = tempfile::NamedTempFile::new_in(dir)
+        .map_err(|e| format!("create export: {e}"))?;
+    pending.write_all(bytes).map_err(|e| format!("write export: {e}"))?;
+    pending.as_file().sync_all().map_err(|e| format!("flush export: {e}"))?;
+    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+    let extension = path.extension().map(|s| format!(".{}", s.to_string_lossy())).unwrap_or_default();
+    for take in 1..=10000 {
+        let candidate = if take == 1 { path.clone() } else { dir.join(format!("{stem} ({take}){extension}")) };
+        match pending.persist_noclobber(&candidate) {
+            Ok(_) => return Ok(candidate),
+            Err(err) if err.error.kind() == std::io::ErrorKind::AlreadyExists => pending = err.file,
+            Err(err) => return Err(format!("publish export: {}", err.error)),
+        }
+    }
+    Err("too many exports with this name".to_string())
 }
 
 #[tauri::command]
@@ -294,6 +309,16 @@ mod tests {
         assert_eq!(fs::read(&path).unwrap(), b"hi");
         let _ = fs::remove_file(&path);
         let _ = fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn repeated_exports_preserve_previous_takes() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = write_export_bytes(dir.path(), "vocals.wav", b"first").unwrap();
+        let second = write_export_bytes(dir.path(), "vocals.wav", b"second").unwrap();
+        assert_ne!(first, second);
+        assert_eq!(fs::read(first).unwrap(), b"first");
+        assert_eq!(fs::read(second).unwrap(), b"second");
     }
 
     #[test]

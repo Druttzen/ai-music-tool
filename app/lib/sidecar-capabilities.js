@@ -66,6 +66,16 @@ export function listSidecarCapabilityRows(health) {
         title: c.title || c.id,
         install_hint: c.install_hint || "",
         available: Boolean(c.available),
+        enabled: c.enabled !== false,
+        dependenciesInstalled: c.dependenciesInstalled ?? Boolean(c.available),
+        runtimeReady: c.runtimeReady ?? Boolean(c.available),
+        offlineReady: c.offlineReady,
+        models: c.models || {},
+        enabled: c.enabled !== false,
+        dependenciesInstalled: c.dependenciesInstalled ?? Boolean(c.available),
+        runtimeReady: c.runtimeReady ?? Boolean(c.available),
+        offlineReady: c.offlineReady,
+        models: c.models || {},
         // Preserve registry flag so missing-hint helpers can skip config-only rows.
         prompt_install: c.prompt_install !== false,
         commercial_use: typeof c.commercial_use === "boolean" ? c.commercial_use : null,
@@ -129,6 +139,18 @@ export function formatSidecarExtraRowStatus(row, opts = {}) {
       tone: "bad",
       borderClass: "border-rose-400/35 bg-rose-500/10",
     };
+  }
+  if (row?.enabled === false) {
+    return { label: "Disabled", tone: "muted", borderClass: "border-white/10 bg-black/25" };
+  }
+  if (row?.available && row?.runtimeReady === false) {
+    return { label: "Setup needed", tone: "warn", borderClass: "border-amber-400/35 bg-amber-500/10" };
+  }
+  if (row?.enabled === false) {
+    return { label: "Disabled", tone: "muted", borderClass: "border-white/10 bg-black/25" };
+  }
+  if (row?.available && row?.runtimeReady === false) {
+    return { label: "Setup needed", tone: "warn", borderClass: "border-amber-400/35 bg-amber-500/10" };
   }
   if (row?.available) {
     return {
@@ -231,7 +253,7 @@ export function countAvailableSidecarCapabilities(health) {
   if (!health) return { available: 0, total: 0 };
   if (Array.isArray(health.capabilities) && health.capabilities.length) {
     const total = health.capabilities.length;
-    const available = health.capabilities.filter((c) => c.available).length;
+    const available = health.capabilities.filter((c) => c.runtimeReady ?? c.available).length;
     return { available, total };
   }
   const flags = [

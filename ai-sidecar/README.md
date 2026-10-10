@@ -146,6 +146,7 @@ a JSON/brief with instrumental timing, lyrics, Voice Character traits, and mix t
 | `AIMC_DIFFSINGER_VAR_EXP` | Variance checkpoint folder name under `checkpoints/` (pitch/duration from notes) |
 | `AIMC_DIFFSINGER_ACOUSTIC_EXP` | Acoustic checkpoint folder name under `checkpoints/` |
 | `AIMC_DIFFSINGER_PYTHON` | Python executable in the DiffSinger venv (defaults to sidecar Python) |
+| `AIMC_DIFFSINGER_ARGV` | Preferred CLI bridge as a JSON argument array; preserves quoted Windows paths |
 | `AIMC_DIFFSINGER_CMD` | Optional CLI bridge (`ai-sidecar/scripts/diffsinger_bridge_example.py`) |
 | `AIMC_DIFFSINGER_URL` | HTTP DiffSinger service exposing `POST /synthesize` |
 
@@ -245,3 +246,39 @@ AIMC_SIDECAR_TOKEN=your-token python -m ai_sidecar.mcp_stdio
 ```
 
 Set `AIMC_SIDECAR_TOKEN` in the environment when the sidecar was started with a token.
+
+
+### Addon activation and offline model setup
+
+Removing an addon in Studio deactivates it. Shared Python libraries and cached
+weights are retained so other addons and base audio analysis keep working.
+Activation is stored atomically in `disabled-extras.json`; reinstalling activates
+only the requested addon. Cover and cover-ref have independent activation.
+
+Health separates `dependenciesInstalled`, `modelCached`, `configured`,
+`runtimeReady` and `offlineReady`. The `models` map lists individual cached
+checkpoints, including clean and standard Mel-Band. Runtime readiness indicates
+that the discovered dependencies and required local files are present; inference
+can still fail for corrupt files or insufficient memory. It is not an audio
+quality guarantee. An external HTTP engine is not proof of offline readiness.
+
+Install/Repair and the checkout install scripts provision weights explicitly.
+Health probes never load model weights or download files. Runtime Hugging Face
+requests default to offline operation. Custom RVC/DiffSinger voice models still
+require user configuration. For a manual repair:
+
+```powershell
+python -m ai_sidecar.model_readiness --provision generate
+```
+
+Preferred DiffSinger CLI configuration (in `.env.vocal`):
+
+```text
+AIMC_DIFFSINGER_ARGV=["C:\\Program Files\\Python\\python.exe", "F:\\Voice Models\\infer.py"]
+```
+
+Legacy command strings use Windows command-line parsing on Windows and POSIX
+shell quoting on other platforms. The process always runs without a shell.
+All local model operations share a resource lock; completed operations release
+cached models. Small genre/image analyses use CPU. GPU admission checks available
+VRAM and leaves external ACE-Step processes under their original ownership.

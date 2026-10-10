@@ -10,6 +10,8 @@ Override with AIMC_GENRE_MODEL, e.g. MarekCech/GenreVim-Music-Classification-Dis
 
 from __future__ import annotations
 
+from .model_resources import model_operation
+
 import os
 from typing import Any
 
@@ -26,6 +28,9 @@ def active_genre_model_id() -> str:
 
 
 def genre_classification_available() -> bool:
+    from .model_readiness import addon_enabled
+    if not addon_enabled("genre"):
+        return False
     try:
         import torch  # noqa: F401, PLC0415
         import transformers  # noqa: F401, PLC0415
@@ -63,6 +68,7 @@ def _get_pipeline(device_name: str):
     return _PIPE, model_id
 
 
+@model_operation(0)
 def classify_music_genres(
     y,
     sr: int,

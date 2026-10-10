@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ai-music-studio"
-version = "0.50.63"
+version = "0.50.64"
 dependencies = [
  "chrono",
  "dsp-core",
@@ -33,6 +33,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "tempfile",
  "tokio",
  "uuid",
  "zip 2.4.2",
@@ -955,7 +956,7 @@ dependencies = [
 
 [[package]]
 name = "dsp-core"
-version = "0.50.63"
+version = "0.50.64"
 dependencies = [
  "anyhow",
  "ebur128",

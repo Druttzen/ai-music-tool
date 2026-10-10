@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { advanceAnalyzerEpoch } from "../../lib/analyzer-operation-epoch";
+import { useCallback, useRef, useState } from "react";
 import { runLocalCoverRemixJob } from "../../lib/local-cover-remix-engine";
 import { buildLocalTrackDna, resolveLocalCoverRemixEngine } from "../../lib/local-track-dna";
 import {
@@ -8,12 +9,14 @@ import {
   downloadMusicGenBlob,
   enrichMusicGenReportWithSidecar,
 } from "../../lib/musicgen-preview";
+import { cacheGeneratedAudioDraft } from "../../lib/generated-audio-cache";
 import { reportCaughtError } from "../../lib/fail-safe-runtime-capture";
 
 /**
  * Local cover/remix engine hook (no Suno).
  */
 export function useLocalCoverRemix({
+  audioEpochRef: sharedAudioEpochRef,
   audioAnalysis,
   setAudioAnalysis,
   setAudioPreviewFromBlob,
@@ -21,22 +24,32 @@ export function useLocalCoverRemix({
   audioPreviewUrlRef,
   setStatusWithTime,
 }) {
+  const localAudioEpochRef = useRef(0);
+  const audioEpochRef = sharedAudioEpochRef || localAudioEpochRef;
+  const busyRef = useRef(false);
+
   const [localCoverRemixBusy, setLocalCoverRemixBusy] = useState(false);
 
   const runLocalCoverRemix = useCallback(
     async (options = {}) => {
-      if (localCoverRemixBusy) return;
+      if (busyRef.current) return;
       if (!audioAnalysis) {
         setStatusWithTime("Load a track in Analyzers first", "warning");
         return;
       }
+      const epoch = advanceAnalyzerEpoch(audioEpochRef);
+      const isCurrent = () => audioEpochRef.current === epoch;
+      const sourceUrl = audioPreviewUrlRef.current;
+      busyRef.current = true;
+      let cacheWarning = null;
       setLocalCoverRemixBusy(true);
       try {
         let mixBlob = options.audioBlob || null;
-        if (!mixBlob && audioPreviewUrlRef.current) {
-          const res = await fetch(audioPreviewUrlRef.current);
+        if (!mixBlob && sourceUrl) {
+          const res = await fetch(sourceUrl);
           if (res.ok) mixBlob = await res.blob();
         }
+        if (!isCurrent()) return;
         if (!mixBlob) {
           throw new Error("No mix loaded — drop an audio file first");
         }
@@ -82,33 +95,41 @@ export function useLocalCoverRemix({
             sourceEngine: `local-${result.engine}`,
             trackSummary: `Local ${result.mode} (${result.engine}): ${result.dna.prompt.slice(0, 140)}`,
           };
+          report = await cacheGeneratedAudioDraft(file, report);
+          if (!isCurrent()) return;
+          cacheWarning = report.audioCacheWarning;
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
           syncCacheKeysRef?.(report);
         }
 
+        if (!isCurrent()) return;
         if (download) {
-          downloadMusicGenBlob(file, result.fileName);
+          await downloadMusicGenBlob(file, result.fileName);
+          if (!isCurrent()) return;
         }
 
         setStatusWithTime(
           `Local ${result.mode} ready (${result.engine}${result.durationSec ? ` · ${result.durationSec}s` : ""})`,
           "success",
         );
+        if (cacheWarning && isCurrent()) setStatusWithTime(cacheWarning, "warning");
         return result;
       } catch (err) {
+        if (!isCurrent()) return;
         reportCaughtError("analyzers.runLocalCoverRemix", err);
         const msg = err instanceof Error ? err.message : "Local cover/remix failed";
         setStatusWithTime(msg.slice(0, 140), "warning");
         return null;
       } finally {
+        busyRef.current = false;
         setLocalCoverRemixBusy(false);
       }
     },
     [
+      audioEpochRef,
       audioAnalysis,
       audioPreviewUrlRef,
-      localCoverRemixBusy,
       setAudioAnalysis,
       setAudioPreviewFromBlob,
       setStatusWithTime,

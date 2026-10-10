@@ -134,11 +134,14 @@ def test_separate_mocked_demucs_roundtrip():
     assert dl.headers["content-type"].startswith("audio/")
 
 
-def test_health_reports_stems_available_when_demucs_importable():
+def test_health_distinguishes_demucs_dependencies_from_cached_weights():
     from ai_sidecar.registry import invalidate_capability_cache
 
     _install_fake_demucs_modules()
     invalidate_capability_cache()
     res = client.get("/health")
     assert res.status_code == 200
-    assert res.json()["stems_available"] is True
+    assert res.json()["stems_available"] is False
+    cap = next(c for c in res.json()["capabilities"] if c["id"] == "stems")
+    assert cap["dependenciesInstalled"] is True
+    assert cap["modelCached"] is False

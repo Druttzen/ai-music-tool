@@ -190,7 +190,7 @@ export function mergeSonicSignature(report, sonic) {
   const chords = (sonic.chord_progression || []).map((c) => c.chord).filter(Boolean);
   const chordLine = chords.length ? chords.join(" → ") : "";
   const trackSummary = `${report.trackSummary || ""}${chordLine ? ` Chords: ${chordLine}.` : ""}`.trim();
-  const timeSignature = Number(sonic.time_signature);
+  const timeSignature = sonic.time_signature == null ? NaN : Number(sonic.time_signature);
   const meter = formatTimeSignatureMeter(timeSignature);
   const timelineSegments = Array.isArray(sonic.timeline_segments) ? sonic.timeline_segments : [];
   const suggestedRhythms = uniq([...(report.suggestedRhythms || [])]);

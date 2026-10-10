@@ -16,6 +16,13 @@ class CapabilityContract(BaseModel):
     commercial_use: bool
     available: bool
     prompt_install: bool = True
+    dependenciesInstalled: bool | None = None
+    modelCached: bool | None = None
+    configured: bool | None = None
+    runtimeReady: bool | None = None
+    offlineReady: bool | None = None
+    enabled: bool = True
+    models: dict[str, bool] | None = None
 
 
 class JobSubmission(BaseModel):

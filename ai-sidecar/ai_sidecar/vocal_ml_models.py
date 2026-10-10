@@ -6,11 +6,14 @@ Falls back to scipy/librosa DSP when models are not configured.
 
 from __future__ import annotations
 
+from .model_resources import model_operation
+
 import base64
 import importlib.util
 import json
 import os
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -30,7 +33,7 @@ def _env_path(name: str) -> str | None:
     if not raw:
         return None
     path = Path(raw).expanduser()
-    return str(path) if path.exists() else raw
+    return str(path) if path.exists() else None
 
 
 def rvc_python_available() -> bool:
@@ -47,8 +50,19 @@ def rvc_api_configured() -> bool:
     return bool(os.environ.get("AIMC_RVC_API_URL", "").strip())
 
 
+def _rvc_model_path() -> str | None:
+    if os.environ.get("AIMC_RVC_MODEL", "").strip():
+        model = _env_path("AIMC_RVC_MODEL")
+        return model if model and Path(model).is_file() else None
+    folder = _env_path("AIMC_RVC_MODELS_DIR")
+    if folder and Path(folder).is_dir():
+        models = sorted(path for path in Path(folder).rglob("*.pth") if path.stat().st_size > 0)
+        return str(models[0]) if models else None
+    return None
+
+
 def rvc_model_configured() -> bool:
-    return bool(_env_path("AIMC_RVC_MODEL") or os.environ.get("AIMC_RVC_MODELS_DIR", "").strip())
+    return bool(_rvc_model_path())
 
 
 def rvc_ready() -> bool:
@@ -60,6 +74,7 @@ def rvc_ready() -> bool:
 def diffsinger_configured() -> bool:
     return bool(
         os.environ.get("AIMC_DIFFSINGER_CMD", "").strip()
+        or os.environ.get("AIMC_DIFFSINGER_ARGV", "").strip()
         or os.environ.get("AIMC_DIFFSINGER_URL", "").strip()
         or openvpi_configured()
     )
@@ -68,7 +83,16 @@ def diffsinger_configured() -> bool:
 def diffsinger_ready() -> bool:
     if openvpi_configured():
         return openvpi_ready()
-    return diffsinger_configured()
+    if os.environ.get("AIMC_DIFFSINGER_URL", "").strip():
+        return True
+    try:
+        argv = _diffsinger_argv()
+        executable = bool(argv and (Path(argv[0]).is_file() or shutil.which(argv[0])))
+        folder = _env_path("AIMC_DIFFSINGER_MODEL_DIR")
+        return bool(executable and folder and Path(folder).is_dir() and
+                    any(path.is_file() for suffix in ("*.ckpt", "*.pth", "*.safetensors") for path in Path(folder).rglob(suffix)))
+    except (ValueError, RuntimeError, OSError):
+        return False
 
 
 def full_ml_vocal_models_available() -> bool:
@@ -137,7 +161,7 @@ def _read_stereo_wav(path: str, target_sr: int, length: int) -> np.ndarray:
 def _get_rvc_engine() -> Any:
     global _RVC_ENGINE, _RVC_ENGINE_KEY
 
-    model = _env_path("AIMC_RVC_MODEL")
+    model = _rvc_model_path()
     if not model:
         raise RuntimeError("AIMC_RVC_MODEL is not set or does not exist")
 
@@ -148,6 +172,8 @@ def _get_rvc_engine() -> Any:
 
     from rvc_python.infer import RVCInference  # noqa: PLC0415
 
+    from .model_resources import require_free_vram
+    require_free_vram(_select_torch_device(), 1)
     engine = RVCInference(device=_select_torch_device())
     if index:
         engine.load_model(model, index_path=index)
@@ -233,6 +259,7 @@ def _convert_mono_with_rvc_api(mono: np.ndarray, sample_rate: int, pitch_semiton
         return y[: mono.shape[0]].astype(np.float32)
 
 
+@model_operation(0)
 def convert_guide_with_rvc(
     stereo: np.ndarray,
     sample_rate: int,
@@ -287,10 +314,38 @@ def _synthesize_with_diffsinger_url(plan: dict[str, Any], length: int, sample_ra
             pass
 
 
-def _synthesize_with_diffsinger_cmd(plan: dict[str, Any], length: int, sample_rate: int) -> np.ndarray:
+def _diffsinger_argv() -> list[str]:
+    raw = os.environ.get("AIMC_DIFFSINGER_ARGV", "").strip()
+    if raw:
+        argv = json.loads(raw)
+        if not isinstance(argv, list) or not argv or not all(isinstance(v, str) and v and "\0" not in v for v in argv):
+            raise ValueError("AIMC_DIFFSINGER_ARGV must be a JSON array of nonempty arguments")
+        return argv
     cmd = os.environ.get("AIMC_DIFFSINGER_CMD", "").strip()
     if not cmd:
-        raise RuntimeError("AIMC_DIFFSINGER_CMD is not set")
+        raise RuntimeError("AIMC_DIFFSINGER_ARGV or AIMC_DIFFSINGER_CMD is not set")
+    if os.name != "nt":
+        return shlex.split(cmd)
+    import ctypes
+    from ctypes import wintypes
+    parser = ctypes.windll.shell32.CommandLineToArgvW
+    parser.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_int)]
+    parser.restype = ctypes.POINTER(wintypes.LPWSTR)
+    count = ctypes.c_int()
+    args = parser(cmd, ctypes.byref(count))
+    if not args:
+        raise ValueError("Invalid DiffSinger command")
+    try:
+        return [args[i] for i in range(count.value)]
+    finally:
+        free = ctypes.windll.kernel32.LocalFree
+        free.argtypes = [ctypes.c_void_p]
+        free.restype = ctypes.c_void_p
+        free(args)
+
+
+def _synthesize_with_diffsinger_cmd(plan: dict[str, Any], length: int, sample_rate: int) -> np.ndarray:
+    command = _diffsinger_argv()
 
     with tempfile.TemporaryDirectory(prefix="aimc-ds-") as tmp:
         plan_path = os.path.join(tmp, "plan.json")
@@ -302,13 +357,14 @@ def _synthesize_with_diffsinger_cmd(plan: dict[str, Any], length: int, sample_ra
         if os.environ.get("AIMC_DIFFSINGER_MODEL_DIR"):
             env["DIFFSINGER_MODEL_DIR"] = os.environ["AIMC_DIFFSINGER_MODEL_DIR"]
 
-        argv = [*cmd.split(), "--plan", plan_path, "--out", out_path, "--sr", str(sample_rate)]
+        argv = [*command, "--plan", plan_path, "--out", out_path, "--sr", str(sample_rate)]
         subprocess.run(argv, check=True, env=env, timeout=900)
         if not os.path.isfile(out_path):
             raise RuntimeError("DiffSinger command did not produce output WAV")
         return _read_stereo_wav(out_path, sample_rate, length)
 
 
+@model_operation(0)
 def synthesize_with_diffsinger(
     plan: dict[str, Any],
     length: int,

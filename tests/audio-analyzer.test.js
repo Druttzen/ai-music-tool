@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   WAVEFORM_BAR_COUNT,
+  analyzeAudioBuffer,
   analysisNeedsWaveformPeaks,
   buildWaveformPeaks,
   formatTime,
@@ -17,6 +18,12 @@ function sineChannel(length, freq, sampleRate) {
 }
 
 describe("audio-analyzer", () => {
+  it("reports an unknown key instead of converting brightness to pitch", () => {
+    const channel = sineChannel(44100, 440, 44100);
+    const buffer = { duration: 1, sampleRate: 44100, numberOfChannels: 1, length: channel.length, getChannelData: () => channel };
+    expect(analyzeAudioBuffer(buffer, "tone.wav").estimatedKey).toBe("Key unclear");
+  });
+
   it("buildWaveformPeaks returns fixed bar count with normalized amplitudes", () => {
     const channel = sineChannel(44100, 440, 44100);
     const peaks = buildWaveformPeaks(channel, 48);

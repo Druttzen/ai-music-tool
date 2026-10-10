@@ -15,6 +15,9 @@ _MODEL_CACHE: dict[str, Any] = {}
 
 
 def stems_available() -> bool:
+    from .model_readiness import addon_enabled
+    if not addon_enabled("stems"):
+        return False
     try:
         import demucs  # noqa: F401
     except Exception:
@@ -56,8 +59,10 @@ def _load_demucs(model_name: str, device: str | None = None):
     from demucs.pretrained import get_model
 
     if model_name not in _MODEL_CACHE:
-        model = get_model(model_name)
         target = device or (build_policy().device or select_device())
+        from .model_resources import require_free_vram
+        require_free_vram(target, 1)
+        model = get_model(model_name)
         model.to(target)
         model.eval()
         _MODEL_CACHE[model_name] = model

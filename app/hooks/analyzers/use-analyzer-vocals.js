@@ -1,15 +1,18 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { advanceAnalyzerEpoch } from "../../lib/analyzer-operation-epoch";
+import { useCallback, useRef, useState } from "react";
 import {
   hasMeaningfulHighlightRange,
 } from "../../lib/audio-highlight-slice";
 import { buildMusicGenAnalysisReport, downloadMusicGenBlob, enrichMusicGenReportWithSidecar } from "../../lib/musicgen-preview";
 import { fetchSidecarHealth, transformVocalsViaSidecar, waitForSidecar } from "../../lib/sidecar-bridge";
 import { isTauriApp } from "../../lib/dsp-bridge";
+import { cacheGeneratedAudioDraft } from "../../lib/generated-audio-cache";
 import { reportCaughtError } from "../../lib/fail-safe-runtime-capture";
 
 export function useAnalyzerVocals({
+  audioEpochRef: sharedAudioEpochRef,
   audioAnalysis,
   setAudioAnalysis,
   setAudioPreviewFromBlob,
@@ -18,20 +21,31 @@ export function useAnalyzerVocals({
   setSidecarVocalTransformAvailable,
   setStatusWithTime,
 }) {
+  const localAudioEpochRef = useRef(0);
+  const audioEpochRef = sharedAudioEpochRef || localAudioEpochRef;
+  const busyRef = useRef(false);
+
   const [vocalTransformBusy, setVocalTransformBusy] = useState(false);
 
   const transformVocalsOnTrack = useCallback(
     async (options = {}) => {
-      if (vocalTransformBusy || !audioAnalysis) return;
+      if (busyRef.current || !audioAnalysis) return;
+      const epoch = advanceAnalyzerEpoch(audioEpochRef);
+      const isCurrent = () => audioEpochRef.current === epoch;
+      const sourceUrl = audioPreviewUrlRef.current;
+      busyRef.current = true;
+      let cacheWarning = null;
       setVocalTransformBusy(true);
       try {
         setStatusWithTime("Vocal transform started (separate → rewrite → remix)…");
         const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        if (!isCurrent()) return;
         if (!sidecarReady) {
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
           return;
         }
         const health = await fetchSidecarHealth();
+        if (!isCurrent()) return;
         if (!health?.vocal_transform_available) {
           setStatusWithTime(
             "Vocal transform needs Demucs or Mel-Band — npm run sidecar:stems / sidecar:stems-melband",
@@ -41,10 +55,11 @@ export function useAnalyzerVocals({
           return;
         }
         let mixBlob = null;
-        if (audioPreviewUrlRef.current) {
-          const res = await fetch(audioPreviewUrlRef.current);
+        if (sourceUrl) {
+          const res = await fetch(sourceUrl);
           if (res.ok) mixBlob = await res.blob();
         }
+        if (!isCurrent()) return;
         if (!mixBlob) {
           throw new Error("No mix loaded — drop an audio file first");
         }
@@ -99,13 +114,18 @@ export function useAnalyzerVocals({
             trackSummary: `Vocal transform (${mode || options.mode || "pitch"})`,
             vocals: "Transformed vocals",
           };
+          report = await cacheGeneratedAudioDraft(file, report);
+          if (!isCurrent()) return;
+          cacheWarning = report.audioCacheWarning;
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
           syncCacheKeysRef(report);
         }
 
+        if (!isCurrent()) return;
         if (options.downloadVocals !== false && vocalsBlob) {
-          downloadMusicGenBlob(vocalsBlob, `vocals-transformed-${Date.now()}.wav`);
+          await downloadMusicGenBlob(vocalsBlob, `vocals-transformed-${Date.now()}.wav`);
+          if (!isCurrent()) return;
         }
 
         setStatusWithTime(
@@ -114,15 +134,19 @@ export function useAnalyzerVocals({
           })`,
           "success",
         );
+        if (cacheWarning && isCurrent()) setStatusWithTime(cacheWarning, "warning");
       } catch (err) {
+        if (!isCurrent()) return;
         reportCaughtError("analyzers.transformVocalsOnTrack", err);
         const msg = err instanceof Error ? err.message : "Vocal transform failed";
         setStatusWithTime(msg.slice(0, 120), "warning");
       } finally {
+        busyRef.current = false;
         setVocalTransformBusy(false);
       }
     },
     [
+      audioEpochRef,
       audioAnalysis,
       audioPreviewUrlRef,
       setAudioAnalysis,
@@ -130,7 +154,6 @@ export function useAnalyzerVocals({
       setSidecarVocalTransformAvailable,
       setStatusWithTime,
       syncCacheKeysRef,
-      vocalTransformBusy,
     ],
   );
 

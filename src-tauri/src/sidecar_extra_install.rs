@@ -306,7 +306,7 @@ fn install_one_sidecar_extra_inner(
     let force_app_data = std::env::var("STUDIO_DATA_DIR")
         .map(|v| !v.trim().is_empty())
         .unwrap_or(false);
-    let result = if is_external_api_extra(&id) {
+    let mut result = if is_external_api_extra(&id) {
         match install_via_checkout_scripts(app, &id, stem, &hint) {
             Some(result) => result,
             None => fail(
@@ -325,7 +325,11 @@ fn install_one_sidecar_extra_inner(
     };
 
     if result.ok && !is_external_api_extra(&id) {
-        record_installed_extra(app, &id);
+        if let Err(err) = record_installed_extra(app, &id) {
+            result.ok = false;
+            result.mode = Some("activation-failed".to_string());
+            result.error = Some(format!("Addon setup completed, but saving activation failed: {err}"));
+        }
     }
     emit_install_progress(
         app,

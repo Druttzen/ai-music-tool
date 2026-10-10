@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { advanceAnalyzerEpoch } from "../../lib/analyzer-operation-epoch";
+import { useCallback, useRef, useState } from "react";
 import {
   buildAudioAnalyzerPatch,
 } from "../../lib/analyzer-guided-merge";
@@ -28,6 +29,7 @@ import { cacheGeneratedAudioDraft } from "../../lib/generated-audio-cache";
 import { cacheMusicGenDraftCandidates, loadSavedMusicGenDraft } from "../../lib/musicgen-draft-search";
 
 export function useAnalyzerGenerate({
+  audioEpochRef: sharedAudioEpochRef,
   audioAnalysis,
   setAudioAnalysis,
   setAudioPreviewFromBlob,
@@ -39,6 +41,10 @@ export function useAnalyzerGenerate({
   setSidecarGenerateAvailable,
   setStatusWithTime,
 }) {
+  const localAudioEpochRef = useRef(0);
+  const audioEpochRef = sharedAudioEpochRef || localAudioEpochRef;
+  const musicBusyRef = useRef(false);
+  const songBusyRef = useRef(false);
   const [generateMusicBusy, setGenerateMusicBusy] = useState(false);
   const [generateSongBusy, setGenerateSongBusy] = useState(false);
   const [musicJobId, setMusicJobId] = useState("");
@@ -95,18 +101,23 @@ export function useAnalyzerGenerate({
         setStatusWithTime("Enter a MusicGen prompt first", "warning");
         return { status: "failed", message: "Enter a MusicGen prompt first" };
       }
-      if (generateMusicBusy) return { status: "failed", message: "A MusicGen generation is already running" };
+      if (musicBusyRef.current) return { status: "failed", message: "A MusicGen generation is already running" };
       let jobId;
 
       const attach = options.attach !== false;
       const download = !!options.download;
 
+      const epoch = advanceAnalyzerEpoch(audioEpochRef);
+      const isCurrent = () => audioEpochRef.current === epoch;
+      const sourceUrl = audioPreviewUrlRef.current;
+      musicBusyRef.current = true;
       setGenerateMusicBusy(true);
       setMusicJobId("");
       setMusicCancelRequested(false);
       try {
         setStatusWithTime("MusicGen queued…");
         const sidecarReady = options.savedDraft || await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        if (!isCurrent()) return;
         if (!sidecarReady) {
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
           return { status: "failed", message: "Local AI service is offline" };
@@ -129,6 +140,7 @@ export function useAnalyzerGenerate({
             options.onJobStarted?.(id);
           },
           onProgress: (progress, message) => {
+            if (!isCurrent()) return;
             setStatusWithTime(
               `MusicGen ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
             );
@@ -140,8 +152,8 @@ export function useAnalyzerGenerate({
             ? await (async () => {
                 let referenceBlob;
                 if (options.compareReference || options.useMelodyReference) {
-                  if (!audioPreviewUrlRef.current) throw new Error("Load reference audio before comparing styles");
-                  const response = await fetch(audioPreviewUrlRef.current);
+                  if (!sourceUrl) throw new Error("Load reference audio before comparing styles");
+                  const response = await fetch(sourceUrl);
                   if (!response.ok) throw new Error("Reference audio could not be read");
                   referenceBlob = await response.blob();
                   if (options.useHighlightMelody && hasMeaningfulHighlightRange(audioAnalysis)) {
@@ -154,8 +166,8 @@ export function useAnalyzerGenerate({
           : options.useMelodyReference
           ? await (async () => {
               let melodyBlob = options.melodyBlob;
-              if (!melodyBlob && audioPreviewUrlRef.current) {
-                const res = await fetch(audioPreviewUrlRef.current);
+              if (!melodyBlob && sourceUrl) {
+                const res = await fetch(sourceUrl);
                 if (res.ok) melodyBlob = await res.blob();
               }
               if (!melodyBlob) {
@@ -215,6 +227,7 @@ export function useAnalyzerGenerate({
           };
           if (draftSearch) report.musicGenSearch = draftSearch;
           report = await cacheGeneratedAudioDraft(file, report);
+          if (!isCurrent()) return { status: "cancelled", message: "Audio source changed" };
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
           syncCacheKeysRef(report);
@@ -245,8 +258,10 @@ export function useAnalyzerGenerate({
           if (report.audioCacheWarning) setStatusWithTime(report.audioCacheWarning, "warning");
         }
 
+        if (!isCurrent()) return { status: "cancelled", message: "Audio source changed" };
         if (download) {
           await downloadMusicGenBlob(file, fileName);
+          if (!isCurrent()) return;
           if (!attach) {
             setStatusWithTime(
               `MusicGen preview downloaded (${model || "musicgen"} · ${resolvedDuration}s)`,
@@ -256,6 +271,7 @@ export function useAnalyzerGenerate({
         }
         return { status: "completed", jobId, artifact: { kind: "audio", fileName, model, durationSec: resolvedDuration } };
       } catch (err) {
+        if (!isCurrent()) return { status: "cancelled", message: "Audio source changed" };
         if (err instanceof SidecarJobCancelledError) {
           setStatusWithTime("MusicGen generation cancelled", "info");
           return { status: "cancelled", jobId, message: "MusicGen generation cancelled" };
@@ -265,30 +281,36 @@ export function useAnalyzerGenerate({
         setStatusWithTime(msg.slice(0, 120), "warning");
         return { status: "failed", jobId, error: msg, message: msg };
       } finally {
+        musicBusyRef.current = false;
         setGenerateMusicBusy(false);
         setMusicJobId("");
         setMusicCancelRequested(false);
       }
     },
-    [applyAnalyzerPatch, generateMusicBusy, navigateToPolishStep, promptEngine, audioAnalysis, audioPreviewUrlRef, setAudioAnalysis, setAudioPreviewFromBlob, setSidecarGenerateAvailable, setStatusWithTime, syncCacheKeysRef],
+    [audioEpochRef, applyAnalyzerPatch, navigateToPolishStep, promptEngine, audioAnalysis, audioPreviewUrlRef, setAudioAnalysis, setAudioPreviewFromBlob, setSidecarGenerateAvailable, setStatusWithTime, syncCacheKeysRef],
   );
 
   const generateSongFromPrompt = useCallback(
     async (prompt, options = {}) => {
       const text = String(prompt || "").trim();
-      if (!text || generateSongBusy) return;
+      if (!text || songBusyRef.current) return;
       const attach = options.attach !== false;
       const download = !!options.download;
       const durationSec = Number(options.durationSec) || 60;
       const lyrics = String(options.lyrics || "").trim();
       const seed = Number.isInteger(options.seed) ? Math.max(0, Math.min(options.seed, 0x7fffffff)) : (crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff);
 
+      const epoch = advanceAnalyzerEpoch(audioEpochRef);
+      const isCurrent = () => audioEpochRef.current === epoch;
+      const sourceUrl = audioPreviewUrlRef.current;
+      songBusyRef.current = true;
       setGenerateSongBusy(true);
       setSongJobId("");
       setSongCancelRequested(false);
       try {
         setStatusWithTime("ACE-Step queued — starting the API if it is down…");
         const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        if (!isCurrent()) return;
         if (!sidecarReady) {
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
           return;
@@ -308,6 +330,7 @@ export function useAnalyzerGenerate({
           compose: !!options.compose,
           instrumental: options.instrumental !== false,
           onProgress: (progress, message) => {
+            if (!isCurrent()) return;
             setStatusWithTime(
               `ACE-Step ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
             );
@@ -342,6 +365,7 @@ export function useAnalyzerGenerate({
               bpm: options.bpm, keyScale: options.keyScale, mode: "acestep-song" },
           };
           report = await cacheGeneratedAudioDraft(file, report);
+          if (!isCurrent()) return { status: "cancelled", message: "Audio source changed" };
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
           syncCacheKeysRef(report);
@@ -352,8 +376,10 @@ export function useAnalyzerGenerate({
           if (report.audioCacheWarning) setStatusWithTime(report.audioCacheWarning, "warning");
         }
 
+        if (!isCurrent()) return { status: "cancelled", message: "Audio source changed" };
         if (download) {
           await downloadMusicGenBlob(file, fileName);
+          if (!isCurrent()) return;
           if (!attach) {
             setStatusWithTime(
               `ACE-Step song downloaded (${model || "acestep"} · ${resolvedDuration}s)`,
@@ -362,6 +388,7 @@ export function useAnalyzerGenerate({
           }
         }
       } catch (err) {
+        if (!isCurrent()) return { status: "cancelled", message: "Audio source changed" };
         if (err instanceof SidecarJobCancelledError) {
           setStatusWithTime("ACE-Step generation cancelled", "info");
           return;
@@ -370,13 +397,15 @@ export function useAnalyzerGenerate({
         const msg = err instanceof Error ? err.message : "ACE-Step generation failed";
         setStatusWithTime(msg.slice(0, 120), "warning");
       } finally {
+        songBusyRef.current = false;
         setGenerateSongBusy(false);
         setSongJobId("");
         setSongCancelRequested(false);
       }
     },
     [
-      generateSongBusy,
+      audioEpochRef,
+      audioPreviewUrlRef,
       setAudioAnalysis,
       setAudioPreviewFromBlob,
       setStatusWithTime,

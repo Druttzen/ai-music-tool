@@ -20,6 +20,10 @@ from __future__ import annotations
 import io
 import logging
 import os
+
+# Weight downloads belong to explicit model setup, never a runtime request.
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 import tempfile
 import asyncio
 from contextlib import asynccontextmanager
@@ -32,7 +36,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from .private_network_cors import PrivateNetworkCorsMiddleware
+from .private_network_cors import EXPOSE_HEADERS, PrivateNetworkCorsMiddleware
 
 from .vocal_embed import (
     VocalEmbedPlanEnvelope,
@@ -81,7 +85,7 @@ from . import vocal_transform as _vocal_transform  # noqa: F401 — register run
 from .stems_separate import separate_audio, stems_available
 from .generate_jobs import enqueue_musicgen, enqueue_song, generate_song_via_jobs, generate_via_jobs
 from .musicgen_search import enqueue_draft_search
-from .jobs import JOBS, public_job_status
+from .jobs import JOBS, JobQueueFull, public_job_status
 from .vocal_transform import transform_via_jobs, vocal_transform_available
 from .idle import (
     configure_idle_exit,
@@ -151,8 +155,14 @@ app.add_middleware(
     ],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=list(EXPOSE_HEADERS),
 )
 app.add_middleware(PrivateNetworkCorsMiddleware)
+
+
+@app.exception_handler(JobQueueFull)
+async def queue_capacity_error(_request: Request, exc: JobQueueFull):
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
 @app.middleware("http")
@@ -301,7 +311,8 @@ class SonicSignatureResponse(BaseModel):
     tempo_bpm: float
     key_estimate: str
     key_confidence: float
-    time_signature: int
+    time_signature: int | None = None
+    time_signature_confidence: float = 0.0
     loudness_db: float
     spectral_centroid_hz: float
     harmonic_ratio: float
@@ -570,7 +581,7 @@ def _analyze_audio_sync(raw: bytes) -> Analysis:
     total_hp = harmonic_energy + percussive_energy
 
     device = select_device()
-    genre_raw = classify_music_genres(y, sr, device=device)
+    genre_raw = classify_music_genres(y, sr, device="cpu")
     genre_predictions = (
         [GenrePrediction(label=item["label"], score=item["score"]) for item in genre_raw]
         if genre_raw
@@ -615,7 +626,7 @@ async def analyze_image(
 
     device = select_device()
     text = (
-        await asyncio.to_thread(caption_image_bytes, raw, device=device)
+        await asyncio.to_thread(caption_image_bytes, raw, device="cpu")
         if caption
         else None
     )
@@ -623,7 +634,7 @@ async def analyze_image(
         raise HTTPException(status_code=422, detail="could not caption image")
 
     clip_raw = (
-        await asyncio.to_thread(clip_tags_for_image_bytes, raw, device=device)
+        await asyncio.to_thread(clip_tags_for_image_bytes, raw, device="cpu")
         if clip_tags
         else None
     )
@@ -1138,7 +1149,7 @@ async def generate_cover(body: CoverRequest):
 
     device = select_device()
     try:
-        png, meta = generate_cover_png(
+        png, meta = await asyncio.to_thread(generate_cover_png,
             prompt,
             width=body.width,
             height=body.height,
@@ -1196,7 +1207,7 @@ async def generate_cover_ref(
 
     device = select_device()
     try:
-        png, meta = generate_cover_from_image_png(
+        png, meta = await asyncio.to_thread(generate_cover_from_image_png,
             raw,
             text,
             strength=strength,

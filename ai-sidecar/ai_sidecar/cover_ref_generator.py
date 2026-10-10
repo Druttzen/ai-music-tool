@@ -6,6 +6,8 @@ Heavy — install via `npm run sidecar:cover-ref` (independent of sidecar:cover)
 
 from __future__ import annotations
 
+from .model_resources import model_operation
+
 import io
 import os
 from typing import Any
@@ -24,6 +26,9 @@ _PIPE: Any = None
 
 
 def cover_ref_available() -> bool:
+    from .model_readiness import addon_enabled
+    if not addon_enabled("cover-ref"):
+        return False
     try:
         import torch  # noqa: F401, PLC0415
         from diffusers import FluxImg2ImgPipeline  # noqa: F401, PLC0415
@@ -56,13 +61,14 @@ def _get_img2img_pipeline(device_name: str):
             "FLUX img2img pipeline unavailable — upgrade diffusers or npm run sidecar:cover-ref"
         ) from None
 
-    pipe = FluxImg2ImgPipeline.from_pretrained(model_id, torch_dtype=dtype)
+    pipe = FluxImg2ImgPipeline.from_pretrained(model_id, torch_dtype=dtype, local_files_only=True)
 
     pipe = place_cover_pipeline(pipe, policy)
     _PIPE = pipe
     return _PIPE
 
 
+@model_operation(4)
 def generate_cover_from_image_png(
     image_bytes: bytes,
     prompt: str,

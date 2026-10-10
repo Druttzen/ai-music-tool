@@ -786,6 +786,33 @@
             "title": "Commercial Use",
             "type": "boolean"
           },
+          "configured": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured"
+          },
+          "dependenciesInstalled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dependenciesinstalled"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -798,10 +825,57 @@
             "title": "License",
             "type": "string"
           },
+          "modelCached": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelcached"
+          },
+          "models": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Models"
+          },
+          "offlineReady": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offlineready"
+          },
           "prompt_install": {
             "default": true,
             "title": "Prompt Install",
             "type": "boolean"
+          },
+          "runtimeReady": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtimeready"
           },
           "tasks": {
             "items": {
@@ -2283,8 +2357,20 @@
             "type": "number"
           },
           "time_signature": {
-            "title": "Time Signature",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Signature"
+          },
+          "time_signature_confidence": {
+            "default": 0,
+            "title": "Time Signature Confidence",
+            "type": "number"
           },
           "timeline_segments": {
             "items": {
@@ -2299,7 +2385,6 @@
           "tempo_bpm",
           "key_estimate",
           "key_confidence",
-          "time_signature",
           "loudness_db",
           "spectral_centroid_hz",
           "harmonic_ratio",

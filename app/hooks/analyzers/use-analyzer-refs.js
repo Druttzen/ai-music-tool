@@ -12,6 +12,7 @@ export function useAnalyzerRefs() {
   const audioAnalysisRef = useRef(null);
   const rehydrateGenRef = useRef(0);
   const loudnessGenRef = useRef(0);
+  const audioEpochRef = useRef(0);
 
   const setAudioPreviewFromBlob = useCallback((blob) => {
     if (audioPreviewUrlRef.current) URL.revokeObjectURL(audioPreviewUrlRef.current);
@@ -22,6 +23,7 @@ export function useAnalyzerRefs() {
 
   useEffect(() => {
     return () => {
+      audioEpochRef.current += 1;
       if (imagePreviewUrlRef.current) {
         URL.revokeObjectURL(imagePreviewUrlRef.current);
         imagePreviewUrlRef.current = null;
@@ -35,6 +37,7 @@ export function useAnalyzerRefs() {
 
   return {
     audioAnalysisRef,
+    audioEpochRef,
     audioCacheKeyRef,
     audioCacheKeysRef,
     audioPreviewUrlRef,

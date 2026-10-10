@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from .model_resources import model_session
+
 
 @dataclass
 class Job:
@@ -24,6 +26,7 @@ class Job:
     result: dict[str, Any] | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     created: float = field(default_factory=time.time)
+    finished: float | None = None
     cancel: bool = field(default=False, repr=False)
     cancellation_acknowledged: bool = field(default=False, repr=False)
 
@@ -43,10 +46,25 @@ RunnerFn = Callable[["JobContext"], dict[str, Any] | None]
 
 _RUNNERS: dict[str, RunnerFn] = {}
 _ARTIFACT_KEYS = ("out_dir", "output_dir", "path")
+_TERMINAL = {"done", "error", "cancelled"}
+
+
+def _payload_bytes(value: Any) -> int:
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return len(value)
+    if isinstance(value, dict):
+        return sum(_payload_bytes(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_payload_bytes(v) for v in value)
+    return 0
 
 
 class JobCancellationRequested(Exception):
     """Raised by a runner after it has safely stopped cooperative work."""
+
+
+class JobQueueFull(RuntimeError):
+    """Admission failed before retaining another upload or starting a thread."""
 
 
 def _tmp_roots() -> list[Path]:
@@ -161,12 +179,16 @@ class JobManager:
         # Vocal transform runs stem separation inline on the same worker thread.
         self._worker_lock = threading.RLock()
         self._ttl_sec = 3600.0
+        self._max_active = 8
+        self._max_payload_bytes = 512 * 1024 * 1024
 
     def prune(self) -> None:
         now = time.time()
         expired: list[Job] = []
         with self._lock:
-            stale_ids = [jid for jid, job in self._jobs.items() if now - job.created > self._ttl_sec]
+            stale_ids = [jid for jid, job in self._jobs.items()
+                         if job.status in _TERMINAL
+                         and now - (job.finished or job.created) > self._ttl_sec]
             for jid in stale_ids:
                 job = self._jobs.pop(jid, None)
                 if job is not None:
@@ -192,12 +214,15 @@ class JobManager:
             if job.status == "queued":
                 job.status = "cancelled"
                 job.message = job.message or "cancelled"
+                job.payload.clear()
+                job.finished = time.time()
             elif job.status == "running":
                 job.status = "cancellation_requested"
                 job.message = "cancellation requested"
             return job
 
     def _new_job(self, kind: str, payload: dict[str, Any] | None, label: str) -> tuple[RunnerFn, Job]:
+        self.prune()
         runner = _RUNNERS.get(kind)
         if not runner:
             raise KeyError(f"unknown job kind: {kind}")
@@ -209,15 +234,20 @@ class JobManager:
             payload=dict(payload or {}),
         )
         with self._lock:
+            active = [item for item in self._jobs.values() if item.status not in _TERMINAL]
+            if len(active) >= self._max_active or sum(_payload_bytes(item.payload) for item in active) + _payload_bytes(job.payload) > self._max_payload_bytes:
+                raise JobQueueFull("Local job queue is full; wait for a running job to finish")
             self._jobs[job.job_id] = job
         return runner, job
 
     def _execute(self, runner: RunnerFn, job: Job) -> None:
-        with self._worker_lock:
+        with self._worker_lock, model_session():
             with self._lock:
                 if job.cancel:
                     job.status = "cancelled"
                     job.message = job.message or "cancelled"
+                    job.payload.clear()
+                    job.finished = job.finished or time.time()
                     return
                 job.status = "running"
             ctx = JobContext(job)
@@ -258,6 +288,10 @@ class JobManager:
                     job.error = str(exc)
                     job.message = str(exc)
                 raise
+            finally:
+                with self._lock:
+                    job.payload.clear()
+                    job.finished = time.time()
 
     def run_inline(self, kind: str, payload: dict[str, Any] | None = None, *, label: str = "") -> Job:
         """Run a registered kind on the calling thread, one job at a time."""

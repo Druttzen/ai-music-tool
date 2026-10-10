@@ -6,6 +6,8 @@ Optional vocal DSP (`vocal` extra) adds guide conversion and lyrics synthesis.
 
 from __future__ import annotations
 
+from .model_resources import model_operation
+
 import io
 import json
 from typing import Any
@@ -153,6 +155,7 @@ def _prepare_vocal_track(
     raise ValueError("Attach a guide vocal WAV/MP3 for local placement-mix synthesis.")
 
 
+@model_operation(0)
 def synthesize_vocal_embed_mix(
     plan: dict[str, Any],
     instrumental_raw: bytes,

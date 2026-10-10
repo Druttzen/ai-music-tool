@@ -50,7 +50,8 @@ def test_select_torch_device_prefers_cuda(monkeypatch):
             mps = None
 
     monkeypatch.setitem(sys.modules, "torch", _FakeTorch)
-    assert _select_torch_device("cpu") == "cuda"
+    assert _select_torch_device("cpu") == "cpu"
+    assert _select_torch_device("cuda") == "cuda"
 
 
 def test_select_torch_device_falls_back_to_cpu(monkeypatch):

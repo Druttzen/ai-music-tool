@@ -51,3 +51,16 @@ def test_sonic_signature_endpoint():
     data = res.json()
     assert data["tempo_bpm"] > 0
     assert "chord_progression" in data
+
+
+def test_slow_four_beat_clicks_do_not_become_a_guessed_waltz():
+    sr = 22050
+    y = np.zeros(sr * 8)
+    for beat in np.arange(.1, 8, .6):
+        start = int(beat * sr)
+        y[start:start + 120] = np.hanning(120) * .7
+    buf = io.BytesIO()
+    sf.write(buf, y, sr, format="WAV")
+    sig = extract_sonic_signature(buf.getvalue())
+    assert sig["time_signature"] is None
+    assert sig["time_signature_confidence"] == 0

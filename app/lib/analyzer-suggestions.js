@@ -118,12 +118,8 @@ export function buildAudioAnalyzerSuggestions(metrics) {
     instrumentCandidates.push("Pad synth", "Orchestral strings");
   }
 
-  const vocals =
-    centroidHz > 2800 && energy > 45
-      ? "Vocals likely"
-      : energy < 30 && aggression < 40
-        ? "Instrumental likely"
-        : "Mixed / uncertain";
+  // These are creative suggestions; spectral brightness cannot detect a singer.
+  const vocals = "Not measured";
 
   return {
     suggestedGenres: resolveCatalogTags(genreCandidates, genreOptions),

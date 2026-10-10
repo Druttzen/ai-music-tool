@@ -9,6 +9,11 @@ import {
 import { genreOptions, soundOptions } from "../app/lib/suno-music-styles.js";
 
 describe("analyzer-suggestions", () => {
+  it("does not infer vocal presence from brightness or energy", () => {
+    expect(buildAudioAnalyzerSuggestions({ centroidHz: 6000, energy: 90 }).vocals).toBe("Not measured");
+    expect(buildAudioAnalyzerSuggestions({ centroidHz: 200, energy: 10 }).vocals).toBe("Not measured");
+  });
+
   it("resolves tags to catalog labels", () => {
     expect(resolveCatalogLabel("techno", genreOptions)).toBe("Techno");
     expect(resolveCatalogLabel("808 bass", soundOptions)).toBe("808 bass");

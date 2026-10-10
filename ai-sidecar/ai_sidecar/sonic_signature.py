@@ -118,12 +118,8 @@ def extract_sonic_signature(audio_bytes: bytes) -> dict[str, Any]:
             }
         )
 
-    time_sig = 4
-    if beat_frames is not None and len(beat_frames) > 8:
-        intervals = np.diff(librosa.frames_to_time(beat_frames, sr=sr))
-        median_iv = float(np.median(intervals))
-        if median_iv > 0.55:
-            time_sig = 3
+    # Beat spacing measures tempo, not beats per bar. No downbeat model is run.
+    time_sig = None
 
     return {
         "duration_sec": round(duration, 3),
@@ -131,6 +127,7 @@ def extract_sonic_signature(audio_bytes: bytes) -> dict[str, Any]:
         "key_estimate": key_estimate,
         "key_confidence": round(key_confidence, 4),
         "time_signature": time_sig,
+        "time_signature_confidence": 0.0,
         "loudness_db": round(loudness_db, 2),
         "spectral_centroid_hz": round(centroid, 2),
         "harmonic_ratio": round(harm_rms / total_rms, 4),

@@ -1,5 +1,6 @@
 "use client";
 
+import { advanceAnalyzerEpoch } from "../../lib/analyzer-operation-epoch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildAudioSunoV55Patch, buildSunoV55StyleFromAudioAnalysis } from "../../lib/audio-to-suno-style";
 import { buildImageSunoV55Patch, buildSunoV55StyleFromImageAnalysis } from "../../lib/image-to-suno-style";
@@ -57,6 +58,10 @@ export function useAnalyzerMedia({
   const analyzerMergeGenerationRef = useRef(0);
   const analyzerMergeAbortRef = useRef(null);
   const imageAnalysisGenerationRef = useRef(0);
+  const audioBusyRef = useRef(false);
+  const imageBusyRef = useRef(false);
+  const localAudioEpochRef = useRef(0);
+  const audioEpochRef = refs.audioEpochRef || localAudioEpochRef;
   const {
     audioAnalysisRef,
     audioCacheKeyRef,
@@ -113,6 +118,11 @@ export function useAnalyzerMedia({
   }, [audioCacheKeyRef, audioCacheKeysRef]);
 
   const reset = useCallback(() => {
+    advanceAnalyzerEpoch(audioEpochRef);
+    imageAnalysisGenerationRef.current += 1;
+    audioBusyRef.current = imageBusyRef.current = false;
+    setAnalyzeAudioBusy(false);
+    setAnalyzeImageBusy(false);
     cancelAnalyzerStyleMerge();
     deleteAudioCacheEntries(audioCacheKeysRef.current);
     audioCacheKeysRef.current = [];
@@ -131,13 +141,17 @@ export function useAnalyzerMedia({
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
     }
-  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, cancelAnalyzerStyleMerge, imagePreviewUrlRef]);
+  }, [audioEpochRef, audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef, cancelAnalyzerStyleMerge, imagePreviewUrlRef]);
 
   const updateAudioAnalysis = useCallback((patch) => {
     setAudioAnalysis((prev) => patchAudioAnalysis(prev, patch));
   }, []);
 
   const clearAudioAnalysis = useCallback(() => {
+    advanceAnalyzerEpoch(audioEpochRef);
+    audioBusyRef.current = false;
+    setAnalyzeAudioBusy(false);
+    cancelAnalyzerStyleMerge();
     deleteAudioCacheEntries(audioCacheKeysRef.current);
     audioCacheKeysRef.current = [];
     audioCacheKeyRef.current = null;
@@ -149,16 +163,20 @@ export function useAnalyzerMedia({
       URL.revokeObjectURL(audioPreviewUrlRef.current);
       audioPreviewUrlRef.current = null;
     }
-  }, [audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef]);
+  }, [audioEpochRef, cancelAnalyzerStyleMerge, audioCacheKeyRef, audioCacheKeysRef, audioPreviewUrlRef]);
 
   const clearImageAnalysis = useCallback(() => {
+    imageAnalysisGenerationRef.current += 1;
+    imageBusyRef.current = false;
+    setAnalyzeImageBusy(false);
+    cancelAnalyzerStyleMerge();
     setImageAnalysis(null);
     setImagePreview(null);
     if (imagePreviewUrlRef.current) {
       URL.revokeObjectURL(imagePreviewUrlRef.current);
       imagePreviewUrlRef.current = null;
     }
-  }, [imagePreviewUrlRef]);
+  }, [cancelAnalyzerStyleMerge, imagePreviewUrlRef]);
 
   const attachAudioFile = useCallback(
     async (file) => {
@@ -171,6 +189,9 @@ export function useAnalyzerMedia({
         return;
       }
 
+      const epoch = advanceAnalyzerEpoch(audioEpochRef);
+      cancelAnalyzerStyleMerge();
+      const isCurrent = () => audioEpochRef.current === epoch;
       let audioContext = null;
       try {
         setStatusWithTime("Attaching audio...");
@@ -179,6 +200,7 @@ export function useAnalyzerMedia({
         audioContext = decoded.audioContext;
         const buffer = decoded.buffer;
 
+        if (!isCurrent()) return;
         if (!audioFileMatchesAnalysis(file, audioAnalysis, buffer.duration)) {
           setStatusWithTime("File name/duration does not match this report — drop as new analysis instead");
           return;
@@ -189,6 +211,7 @@ export function useAnalyzerMedia({
         const peaksBlob = decoded.previewBlob || file;
         const peaks = await decodeWaveformPeaksFromBlob(peaksBlob);
 
+        if (!isCurrent()) return;
         setAudioPreviewFromBlob(decoded.previewBlob || file);
         setAudioAnalysis((prev) => {
           const next = patchAudioAnalysis(prev, {
@@ -208,6 +231,7 @@ export function useAnalyzerMedia({
             : "Audio attached — sample-accurate waveform and playback restored",
         );
       } catch (err) {
+        if (!isCurrent()) return;
         reportCaughtError("analyzers.attachAudioFile", err);
         const msg = err instanceof Error ? err.message : "";
         setStatusWithTime(msg ? msg.slice(0, 100) : "Could not attach audio file", "error");
@@ -219,12 +243,12 @@ export function useAnalyzerMedia({
         }
       }
     },
-    [audioAnalysis, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
+    [audioEpochRef, cancelAnalyzerStyleMerge, audioAnalysis, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
   );
 
   const analyzeAudioFile = useCallback(
     async (file) => {
-      if (analyzeAudioBusy) {
+      if (audioBusyRef.current) {
         setStatusWithTime("Audio analysis already in progress", "info");
         return;
       }
@@ -236,6 +260,10 @@ export function useAnalyzerMedia({
         return;
       }
 
+      const epoch = advanceAnalyzerEpoch(audioEpochRef);
+      const isCurrent = () => audioEpochRef.current === epoch;
+      cancelAnalyzerStyleMerge();
+      audioBusyRef.current = epoch;
       let audioContext = null;
       setAnalyzeAudioBusy(true);
       try {
@@ -254,7 +282,7 @@ export function useAnalyzerMedia({
         } catch {
           report.audioCacheKey = cacheKey;
         }
-        syncCacheKeysRef(report);
+        if (!isCurrent()) return;
 
         let finalReport = report;
         let sidecarReady = await waitForSidecar(45_000);
@@ -287,7 +315,9 @@ export function useAnalyzerMedia({
           sidecarStatusMsg = `${sidecarStatusMsg} · Symphonia preview decode`;
         }
 
+        if (!isCurrent()) return;
         finalReport.fileSize = file.size;
+        syncCacheKeysRef(finalReport);
         setAudioPreviewFromBlob(decoded.previewBlob || file);
         setAudioAnalysis(finalReport);
         setStatusWithTime(
@@ -295,6 +325,7 @@ export function useAnalyzerMedia({
           sidecarStatusType,
         );
       } catch (decodeErr) {
+        if (!isCurrent()) return;
         const sidecarReady = await waitForSidecar(45_000);
         if (sidecarReady) {
           try {
@@ -320,6 +351,7 @@ export function useAnalyzerMedia({
             } catch {
               finalReport.audioCacheKey = cacheKey;
             }
+            if (!isCurrent()) return;
             syncCacheKeysRef(finalReport);
             setAudioPreviewFromBlob(file);
             setAudioAnalysis(finalReport);
@@ -329,6 +361,7 @@ export function useAnalyzerMedia({
             );
             return;
           } catch (sidecarErr) {
+            if (!isCurrent()) return;
             reportCaughtError("analyzers.analyzeAudioFile", sidecarErr);
             const msg = sidecarErr instanceof Error ? sidecarErr.message : "Sidecar analyze failed";
             setStatusWithTime(`Audio analysis failed — ${msg.slice(0, 80)}`, "error");
@@ -338,6 +371,7 @@ export function useAnalyzerMedia({
             return;
           }
         }
+        if (!isCurrent()) return;
         setStatusWithTime(
           decodeErr instanceof Error ? decodeErr.message.slice(0, 100) : "Audio analysis failed",
         );
@@ -345,7 +379,10 @@ export function useAnalyzerMedia({
           notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL}. ALAC/CAF needs Studio Symphonia decode; FLAC may need the librosa sidecar in browser.`,
         });
       } finally {
-        setAnalyzeAudioBusy(false);
+        if (audioBusyRef.current === epoch) {
+          audioBusyRef.current = false;
+          setAnalyzeAudioBusy(false);
+        }
         if (audioContext) {
           try {
             await audioContext.close();
@@ -353,7 +390,7 @@ export function useAnalyzerMedia({
         }
       }
     },
-    [analyzeAudioBusy, applyAnalyzerPatch, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
+    [audioEpochRef, cancelAnalyzerStyleMerge, applyAnalyzerPatch, setAudioPreviewFromBlob, setStatusWithTime, syncCacheKeysRef],
   );
 
   useEffect(() => {
@@ -642,7 +679,7 @@ export function useAnalyzerMedia({
 
   const analyzeImageFile = useCallback(
     async (file) => {
-      if (analyzeImageBusy) {
+      if (imageBusyRef.current) {
         setStatusWithTime("Image analysis already in progress", "info");
         return;
       }
@@ -655,6 +692,8 @@ export function useAnalyzerMedia({
       }
       const generation = ++imageAnalysisGenerationRef.current;
       const isCurrent = () => imageAnalysisGenerationRef.current === generation;
+      imageBusyRef.current = true;
+      cancelAnalyzerStyleMerge();
       setAnalyzeImageBusy(true);
       try {
         setStatusWithTime("Analyzing image...");
@@ -710,6 +749,7 @@ export function useAnalyzerMedia({
           sidecarStatusType = "warning";
         }
 
+        if (!isCurrent()) return;
         setImageAnalysis(finalReport);
         setStatusWithTime(
           sidecarStatusMsg ??
@@ -719,13 +759,17 @@ export function useAnalyzerMedia({
           sidecarStatusType,
         );
       } catch {
+        if (!isCurrent()) return;
         setStatusWithTime("Image analysis failed", "error");
       } finally {
-        setAnalyzeImageBusy(false);
+        if (isCurrent()) {
+          imageBusyRef.current = false;
+          setAnalyzeImageBusy(false);
+        }
       }
     },
     [
-      analyzeImageBusy,
+      cancelAnalyzerStyleMerge,
       applyAnalyzerPatch,
       canvasRef,
       imagePreviewUrlRef,
@@ -734,6 +778,13 @@ export function useAnalyzerMedia({
   );
 
   const setAudioAnalysisNormalized = useCallback((value) => {
+    advanceAnalyzerEpoch(audioEpochRef);
+    audioBusyRef.current = false;
+    setAnalyzeAudioBusy(false);
+    cancelAnalyzerStyleMerge();
+    setAudioPreviewUrl(null);
+    if (audioPreviewUrlRef.current) URL.revokeObjectURL(audioPreviewUrlRef.current);
+    audioPreviewUrlRef.current = null;
     if (!value) {
       syncCacheKeysRef(null);
       setAudioAnalysis(null);
@@ -742,9 +793,22 @@ export function useAnalyzerMedia({
     const normalized = normalizeAudioAnalysis(value);
     syncCacheKeysRef(normalized);
     setAudioAnalysis(normalized);
-  }, [syncCacheKeysRef]);
+  }, [audioEpochRef, audioPreviewUrlRef, cancelAnalyzerStyleMerge, syncCacheKeysRef]);
+
+  const setImageAnalysisNormalized = useCallback((value) => {
+    imageAnalysisGenerationRef.current += 1;
+    imageBusyRef.current = false;
+    setAnalyzeImageBusy(false);
+    cancelAnalyzerStyleMerge();
+    setImagePreview(null);
+    if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
+    imagePreviewUrlRef.current = null;
+    setImageAnalysis(value);
+  }, [cancelAnalyzerStyleMerge, imagePreviewUrlRef]);
 
   return {
+    analyzeAudioBusy,
+    analyzeImageBusy,
     analyzeAudioFile,
     analyzeImageFile,
     applyAudioToSunoStyle,
@@ -766,7 +830,7 @@ export function useAnalyzerMedia({
     setAudioAnalysis,
     setAudioAnalysisNormalized,
     setAudioPreviewFromBlob,
-    setImageAnalysis,
+    setImageAnalysis: setImageAnalysisNormalized,
     syncCacheKeysRef,
     updateAudioAnalysis,
   };

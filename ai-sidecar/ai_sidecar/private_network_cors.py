@@ -15,6 +15,14 @@ from starlette.responses import Response
 _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "tauri.localhost"}
 _ALLOWED_SCHEMES = {"http", "https", "tauri"}
 _ALLOW_HEADERS = "x-aimc-sidecar-token, Content-Type, Accept, Authorization"
+EXPOSE_HEADERS = (
+    "Content-Disposition", "X-Job-Id", "X-Vocal-Embed-Engine",
+    "X-Vocal-Transform-Mode", "X-Vocal-Transform-Has-Remix",
+    "X-Vocal-Transform-Has-Vocals", "X-Vocal-Transform-Vocals-Url",
+    "X-Cover-Model", "X-Cover-Mode", "X-Cover-Width", "X-Cover-Height",
+    "X-Cover-Strength", "X-MusicGen-Model", "X-MusicGen-Duration-Sec",
+    "X-MusicGen-Mode", "X-AceStep-Model", "X-AceStep-Duration-Sec", "X-AceStep-Mode",
+)
 
 
 def origin_allowed(origin: str) -> bool:
@@ -31,6 +39,7 @@ def apply_private_network_headers(response: Response, origin: str) -> Response:
     if origin_allowed(origin):
         response.headers["Access-Control-Allow-Private-Network"] = "true"
         response.headers.setdefault("Access-Control-Allow-Origin", origin)
+        response.headers["Access-Control-Expose-Headers"] = ", ".join(EXPOSE_HEADERS)
         response.headers.setdefault("Vary", "Origin")
     return response
 

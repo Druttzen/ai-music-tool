@@ -51,7 +51,7 @@ export function isSidecarExtraAllowlisted(id) {
  */
 export function sidecarExtraRowIsInstalled(trackedIds, row) {
   const id = normalizeSidecarExtraId(row?.extraId || row?.id);
-  if (!id) return false;
+  if (!id || row?.enabled === false) return false;
   const tracked = trackedIds instanceof Set ? trackedIds : new Set(trackedIds || []);
   if (tracked.has(id)) return true;
   if (!isSidecarExtraAllowlisted(id)) return false;
@@ -195,7 +195,7 @@ export async function uninstallSidecarExtra(extraId) {
 
 export function formatSidecarExtraInstallStatus(result) {
   if (!result) return "Could not install sidecar extra";
-  if (result.mode === "uninstalled") return `Uninstalled ${result.extraId || "extra"}`;
+  if (result.mode === "uninstalled") return `Disabled ${result.extraId || "extra"} — shared libraries and models preserved`;
   if (result.mode === "uninstall-failed") return result.error || "Could not uninstall sidecar extra";
   if (result.mode === "copied-command") {
     return result.message || "Install command copied — run it in the repo, then restart the sidecar";

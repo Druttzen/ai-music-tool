@@ -43,14 +43,25 @@ class CapabilitySpec:
             available = bool(self.probe())
         except Exception:
             available = False
+        from .model_readiness import addon_enabled, readiness
+        enabled = addon_enabled(self.id)
+        try:
+            state = readiness(self.id)
+        except Exception:
+            state = {"runtimeReady": False, "offlineReady": False, "modelCached": False, "configured": False, "models": {}}
+        state["runtimeReady"] = bool(available and enabled and state["runtimeReady"])
+        state["offlineReady"] = bool(available and enabled and state["offlineReady"])
         return {
+            **state,
+            "dependenciesInstalled": available,
+            "enabled": enabled,
             "id": self.id,
             "title": self.title,
             "tasks": list(self.tasks),
             "install_hint": self.install_hint,
             "license": self.license,
             "commercial_use": self.commercial_use,
-            "available": available,
+            "available": available and enabled,
             "prompt_install": self.prompt_install,
         }
 
@@ -305,7 +316,7 @@ def invalidate_capability_cache() -> None:
 def capability_flags(capabilities: list[dict] | None = None) -> dict[str, bool]:
     """Legacy boolean flags for Health / older clients."""
     snaps = {
-        c["id"]: c["available"]
+        c["id"]: c.get("runtimeReady", c["available"])
         for c in (capabilities if capabilities is not None else list_capabilities())
     }
     return {

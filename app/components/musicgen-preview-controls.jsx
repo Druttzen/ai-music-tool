@@ -16,6 +16,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   cancelRequested = false,
   onCancel,
   available = false,
+  models,
   installHint = "npm run sidecar:generate",
   canUseMelodyReference = false,
   canUseHighlightMelody = false,
@@ -71,6 +72,10 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
     ...extra,
   });
 
+  const modelCached = (preset) => !models || models[`facebook/musicgen-${preset}`] === true;
+  const selectedModel = useMelodyReference ? (modelPreset.startsWith("stereo") ? "stereo-melody" : "melody") : modelPreset;
+  const selectionReady = modelCached(selectedModel);
+
   return (
     <section
       className={`rounded-2xl border border-violet-400/25 bg-violet-500/10 space-y-2 ${
@@ -82,9 +87,10 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       </div>
       <p className="text-[10px] leading-relaxed text-white/45">
         Audition the groove and instruments locally, then export your chosen WAV for Suno.
-        Stereo models keep their stereo image. Models download on first use; cached models run locally.
+        Stereo models keep their stereo image. Prepare models with Install or Repair setup before offline use.
         MusicGen makes instrumental drafts and does not reproduce Suno vocals. CC-BY-NC weights.
       </p>
+      {!selectionReady ? <p className="text-[10px] text-amber-100/80">This model is not prepared for offline use. Choose a cached model or complete setup.</p> : null}
       {!available ? <p className="text-[10px] text-white/50">Setup: {installHint}</p> : null}
       <label className="block text-[10px] text-white/50">
         Prompt
@@ -139,10 +145,10 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           onChange={(e) => setModelPreset(e.target.value)}
           className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
         >
-          <option value="stereo-small">Stereo draft (fast)</option>
-          <option value="stereo-medium">Stereo detail (slower; 16 GB GPU recommended)</option>
-          <option value="small">Small mono</option>
-          <option value="medium">Medium mono (slower; 16 GB GPU recommended)</option>
+          <option value="stereo-small" disabled={!modelCached("stereo-small")}>Stereo draft (fast)</option>
+          <option value="stereo-medium" disabled={!modelCached("stereo-medium")}>Stereo detail (slower; 16 GB GPU recommended)</option>
+          <option value="small" disabled={!modelCached("small")}>Small mono</option>
+          <option value="medium" disabled={!modelCached("medium")}>Medium mono (slower; 16 GB GPU recommended)</option>
         </select>
       </label>
       <p className="text-[10px] text-white/45">
@@ -198,7 +204,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={busy || !available}
+          disabled={busy || !available || !selectionReady}
           onClick={(e) => {
             e.preventDefault();
             onGenerate(prompt, durationSec, { attach: true, ...genOptions() });
@@ -209,7 +215,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
         </button>
         <button
           type="button"
-          disabled={busy || !available}
+          disabled={busy || !available || !selectionReady}
           onClick={(e) => {
             e.preventDefault();
             onGenerate(prompt, durationSec, { attach: false, download: true, ...genOptions() });
@@ -249,7 +255,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           Compare style with the current audio
         </label> : null}
         <p className="text-[10px] text-white/45">Creates separate seeds one at a time. A cached CLAP model compares prompt and reference style locally. Melody conditioning applies only when selected above. Listen to every take to judge composition and sound quality.</p>
-        <button type="button" disabled={busy || !available} onClick={() => onGenerate(prompt, durationSec, {
+        <button type="button" disabled={busy || !available || !selectionReady} onClick={() => onGenerate(prompt, durationSec, {
           ...genOptions(), attach: true, candidateCount, compareReference: canUseMelodyReference && compareReference,
         })} className="rounded-xl border border-violet-400/35 px-3 py-2 text-xs text-violet-50 disabled:opacity-50">
           Explore {candidateCount} takes

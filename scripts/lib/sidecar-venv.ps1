@@ -25,6 +25,7 @@ function Set-SidecarRuntimeCacheEnv {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
   }
   $hf = Join-Path $cache "huggingface"
+  $env:AIMC_DISABLED_EXTRAS_FILE = Join-Path $cacheRoot "disabled-extras.json"
   $env:HF_HOME = $hf
   $env:HF_HUB_CACHE = $hf
   $env:TRANSFORMERS_CACHE = (Join-Path $cache "transformers")
@@ -265,6 +266,20 @@ function Install-SidecarExtra {
       $pythonExe = Join-Path $ctx.Venv "python.exe"
     }
     Ensure-SidecarCudaTorch -Pip $ctx.Pip -Python $pythonExe
+  }
+  $pythonExe = if ($ctx.Python) { $ctx.Python } else { Join-Path $ctx.Venv "Scripts\python.exe" }
+  if (-not (Test-Path $pythonExe)) { $pythonExe = Join-Path $ctx.Venv "python.exe" }
+  if ($specs -contains "generate" -or $specs -contains "all") {
+    & $pythonExe -c "from audiocraft.models import MusicGen"
+    if ($LASTEXITCODE -ne 0) { throw "MusicGen import verification failed" }
+  }
+  $modelExtras = @("stems", "generate", "classify", "vision", "cover", "cover-ref")
+  foreach ($modelExtra in $modelExtras) {
+    if ($specs -contains $modelExtra -or $specs -contains "all") {
+      Write-Host "Preparing $modelExtra model files for offline use..."
+      & $pythonExe -m ai_sidecar.model_readiness --provision $modelExtra
+      if ($LASTEXITCODE -ne 0) { throw "Offline model setup failed for $modelExtra" }
+    }
   }
   Write-Host "Done. Restart the sidecar: npm run sidecar"
 }

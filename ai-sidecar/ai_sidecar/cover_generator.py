@@ -6,6 +6,8 @@ Heavy — install via `npm run sidecar:cover`.
 
 from __future__ import annotations
 
+from .model_resources import model_operation
+
 import io
 import os
 from typing import Any
@@ -22,6 +24,9 @@ _PIPE: Any = None
 
 
 def cover_available() -> bool:
+    from .model_readiness import addon_enabled
+    if not addon_enabled("cover"):
+        return False
     try:
         import torch  # noqa: F401, PLC0415
         from diffusers import FluxPipeline  # noqa: F401, PLC0415
@@ -46,12 +51,13 @@ def _get_pipeline(device_name: str):
 
     policy = build_cover_policy(device_name)
     dtype = torch_dtype_for_policy(torch, policy)
-    pipe = FluxPipeline.from_pretrained(active_cover_model_id(), torch_dtype=dtype)
+    pipe = FluxPipeline.from_pretrained(active_cover_model_id(), torch_dtype=dtype, local_files_only=True)
     pipe = place_cover_pipeline(pipe, policy)
     _PIPE = pipe
     return _PIPE
 
 
+@model_operation(4)
 def generate_cover_png(
     prompt: str,
     *,

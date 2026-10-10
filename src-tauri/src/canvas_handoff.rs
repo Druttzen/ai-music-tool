@@ -338,7 +338,7 @@ fn stage_installer_outside_dest(installer: &Path, dest: &Path) -> Result<PathBuf
     let Some(name) = installer.file_name() else {
         return Err("Installer path has no file name".to_string());
     };
-    let staged = cache.join(name);
+    let staged = cache.join(format!("{}-{}", uuid::Uuid::new_v4(), name.to_string_lossy()));
     if installer == staged || installer.starts_with(&cache) {
         return Ok(if installer.starts_with(&cache) {
             installer.to_path_buf()
@@ -428,7 +428,7 @@ fn path_has_whitespace(path: &Path) -> bool {
 /// electron-builder NSIS `/D=` writes nothing when the dest path contains spaces
 /// (exit code still 0). Stage into a spaceless folder, then copy.
 fn nsis_staging_dir(dest: &Path) -> PathBuf {
-    let tmp = std::env::temp_dir().join("aimc-canvas-nsis");
+    let tmp = std::env::temp_dir().join(format!("aimc-canvas-nsis-{}", uuid::Uuid::new_v4()));
     if !path_has_whitespace(&tmp) {
         return tmp;
     }
@@ -512,7 +512,10 @@ fn run_silent_inno(installer: &Path, dest: &Path) -> Result<(), String> {
     }
 }
 
+static CANVAS_INSTALL_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn run_installer_into(installer: &Path, dest: &Path) -> Result<PathBuf, String> {
+    let _guard = CANVAS_INSTALL_LOCK.lock().map_err(|_| "Canvas installer lock was poisoned".to_string())?;
     fs::create_dir_all(dest).map_err(|e| format!("create canvas dest: {e}"))?;
     let staged = stage_installer_outside_dest(installer, dest)?;
 
@@ -769,6 +772,20 @@ fn pick_release_asset_url(assets: &[serde_json::Value]) -> Option<(String, Strin
     prefer.cloned().or_else(|| mapped.first().cloned())
 }
 
+fn cached_installer_matches(dest: &Path, expected_sha256: &str) -> bool {
+    let Ok(mut file) = fs::File::open(dest) else { return false; };
+    let mut hash = Sha256::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        match file.read(&mut buf) {
+            Ok(0) => break,
+            Ok(size) => hash.update(&buf[..size]),
+            Err(_) => return false,
+        }
+    }
+    format!("{:x}", hash.finalize()) == expected_sha256
+}
+
 fn download_url_to_file(url: &str, dest: &Path, expected_sha256: &str) -> Result<(), String> {
     if !url.starts_with("https://github.com/") {
         return Err("Refusing Canvas installer URL outside github.com".to_string());
@@ -976,10 +993,7 @@ fn install_canvas_addon_blocking(force: bool) -> CanvasAddonActionResult {
             .and_then(|e| e.to_str())
             .unwrap_or_default()
     ));
-    let reuse_cache = dest.is_file()
-        && fs::read_to_string(&digest_path)
-            .map(|cached| cached.trim() == digest)
-            .unwrap_or(false);
+    let reuse_cache = cached_installer_matches(&dest, &digest);
     if reuse_cache {
         // Keep cached Setup; avoid re-downloading ~80MB on every install attempt.
     } else {
@@ -1294,6 +1308,17 @@ fn export_canvas_handoff_sync(
 
 #[cfg(test)]
 mod canvas_nsis_dest_tests {
+    #[test]
+    fn cached_installer_requires_actual_matching_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("setup.exe");
+        std::fs::write(&path, b"verified installer").unwrap();
+        let hash = format!("{:x}", sha2::Sha256::digest(b"verified installer"));
+        assert!(super::cached_installer_matches(&path, &hash));
+        std::fs::write(&path, b"corrupted installer").unwrap();
+        assert!(!super::cached_installer_matches(&path, &hash));
+    }
+
     use super::*;
 
     #[test]

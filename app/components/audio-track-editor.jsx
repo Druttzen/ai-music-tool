@@ -101,10 +101,12 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   generateSongCancelRequested = false,
   generateMusicBusy = false,
   sidecarGenerateAvailable = false,
+  musicgenModels,
   onGenerateSong,
   generateSongBusy = false,
   sidecarAcestepAvailable = false,
   sidecarStemsMelbandAvailable = false,
+  melbandModels,
   onTransformVocals,
   vocalTransformBusy = false,
   sidecarVocalTransformAvailable = false,
@@ -118,7 +120,9 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
   const audioRef = useRef(null);
   const [playhead, setPlayhead] = useState(null);
   const [stemsModelChoice, setStemsModel] = useState(null);
-  const stemsModel = stemsModelChoice ?? (sidecarStemsMelbandAvailable ? "melband-clean" : "htdemucs");
+  const cleanReady = sidecarStemsMelbandAvailable && (melbandModels?.["melband-clean"] ?? true);
+  const standardReady = sidecarStemsMelbandAvailable && (melbandModels?.melband ?? true);
+  const stemsModel = stemsModelChoice ?? (cleanReady ? "melband-clean" : standardReady ? "melband" : "htdemucs");
   const [exportFormat, setExportFormat] = useState("wav");
   const [highlightPreset, setHighlightPreset] = useState("streaming");
   const [waveSurferPrototype, setWaveSurferPrototype] = useState(ENABLE_WAVESURFER_DEFAULT);
@@ -653,11 +657,11 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
               onChange={(e) => setStemsModel(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-black/40 px-2.5 py-2 text-xs text-white outline-none focus:border-fuchsia-400/50 disabled:opacity-50"
             >
-              <option value="melband-clean" disabled={!sidecarStemsMelbandAvailable}>
+              <option value="melband-clean" disabled={!cleanReady}>
                 Clean vocals (FT2 Bleedless — recommended)
               </option>
-              <option value="melband" disabled={!sidecarStemsMelbandAvailable}>
-                Mel-Band (standard vocals){sidecarStemsMelbandAvailable ? "" : " — unavailable"}
+              <option value="melband" disabled={!standardReady}>
+                Mel-Band (standard vocals){standardReady ? "" : " — unavailable"}
               </option>
               <option value="htdemucs">Demucs (4 stems)</option>
             </select>
@@ -667,7 +671,8 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             disabled={
               stemSeparationBusy ||
               exportBusy ||
-              (stemsModel.startsWith("melband") && !sidecarStemsMelbandAvailable)
+              (stemsModel === "melband-clean" && !cleanReady) ||
+              (stemsModel === "melband" && !standardReady)
             }
             onClick={(e) => {
               e.preventDefault();
@@ -720,6 +725,7 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             cancelRequested: generateMusicCancelRequested,
             onCancel: onCancelMusic,
             available: sidecarGenerateAvailable,
+            models: musicgenModels,
             installHint: musicGenHintProp,
             canUseMelodyReference: !!audioUrl,
             canUseHighlightMelody: hasMeaningfulHighlightRange(analysis),
