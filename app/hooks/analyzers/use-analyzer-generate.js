@@ -14,6 +14,7 @@ import {
   cancelSidecarJob,
   fetchSidecarHealth,
   generateMusicViaSidecar,
+  generateMusicDraftsViaSidecar,
   generateMusicWithMelodyViaSidecar,
   generateSongViaSidecar,
   SidecarJobCancelledError,
@@ -24,6 +25,7 @@ import { isTauriApp } from "../../lib/dsp-bridge";
 import { resolvePolishStepIndex } from "../../lib/suno-guided-workflow";
 import { reportCaughtError } from "../../lib/fail-safe-runtime-capture";
 import { cacheGeneratedAudioDraft } from "../../lib/generated-audio-cache";
+import { cacheMusicGenDraftCandidates, loadSavedMusicGenDraft } from "../../lib/musicgen-draft-search";
 
 export function useAnalyzerGenerate({
   audioAnalysis,
@@ -88,7 +90,7 @@ export function useAnalyzerGenerate({
 
   const generateMusicFromPrompt = useCallback(
     async (prompt, durationSec = 10, options = {}) => {
-      const text = String(prompt || "").trim();
+      const text = String(options.savedDraft ? audioAnalysis?.musicGenPrompt : prompt || "").trim();
       if (!text) {
         setStatusWithTime("Enter a MusicGen prompt first", "warning");
         return { status: "failed", message: "Enter a MusicGen prompt first" };
@@ -104,12 +106,12 @@ export function useAnalyzerGenerate({
       setMusicCancelRequested(false);
       try {
         setStatusWithTime("MusicGen queued…");
-        const sidecarReady = await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
+        const sidecarReady = options.savedDraft || await waitForSidecar(isTauriApp() ? 120_000 : 60_000);
         if (!sidecarReady) {
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
           return { status: "failed", message: "Local AI service is offline" };
         }
-        const health = await fetchSidecarHealth();
+        const health = options.savedDraft ? { generate_available: true } : await fetchSidecarHealth();
         if (!health?.generate_available) {
           setStatusWithTime(
             `MusicGen not installed — run ${musicGenInstallHint(health)} (CC-BY-NC weights)`,
@@ -132,7 +134,24 @@ export function useAnalyzerGenerate({
             );
           },
         };
-        const { blob, model, durationSec: dur, mode } = options.useMelodyReference
+        const generated = options.savedDraft
+          ? await loadSavedMusicGenDraft(options.savedDraft, audioAnalysis)
+          : options.candidateCount > 1
+            ? await (async () => {
+                let referenceBlob;
+                if (options.compareReference || options.useMelodyReference) {
+                  if (!audioPreviewUrlRef.current) throw new Error("Load reference audio before comparing styles");
+                  const response = await fetch(audioPreviewUrlRef.current);
+                  if (!response.ok) throw new Error("Reference audio could not be read");
+                  referenceBlob = await response.blob();
+                  if (options.useHighlightMelody && hasMeaningfulHighlightRange(audioAnalysis)) {
+                    referenceBlob = await sliceAudioBlobToHighlightRange(referenceBlob, audioAnalysis.highlightStart,
+                      audioAnalysis.highlightEnd, "highlight-reference.wav");
+                  }
+                }
+                return generateMusicDraftsViaSidecar(text, durationSec, { ...generationOptions, referenceBlob });
+              })()
+          : options.useMelodyReference
           ? await (async () => {
               let melodyBlob = options.melodyBlob;
               if (!melodyBlob && audioPreviewUrlRef.current) {
@@ -165,6 +184,8 @@ export function useAnalyzerGenerate({
           : await generateMusicViaSidecar(text, durationSec, {
               ...generationOptions,
             });
+        const { blob, model, durationSec: dur, mode } = generated;
+        const draftSearch = options.savedDraft ? generated.search : await cacheMusicGenDraftCandidates(generated);
         const resolvedDuration = dur || durationSec;
         const fileName = `musicgen-preview-${Date.now()}.wav`;
         const file =
@@ -184,7 +205,7 @@ export function useAnalyzerGenerate({
           });
           report = await enrichMusicGenReportWithSidecar(file, report);
           report.musicGenSettings = {
-            seed: generationOptions.seed,
+            seed: draftSearch ? draftSearch.candidates.find(take => take.index === draftSearch.selected_index)?.seed : generationOptions.seed,
             temperature: options.temperature ?? 1,
             topK: options.topK ?? 250,
             topP: options.topP ?? 0,
@@ -192,6 +213,7 @@ export function useAnalyzerGenerate({
             model,
             mode: mode || "text",
           };
+          if (draftSearch) report.musicGenSearch = draftSearch;
           report = await cacheGeneratedAudioDraft(file, report);
           setAudioPreviewFromBlob(file);
           setAudioAnalysis(report);
@@ -259,6 +281,7 @@ export function useAnalyzerGenerate({
       const download = !!options.download;
       const durationSec = Number(options.durationSec) || 60;
       const lyrics = String(options.lyrics || "").trim();
+      const seed = Number.isInteger(options.seed) ? Math.max(0, Math.min(options.seed, 0x7fffffff)) : (crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff);
 
       setGenerateSongBusy(true);
       setSongJobId("");
@@ -279,7 +302,8 @@ export function useAnalyzerGenerate({
           vocalLanguage: options.vocalLanguage || "",
           thinking: options.thinking !== false,
           inferenceSteps: options.inferenceSteps,
-          seed: options.seed,
+          guidanceScale: options.guidanceScale,
+          seed,
           model: options.model || "",
           onProgress: (progress, message) => {
             setStatusWithTime(
@@ -306,6 +330,11 @@ export function useAnalyzerGenerate({
             sourceEngine: "acestep",
             trackSummary: `ACE-Step song (${model || "acestep"}, ${resolvedDuration}s): ${text.slice(0, 160)}`,
             vocals: lyrics ? "Vocals (ACE-Step)" : report.vocals,
+            aceStepLyrics: lyrics,
+            musicGenSettings: { seed, model, thinking: options.thinking !== false,
+              useDna: options.useDna ?? !!(options.bpm || options.keyScale),
+              inferenceSteps: options.inferenceSteps, guidanceScale: options.guidanceScale,
+              bpm: options.bpm, keyScale: options.keyScale, mode: "acestep-song" },
           };
           report = await cacheGeneratedAudioDraft(file, report);
           setAudioPreviewFromBlob(file);

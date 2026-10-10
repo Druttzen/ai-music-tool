@@ -54,6 +54,7 @@ export function buildSunoUploadBrief({ style = "", lyrics = "", analysis = {} } 
     `Model: ${analysis.musicGenModel || analysis.sourceEngine || "imported audio"}`,
     `Duration: ${analysis.duration ?? analysis.musicGenDurationSec ?? "unknown"} seconds`,
     ...(params ? [`Generation settings: ${JSON.stringify(params)}`] : []),
+    ...(analysis.musicGenSearch ? [`Local comparison: ${analysis.musicGenSearch.note}`, `Chosen take: ${analysis.musicGenSearch.selected_index + 1}`] : []),
     "",
     SUNO_DRAFT_GUIDANCE,
     `Reference: ${SUNO_CURRENT.sources.models}`,

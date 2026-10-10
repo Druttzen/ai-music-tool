@@ -92,6 +92,11 @@ def _iter_artifact_paths(result: dict[str, Any]) -> list[Path]:
         for raw in extra.values():
             if isinstance(raw, str) and raw.strip():
                 found.append(Path(raw))
+    search = (result.get("meta") or {}).get("draft_search", {})
+    for candidate in search.get("candidates", []):
+        raw = candidate.get("path")
+        if isinstance(raw, str) and raw.strip():
+            found.append(Path(raw))
     return found
 
 

@@ -69,7 +69,7 @@ from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer
 from .fail_safe_runtime import RuntimeDeliverRequest, RuntimeDeliverResponse, deliver_runtime_report
 from .device import DeviceInfo, detect_device, peek_device, select_device
 from .http_contracts import (
-    AceStepEnsureResult, AceStepPresetCatalog, CapabilityContract, JobCancelResponse, JobSubmission, PublicJobStatus,
+    AceStepEnsureResult, AceStepPresetCatalog, CapabilityContract, JobCancelResponse, JobSubmission, PublicJobStatus, DraftSearchResult,
     FailSafeCapabilities, VocalModelStatus, VocalAlignPreviewResponse, OpenvpiDsExportResponse,
 )
 from .registry import capability_flags, list_capabilities
@@ -79,6 +79,7 @@ from . import stems_separate as _stems_separate  # noqa: F401 — register runne
 from . import vocal_transform as _vocal_transform  # noqa: F401 — register runners
 from .stems_separate import separate_audio, stems_available
 from .generate_jobs import enqueue_musicgen, enqueue_song, generate_song_via_jobs, generate_via_jobs
+from .musicgen_search import enqueue_draft_search
 from .jobs import JOBS, public_job_status
 from .vocal_transform import transform_via_jobs, vocal_transform_available
 from .idle import (
@@ -802,6 +803,7 @@ class GenerateSongRequest(BaseModel):
     thinking: bool = True
     audio_format: str = "wav"
     inference_steps: int | None = None
+    guidance_scale: float | None = None
     seed: int | None = None
     model: str = ""
 
@@ -839,6 +841,7 @@ async def generate_full_song(body: GenerateSongRequest):
             thinking=body.thinking,
             audio_format=fmt,
             inference_steps=body.inference_steps,
+            guidance_scale=body.guidance_scale,
             seed=body.seed,
             model=body.model,
         )
@@ -896,12 +899,52 @@ def enqueue_generate_song(body: GenerateSongRequest):
             thinking=body.thinking,
             audio_format=normalize_song_format(body.audio_format),
             inference_steps=body.inference_steps,
+            guidance_scale=body.guidance_scale,
             seed=body.seed,
             model=body.model,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"job_id": job_id}
+
+
+@app.post("/generate/drafts/jobs", response_model=JobSubmission)
+async def enqueue_generate_drafts(
+    prompt: str = Form(...),
+    duration_sec: float = Form(30, ge=1, le=30),
+    candidate_count: int = Form(3, ge=2, le=4),
+    condition_melody: bool = Form(False),
+    seed: int | None = Form(None, ge=0, le=2147483647),
+    model: str = Form("stereo-medium"),
+    temperature: float = Form(1, ge=0.1, le=2),
+    top_k: int = Form(250, ge=0, le=500),
+    top_p: float = Form(0, ge=0, le=1),
+    cfg_coef: float = Form(3, ge=0, le=10),
+    reference: UploadFile | None = File(None),
+):
+    raw = await _read_upload_limited(reference, 32 * 1024 * 1024) if reference else None
+    if reference and not raw:
+        raise HTTPException(status_code=400, detail="empty reference upload")
+    try:
+        job_id = enqueue_draft_search(prompt, candidate_count=candidate_count, seed=seed,
+            duration_sec=duration_sec, model=model, temperature=temperature,
+            top_k=top_k, top_p=top_p, cfg_coef=cfg_coef, reference_wav=raw, condition_melody=condition_melody)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"job_id": job_id}
+
+
+@app.get("/generate/drafts/{job_id}", response_model=DraftSearchResult)
+def draft_search_result(job_id: str):
+    job = JOBS.get(job_id)
+    if job is None or job.status != "done" or not isinstance(job.result, dict):
+        raise HTTPException(status_code=404, detail="drafts not ready")
+    search = job.result.get("meta", {}).get("draft_search")
+    if not isinstance(search, dict):
+        raise HTTPException(status_code=404, detail="not a draft search")
+    return {**search, "candidates": [{key: value for key, value in item.items() if key != "path"} for item in search["candidates"]]}
 
 
 @app.get("/jobs/{job_id}", response_model=PublicJobStatus)
@@ -922,11 +965,18 @@ def cancel_job(job_id: str):
 
 
 @app.get("/generate/audio/{job_id}")
-def generate_audio(job_id: str):
+def generate_audio(job_id: str, candidate_index: int | None = None):
     job = JOBS.get(job_id)
     if job is None or job.status != "done" or not isinstance(job.result, dict):
         raise HTTPException(status_code=404, detail="audio not ready")
     path = str(job.result.get("path") or "")
+    if candidate_index is not None:
+        search = job.result.get("meta", {}).get("draft_search", {})
+        candidates = search.get("candidates", [])
+        candidate = next((item for item in candidates if item.get("index") == candidate_index), None)
+        if candidate is None:
+            raise HTTPException(status_code=404, detail="unknown draft candidate")
+        path = str(candidate.get("path") or "")
     if not path or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="audio file missing")
     meta = job.result.get("meta") if isinstance(job.result.get("meta"), dict) else {}

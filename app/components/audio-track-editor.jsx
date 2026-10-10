@@ -704,8 +704,10 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             defaultPrompt: defaultMusicGenPrompt,
             lastTake: analysis.sourceEngine === "musicgen" ? {
               ...analysis.musicGenSettings,
+              takeId: analysis.audioCacheKey || analysis.fileName,
               prompt: analysis.musicGenPrompt,
               durationSec: analysis.musicGenDurationSec,
+              search: analysis.musicGenSearch,
             } : undefined,
             busy: generateMusicBusy || exportBusy,
             canCancel: generateMusicCanCancel,
@@ -719,6 +721,11 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
           }}
           song={{
             defaultPrompt: defaultMusicGenPrompt,
+            lastTake: analysis.sourceEngine === "acestep" ? {
+              takeId: analysis.audioCacheKey || analysis.fileName,
+              ...analysis.musicGenSettings, prompt: analysis.musicGenPrompt,
+              lyrics: analysis.aceStepLyrics, durationSec: analysis.musicGenDurationSec,
+            } : undefined,
             defaultLyrics: defaultAceStepLyrics,
             defaultBpm: analysis?.bpm ?? null,
             defaultKey: analysis?.estimatedKey || "",

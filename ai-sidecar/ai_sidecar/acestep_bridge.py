@@ -102,6 +102,7 @@ def build_release_task_payload(
     thinking: bool = True,
     audio_format: str = "wav",
     inference_steps: int | None = None,
+    guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
 ) -> dict[str, Any]:
@@ -133,6 +134,8 @@ def build_release_task_payload(
         payload["model"] = chosen_model
     if inference_steps is not None:
         payload["inference_steps"] = max(1, min(int(inference_steps), 128))
+    if guidance_scale is not None:
+        payload["guidance_scale"] = max(0.0, min(float(guidance_scale), 20.0))
     if seed is not None and int(seed) >= 0:
         payload["seed"] = int(seed)
         payload["use_random_seed"] = False
@@ -196,6 +199,7 @@ def generate_acestep_song(
     thinking: bool = True,
     audio_format: str = "wav",
     inference_steps: int | None = None,
+    guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
     on_progress: Any = None,
@@ -222,6 +226,7 @@ def generate_acestep_song(
         thinking=thinking,
         audio_format=fmt,
         inference_steps=inference_steps,
+        guidance_scale=guidance_scale,
         seed=seed,
         model=model,
     )
@@ -277,5 +282,9 @@ def generate_acestep_song(
         "audio_format": fmt,
         "task_id": task_id,
         "mode": "acestep-song",
+        "seed": seed,
+        "inference_steps": inference_steps,
+        "guidance_scale": guidance_scale,
+        "thinking": thinking,
     }
     return audio_bytes, meta

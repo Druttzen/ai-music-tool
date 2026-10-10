@@ -41,7 +41,9 @@ export const LocalGeneratePanel = memo(function LocalGeneratePanel({
           Full song · MIT
         </button>
       </div>
-      {mode === "sketch" ? <MusicGenPreviewControls {...music} /> : <AceStepSongControls {...song} />}
+      {mode === "sketch"
+        ? <MusicGenPreviewControls key={music?.lastTake?.takeId || "new-sketch"} {...music} />
+        : <AceStepSongControls key={song?.lastTake?.takeId || "new-song"} {...song} />}
     </section>
   );
 });

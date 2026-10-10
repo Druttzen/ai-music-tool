@@ -37,6 +37,16 @@
             "title": "Quality Model",
             "type": "string"
           },
+          "sft_available": {
+            "default": false,
+            "title": "Sft Available",
+            "type": "boolean"
+          },
+          "sft_model": {
+            "default": "acestep-v15-sft",
+            "title": "Sft Model",
+            "type": "string"
+          },
           "turbo_model": {
             "title": "Turbo Model",
             "type": "string"
@@ -308,6 +318,96 @@
           "file"
         ],
         "title": "Body_analyze_image_analyze_image_post",
+        "type": "object"
+      },
+      "Body_enqueue_generate_drafts_generate_drafts_jobs_post": {
+        "properties": {
+          "candidate_count": {
+            "default": 3,
+            "maximum": 4,
+            "minimum": 2,
+            "title": "Candidate Count",
+            "type": "integer"
+          },
+          "cfg_coef": {
+            "default": 3,
+            "maximum": 10,
+            "minimum": 0,
+            "title": "Cfg Coef",
+            "type": "number"
+          },
+          "condition_melody": {
+            "default": false,
+            "title": "Condition Melody",
+            "type": "boolean"
+          },
+          "duration_sec": {
+            "default": 30,
+            "maximum": 30,
+            "minimum": 1,
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "model": {
+            "default": "stereo-medium",
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "maximum": 2147483647,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "temperature": {
+            "default": 1,
+            "maximum": 2,
+            "minimum": 0.1,
+            "title": "Temperature",
+            "type": "number"
+          },
+          "top_k": {
+            "default": 250,
+            "maximum": 500,
+            "minimum": 0,
+            "title": "Top K",
+            "type": "integer"
+          },
+          "top_p": {
+            "default": 0,
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Top P",
+            "type": "number"
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "title": "Body_enqueue_generate_drafts_generate_drafts_jobs_post",
         "type": "object"
       },
       "Body_enqueue_generate_melody_generate_melody_jobs_post": {
@@ -844,6 +944,108 @@
         "title": "DeviceInfo",
         "type": "object"
       },
+      "DraftCandidate": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "prompt_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Score"
+          },
+          "reference_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Score"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index",
+          "seed",
+          "score",
+          "prompt_score",
+          "reference_score"
+        ],
+        "title": "DraftCandidate",
+        "type": "object"
+      },
+      "DraftSearchResult": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DraftCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "ranked": {
+            "title": "Ranked",
+            "type": "boolean"
+          },
+          "ranker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ranker"
+          },
+          "reference_used": {
+            "title": "Reference Used",
+            "type": "boolean"
+          },
+          "selected_index": {
+            "title": "Selected Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "selected_index",
+          "reference_used",
+          "ranker",
+          "ranked",
+          "note",
+          "candidates"
+        ],
+        "title": "DraftSearchResult",
+        "type": "object"
+      },
       "FailSafeCapabilities": {
         "properties": {
           "fix_push_available": {
@@ -1088,6 +1290,17 @@
               }
             ],
             "title": "Duration Sec"
+          },
+          "guidance_scale": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guidance Scale"
           },
           "inference_steps": {
             "anyOf": [
@@ -2835,6 +3048,22 @@
               "title": "Job Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "candidate_index",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidate Index"
+            }
           }
         ],
         "responses": {
@@ -2858,6 +3087,83 @@
           }
         },
         "summary": "Generate Audio"
+      }
+    },
+    "/generate/drafts/jobs": {
+      "post": {
+        "operationId": "enqueue_generate_drafts_generate_drafts_jobs_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_enqueue_generate_drafts_generate_drafts_jobs_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobSubmission"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Generate Drafts"
+      }
+    },
+    "/generate/drafts/{job_id}": {
+      "get": {
+        "operationId": "draft_search_result_generate_drafts__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftSearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Draft Search Result"
       }
     },
     "/generate/jobs": {

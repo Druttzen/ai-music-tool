@@ -71,6 +71,13 @@ def test_build_release_task_payload_requires_prompt():
         build_release_task_payload("  ")
 
 
+def test_sft_guidance_is_forwarded_and_bounded():
+    payload = build_release_task_payload("pop", model="acestep-v15-sft", inference_steps=50, guidance_scale=8.5)
+    assert payload["inference_steps"] == 50
+    assert payload["guidance_scale"] == 8.5
+    assert build_release_task_payload("x", guidance_scale=999)["guidance_scale"] == 20
+
+
 def test_parse_task_submit():
     assert parse_task_submit({"data": {"task_id": "abc123"}, "code": 200}) == "abc123"
     with pytest.raises(RuntimeError, match="task submit failed"):

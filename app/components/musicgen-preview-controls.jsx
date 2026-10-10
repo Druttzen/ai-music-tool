@@ -2,6 +2,7 @@
 
 import { memo, useState } from "react";
 import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
+import { MusicGenDraftTakes } from "./musicgen-draft-takes";
 
 /**
  * Shared MusicGen prompt + duration controls.
@@ -33,6 +34,8 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   const [topK, setTopK] = useState(lastTake?.topK ?? 250);
   const [topP, setTopP] = useState(lastTake?.topP ?? 0);
   const [seed, setSeed] = useState(lastTake?.seed == null ? "" : String(lastTake.seed));
+  const [candidateCount, setCandidateCount] = useState(3);
+  const [compareReference, setCompareReference] = useState(false);
 
   useWorkspaceResetEffect(() => {
     setPromptOverride(null);
@@ -46,6 +49,8 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
     setTopK(250);
     setTopP(0);
     setSeed("");
+    setCandidateCount(3);
+    setCompareReference(false);
   });
 
   const prompt = promptOverride ?? defaultPrompt ?? "";
@@ -232,6 +237,27 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           Cancellation requested. Current inference may finish safely before it stops.
         </p>
       ) : null}
+      <div className="rounded-xl border border-violet-400/20 p-2 space-y-2">
+        <label className="block text-[10px] text-white/60">Takes to compare
+          <select value={candidateCount} disabled={busy} onChange={e => setCandidateCount(Number(e.target.value))}
+            className="ml-2 rounded border border-white/20 bg-black/60 p-1 text-white">
+            {[2, 3, 4].map(count => <option key={count} value={count}>{count}</option>)}
+          </select>
+        </label>
+        {canUseMelodyReference ? <label className="flex items-center gap-2 text-[10px] text-white/60">
+          <input type="checkbox" checked={compareReference} disabled={busy} onChange={e => setCompareReference(e.target.checked)} />
+          Compare style with the current audio
+        </label> : null}
+        <p className="text-[10px] text-white/45">Creates separate seeds one at a time. A cached CLAP model compares prompt and reference style locally. Melody conditioning applies only when selected above. Listen to every take to judge composition and sound quality.</p>
+        <button type="button" disabled={busy || !available} onClick={() => onGenerate(prompt, durationSec, {
+          ...genOptions(), attach: true, candidateCount, compareReference: canUseMelodyReference && compareReference,
+        })} className="rounded-xl border border-violet-400/35 px-3 py-2 text-xs text-violet-50 disabled:opacity-50">
+          Explore {candidateCount} takes
+        </button>
+      </div>
+      <MusicGenDraftTakes search={lastTake?.search} busy={busy} onSelect={take => onGenerate(prompt, durationSec, {
+        ...genOptions(), ...lastTake, attach: true, seed: take.seed, savedDraft: take, useMelodyReference: false,
+      })} />
     </section>
   );
 });

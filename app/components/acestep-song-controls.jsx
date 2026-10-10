@@ -20,6 +20,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   defaultLyrics = "",
   defaultBpm = null,
   defaultKey = "",
+  lastTake,
   busy = false,
   canCancel = false,
   cancelRequested = false,
@@ -29,15 +30,19 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   onGenerate,
   compact = false,
 }) {
-  const [promptOverride, setPromptOverride] = useState(null);
-  const [lyricsOverride, setLyricsOverride] = useState(null);
-  const [durationSec, setDurationSec] = useState(60);
-  const [useDna, setUseDna] = useState(true);
-  const [thinking, setThinking] = useState(true);
-  const [quality, setQuality] = useState("turbo");
+  const [promptOverride, setPromptOverride] = useState(lastTake?.prompt ?? null);
+  const [lyricsOverride, setLyricsOverride] = useState(lastTake?.lyrics ?? null);
+  const [durationSec, setDurationSec] = useState(lastTake?.durationSec ?? 60);
+  const [useDna, setUseDna] = useState(lastTake ? (lastTake.useDna ?? !!(lastTake.bpm || lastTake.keyScale)) : true);
+  const dnaBpm = lastTake?.bpm ?? defaultBpm;
+  const dnaKey = lastTake?.keyScale || defaultKey;
+  const [thinking, setThinking] = useState(lastTake?.thinking ?? true);
+  const [quality, setQuality] = useState(lastTake?.model === "acestep-v15-sft" ? "sft" : lastTake?.model === "acestep-v15-base" ? "quality" : "turbo");
   const [qualityAvailable, setQualityAvailable] = useState(false);
+  const [sftAvailable, setSftAvailable] = useState(false);
+  const [guidanceScale, setGuidanceScale] = useState(lastTake?.guidanceScale ?? 7);
   const [qualityNote, setQualityNote] = useState("");
-  const [seed, setSeed] = useState("");
+  const [seed, setSeed] = useState(lastTake?.seed == null ? "" : String(lastTake.seed));
   const [copyStatus, setCopyStatus] = useState("");
   const [startingApi, setStartingApi] = useState(false);
   const [startupMessage, setStartupMessage] = useState("");
@@ -46,8 +51,8 @@ export const AceStepSongControls = memo(function AceStepSongControls({
     let cancelled = false;
     if (!available) {
       setQualityAvailable(false);
+      setSftAvailable(false);
       setQualityNote("");
-      setQuality("turbo");
       return () => {
         cancelled = true;
       };
@@ -58,12 +63,12 @@ export const AceStepSongControls = memo(function AceStepSongControls({
       if (cancelled) return;
       const canUseQuality = !!catalog?.quality_available;
       setQualityAvailable(canUseQuality);
+      setSftAvailable(!!catalog?.sft_available);
       setQualityNote(
         canUseQuality
           ? ""
-          : catalog?.note || "Could not verify the base checkpoint; Quality is disabled.",
+          : "Additional checkpoints must be installed before selecting them.",
       );
-      if (!canUseQuality) setQuality("turbo");
     });
     return () => {
       cancelled = true;
@@ -78,11 +83,13 @@ export const AceStepSongControls = memo(function AceStepSongControls({
     setThinking(true);
     setQuality("turbo");
     setSeed("");
+    setGuidanceScale(7);
     setCopyStatus("");
   });
 
   const prompt = promptOverride ?? defaultPrompt ?? "";
   const lyrics = lyricsOverride ?? defaultLyrics ?? "";
+  const selectedCheckpointAvailable = quality === "turbo" || (quality === "sft" ? sftAvailable : qualityAvailable);
 
   if (!onGenerate) return null;
 
@@ -125,7 +132,8 @@ export const AceStepSongControls = memo(function AceStepSongControls({
         ACE-Step full song
       </div>
       <p className="text-[10px] leading-relaxed text-white/45">
-        Local full-song generation via an external ACE-Step API (MIT weights — longer than MusicGen).
+        Local songs with vocals or instrumental arrangements. SFT offers more detail and prompt control;
+        it is slower and is not always cleaner than Turbo. No Suno quality equivalence has been established.
         Sidecar marks ACE ready only when the API is{" "}
         <span className="font-semibold text-white/70">reachable</span> at{" "}
         <code className="text-white/60">AIMC_ACESTEP_API_URL</code>.
@@ -198,16 +206,17 @@ export const AceStepSongControls = memo(function AceStepSongControls({
       <label className="flex items-center gap-2 text-[10px] text-white/55">
         <input type="checkbox" checked={useDna} disabled={busy} onChange={(e) => setUseDna(e.target.checked)} />
         Use track DNA
-        {defaultBpm || defaultKey ? ` (${[defaultBpm ? `${defaultBpm} BPM` : "", defaultKey].filter(Boolean).join(" · ")})` : ""}
+        {dnaBpm || dnaKey ? ` (${[dnaBpm ? `${dnaBpm} BPM` : "", dnaKey].filter(Boolean).join(" · ")})` : ""}
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-[10px] text-white/50">
           Quality
-          <select value={quality} disabled={busy} onChange={(e) => setQuality(e.target.value)}
+          <select aria-label="Quality" value={quality} disabled={busy} onChange={(e) => setQuality(e.target.value)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white">
             <option value="turbo">Turbo (faster)</option>
+            <option value="sft" disabled={!sftAvailable}>{sftAvailable ? "Detail (SFT · 50 steps)" : "Detail (SFT checkpoint not installed)"}</option>
             <option value="quality" disabled={!qualityAvailable}>
-              {qualityAvailable ? "Quality (thinking + 32 steps)" : "Quality (base checkpoint not installed)"}
+              {qualityAvailable ? "Base (50 steps · editing / training)" : "Base (checkpoint not installed)"}
             </option>
           </select>
           {qualityNote ? <span className="mt-1 block text-[10px] text-amber-100/80">{qualityNote}</span> : null}
@@ -219,8 +228,12 @@ export const AceStepSongControls = memo(function AceStepSongControls({
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
         </label>
       </div>
+      {quality !== "turbo" ? <label className="block text-[10px] text-white/50">Prompt guidance
+        <input type="number" min="0" max="20" step="0.5" value={guidanceScale} disabled={busy} onChange={e => setGuidanceScale(Number(e.target.value))}
+          className="ml-2 rounded border border-white/20 bg-black/50 p-1 text-white" />
+      </label> : null}
       <label className="flex items-center gap-2 text-[10px] text-white/55">
-        <input type="checkbox" checked={thinking || quality === "quality"} disabled={busy || quality === "quality"}
+        <input type="checkbox" checked={thinking} disabled={busy}
           onChange={(e) => setThinking(e.target.checked)} />
         LM thinking
       </label>
@@ -242,28 +255,30 @@ export const AceStepSongControls = memo(function AceStepSongControls({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={busy || !available}
+          disabled={busy || !available || !selectedCheckpointAvailable}
           onClick={(e) => {
             e.preventDefault();
             onGenerate(prompt, {
               lyrics,
               durationSec,
               attach: true,
-              bpm: useDna ? defaultBpm : null,
-              keyScale: useDna ? defaultKey : "",
-              thinking: quality === "quality" ? true : thinking,
-              inferenceSteps: quality === "quality" ? 32 : 8,
+              useDna,
+              bpm: useDna ? dnaBpm : null,
+              keyScale: useDna ? dnaKey : "",
+              thinking,
+              inferenceSteps: quality === "turbo" ? 8 : 50,
+              guidanceScale: quality === "turbo" ? undefined : guidanceScale,
               seed: seed.trim() ? Number(seed) : null,
-              model: quality === "quality" ? "acestep-v15-base" : "acestep-v15-turbo",
+              model: quality === "sft" ? "acestep-v15-sft" : quality === "quality" ? "acestep-v15-base" : "acestep-v15-turbo",
             });
           }}
           className="min-w-[140px] flex-1 rounded-xl border border-emerald-400/35 bg-emerald-500/20 py-2 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30 disabled:opacity-50"
         >
-          {busy ? "Generating…" : available ? "Generate full song" : "ACE-Step API unreachable"}
+          {busy ? "Generating…" : !available ? "ACE-Step API unreachable" : selectedCheckpointAvailable ? "Generate full song" : "Selected checkpoint unavailable"}
         </button>
         <button
           type="button"
-          disabled={busy || !available}
+          disabled={busy || !available || !selectedCheckpointAvailable}
           onClick={(e) => {
             e.preventDefault();
             onGenerate(prompt, {
@@ -271,12 +286,14 @@ export const AceStepSongControls = memo(function AceStepSongControls({
               durationSec,
               attach: false,
               download: true,
-              bpm: useDna ? defaultBpm : null,
-              keyScale: useDna ? defaultKey : "",
-              thinking: quality === "quality" ? true : thinking,
-              inferenceSteps: quality === "quality" ? 32 : 8,
+              useDna,
+              bpm: useDna ? dnaBpm : null,
+              keyScale: useDna ? dnaKey : "",
+              thinking,
+              inferenceSteps: quality === "turbo" ? 8 : 50,
+              guidanceScale: quality === "turbo" ? undefined : guidanceScale,
               seed: seed.trim() ? Number(seed) : null,
-              model: quality === "quality" ? "acestep-v15-base" : "acestep-v15-turbo",
+              model: quality === "sft" ? "acestep-v15-sft" : quality === "quality" ? "acestep-v15-base" : "acestep-v15-turbo",
             });
           }}
           className="rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-[10px] font-semibold text-white/70 hover:text-white disabled:opacity-50"

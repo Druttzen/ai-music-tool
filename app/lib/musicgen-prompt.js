@@ -32,7 +32,8 @@ export function buildMusicGenPrompt(input = {}) {
       moodWords: input.moodWords,
       vocal: "",
     });
-  if (projectBlank && input.audioAnalysis?.sourceEngine === "musicgen" && input.audioAnalysis.musicGenPrompt) {
+  const generatedAnalysis = ["musicgen", "acestep"].includes(input.audioAnalysis?.sourceEngine);
+  if (projectBlank && generatedAnalysis && input.audioAnalysis.musicGenPrompt) {
     return normalizeToken(input.audioAnalysis.musicGenPrompt).slice(0, 480);
   }
   if (!input.audioAnalysis && projectBlank) {
@@ -55,9 +56,9 @@ export function buildMusicGenPrompt(input = {}) {
 
   const analysis = input.audioAnalysis;
   // Generated report labels are not musical instructions for the next take.
-  if (analysis?.sourceEngine !== "musicgen" && analysis?.trackSummary) {
+  if (!generatedAnalysis && analysis?.trackSummary) {
     parts.push(normalizeToken(analysis.trackSummary).slice(0, 140));
-  } else if (analysis?.sourceEngine !== "musicgen" && analysis?.estimatedBpm && analysis?.estimatedKey) {
+  } else if (!generatedAnalysis && analysis?.estimatedBpm && analysis?.estimatedKey) {
     parts.push(`${analysis.estimatedBpm}, ${analysis.estimatedKey}`);
   }
 

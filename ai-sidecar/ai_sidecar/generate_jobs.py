@@ -88,6 +88,7 @@ def run_acestep(ctx: JobContext) -> dict[str, Any]:
         thinking=bool(ctx.payload.get("thinking", True)),
         audio_format=audio_format,
         inference_steps=ctx.payload.get("inference_steps"),
+        guidance_scale=ctx.payload.get("guidance_scale"),
         seed=ctx.payload.get("seed"),
         model=str(ctx.payload.get("model") or ""),
         on_progress=ctx.set_progress,
@@ -152,6 +153,7 @@ def generate_song_via_jobs(
     thinking: bool = True,
     audio_format: str = "wav",
     inference_steps: int | None = None,
+    guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
 ) -> dict[str, Any]:
@@ -170,6 +172,7 @@ def generate_song_via_jobs(
             thinking=thinking,
             audio_format=audio_format,
             inference_steps=inference_steps,
+            guidance_scale=guidance_scale,
             seed=seed,
             model=model,
         ),
@@ -215,6 +218,7 @@ def _song_payload(
     thinking: bool,
     audio_format: str,
     inference_steps: int | None,
+    guidance_scale: float | None,
     seed: int | None,
     model: str,
 ) -> dict[str, Any]:
@@ -228,6 +232,7 @@ def _song_payload(
         "thinking": thinking,
         "audio_format": audio_format,
         "inference_steps": inference_steps,
+        "guidance_scale": guidance_scale,
         "seed": seed,
         "model": model,
         "autostart": False,
@@ -280,6 +285,7 @@ def enqueue_song(
     thinking: bool = True,
     audio_format: str = "wav",
     inference_steps: int | None = None,
+    guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
 ) -> str:
@@ -296,6 +302,7 @@ def enqueue_song(
         thinking=thinking,
         audio_format=audio_format,
         inference_steps=inference_steps,
+        guidance_scale=guidance_scale,
         seed=seed,
         model=model,
     )

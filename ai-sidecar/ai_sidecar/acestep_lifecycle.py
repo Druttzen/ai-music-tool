@@ -21,6 +21,7 @@ _LOG_HANDLE: Any = None
 
 TURBO_MODEL = "acestep-v15-turbo"
 QUALITY_MODEL = "acestep-v15-base"
+SFT_MODEL = "acestep-v15-sft"
 
 
 def _fixed_drive_roots() -> list[str]:
@@ -86,7 +87,23 @@ def _checkpoint_exists(model_id: str, *, home: Path | None = None) -> bool:
     root = _checkpoint_dir(home)
     if root is None:
         return False
-    return (root / name).is_dir()
+    checkpoint = root / name
+    if not (checkpoint / "config.json").is_file():
+        return False
+    weights = checkpoint / "model.safetensors"
+    if weights.is_file() and weights.stat().st_size > 0:
+        return True
+    index = checkpoint / "model.safetensors.index.json"
+    try:
+        shards = set(json.loads(index.read_text(encoding="utf-8"))["weight_map"].values())
+        return bool(shards) and all(
+            Path(shard).name == shard
+            and (checkpoint / shard).is_file()
+            and (checkpoint / shard).stat().st_size > 0
+            for shard in shards
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
 
 
 def preset_catalog() -> dict[str, Any]:
@@ -99,6 +116,8 @@ def preset_catalog() -> dict[str, Any]:
         "quality_available": quality_ok,
         "home": str(home) if home else "",
         "note": "" if quality_ok else f"checkpoint {QUALITY_MODEL} is not installed",
+        "sft_model": SFT_MODEL,
+        "sft_available": _checkpoint_exists(SFT_MODEL, home=home),
     }
 
 
@@ -129,6 +148,8 @@ def resolve_acestep_dit_model(
 
     if raw.startswith("acestep-v15-"):
         if home_path is not None and not _checkpoint_exists(raw, home=home_path):
+            if raw == SFT_MODEL or "-xl-" in raw:
+                raise RuntimeError(f"checkpoint {raw} missing; install it before selecting this model")
             return (
                 TURBO_MODEL,
                 f"checkpoint {raw} missing; using {TURBO_MODEL}",

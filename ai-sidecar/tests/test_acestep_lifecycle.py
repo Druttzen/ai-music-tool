@@ -1,9 +1,11 @@
 """Unit tests for ACE-Step lifecycle helpers (no live ACE / uv spawn)."""
 
 from pathlib import Path
+import pytest
 
 from ai_sidecar.acestep_lifecycle import (
     QUALITY_MODEL,
+    SFT_MODEL,
     TURBO_MODEL,
     _parse_loaded_model,
     ace_home_candidates,
@@ -11,6 +13,13 @@ from ai_sidecar.acestep_lifecycle import (
     resolve_acestep_dit_model,
     should_restart_our_acestep_child,
 )
+
+
+def install_fixture_checkpoint(tmp_path, model):
+    checkpoint = tmp_path / "checkpoints" / model
+    checkpoint.mkdir(parents=True, exist_ok=True)
+    (checkpoint / "config.json").write_text("{}")
+    (checkpoint / "model.safetensors").write_bytes(b"fixture")
 
 
 def test_resolve_turbo_defaults(tmp_path: Path):
@@ -32,7 +41,7 @@ def test_resolve_quality_falls_back_without_base_checkpoint(tmp_path: Path):
 
 
 def test_resolve_quality_uses_base_when_present(tmp_path: Path):
-    (tmp_path / "checkpoints" / QUALITY_MODEL).mkdir(parents=True)
+    install_fixture_checkpoint(tmp_path, QUALITY_MODEL)
     model, warning = resolve_acestep_dit_model("acestep-v15", home=tmp_path)
     assert model == QUALITY_MODEL
     assert warning is None
@@ -45,6 +54,16 @@ def test_resolve_unknown_falls_back_to_turbo(tmp_path: Path):
     model, warning = resolve_acestep_dit_model("not-a-model", home=tmp_path)
     assert model == TURBO_MODEL
     assert warning is not None
+
+
+def test_missing_explicit_sft_never_silently_downgrades(tmp_path):
+    with pytest.raises(RuntimeError, match="install it"):
+        resolve_acestep_dit_model(SFT_MODEL, home=tmp_path)
+    (tmp_path / "checkpoints" / SFT_MODEL).mkdir(parents=True)
+    with pytest.raises(RuntimeError, match="install it"):
+        resolve_acestep_dit_model(SFT_MODEL, home=tmp_path)
+    install_fixture_checkpoint(tmp_path, SFT_MODEL)
+    assert resolve_acestep_dit_model(SFT_MODEL, home=tmp_path) == (SFT_MODEL, None)
 
 
 def test_ace_home_candidates_prefer_explicit_environment(monkeypatch):
@@ -60,10 +79,25 @@ def test_preset_catalog_tracks_quality_checkpoint(tmp_path: Path, monkeypatch):
     catalog = preset_catalog()
     assert catalog["quality_available"] is False
     assert QUALITY_MODEL in catalog["note"]
-    (tmp_path / "checkpoints" / QUALITY_MODEL).mkdir(parents=True)
+    install_fixture_checkpoint(tmp_path, QUALITY_MODEL)
     catalog = preset_catalog()
     assert catalog["quality_available"] is True
     assert catalog["note"] == ""
+
+
+def test_incomplete_checkpoint_is_unavailable(tmp_path, monkeypatch):
+    monkeypatch.setattr("ai_sidecar.acestep_lifecycle._ace_home", lambda: tmp_path)
+    install_fixture_checkpoint(tmp_path, SFT_MODEL)
+    weights = tmp_path / "checkpoints" / SFT_MODEL / "model.safetensors"
+    weights.write_bytes(b"")
+    assert preset_catalog()["sft_available"] is False
+    weights.unlink()
+    checkpoint = weights.parent
+    (checkpoint / "model.safetensors.index.json").write_text('{"weight_map":{"a":"part1.safetensors","b":"part2.safetensors"}}')
+    (checkpoint / "part1.safetensors").write_bytes(b"fixture")
+    assert preset_catalog()["sft_available"] is False
+    (checkpoint / "part2.safetensors").write_bytes(b"fixture")
+    assert preset_catalog()["sft_available"] is True
 
 
 def test_should_restart_only_when_we_own_and_model_differs():

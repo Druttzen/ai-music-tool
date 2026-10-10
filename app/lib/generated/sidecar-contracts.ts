@@ -11,6 +11,8 @@ export type AceStepPresetCatalog = {
   "note": string;
   "quality_available": boolean;
   "quality_model": string;
+  "sft_available"?: boolean;
+  "sft_model"?: string;
   "turbo_model": string;
 };
 
@@ -55,6 +57,20 @@ export type Body_analyze_image_analyze_image_post = {
   "caption"?: boolean;
   "clip_tags"?: boolean;
   "file": string;
+};
+
+export type Body_enqueue_generate_drafts_generate_drafts_jobs_post = {
+  "candidate_count"?: number;
+  "cfg_coef"?: number;
+  "condition_melody"?: boolean;
+  "duration_sec"?: number;
+  "model"?: string;
+  "prompt": string;
+  "reference"?: string | null;
+  "seed"?: number | null;
+  "temperature"?: number;
+  "top_k"?: number;
+  "top_p"?: number;
 };
 
 export type Body_enqueue_generate_melody_generate_melody_jobs_post = {
@@ -159,6 +175,23 @@ export type DeviceInfo = {
   "total_vram_gb": number;
 };
 
+export type DraftCandidate = {
+  "index": number;
+  "prompt_score": number | null;
+  "reference_score": number | null;
+  "score": number | null;
+  "seed": number;
+};
+
+export type DraftSearchResult = {
+  "candidates": Array<DraftCandidate>;
+  "note": string;
+  "ranked": boolean;
+  "ranker": string | null;
+  "reference_used": boolean;
+  "selected_index": number;
+};
+
 export type FailSafeCapabilities = {
   "fix_push_available": boolean;
   "maintainer_mode": boolean;
@@ -197,6 +230,7 @@ export type GenerateSongRequest = {
   "audio_format"?: string;
   "bpm"?: number | null;
   "duration_sec"?: number | null;
+  "guidance_scale"?: number | null;
   "inference_steps"?: number | null;
   "key_scale"?: string;
   "lyrics"?: string;

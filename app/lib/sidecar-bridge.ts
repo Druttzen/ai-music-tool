@@ -551,12 +551,51 @@ export async function fetchAceStepPresets(): Promise<AceStepPresetCatalog | null
   }
 }
 
-async function downloadGenerateAudio(jobId: string): Promise<Blob> {
-  const res = await fetch(`${sidecarBaseUrl()}/generate/audio/${jobId}`, {
+async function downloadGenerateAudio(jobId: string, candidateIndex?: number): Promise<Blob> {
+  const suffix = candidateIndex == null ? "" : `?candidate_index=${candidateIndex}`;
+  const res = await fetch(`${sidecarBaseUrl()}/generate/audio/${encodeURIComponent(jobId)}${suffix}`, {
     headers: await sidecarAuthHeaders(),
   });
   if (!res.ok) await readSidecarError(res, `audio download failed (${res.status})`);
   return res.blob();
+}
+
+/** Sequential local takes; preserve every candidate rather than discarding runners-up. */
+export async function generateMusicDraftsViaSidecar(prompt: string, durationSec: number, options: {
+  candidateCount?: number; seed?: number; model?: string; temperature?: number;
+  topK?: number; topP?: number; cfgCoef?: number; referenceBlob?: Blob;
+  useMelodyReference?: boolean;
+  onProgress?: (progress: number, message: string) => void;
+  onJobStarted?: (jobId: string) => void;
+}) {
+  const form = new FormData();
+  const values = { prompt, duration_sec: durationSec, candidate_count: options.candidateCount ?? 3,
+    condition_melody: options.useMelodyReference ?? false,
+    seed: options.seed, model: options.model, temperature: options.temperature,
+    top_k: options.topK, top_p: options.topP, cfg_coef: options.cfgCoef };
+  for (const [key, value] of Object.entries(values)) if (value != null) form.append(key, String(value));
+  if (options.referenceBlob) form.append("reference", options.referenceBlob, "style-reference.wav");
+  const response = await fetch(`${sidecarBaseUrl()}/generate/drafts/jobs`, {
+    method: "POST", headers: await sidecarAuthHeaders(), body: form,
+  });
+  if (!response.ok) await readSidecarError(response, "Local draft search failed");
+  const queued = await response.json() as SidecarContracts.JobSubmission;
+  if (!queued.job_id) throw new Error("Draft search job id missing");
+  options.onJobStarted?.(queued.job_id);
+  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 60 * 60_000 });
+  const searchResponse = await fetch(`${sidecarBaseUrl()}/generate/drafts/${encodeURIComponent(queued.job_id)}`, {
+    headers: await sidecarAuthHeaders(),
+  });
+  if (!searchResponse.ok) await readSidecarError(searchResponse, "Draft comparison unavailable");
+  const search = await searchResponse.json() as SidecarContracts.DraftSearchResult;
+  const candidateFiles = [];
+  for (const candidate of search.candidates) {
+    candidateFiles.push({ ...candidate, blob: await downloadGenerateAudio(queued.job_id, candidate.index) });
+  }
+  const selected = candidateFiles.find(take => take.index === search.selected_index);
+  if (!selected) throw new Error("Selected draft is missing");
+  return { blob: selected.blob, model: meta.model, durationSec: meta.durationSec ?? durationSec,
+    mode: meta.mode, search, candidateFiles };
 }
 
 /**
@@ -684,6 +723,7 @@ export async function generateSongViaSidecar(options: {
   thinking?: boolean;
   audioFormat?: string;
   inferenceSteps?: number | null;
+  guidanceScale?: number | null;
   seed?: number | null;
   model?: string;
   onProgress?: (progress: number, message: string) => void;
@@ -702,6 +742,7 @@ export async function generateSongViaSidecar(options: {
       thinking: options.thinking !== false,
       audio_format: options.audioFormat || "wav",
       inference_steps: options.inferenceSteps ?? null,
+      guidance_scale: options.guidanceScale ?? null,
       seed: options.seed ?? null,
       model: options.model || "",
     }),

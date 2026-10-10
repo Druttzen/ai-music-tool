@@ -40,8 +40,8 @@ Manual alternative:
    ```
 
    When Studio autostarts the ACE API from a checkout, it sets
-   `ACESTEP_CONFIG_PATH` to the requested DiT (`acestep-v15-turbo` or
-   `acestep-v15-base` when that checkpoint exists) and
+   `ACESTEP_CONFIG_PATH` to the requested DiT (`acestep-v15-turbo`,
+   `acestep-v15-sft` or `acestep-v15-base` when installed) and
    `ACESTEP_ON_DEMAND_MODEL_LOAD=true` so a later quality switch can load
    another `acestep-v15-*` id. Only one DiT is kept in memory (consumer GPUs).
    If `checkpoints/acestep-v15-base` is missing, the UI disables Quality. If an
@@ -49,6 +49,17 @@ Manual alternative:
    and leaves that process untouched. When Studio starts its own API, output
    is recorded in `acestep-api.log` in the checkout. `GET /acestep/presets`
    reports local checkpoint availability.
+
+   Availability requires `config.json` plus a nonempty `model.safetensors`, or
+   all shards named by `model.safetensors.index.json`. A download-created folder
+   alone is not sufficient. An explicit missing SFT selection fails clearly.
+
+   For the detail preset, download the official checkpoint once from the ACE
+   checkout: `python -m acestep.model_downloader --model acestep-v15-sft --skip-main`.
+   Select **Detail (SFT · 50 steps)** in Studio. Prompt guidance is configurable
+   from 0 to 20, default 7. Turbo remains an 8-step alternative; Base is labelled
+   for editing/training. SFT is not guaranteed to sound cleaner than Turbo.
+   See [offline engine research](suno-engine-research-2026-10-10.md).
 
 3. Restart the sidecar (`npm run sidecar`). `/health` shows
    `acestep_available: true` only when the ACE-Step API at
@@ -70,6 +81,10 @@ link to this doc when the API is unreachable. The **Local cover / remix** panel
 | `duration_sec` | 10–600 (clamped) |
 | `bpm`, `key_scale`, `vocal_language` | Optional metadata |
 | `thinking` | Default `true` (ACE-Step LM planning) |
+| `model` | Requested installed DiT; confirmed against the running API |
+| `seed` | Explicit integer seed for reproducible trials |
+| `inference_steps` | Normally 8 for Turbo, 50 for SFT/Base |
+| `guidance_scale` | Prompt guidance, 0–20; relevant to SFT/Base |
 | `audio_format` | `wav` (default), `mp3`, `flac`, `aac`/`m4a`, `opus`, `wav32` |
 
 Returns the audio file with `X-AceStep-Model` / `X-AceStep-Duration-Sec` headers.

@@ -52,6 +52,25 @@ class AceStepPresetCatalog(BaseModel):
     quality_available: bool
     home: str
     note: str
+    sft_model: str = "acestep-v15-sft"
+    sft_available: bool = False
+
+
+class DraftCandidate(BaseModel):
+    index: int
+    seed: int
+    score: float | None
+    prompt_score: float | None
+    reference_score: float | None
+
+
+class DraftSearchResult(BaseModel):
+    selected_index: int
+    reference_used: bool
+    ranker: str | None
+    ranked: bool
+    note: str
+    candidates: list[DraftCandidate]
 
 
 class AceStepEnsureResult(BaseModel):
