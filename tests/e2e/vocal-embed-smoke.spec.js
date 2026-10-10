@@ -17,7 +17,7 @@ test.describe("Vocal Embed sidecar smoke", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeAll(async () => {
-    const ctx = await request.newContext();
+    const ctx = await request.newContext({ timeout: 5_000 });
     let ok = false;
     try {
       const health = await ctx.get("http://127.0.0.1:8723/health");

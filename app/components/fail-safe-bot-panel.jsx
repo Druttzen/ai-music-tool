@@ -307,7 +307,7 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
                 aria-hidden
               />
               <span className="min-w-0 break-words">
-                Fail-safe bot{botOnline ? " · online" : ""}
+                Fail-safe bot{botOnline ? " · monitoring" : ""}
               </span>
             </span>
             <span className="w-full break-words text-white/85">{statusLabel}</span>
@@ -404,6 +404,20 @@ export const FailSafeBotPanel = memo(function FailSafeBotPanel() {
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {expanded && report?.faultHistory?.length > 0 ? (
+          <details className="mt-2 border-t border-white/10 pt-2 text-[10px] text-white/55" data-testid="fail-safe-fault-history">
+            <summary>Previous or resolved errors ({report.faultHistory.length})</summary>
+            <p className="mt-1">Historical events do not mean a repair succeeded. New failures are reported above.</p>
+            <ul className="mt-1 space-y-1">
+              {report.faultHistory.map((fault, index) => (
+                <li key={`${fault.at}-${index}`}>
+                  {new Date(fault.at).toLocaleString()} · {fault.resolvedAt ? "Resolved" : "Previous session"}: {fault.message}
+                </li>
+              ))}
+            </ul>
+          </details>
         ) : null}
 
         {expanded && !fixPushAvailable && !canCloud ? (

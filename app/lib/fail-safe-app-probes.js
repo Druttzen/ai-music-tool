@@ -3,7 +3,7 @@
  */
 
 import { isTauriApp } from "./dsp-bridge";
-import { getLocalFaults } from "./fail-safe-runtime-fault.js";
+import { getActiveLocalFaults, getHistoricalLocalFaults } from "./fail-safe-runtime-fault.js";
 import { safeLocalStorage } from "./safe-local-storage.js";
 
 const STORAGE_PROBE_KEY = "aimc.failSafeRuntime.storageProbe";
@@ -16,6 +16,7 @@ const STORAGE_PROBE_KEY = "aimc.failSafeRuntime.storageProbe";
  *   canvasAvailable: boolean,
  *   isDesktop: boolean,
  *   localFaults: object[],
+ *   faultHistory: object[],
  * }}
  */
 export function collectAppSubsystemSnapshot() {
@@ -27,6 +28,7 @@ export function collectAppSubsystemSnapshot() {
       canvasAvailable: true,
       isDesktop: false,
       localFaults: [],
+      faultHistory: [],
     };
   }
 
@@ -55,6 +57,7 @@ export function collectAppSubsystemSnapshot() {
     audioContextAvailable,
     canvasAvailable,
     isDesktop: isTauriApp(),
-    localFaults: getLocalFaults(),
+    localFaults: getActiveLocalFaults(),
+    faultHistory: getHistoricalLocalFaults(),
   };
 }

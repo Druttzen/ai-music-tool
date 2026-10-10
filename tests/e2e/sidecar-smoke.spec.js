@@ -7,13 +7,17 @@ const FIXTURE_NAME = "e2e-analyzer-tone.wav";
 test.describe("Sidecar UI smoke", () => {
   test.describe.configure({ mode: "serial" });
   test.beforeAll(async () => {
-    const ctx = await request.newContext();
+    const ctx = await request.newContext({ timeout: 5_000 });
     let ok = false;
     try {
       const res = await ctx.get("http://127.0.0.1:8723/health");
       ok = res.ok();
     } catch {
       ok = false;
+    }
+    if (ok) {
+      try { ok = (await ctx.get("http://127.0.0.1:8723/jobs/e2e-access-probe")).status() === 404; }
+      catch { ok = false; }
     }
     await ctx.dispose();
     test.skip(

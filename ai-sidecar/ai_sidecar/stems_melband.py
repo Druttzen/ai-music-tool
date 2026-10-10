@@ -235,7 +235,8 @@ def run_melband_separate(ctx: JobContext) -> dict[str, Any]:
             raise RuntimeError("A vocal separation checkpoint is required for the vocals output")
 
         ctx.set_progress(0.35, "reading audio")
-        original_mix, sr = sf.read(tmp_in.name, dtype="float32", always_2d=True)
+        from .audio_decode import read_audio
+        original_mix, sr = read_audio(tmp_in.name)
         if not len(original_mix) or original_mix.shape[1] not in (1, 2):
             raise ValueError("Separation requires non-empty mono or stereo audio")
         if not np.isfinite(original_mix).all():

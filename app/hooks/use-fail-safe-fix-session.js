@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { remediateRuntimeIssues } from "../lib/fail-safe-local-remediate";
+import { remediateRuntimeIssues, verifyLocalRepair } from "../lib/fail-safe-local-remediate";
 
 /**
  * Fail-safe fix dialog session — bug-found popup, local repair, optional maintainer push.
@@ -140,10 +140,9 @@ export function useFailSafeFixSession({
       }, 2500);
 
       try {
-        const res = await remediateRuntimeIssues(list);
-        if (typeof onAfterLocalFix === "function") {
-          await onAfterLocalFix();
-        }
+        const attempt = await remediateRuntimeIssues(list);
+        const freshReport = typeof onAfterLocalFix === "function" ? await onAfterLocalFix("repair") : null;
+        const res = verifyLocalRepair(attempt, freshReport);
         clearTick();
         setStepIndex(res.ok ? 4 : 2);
         setResult(res);

@@ -36,6 +36,7 @@ export const FAIL_SAFE_STORAGE_KEY = "aimc.failSafeBot.lastReport";
  * @typedef {object} FailSafeReport
  * @property {number} at
  * @property {FailSafeSeverity} overall
+ * @property {object[]} [faultHistory]
  * @property {FailSafeIssue[]} issues
  * @property {Record<string, string>} [meta]
  */
@@ -53,6 +54,7 @@ export const FAIL_SAFE_STORAGE_KEY = "aimc.failSafeBot.lastReport";
  *     audioContextAvailable?: boolean,
  *     canvasAvailable?: boolean,
  *     localFaults?: Array<{ source?: string, message?: string }>,
+ *     faultHistory?: object[],
  *   },
  * }} input
  * @returns {FailSafeReport}
@@ -169,6 +171,7 @@ export function buildRuntimeHealthReport(input = {}) {
       detail: "Sidecar and studio subsystems look healthy.",
       fixCommands: [],
     }],
+    faultHistory: appSubsystems?.faultHistory || [],
     meta: {
       sidecarAiStatus: sidecarAiStatus || "unknown",
     },

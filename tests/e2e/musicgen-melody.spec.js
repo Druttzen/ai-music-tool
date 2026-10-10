@@ -16,21 +16,29 @@ test.describe("MusicGen melody e2e", () => {
       !!process.env.CI && process.env.AIMC_MUSICGEN_MELODY_E2E !== "1",
       "Melody MusicGen OOMs on default CI runners — set AIMC_MUSICGEN_MELODY_E2E=1 to force",
     );
-    const ctx = await request.newContext();
+    const ctx = await request.newContext({ timeout: 5_000 });
     let generateAvailable = false;
+    let melodyCached = false;
     try {
       const res = await ctx.get("http://127.0.0.1:8723/health");
       if (res.ok()) {
         const body = await res.json();
         generateAvailable = !!body.generate_available;
+        melodyCached = body.capabilities?.find((item) => item.id === "generate")?.models?.["facebook/musicgen-melody"] === true;
       }
     } catch {
       generateAvailable = false;
     }
+    if (generateAvailable) {
+      try {
+        const access = await ctx.get("http://127.0.0.1:8723/jobs/e2e-access-probe");
+        generateAvailable = access.status() === 404;
+      } catch { generateAvailable = false; }
+    }
     await ctx.dispose();
     test.skip(
-      !generateAvailable,
-      "MusicGen extra not installed — run npm run sidecar:generate and restart sidecar",
+      !generateAvailable || !melodyCached,
+      "Live test requires prepared models and an accessible standalone sidecar (the installed app uses its own token)",
     );
   });
 
@@ -48,6 +56,7 @@ test.describe("MusicGen melody e2e", () => {
 
     await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, "e2e-instrumental-bed.wav");
 
+    await panel.getByLabel("Model", { exact: true }).selectOption("small");
     const melodyCheckbox = panel.getByLabel("Condition on current track audio (melody mode)");
     await expect(melodyCheckbox).toBeVisible({ timeout: 10_000 });
     await melodyCheckbox.check();

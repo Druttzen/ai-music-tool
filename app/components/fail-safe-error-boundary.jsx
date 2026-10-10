@@ -1,5 +1,6 @@
 "use client";
 
+import { resolveLocalFaults } from "../lib/fail-safe-runtime-fault";
 import { Component } from "react";
 import { captureRuntimeFault } from "../lib/fail-safe-runtime-capture";
 import { FAIL_SAFE_RETRY_UI_EVENT } from "../lib/fail-safe-local-remediate";
@@ -33,6 +34,14 @@ export class FailSafeErrorBoundary extends Component {
     this.onFailSafeRetry = () => this.setState({ error: null });
     if (typeof window !== "undefined") {
       window.addEventListener(FAIL_SAFE_RETRY_UI_EVENT, this.onFailSafeRetry);
+    }
+  }
+
+  componentDidUpdate(_previousProps, previousState) {
+    if (previousState.error && !this.state.error) {
+      const source = `react:${this.props.name || "ui"}`;
+      // This runs after the retried children have committed successfully.
+      resolveLocalFaults((fault) => fault.source === source);
     }
   }
 

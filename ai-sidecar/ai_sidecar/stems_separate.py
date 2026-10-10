@@ -89,18 +89,10 @@ def _save_stem_wav(source, path: str, samplerate: int) -> None:
 def _read_demucs_audio(path, model, torch):
     """Read WAV/MP3/FLAC directly; avoid requiring external ffprobe/ffmpeg."""
     import numpy as np
-    import soundfile as sf
+    from .audio_decode import read_audio
     from .stems_melband import _resample_audio
 
-    try:
-        audio, rate = sf.read(path, dtype="float32", always_2d=True)
-    except RuntimeError:
-        # Retain the optional FFmpeg decoder for formats libsndfile cannot read.
-        from demucs.audio import AudioFile
-        try:
-            return AudioFile(path).read(streams=0, samplerate=model.samplerate, channels=model.audio_channels)
-        except FileNotFoundError as exc:
-            raise RuntimeError("This audio format needs FFmpeg. Convert the track to WAV before separation.") from exc
+    audio, rate = read_audio(path)
     if not len(audio) or not np.isfinite(audio).all():
         raise ValueError("Separation requires non-empty finite audio")
     if model.audio_channels == 1:

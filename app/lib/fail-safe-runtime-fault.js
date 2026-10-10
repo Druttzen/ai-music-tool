@@ -9,6 +9,22 @@ export const LOCAL_FAULT_STORAGE_KEY = "aimc.failSafeRuntime.localFaults";
 
 const MAX_FAULTS = 12;
 const DEDUPE_MS = 15_000;
+// A new WebView load is a new session. Persisted faults remain history, not a live probe.
+const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+export function getActiveLocalFaults() {
+  return getLocalFaults().filter((fault) => fault.sessionId === sessionId && !fault.resolvedAt);
+}
+
+export function getHistoricalLocalFaults() {
+  return getLocalFaults().filter((fault) => fault.sessionId !== sessionId || fault.resolvedAt);
+}
+
+export function resolveLocalFaults(predicate) {
+  const now = Date.now();
+  persist(load().map((fault) => fault.sessionId === sessionId && !fault.resolvedAt && predicate(fault)
+    ? { ...fault, resolvedAt: now } : fault));
+}
 
 /** @type {object[] | null} */
 let memory = null;
@@ -57,13 +73,14 @@ export function recordLocalFault(input = {}) {
   const current = load();
   const dup = current.some(
     (item) =>
+      item.sessionId === sessionId && !item.resolvedAt &&
       Math.abs((item.at || 0) - at) < DEDUPE_MS &&
       (item.fingerprint === fingerprint || item.message === message),
   );
   if (dup) {
     return { ok: false, reason: "duplicate" };
   }
-  const entry = { at, source, message, stack, fingerprint };
+  const entry = { at, source, message, stack, fingerprint, sessionId };
   persist([entry, ...current].slice(0, MAX_FAULTS));
   return { ok: true, entry };
 }

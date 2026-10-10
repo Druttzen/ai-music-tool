@@ -11,7 +11,7 @@ const BUNDLE_FIXTURE = "tests/fixtures/e2e-import-project-bundle-vocal-align.jso
 
 test.describe("OpenVPI inference live (real /models)", () => {
   test.beforeAll(async () => {
-    const ctx = await request.newContext();
+    const ctx = await request.newContext({ timeout: 5_000 });
     let modelsOk = false;
     try {
       const res = await ctx.get("http://127.0.0.1:8723/vocal-embed/models");

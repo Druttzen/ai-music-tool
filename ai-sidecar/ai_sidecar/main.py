@@ -17,6 +17,8 @@ transform — see registry.py for the catalog.
 
 from __future__ import annotations
 
+from .audio_decode import read_mono_bytes
+
 import io
 import logging
 import os
@@ -553,7 +555,7 @@ def _analyze_audio_sync(raw: bytes) -> Analysis:
         ) from exc
 
     try:
-        y, sr = librosa.load(io.BytesIO(raw), sr=None, mono=True)
+        y, sr = read_mono_bytes(raw)
     except Exception as exc:
         raise HTTPException(
             status_code=422, detail=_http_safe_detail(exc, "could not decode audio")
@@ -1259,7 +1261,7 @@ async def vocal_embed_align_preview(
             status_code=503, detail=_http_safe_detail(exc, "alignment deps missing")
         ) from exc
 
-    y, sr = librosa.load(io.BytesIO(guide_raw), sr=None, mono=True)
+    y, sr = read_mono_bytes(guide_raw)
     aligned_plan, method = align_plan_with_guide(plan, np.asarray(y, dtype=np.float32), int(sr))
     sections = aligned_plan.get("sections") or []
     word_count = sum(len(s.get("alignedWords") or []) for s in sections if isinstance(s, dict))
@@ -1295,7 +1297,7 @@ async def vocal_embed_ds_export(
                 raise HTTPException(
                     status_code=503, detail=_http_safe_detail(exc, "alignment deps missing")
                 ) from exc
-            y, sr = librosa.load(io.BytesIO(guide_raw), sr=None, mono=True)
+            y, sr = read_mono_bytes(guide_raw)
             guide_mono = np.asarray(y, dtype=np.float32)
             sample_rate = int(sr)
 

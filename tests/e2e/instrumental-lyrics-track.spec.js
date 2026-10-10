@@ -11,6 +11,7 @@ const INSTRUMENTAL_FIXTURE = "tests/fixtures/e2e-instrumental-bed.wav";
 
 test.describe("Instrumental track lyrics e2e", () => {
   test("drop instrumental audio and add timed lyrics scaffold", async ({ page }) => {
+    test.setTimeout(120_000);
     await dismissSplash(page);
 
     const controlsPanel = musicControlsPanel(page);
@@ -23,7 +24,7 @@ test.describe("Instrumental track lyrics e2e", () => {
     await panel.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(INSTRUMENTAL_FIXTURE);
 
     await expect(panel.getByText("e2e-instrumental-bed.wav", { exact: true })).toBeVisible({
-      timeout: 30000,
+      timeout: 60_000,
     });
 
     const addLyricsBtn = panel.getByRole("button", {

@@ -24,7 +24,7 @@ if [[ ! -d "$VENV" ]]; then
   "$VENV/bin/pip" install -e "$SIDECAR"
 fi
 
-"$VENV/bin/pip" install pyinstaller pyinstaller-hooks-contrib
+"$VENV/bin/pip" install pyinstaller pyinstaller-hooks-contrib "av>=10.0"
 rm -rf "$SIDECAR/dist" "$SIDECAR/build"
 
 echo "Building $OUT_NAME..."
@@ -37,6 +37,7 @@ cd "$SIDECAR"
   --collect-all starlette \
   --collect-all librosa \
   --collect-all soundfile \
+  --collect-all av \
   --hidden-import ai_sidecar.main \
   --exclude-module torch \
   --exclude-module torchvision \

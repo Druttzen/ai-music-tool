@@ -356,6 +356,16 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
     let root = user_sidecar_root(app)?;
     if let Some(existing) = user_venv_python(&root) {
         let _ = ensure_user_sidecar_pkg(app)?;
+        // Existing installs predate AAC/ALAC support. Provision the decoder once
+        // during a version upgrade; cached wheels work without model downloads.
+        let mut check = Command::new(&existing);
+        check.args(["-c", "import av"]).current_dir(&root);
+        apply_runtime_cache_env(&mut check, &root);
+        apply_create_no_window(&mut check);
+        let available = check.output().map_err(|e| e.to_string())?.status.success();
+        if !available {
+            run_pip(&existing, &["install", "av>=10.0"], &root)?;
+        }
         return Ok(existing);
     }
 
@@ -693,7 +703,7 @@ pub fn uninstall_extra_from_user_venv(
     // All stacks share this Python environment. Uninstalling a package can break
     // base analysis or another addon, so remove activation, not shared libraries.
     let mut verify = Command::new(&py);
-    verify.args(["-c", "import numpy, scipy, librosa, soundfile"]).current_dir(&root);
+    verify.args(["-c", "import numpy, scipy, librosa, soundfile, av"]).current_dir(&root);
     apply_runtime_cache_env(&mut verify, &root);
     apply_create_no_window(&mut verify);
     let output = verify.output().map_err(|e| e.to_string())?;

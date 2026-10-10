@@ -4,7 +4,7 @@
  */
 
 import { VOCAL_ALIGN_PREVIEW_STORAGE_KEY } from "./vocal-embed-handoff.js";
-import { clearLocalFaults } from "./fail-safe-runtime-fault.js";
+import { getActiveLocalFaults } from "./fail-safe-runtime-fault.js";
 import { clearRuntimeReportQueue } from "./fail-safe-runtime-reporter.js";
 import { collectAppSubsystemSnapshot } from "./fail-safe-app-probes.js";
 import { FAIL_SAFE_STORAGE_KEY } from "./fail-safe-bot.js";
@@ -57,15 +57,17 @@ function defaultRemoveStorageKey(key) {
 
 function defaultProbeStorage() {
   const snap = collectAppSubsystemSnapshot();
-  return { ok: snap.storageOk !== false && snap.storageOk !== false, reason: snap.storageReason || snap.storageReason || null };
+  return { ok: snap.storageOk !== false, reason: snap.storageReason || null };
 }
 
-function defaultRetryUi() {
+async function defaultRetryUi() {
   if (typeof window === "undefined" || typeof window.dispatchEvent !== "function") {
     return false;
   }
   window.dispatchEvent(new Event(FAIL_SAFE_RETRY_UI_EVENT));
-  return true;
+  // Let React commit the retry before inspecting faults; a signal alone is not a repair.
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  return !getActiveLocalFaults().some((fault) => String(fault.source).startsWith("react:"));
 }
 
 async function defaultWaitForSidecar(timeoutMs) {
@@ -75,6 +77,18 @@ async function defaultWaitForSidecar(timeoutMs) {
 
 function issueIds(issues) {
   return (issues || []).map((i) => i.id).filter(Boolean);
+}
+
+/** Confirm claimed repairs against a fresh health scan, never just a dispatched retry. */
+export function verifyLocalRepair(result, report) {
+  if (!result.repaired.length) return result;
+  const active = new Set((report?.issues || []).filter((issue) => issue.severity !== "ok").map((issue) => issue.id));
+  const unverified = result.repaired.filter((id) => !report || active.has(id));
+  if (!unverified.length) return result;
+  const remaining = [...new Set([...result.remaining, ...unverified])];
+  return { ...result, ok: false, remaining,
+    repaired: result.repaired.filter((id) => !unverified.includes(id)),
+    message: `Repair not verified; still open: ${remaining.join(", ")}.` };
 }
 
 /**
@@ -87,8 +101,7 @@ function issueIds(issues) {
  *   listStorageKeys?: () => string[],
  *   removeStorageKey?: (key: string) => unknown,
  *   probeStorage?: () => { ok: boolean, reason?: string|null },
- *   retryUi?: () => boolean,
- *   clearFaults?: () => void,
+ *   retryUi?: () => boolean | Promise<boolean>,
  *   clearRuntimeQueue?: () => void,
  * }} [deps]
  */
@@ -98,7 +111,6 @@ export async function remediateRuntimeIssues(issues = [], deps = {}) {
   const removeStorageKey = deps.removeStorageKey || defaultRemoveStorageKey;
   const probeStorage = deps.probeStorage || defaultProbeStorage;
   const retryUi = deps.retryUi || defaultRetryUi;
-  const clearFaults = deps.clearFaults || clearLocalFaults;
   const clearRuntimeQueue = deps.clearRuntimeQueue || clearRuntimeReportQueue;
 
   const steps = [];
@@ -175,20 +187,15 @@ export async function remediateRuntimeIssues(issues = [], deps = {}) {
       continue;
     }
 
-    if (id === "unhandled_exception" || id === "react_render") {
-      const retried = retryUi();
-      try {
-        clearFaults();
-      } catch {
-        /* ignore */
-      }
+    if (id === "react_render") {
+      const retried = await retryUi();
       steps.push({
         id,
         action: "retry-ui",
         ok: retried,
         detail: retried
-          ? "Retried crashed panels and cleared the local fault log."
-          : "Could not signal panels to retry — use Retry on the recovered panel or reload.",
+          ? "Retried panels rendered successfully; their faults remain in resolved history."
+          : "The panel did not recover — the fault remains active. Retry the panel or install a code fix.",
       });
       (retried ? repaired : remaining).push(id);
       continue;

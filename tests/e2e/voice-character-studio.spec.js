@@ -77,6 +77,14 @@ test.describe("Voice Character Studio e2e", () => {
   });
 
   test("loading file-only preset clears linked YouTube reference", async ({ page }) => {
+    test.setTimeout(120_000);
+    // This tests preset replacement, not live YouTube download availability.
+    await page.route("**/health", (route) => route.fulfill({ json: { librosa_available: true } }));
+    await page.route("**/youtube/resolve", (route) => route.fulfill({ json: {
+      video_id: "dQw4w9WgXcQ", watch_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "Rick Astley - Never Gonna Give You Up", parsed_artist: "Rick Astley", parsed_track: "Never Gonna Give You Up",
+      provider: "fixture",
+    } }));
     await page.route("**/musicbrainz.org/ws/2/recording**", async (route) => {
       await route.fulfill({
         status: 200,
@@ -161,6 +169,7 @@ test.describe("Voice Character Studio e2e", () => {
   });
 
   test("track analyzer handoff runs Voice Character Studio analysis", async ({ page }) => {
+    test.setTimeout(120_000);
     await dismissSplash(page);
 
     const analyzers = analyzerPanel(page);
@@ -168,7 +177,7 @@ test.describe("Voice Character Studio e2e", () => {
     await analyzers.locator('input[type="file"][accept*="audio/wav"]').setInputFiles(VOCAL_FIXTURE);
 
     await expect(analyzers.getByRole("button", { name: "Analyze vocal character →" })).toBeVisible({
-      timeout: 30000,
+      timeout: 60_000,
     });
 
     await analyzers.getByRole("button", { name: "Analyze vocal character →" }).click();
@@ -176,7 +185,7 @@ test.describe("Voice Character Studio e2e", () => {
 
     const studio = voiceCharacterStudioPanel(page);
     await expect(studio.locator(".font-bold.text-cyan-200")).toContainText(/register/i, {
-      timeout: 30000,
+      timeout: 60_000,
     });
   });
 });

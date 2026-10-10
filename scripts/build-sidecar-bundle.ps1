@@ -35,7 +35,7 @@ if (-not (Test-Path $venv)) {
 Write-Host "Installing PyInstaller..."
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
-& "$venv\Scripts\pip" install pyinstaller pyinstaller-hooks-contrib 2>&1 | Out-Null
+& "$venv\Scripts\pip" install pyinstaller pyinstaller-hooks-contrib "av>=10.0" 2>&1 | Out-Null
 $ErrorActionPreference = $prevEap
 if ($LASTEXITCODE -ne 0) { throw "pip install pyinstaller failed" }
 
@@ -56,6 +56,7 @@ try {
     --collect-all starlette `
     --collect-all librosa `
     --collect-all soundfile `
+    --collect-all av `
     --hidden-import ai_sidecar.main `
     --exclude-module torch `
     --exclude-module torchvision `

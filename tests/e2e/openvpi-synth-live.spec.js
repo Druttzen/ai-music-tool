@@ -14,7 +14,7 @@ test.describe("OpenVPI synth live (real inference)", () => {
   test.describe.configure({ mode: "serial", timeout: 180_000 });
 
   test.beforeAll(async () => {
-    const ctx = await request.newContext();
+    const ctx = await request.newContext({ timeout: 5_000 });
     let ready = false;
     try {
       const res = await ctx.get("http://127.0.0.1:8723/vocal-embed/models");

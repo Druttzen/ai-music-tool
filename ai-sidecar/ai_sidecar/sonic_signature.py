@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .audio_decode import read_mono_bytes
+
 from typing import Any
 
 _KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -44,7 +46,7 @@ def extract_sonic_signature(audio_bytes: bytes) -> dict[str, Any]:
     import librosa  # noqa: PLC0415
     import numpy as np  # noqa: PLC0415
 
-    y, sr = librosa.load(io.BytesIO(audio_bytes), sr=None, mono=True)
+    y, sr = read_mono_bytes(audio_bytes)
     duration = float(librosa.get_duration(y=y, sr=sr))
 
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)

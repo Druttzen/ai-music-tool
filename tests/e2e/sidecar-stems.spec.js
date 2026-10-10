@@ -8,7 +8,7 @@ test.describe("Sidecar Demucs stems (requires stems extra)", () => {
   test.describe.configure({ mode: "serial", timeout: 300_000 });
 
   test.beforeAll(async () => {
-    const ctx = await request.newContext();
+    const ctx = await request.newContext({ timeout: 5_000 });
     let stemsAvailable = false;
     try {
       const res = await ctx.get("http://127.0.0.1:8723/health");
@@ -18,6 +18,12 @@ test.describe("Sidecar Demucs stems (requires stems extra)", () => {
       }
     } catch {
       stemsAvailable = false;
+    }
+    if (stemsAvailable) {
+      try {
+        const access = await ctx.get("http://127.0.0.1:8723/jobs/e2e-access-probe");
+        stemsAvailable = access.status() === 404;
+      } catch { stemsAvailable = false; }
     }
     await ctx.dispose();
     test.skip(

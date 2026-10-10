@@ -5,6 +5,7 @@ import {
   isSafeScratchStorageKey,
   remediateRuntimeIssues,
   shouldAutoRemediate,
+  verifyLocalRepair,
 } from "../app/lib/fail-safe-local-remediate.js";
 import { FAIL_SAFE_STORAGE_KEY } from "../app/lib/fail-safe-bot.js";
 import { VOCAL_ALIGN_PREVIEW_STORAGE_KEY } from "../app/lib/vocal-embed-handoff.js";
@@ -61,7 +62,7 @@ describe("fail-safe-local-remediate", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("retries crashed panels and clears faults", async () => {
+  it("accepts only a verified panel recovery without clearing unrelated faults", async () => {
     const retryUi = vi.fn(() => true);
     const clearFaults = vi.fn();
     const result = await remediateRuntimeIssues([{ id: "react_render" }], {
@@ -69,8 +70,28 @@ describe("fail-safe-local-remediate", () => {
       clearFaults,
     });
     expect(retryUi).toHaveBeenCalled();
-    expect(clearFaults).toHaveBeenCalled();
+    expect(clearFaults).not.toHaveBeenCalled();
     expect(result.ok).toBe(true);
+  });
+
+  it("does not claim a caught operation error was repaired by retrying panels", async () => {
+    const retryUi = vi.fn(() => true);
+    const result = await remediateRuntimeIssues([{ id: "unhandled_exception" }], { retryUi });
+    expect(result.ok).toBe(false);
+    expect(retryUi).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed panel retry active", async () => {
+    const result = await remediateRuntimeIssues([{ id: "react_render" }], { retryUi: async () => false });
+    expect(result.ok).toBe(false);
+    expect(result.remaining).toEqual(["react_render"]);
+  });
+
+  it("requires a fresh health report before claiming repair success", () => {
+    const result = { ok: true, repaired: ["sidecar_offline"], remaining: [], steps: [] };
+    expect(verifyLocalRepair(result, null).ok).toBe(false);
+    expect(verifyLocalRepair(result, { issues: [{ id: "sidecar_offline", severity: "warn" }] }).ok).toBe(false);
+    expect(verifyLocalRepair(result, { issues: [{ id: "runtime_ok", severity: "ok" }] }).ok).toBe(true);
   });
 
   it("leaves audio/canvas issues for the safe fallback", async () => {

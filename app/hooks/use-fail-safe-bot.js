@@ -48,9 +48,11 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
   const [hibernating, setHibernating] = useState(false);
   const [lastProbeReason, setLastProbeReason] = useState(null);
   const scannedRef = useRef(false);
+  const probeEpochRef = useRef(0);
   const previousSidecarRef = useRef(sidecarAiStatus);
 
   const probe = useCallback(async (reason = "manual") => {
+    const epoch = ++probeEpochRef.current;
     setHibernating(false);
     setLastProbeReason(reason);
     setBusy(true);
@@ -69,27 +71,22 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
         sidecarGenerateAvailable,
         appSubsystems: collectAppSubsystemSnapshot(),
       });
+      if (epoch !== probeEpochRef.current) return next;
       setReport(next);
       safeLocalStorage.setJSON(FAIL_SAFE_STORAGE_KEY, next);
       // Fail-Safe Runtime (Product B): local queue only when enable + consent (default OFF).
       for (const issue of getActionableIssues(next.issues)) {
         maybeReportHealthIssue(issue, { sidecarAiStatus });
       }
+      return next;
     } finally {
-      setBusy(false);
-      scannedRef.current = true;
-      setHibernating(true);
+      if (epoch === probeEpochRef.current) {
+        setBusy(false);
+        scannedRef.current = true;
+        setHibernating(true);
+      }
     }
   }, [sidecarAiStatus, sidecarGenerateAvailable]);
-
-  useEffect(() => {
-    if (!mounted) return undefined;
-    const timer = setTimeout(() => {
-      const cached = safeLocalStorage.getJSON(FAIL_SAFE_STORAGE_KEY, null);
-      if (cached?.at) setReport(cached);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [mounted]);
 
   useEffect(() => {
     if (!mounted) return undefined;
@@ -138,7 +135,8 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
       previousStatus: previous,
       sidecarAiStatus,
     });
-    if (!wake) {
+    const recovered = scannedRef.current && previous !== "ready" && sidecarAiStatus === "ready";
+    if (!wake && !recovered) {
       return undefined;
     }
     const timer = setTimeout(() => {
