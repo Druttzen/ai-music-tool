@@ -850,6 +850,104 @@
         "title": "ChordPoint",
         "type": "object"
       },
+      "CompositionPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "bpm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bpm"
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "duration_sec": {
+            "title": "Duration Sec",
+            "type": "number"
+          },
+          "generation_prompt": {
+            "title": "Generation Prompt",
+            "type": "string"
+          },
+          "instrumental": {
+            "title": "Instrumental",
+            "type": "boolean"
+          },
+          "key_scale": {
+            "title": "Key Scale",
+            "type": "string"
+          },
+          "lyrics": {
+            "title": "Lyrics",
+            "type": "string"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "original_prompt": {
+            "title": "Original Prompt",
+            "type": "string"
+          },
+          "planner_model": {
+            "title": "Planner Model",
+            "type": "string"
+          },
+          "reported_lm_model": {
+            "default": "",
+            "title": "Reported Lm Model",
+            "type": "string"
+          },
+          "semantic_planning_requested": {
+            "title": "Semantic Planning Requested",
+            "type": "boolean"
+          },
+          "suggested_duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Duration Sec"
+          },
+          "time_signature": {
+            "title": "Time Signature",
+            "type": "string"
+          },
+          "vocal_language": {
+            "title": "Vocal Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "original_prompt",
+          "caption",
+          "generation_prompt",
+          "lyrics",
+          "bpm",
+          "key_scale",
+          "time_signature",
+          "duration_sec",
+          "suggested_duration_sec",
+          "vocal_language",
+          "instrumental",
+          "planner_model",
+          "method",
+          "semantic_planning_requested"
+        ],
+        "title": "CompositionPlan",
+        "type": "object"
+      },
       "CoverRequest": {
         "properties": {
           "height": {
@@ -1280,6 +1378,11 @@
             ],
             "title": "Bpm"
           },
+          "compose": {
+            "default": false,
+            "title": "Compose",
+            "type": "boolean"
+          },
           "duration_sec": {
             "anyOf": [
               {
@@ -1312,6 +1415,11 @@
               }
             ],
             "title": "Inference Steps"
+          },
+          "instrumental": {
+            "default": true,
+            "title": "Instrumental",
+            "type": "boolean"
           },
           "key_scale": {
             "default": "",
@@ -3355,6 +3463,45 @@
           }
         },
         "summary": "Enqueue Generate Song"
+      }
+    },
+    "/generate/song/plan/{job_id}": {
+      "get": {
+        "operationId": "song_composition_plan_generate_song_plan__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompositionPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Song Composition Plan"
       }
     },
     "/health": {

@@ -726,9 +726,11 @@ export async function generateSongViaSidecar(options: {
   guidanceScale?: number | null;
   seed?: number | null;
   model?: string;
+  compose?: boolean;
+  instrumental?: boolean;
   onProgress?: (progress: number, message: string) => void;
   onJobStarted?: (jobId: string) => void;
-}): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
+}): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null; compositionPlan: SidecarContracts.CompositionPlan | null }> {
   const res = await fetch(`${sidecarBaseUrl()}/generate/song/jobs`, {
     method: "POST",
     headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
@@ -745,6 +747,8 @@ export async function generateSongViaSidecar(options: {
       guidance_scale: options.guidanceScale ?? null,
       seed: options.seed ?? null,
       model: options.model || "",
+      compose: !!options.compose,
+      instrumental: options.instrumental !== false,
     }),
   });
 
@@ -763,11 +767,20 @@ export async function generateSongViaSidecar(options: {
   if (!queued.job_id) throw new Error("ACE-Step job id missing");
   options.onJobStarted?.(queued.job_id);
   const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 35 * 60_000 });
+  let compositionPlan: SidecarContracts.CompositionPlan | null = null;
+  if (options.compose) {
+    const planResponse = await fetch(`${sidecarBaseUrl()}/generate/song/plan/${encodeURIComponent(queued.job_id)}`, {
+      headers: await sidecarAuthHeaders(),
+    });
+    if (!planResponse.ok) throw new Error("The composed song's AI plan could not be retrieved");
+    compositionPlan = await planResponse.json() as SidecarContracts.CompositionPlan;
+  }
   return {
     blob: await downloadGenerateAudio(queued.job_id),
     model: meta.model,
     durationSec: meta.durationSec || options.durationSec || null,
     mode: meta.mode || "song",
+    compositionPlan,
   };
 }
 

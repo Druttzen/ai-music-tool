@@ -153,3 +153,30 @@ def test_parse_loaded_model_shapes():
     )
     assert _parse_loaded_model({}) == ""
     assert _parse_loaded_model(None) == ""
+
+
+def test_managed_server_enables_cached_planner_with_memory_offload(tmp_path, monkeypatch):
+    import ai_sidecar.acestep_lifecycle as lifecycle
+    install_fixture_checkpoint(tmp_path, "acestep-5Hz-lm-1.7B")
+    for key in ("ACESTEP_INIT_LLM", "ACESTEP_LM_MODEL_PATH", "ACESTEP_LM_BACKEND", "ACESTEP_LM_OFFLOAD_TO_CPU"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(lifecycle, "_which", lambda _: True)
+    monkeypatch.setattr(lifecycle, "_CHILD", None)
+    monkeypatch.setattr(lifecycle, "_CHILD_CONFIG", "")
+    monkeypatch.setattr(lifecycle, "_LOG_HANDLE", None)
+    captured = {}
+    def spawn(cmd, **kwargs):
+        captured.update(kwargs)
+        return object()
+    monkeypatch.setattr(lifecycle.subprocess, "Popen", spawn)
+    lifecycle._spawn_acestep_api(tmp_path, port="8001", config_path=SFT_MODEL)
+    try:
+        env = captured["env"]
+        assert env["ACESTEP_INIT_LLM"] == "true"
+        assert env["ACESTEP_LM_MODEL_PATH"] == "acestep-5Hz-lm-1.7B"
+        assert env["ACESTEP_LM_OFFLOAD_TO_CPU"] == "true"
+        import os
+        if os.name == "nt":
+            assert env["ACESTEP_LM_BACKEND"] == "pt"
+    finally:
+        lifecycle._LOG_HANDLE.close()

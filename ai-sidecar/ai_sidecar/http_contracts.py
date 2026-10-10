@@ -78,6 +78,25 @@ class AceStepEnsureResult(BaseModel):
     url: str
 
 
+class CompositionPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    original_prompt: str
+    caption: str
+    generation_prompt: str
+    lyrics: str
+    bpm: int | None
+    key_scale: str
+    time_signature: str
+    duration_sec: float
+    suggested_duration_sec: float | None
+    vocal_language: str
+    instrumental: bool
+    planner_model: str
+    reported_lm_model: str = ""
+    method: str
+    semantic_planning_requested: bool
+
+
 class FailSafeCapabilities(BaseModel):
     maintainer_mode: bool
     fix_push_available: bool

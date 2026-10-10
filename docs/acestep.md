@@ -1,5 +1,10 @@
 # ACE-Step 1.5 bridge
 
+Version 0.50.56 adds **AI composition from prompt**: the cached music LM develops an idea,
+then plans semantic audio codes for generation. See [composition engine and validation](local-composition-engine-2026-10-10.md).
+This requires the LM to be enabled on the ACE server. Managed Windows launches select PyTorch,
+prefer a complete cached 1.7B planner, and enable CPU offload; explicit environment overrides are kept.
+
 The Studio sidecar can generate **full songs** through a locally running
 [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5) API server. ACE-Step
 is **not** installed into `ai-sidecar/.venv` (it needs Python 3.11–3.12 and its

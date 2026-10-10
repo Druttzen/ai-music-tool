@@ -57,6 +57,7 @@ def run_musicgen(ctx: JobContext) -> dict[str, Any]:
 def run_acestep(ctx: JobContext) -> dict[str, Any]:
     from .acestep_bridge import generate_acestep_song, normalize_song_format
 
+    ctx.raise_if_cancelled()
     prompt = str(ctx.payload.get("prompt") or "").strip()
     ctx.set_progress(0.1, "submitting ACE-Step task")
     if ctx.payload.get("autostart"):
@@ -77,22 +78,38 @@ def run_acestep(ctx: JobContext) -> dict[str, Any]:
             raise RuntimeError(
                 "ACE-Step API unreachable — run npm run sidecar:acestep (see docs/acestep.md)"
             )
+    plan = None
+    if ctx.payload.get("compose"):
+        from .composition import plan_composition
+
+        plan = plan_composition(prompt, lyrics=str(ctx.payload.get("lyrics") or ""),
+            duration_sec=ctx.payload.get("duration_sec"), instrumental=ctx.payload.get("instrumental", True),
+            bpm=ctx.payload.get("bpm"), key_scale=str(ctx.payload.get("key_scale") or ""),
+            vocal_language=str(ctx.payload.get("vocal_language") or ""),
+            on_progress=ctx.set_progress, check_cancelled=ctx.raise_if_cancelled)
+        prompt = plan["generation_prompt"]
+    ctx.raise_if_cancelled()
     audio_format = normalize_song_format(ctx.payload.get("audio_format"))
     wav_bytes, meta = generate_acestep_song(
         prompt,
-        lyrics=str(ctx.payload.get("lyrics") or ""),
-        duration_sec=ctx.payload.get("duration_sec"),
-        vocal_language=str(ctx.payload.get("vocal_language") or ""),
-        bpm=ctx.payload.get("bpm"),
-        key_scale=str(ctx.payload.get("key_scale") or ""),
-        thinking=bool(ctx.payload.get("thinking", True)),
+        lyrics=plan["lyrics"] if plan else str(ctx.payload.get("lyrics") or ""),
+        duration_sec=plan["duration_sec"] if plan else ctx.payload.get("duration_sec"),
+        vocal_language=plan["vocal_language"] if plan else str(ctx.payload.get("vocal_language") or ""),
+        bpm=plan["bpm"] if plan else ctx.payload.get("bpm"),
+        key_scale=plan["key_scale"] if plan else str(ctx.payload.get("key_scale") or ""),
+        thinking=True if plan else bool(ctx.payload.get("thinking", True)),
         audio_format=audio_format,
         inference_steps=ctx.payload.get("inference_steps"),
         guidance_scale=ctx.payload.get("guidance_scale"),
         seed=ctx.payload.get("seed"),
         model=str(ctx.payload.get("model") or ""),
+        **({"lm_model": plan["planner_model"], "time_signature": plan["time_signature"]} if plan else {}),
         on_progress=ctx.set_progress,
     )
+    if plan:
+        plan["reported_lm_model"] = str(meta.get("lm_model") or "")
+        meta["composition_plan"] = plan
+    ctx.raise_if_cancelled()
     ctx.set_progress(0.9, "writing audio")
     suffix = f".{audio_format}"
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
@@ -156,6 +173,8 @@ def generate_song_via_jobs(
     guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
+    compose: bool = False,
+    instrumental: bool = True,
 ) -> dict[str, Any]:
     text = str(prompt or "").strip()
     if not text:
@@ -175,6 +194,8 @@ def generate_song_via_jobs(
             guidance_scale=guidance_scale,
             seed=seed,
             model=model,
+            compose=compose,
+            instrumental=instrumental,
         ),
         label="acestep-song",
     )
@@ -221,6 +242,8 @@ def _song_payload(
     guidance_scale: float | None,
     seed: int | None,
     model: str,
+    compose: bool = False,
+    instrumental: bool = True,
 ) -> dict[str, Any]:
     return {
         "prompt": prompt,
@@ -236,6 +259,8 @@ def _song_payload(
         "seed": seed,
         "model": model,
         "autostart": False,
+        "compose": compose,
+        "instrumental": instrumental,
     }
 
 
@@ -288,6 +313,8 @@ def enqueue_song(
     guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
+    compose: bool = False,
+    instrumental: bool = True,
 ) -> str:
     text = str(prompt or "").strip()
     if not text:
@@ -305,6 +332,8 @@ def enqueue_song(
         guidance_scale=guidance_scale,
         seed=seed,
         model=model,
+        compose=compose,
+        instrumental=instrumental,
     )
     payload["autostart"] = True
     job = JOBS.start("generate.acestep", payload, label="acestep-song")

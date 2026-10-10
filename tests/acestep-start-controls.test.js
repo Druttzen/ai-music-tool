@@ -89,3 +89,38 @@ it("keeps an explicit SFT choice when readiness is missing and blocks generation
   fireEvent.click(button);
   expect(generate).not.toHaveBeenCalled();
 });
+
+it("composes from a simple prompt with the music planner always enabled", async () => {
+  fetchAceStepPresets.mockResolvedValue({ sft_available: true });
+  const generate = vi.fn();
+  render(React.createElement(AceStepSongControls, { available: true, defaultPrompt: "Heroic trance", onGenerate: generate }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "LM thinking" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "AI composition from prompt" }));
+  expect(screen.getByRole("checkbox", { name: "LM thinking" }).checked).toBe(true);
+  expect(screen.getByRole("checkbox", { name: "LM thinking" }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Compose and generate song" }));
+  expect(generate).toHaveBeenCalledWith("Heroic trance", expect.objectContaining({ compose: true, instrumental: true, thinking: true }));
+});
+
+it("restores the idea and learned composition plan for an existing take", async () => {
+  fetchAceStepPresets.mockResolvedValue({ sft_available: true });
+  const generate = vi.fn();
+  render(React.createElement(AceStepSongControls, { available: true, onGenerate: generate,
+    lastTake: { compose: true, instrumental: false, prompt: "My short idea", lyrics: "", durationSec: 30,
+      compositionPlan: { planner_model: "acestep-5Hz-lm-1.7B", caption: "AI developed arrangement", lyrics: "Generated lyrics", bpm: 130, key_scale: "F major", duration_sec: 30 } } }));
+  expect(screen.getByLabelText("Prompt").value).toBe("My short idea");
+  expect(screen.getByLabelText("Lyrics (optional)").value).toBe("");
+  expect(screen.getByText("AI developed arrangement")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Compose and generate song" }));
+  expect(generate).toHaveBeenCalledWith("My short idea", expect.objectContaining({ compose: true, instrumental: false, durationSec: 30 }));
+});
+
+it("sends the selected vocal language to the learned composer", async () => {
+  fetchAceStepPresets.mockResolvedValue({ sft_available: true });
+  const generate = vi.fn();
+  render(React.createElement(AceStepSongControls, { available: true, defaultPrompt: "A song", onGenerate: generate,
+    lastTake: { compose: true, instrumental: false, vocalLanguage: "en" } }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Vocal language" }), { target: { value: "sv" } });
+  fireEvent.click(screen.getByRole("button", { name: "Compose and generate song" }));
+  expect(generate).toHaveBeenCalledWith("A song", expect.objectContaining({ compose: true, vocalLanguage: "sv" }));
+});

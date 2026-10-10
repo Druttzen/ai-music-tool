@@ -320,6 +320,13 @@ def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess
     env = os.environ.copy()
     env["ACESTEP_CONFIG_PATH"] = config_path
     env["ACESTEP_ON_DEMAND_MODEL_LOAD"] = "true"
+    # A managed offline composer needs the learned planner as well as the DiT.
+    env.setdefault("ACESTEP_INIT_LLM", "true")
+    cached_lm = "acestep-5Hz-lm-1.7B" if _checkpoint_exists("acestep-5Hz-lm-1.7B", home=home) else "acestep-5Hz-lm-0.6B"
+    env.setdefault("ACESTEP_LM_MODEL_PATH", cached_lm)
+    if os.name == "nt":
+        env.setdefault("ACESTEP_LM_BACKEND", "pt")
+    env.setdefault("ACESTEP_LM_OFFLOAD_TO_CPU", "true")
     # One DiT on consumer GPUs — do not preload secondary configs.
     env.pop("ACESTEP_CONFIG_PATH2", None)
     env.pop("ACESTEP_CONFIG_PATH3", None)

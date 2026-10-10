@@ -105,6 +105,8 @@ def build_release_task_payload(
     guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
+    lm_model: str = "",
+    time_signature: str = "",
 ) -> dict[str, Any]:
     """Build the /release_task JSON body (pure; unit-testable)."""
     text = str(prompt or "").strip()
@@ -132,6 +134,16 @@ def build_release_task_payload(
     chosen_model = str(model or "").strip() or acestep_model()
     if chosen_model:
         payload["model"] = chosen_model
+    if lm_model:
+        payload["lm_model_path"] = lm_model
+        if os.name == "nt":
+            payload["lm_backend"] = "pt"
+        # Keep the learned caption/lyrics intact while generating semantic audio codes.
+        payload["use_cot_caption"] = False
+        payload["use_cot_language"] = False
+        payload["constrained_decoding"] = True
+    if time_signature:
+        payload["time_signature"] = time_signature
     if inference_steps is not None:
         payload["inference_steps"] = max(1, min(int(inference_steps), 128))
     if guidance_scale is not None:
@@ -180,6 +192,7 @@ def parse_query_result(payload: Any) -> dict[str, Any]:
         "file": str(item.get("file") or ""),
         "metas": metas if isinstance(metas, dict) else {},
         "dit_model": str(item.get("dit_model") or ""),
+        "lm_model": str(item.get("lm_model") or ""),
     }
 
 
@@ -202,6 +215,8 @@ def generate_acestep_song(
     guidance_scale: float | None = None,
     seed: int | None = None,
     model: str = "",
+    lm_model: str = "",
+    time_signature: str = "",
     on_progress: Any = None,
 ) -> tuple[bytes, dict[str, Any]]:
     """Generate a full song via the configured ACE-Step API; returns (audio bytes, meta)."""
@@ -229,6 +244,8 @@ def generate_acestep_song(
         guidance_scale=guidance_scale,
         seed=seed,
         model=model,
+        lm_model=lm_model,
+        time_signature=time_signature,
     )
     deadline = time.monotonic() + acestep_timeout_sec()
 
@@ -286,5 +303,6 @@ def generate_acestep_song(
         "inference_steps": inference_steps,
         "guidance_scale": guidance_scale,
         "thinking": thinking,
+        "lm_model": state.get("lm_model") or "",
     }
     return audio_bytes, meta

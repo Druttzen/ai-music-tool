@@ -37,6 +37,9 @@ export const AceStepSongControls = memo(function AceStepSongControls({
   const dnaBpm = lastTake?.bpm ?? defaultBpm;
   const dnaKey = lastTake?.keyScale || defaultKey;
   const [thinking, setThinking] = useState(lastTake?.thinking ?? true);
+  const [compose, setCompose] = useState(lastTake?.compose ?? false);
+  const [instrumental, setInstrumental] = useState(lastTake?.instrumental ?? true);
+  const [vocalLanguage, setVocalLanguage] = useState(lastTake?.vocalLanguage || "en");
   const [quality, setQuality] = useState(lastTake?.model === "acestep-v15-sft" ? "sft" : lastTake?.model === "acestep-v15-base" ? "quality" : "turbo");
   const [qualityAvailable, setQualityAvailable] = useState(false);
   const [sftAvailable, setSftAvailable] = useState(false);
@@ -81,6 +84,9 @@ export const AceStepSongControls = memo(function AceStepSongControls({
     setDurationSec(60);
     setUseDna(true);
     setThinking(true);
+    setCompose(false);
+    setInstrumental(true);
+    setVocalLanguage("en");
     setQuality("turbo");
     setSeed("");
     setGuidanceScale(7);
@@ -132,11 +138,8 @@ export const AceStepSongControls = memo(function AceStepSongControls({
         ACE-Step full song
       </div>
       <p className="text-[10px] leading-relaxed text-white/45">
-        Local songs with vocals or instrumental arrangements. SFT offers more detail and prompt control;
-        it is slower and is not always cleaner than Turbo. No Suno quality equivalence has been established.
-        Sidecar marks ACE ready only when the API is{" "}
-        <span className="font-semibold text-white/70">reachable</span> at{" "}
-        <code className="text-white/60">AIMC_ACESTEP_API_URL</code>.
+        Turn a musical idea into a local song. AI composition develops the idea into an arrangement
+        and uses the learned music planner before generating audio. Detail uses the SFT model.
       </p>
       {!available ? (
         <div className="space-y-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-2 py-2 text-[10px] text-amber-100/90">
@@ -193,6 +196,32 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           className="mt-1 w-full resize-y rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-xs text-white outline-none focus:border-emerald-400/50"
         />
       </label>
+      <label className="flex items-center gap-2 text-[10px] text-emerald-100">
+        <input type="checkbox" checked={compose} disabled={busy} onChange={e => setCompose(e.target.checked)} />
+        AI composition from prompt
+      </label>
+      {compose && <div className="space-y-2 text-[10px] text-white/55">
+        <p>Describe the music you want. The local AI develops the instruments, mood and arrangement.
+          A cached music language model is required.</p>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={instrumental} disabled={busy || !!lyrics.trim()} onChange={e => setInstrumental(e.target.checked)} />
+          Instrumental (uncheck to let AI write lyrics)
+        </label>
+        {lyrics.trim() && <p>Your lyrics will be used for a vocal song.</p>}
+        {(!instrumental || lyrics.trim()) && <label className="block">Vocal language
+          <select aria-label="Vocal language" value={vocalLanguage} disabled={busy} onChange={e => setVocalLanguage(e.target.value)}
+            className="ml-2 rounded border border-white/20 bg-black/50 p-1 text-white">
+            <option value="en">English</option><option value="sv">Svenska</option>
+            <option value="de">Deutsch</option><option value="es">Español</option><option value="fr">Français</option>
+          </select>
+        </label>}
+      </div>}
+      {lastTake?.compositionPlan && <details className="rounded-lg border border-emerald-400/20 p-2 text-[10px] text-white/65" aria-label="Saved AI composition plan">
+        <summary className="cursor-pointer font-semibold text-emerald-100">Saved AI composition plan</summary>
+        <p className="mt-2">{lastTake.compositionPlan.planner_model} · {lastTake.compositionPlan.bpm ?? "?"} BPM · {lastTake.compositionPlan.key_scale} · {lastTake.compositionPlan.duration_sec}s</p>
+        <p className="mt-2">{lastTake.compositionPlan.caption}</p>
+        <pre className="mt-2 whitespace-pre-wrap font-sans">{lastTake.compositionPlan.lyrics}</pre>
+      </details>}
       <label className="block text-[10px] text-white/50">
         Lyrics (optional)
         <textarea
@@ -233,7 +262,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           className="ml-2 rounded border border-white/20 bg-black/50 p-1 text-white" />
       </label> : null}
       <label className="flex items-center gap-2 text-[10px] text-white/55">
-        <input type="checkbox" checked={thinking} disabled={busy}
+        <input type="checkbox" checked={compose || thinking} disabled={busy || compose}
           onChange={(e) => setThinking(e.target.checked)} />
         LM thinking
       </label>
@@ -260,12 +289,15 @@ export const AceStepSongControls = memo(function AceStepSongControls({
             e.preventDefault();
             onGenerate(prompt, {
               lyrics,
+              compose,
+              instrumental,
+              vocalLanguage: compose && (!instrumental || lyrics.trim()) ? vocalLanguage : "",
               durationSec,
               attach: true,
               useDna,
               bpm: useDna ? dnaBpm : null,
               keyScale: useDna ? dnaKey : "",
-              thinking,
+              thinking: compose || thinking,
               inferenceSteps: quality === "turbo" ? 8 : 50,
               guidanceScale: quality === "turbo" ? undefined : guidanceScale,
               seed: seed.trim() ? Number(seed) : null,
@@ -274,7 +306,7 @@ export const AceStepSongControls = memo(function AceStepSongControls({
           }}
           className="min-w-[140px] flex-1 rounded-xl border border-emerald-400/35 bg-emerald-500/20 py-2 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30 disabled:opacity-50"
         >
-          {busy ? "Generating…" : !available ? "ACE-Step API unreachable" : selectedCheckpointAvailable ? "Generate full song" : "Selected checkpoint unavailable"}
+          {busy ? "Generating…" : !available ? "ACE-Step API unreachable" : selectedCheckpointAvailable ? (compose ? "Compose and generate song" : "Generate full song") : "Selected checkpoint unavailable"}
         </button>
         <button
           type="button"
@@ -283,13 +315,16 @@ export const AceStepSongControls = memo(function AceStepSongControls({
             e.preventDefault();
             onGenerate(prompt, {
               lyrics,
+              compose,
+              instrumental,
+              vocalLanguage: compose && (!instrumental || lyrics.trim()) ? vocalLanguage : "",
               durationSec,
               attach: false,
               download: true,
               useDna,
               bpm: useDna ? dnaBpm : null,
               keyScale: useDna ? dnaKey : "",
-              thinking,
+              thinking: compose || thinking,
               inferenceSteps: quality === "turbo" ? 8 : 50,
               guidanceScale: quality === "turbo" ? undefined : guidanceScale,
               seed: seed.trim() ? Number(seed) : null,

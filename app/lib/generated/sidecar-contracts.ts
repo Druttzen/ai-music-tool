@@ -157,6 +157,24 @@ export type ChordPoint = {
   "time_sec": number;
 };
 
+export type CompositionPlan = {
+  "bpm": number | null;
+  "caption": string;
+  "duration_sec": number;
+  "generation_prompt": string;
+  "instrumental": boolean;
+  "key_scale": string;
+  "lyrics": string;
+  "method": string;
+  "original_prompt": string;
+  "planner_model": string;
+  "reported_lm_model"?: string;
+  "semantic_planning_requested": boolean;
+  "suggested_duration_sec": number | null;
+  "time_signature": string;
+  "vocal_language": string;
+};
+
 export type CoverRequest = {
   "height"?: number;
   "num_inference_steps"?: number;
@@ -229,9 +247,11 @@ export type GenerateRequest = {
 export type GenerateSongRequest = {
   "audio_format"?: string;
   "bpm"?: number | null;
+  "compose"?: boolean;
   "duration_sec"?: number | null;
   "guidance_scale"?: number | null;
   "inference_steps"?: number | null;
+  "instrumental"?: boolean;
   "key_scale"?: string;
   "lyrics"?: string;
   "model"?: string;

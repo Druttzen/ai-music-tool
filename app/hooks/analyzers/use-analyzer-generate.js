@@ -293,7 +293,7 @@ export function useAnalyzerGenerate({
           setStatusWithTime("Librosa sidecar offline — start it with npm run sidecar", "warning");
           return;
         }
-        const { blob, model, durationSec: dur } = await generateSongViaSidecar({
+        const { blob, model, durationSec: dur, compositionPlan } = await generateSongViaSidecar({
           prompt: text,
           lyrics,
           durationSec,
@@ -305,6 +305,8 @@ export function useAnalyzerGenerate({
           guidanceScale: options.guidanceScale,
           seed,
           model: options.model || "",
+          compose: !!options.compose,
+          instrumental: options.instrumental !== false,
           onProgress: (progress, message) => {
             setStatusWithTime(
               `ACE-Step ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
@@ -329,9 +331,12 @@ export function useAnalyzerGenerate({
             ...(await enrichMusicGenReportWithSidecar(file, report)),
             sourceEngine: "acestep",
             trackSummary: `ACE-Step song (${model || "acestep"}, ${resolvedDuration}s): ${text.slice(0, 160)}`,
-            vocals: lyrics ? "Vocals (ACE-Step)" : report.vocals,
-            aceStepLyrics: lyrics,
-            musicGenSettings: { seed, model, thinking: options.thinking !== false,
+            vocals: compositionPlan ? (compositionPlan.instrumental ? "Instrumental (AI composition)" : "Vocals (AI composition)") : lyrics ? "Vocals (ACE-Step)" : report.vocals,
+            aceStepLyrics: compositionPlan?.lyrics ?? lyrics,
+            compositionPlan: compositionPlan || null,
+            musicGenSettings: { seed, model, thinking: !!options.compose || options.thinking !== false,
+              compose: !!options.compose, instrumental: options.instrumental !== false, originalLyrics: lyrics,
+              vocalLanguage: compositionPlan?.vocal_language || options.vocalLanguage || "",
               useDna: options.useDna ?? !!(options.bpm || options.keyScale),
               inferenceSteps: options.inferenceSteps, guidanceScale: options.guidanceScale,
               bpm: options.bpm, keyScale: options.keyScale, mode: "acestep-song" },

@@ -72,7 +72,10 @@ export const CenterSunoProToolsPanel = memo(function CenterSunoProToolsPanel() {
       } else {
         blob = (await resolveAudioCacheBlob(audioAnalysis))?.blob;
       }
-      const saved = await exportSunoDraft({ blob, analysis: audioAnalysis, style: sunoFieldSlices?.style, lyrics: sunoFieldSlices?.lyrics });
+      const plan = audioAnalysis?.compositionPlan;
+      const saved = await exportSunoDraft({ blob, analysis: audioAnalysis,
+        style: plan ? plan.generation_prompt : sunoFieldSlices?.style,
+        lyrics: plan ? (plan.instrumental ? "Instrumental; no sung words." : plan.lyrics) : sunoFieldSlices?.lyrics });
       setStatusWithTime(`Audio + Suno brief saved${saved.audio.path ? `: ${saved.audio.path}` : ""}`, "success");
     } catch (error) {
       setStatusWithTime(error instanceof Error ? error.message : "Could not export draft", "error");

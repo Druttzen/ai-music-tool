@@ -724,7 +724,8 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             lastTake: analysis.sourceEngine === "acestep" ? {
               takeId: analysis.audioCacheKey || analysis.fileName,
               ...analysis.musicGenSettings, prompt: analysis.musicGenPrompt,
-              lyrics: analysis.aceStepLyrics, durationSec: analysis.musicGenDurationSec,
+              lyrics: analysis.musicGenSettings?.originalLyrics ?? analysis.aceStepLyrics,
+              durationSec: analysis.musicGenDurationSec, compositionPlan: analysis.compositionPlan,
             } : undefined,
             defaultLyrics: defaultAceStepLyrics,
             defaultBpm: analysis?.bpm ?? null,

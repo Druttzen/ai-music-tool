@@ -69,7 +69,7 @@ from .fail_safe_fix import FixPushRequest, FixPushResponse, fix_push, maintainer
 from .fail_safe_runtime import RuntimeDeliverRequest, RuntimeDeliverResponse, deliver_runtime_report
 from .device import DeviceInfo, detect_device, peek_device, select_device
 from .http_contracts import (
-    AceStepEnsureResult, AceStepPresetCatalog, CapabilityContract, JobCancelResponse, JobSubmission, PublicJobStatus, DraftSearchResult,
+    AceStepEnsureResult, AceStepPresetCatalog, CapabilityContract, JobCancelResponse, JobSubmission, PublicJobStatus, DraftSearchResult, CompositionPlan,
     FailSafeCapabilities, VocalModelStatus, VocalAlignPreviewResponse, OpenvpiDsExportResponse,
 )
 from .registry import capability_flags, list_capabilities
@@ -806,6 +806,8 @@ class GenerateSongRequest(BaseModel):
     guidance_scale: float | None = None
     seed: int | None = None
     model: str = ""
+    compose: bool = False
+    instrumental: bool = True
 
 
 @app.post("/generate/song")
@@ -844,6 +846,8 @@ async def generate_full_song(body: GenerateSongRequest):
             guidance_scale=body.guidance_scale,
             seed=body.seed,
             model=body.model,
+            compose=body.compose,
+            instrumental=body.instrumental,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -902,6 +906,8 @@ def enqueue_generate_song(body: GenerateSongRequest):
             guidance_scale=body.guidance_scale,
             seed=body.seed,
             model=body.model,
+            compose=body.compose,
+            instrumental=body.instrumental,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -934,6 +940,17 @@ async def enqueue_generate_drafts(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"job_id": job_id}
+
+
+@app.get("/generate/song/plan/{job_id}", response_model=CompositionPlan)
+def song_composition_plan(job_id: str):
+    job = JOBS.get(job_id)
+    if job is None or job.status != "done" or not isinstance(job.result, dict):
+        raise HTTPException(status_code=404, detail="composition not ready")
+    plan = job.result.get("meta", {}).get("composition_plan")
+    if not isinstance(plan, dict):
+        raise HTTPException(status_code=404, detail="not a composed song")
+    return plan
 
 
 @app.get("/generate/drafts/{job_id}", response_model=DraftSearchResult)

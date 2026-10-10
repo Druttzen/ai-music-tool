@@ -38,3 +38,9 @@ it("keeps verified product facts separate from unconfirmed copy limits", () => {
   expect(SUNO_CURRENT.audioUploadMaxSeconds.Pro).toBe(1800);
   expect(buildSunoUploadBrief({})).not.toMatch(/Suno v5/);
 });
+
+it("includes the learned composition plan in the portable handoff", () => {
+  const plan = { original_prompt: "Heroic trance", caption: "Expanded arrangement", planner_model: "acestep-5Hz-lm-1.7B", duration_sec: 30 };
+  const brief = buildSunoUploadBrief({ analysis: { compositionPlan: plan } });
+  expect(brief).toContain(`Local AI composition plan: ${JSON.stringify(plan)}`);
+});
