@@ -59,11 +59,11 @@ fn open_canvas_panel(app: &tauri::AppHandle) -> Result<(), String> {
     use tauri::Manager;
     if !installed() { return Err("Activate the internal Canvas plugin in Plugins".into()); }
     if let Some(window) = app.get_webview_window("canvas") { window.set_focus().map_err(|e| e.to_string())?; }
-    else { tauri::WebviewWindowBuilder::new(app, "canvas", tauri::WebviewUrl::App("canvas.html".into())).title("Studio — Canvas plugin").inner_size(700.0, 850.0).build().map_err(|e| e.to_string())?; }
+    else { tauri::WebviewWindowBuilder::new(app, "canvas", tauri::WebviewUrl::App("canvas/index.html".into())).title("Studio — Canvas plugin").inner_size(700.0, 850.0).build().map_err(|e| e.to_string())?; }
     Ok(())
 }
 #[tauri::command]
-pub fn launch_canvas_addon(app: tauri::AppHandle) -> CanvasAddonActionResult {
+pub async fn launch_canvas_addon(app: tauri::AppHandle) -> CanvasAddonActionResult {
     let mut result = action(open_canvas_panel(&app), "internal-panel"); result.launched = result.ok; result
 }
 #[tauri::command]

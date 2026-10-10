@@ -19,6 +19,9 @@ describe("internal plugin and installation policy", () => {
     expect(source).not.toContain("Setup.exe");
     expect(source).toContain("ai_sidecar.canvas_plugin");
     expect(source).toContain("WebviewWindowBuilder");
+    expect(source).toContain('WebviewUrl::App("canvas/index.html"');
+    expect(source).toContain("pub async fn launch_canvas_addon");
+    expect(read("next.config.js")).toContain('assetPrefix: "/"');
   });
   it("the updater cannot overwrite the registered installation", () => {
     const source = read("src-tauri/src/studio_updater.rs");

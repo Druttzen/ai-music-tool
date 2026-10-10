@@ -21,7 +21,8 @@ const nextConfig = {
     ? {}
     : {
         output: "export",
-        assetPrefix: "./",
+        // Internal plugin pages share the app origin's root assets.
+        assetPrefix: "/",
       }),
 };
 
