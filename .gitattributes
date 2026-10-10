@@ -1,2 +1,7 @@
 *.ico binary
 *.pdf binary
+
+# Generated text is compared byte-for-byte by release checks on every OS.
+app/lib/generated/sidecar-contracts.ts text eol=lf
+docs/sidecar-openapi.json text eol=lf
+app/lib/awesome-suno-concepts-synced.js text eol=lf
