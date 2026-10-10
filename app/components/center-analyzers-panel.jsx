@@ -434,14 +434,14 @@ export const CenterAnalyzersPanel = memo(function CenterAnalyzersPanel() {
                 }}
                 className="mt-3 w-full rounded-2xl border border-emerald-400/45 bg-emerald-500/20 py-2.5 text-xs font-bold text-emerald-50 hover:bg-emerald-500/30"
               >
-                Open in Canvas Tool → Spotify loop
+                Open Canvas plugin → Spotify loop
               </button>
             ) : (
               <p className="mt-3 text-[10px] text-white/45">
-                Canvas / suite: install{" "}
-                  <span className="font-bold text-emerald-200/90">AI Canvas Tool</span> from the left{" "}
-                  <span className="font-bold text-white/70">Addons</span> panel, then drop art here
-                  for Spotify loop handoff.
+                Activate the internal{" "}
+                  <span className="font-bold text-emerald-200/90">Canvas plugin</span> in{" "}
+                  <span className="font-bold text-white/70">Plugins</span>, then drop artwork here
+                  to create a Spotify loop inside Studio.
               </p>
             )}
             {imageAnalysis ? (

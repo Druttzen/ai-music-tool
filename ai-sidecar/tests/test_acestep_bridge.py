@@ -114,6 +114,11 @@ def test_parse_query_result_running():
     assert parse_query_result({})["status"] == 0
 
 
+def test_parse_query_result_preserves_engine_failure():
+    body = {"data": [{"status": 2, "result": '[{"error":"model initialization failed"}]'}]}
+    assert parse_query_result(body)["error"] == "model initialization failed"
+
+
 def test_acestep_reachable_requires_url(monkeypatch):
     monkeypatch.setattr("ai_sidecar.acestep_bridge._PLUGIN_URL", "")
     assert acestep_configured() is False

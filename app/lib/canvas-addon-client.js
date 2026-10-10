@@ -64,7 +64,7 @@ export function formatCanvasInstallStatus(result) {
       const base = result.error || result.message || "Could not download Canvas installer from GitHub";
       return result.url ? `${base} — ${result.url}` : base;
     }
-    return result?.error || result?.message || "Could not install AI Canvas Tool";
+    return result?.error || result?.message || "Could not activate the internal Canvas plugin";
   }
   if (result.message) return result.message;
   if (result.mode === "uninstalled") return "Internal Canvas plugin deactivated";

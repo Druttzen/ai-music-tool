@@ -199,9 +199,13 @@ pub fn run() {
         ])
         .on_window_event(|window, event| {
             if window.label() == "main" && matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
-                for (label, plugin_window) in window.app_handle().webview_windows() {
-                    if label != "main" { let _ = plugin_window.close(); }
-                }
+                // Window callbacks must return before requesting another WebView close.
+                let app = window.app_handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    for (label, plugin_window) in app.webview_windows() {
+                        if label != "main" { let _ = plugin_window.close(); }
+                    }
+                });
             }
         })
         .build(tauri::generate_context!())

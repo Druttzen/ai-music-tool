@@ -101,6 +101,9 @@ pub fn runtime_cache_env_map(root: &Path) -> HashMap<String, OsString> {
     let transformers = cache.join("transformers");
     let tmp = user_tmp_dir(root);
     HashMap::from([
+        ("PYTHONUTF8".into(), OsString::from("1")),
+        ("PYTHONIOENCODING".into(), OsString::from("utf-8")),
+        ("PYTHONUNBUFFERED".into(), OsString::from("1")),
         ("STUDIO_DATA_DIR".into(), root.parent().unwrap_or(root).as_os_str().to_os_string()),
         ("AIMC_DISABLED_EXTRAS_FILE".into(), root.join("disabled-extras.json").into_os_string()),
         ("HF_HOME".into(), hf.as_os_str().to_os_string()),
@@ -951,6 +954,7 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).unwrap();
         let envs = runtime_cache_env_map(&root);
+        assert_eq!(envs.get("PYTHONIOENCODING").unwrap(), "utf-8");
         let hf = PathBuf::from(envs.get("HF_HOME").unwrap());
         let pip = PathBuf::from(envs.get("PIP_CACHE_DIR").unwrap());
         let melband = PathBuf::from(envs.get("MELBAND_ROFORMER_MODELS_PATH").unwrap());

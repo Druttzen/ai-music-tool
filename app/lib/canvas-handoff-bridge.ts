@@ -18,7 +18,7 @@ function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>
   return w.__TAURI__.core.invoke<T>(cmd, args);
 }
 
-/** Export artwork + optional audio + handoff.json and launch AI Canvas Tool (Tauri only). */
+/** Export artwork + optional audio and render with the internal Canvas plugin. */
 export async function exportCanvasHandoffNative(payload: {
   title: string;
   artist: string;

@@ -195,6 +195,7 @@ def parse_query_result(payload: Any) -> dict[str, Any]:
         "metas": metas if isinstance(metas, dict) else {},
         "dit_model": str(item.get("dit_model") or ""),
         "lm_model": str(item.get("lm_model") or ""),
+        "error": str(item.get("error") or first.get("error") or ""),
     }
 
 
@@ -271,7 +272,8 @@ def generate_acestep_song(
                 poll.raise_for_status()
                 state = parse_query_result(poll.json())
                 if state["status"] == 2:
-                    raise RuntimeError("ACE-Step generation failed on the API server")
+                    detail = state.get("error") or "ACE-Step generation failed on the API server"
+                    raise RuntimeError(detail)
                 if state["status"] == 1 and state["file"]:
                     break
                 touch_activity()  # long jobs must not trip the idle watchdog

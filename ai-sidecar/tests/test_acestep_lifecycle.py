@@ -177,6 +177,9 @@ def test_managed_server_enables_cached_planner_with_memory_offload(tmp_path, mon
     lifecycle._spawn_acestep_api(tmp_path, port="8001", config_path=SFT_MODEL)
     try:
         env = captured["env"]
+        assert env["PYTHONUTF8"] == "1"
+        assert env["PYTHONIOENCODING"] == "utf-8"
+        assert env["PYTHONUNBUFFERED"] == "1"
         assert env["ACESTEP_INIT_LLM"] == "true"
         assert env["ACESTEP_LM_MODEL_PATH"] == "acestep-5Hz-lm-1.7B"
         assert env["ACESTEP_LM_OFFLOAD_TO_CPU"] == "true"

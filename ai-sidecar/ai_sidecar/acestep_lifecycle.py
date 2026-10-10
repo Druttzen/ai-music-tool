@@ -260,6 +260,10 @@ def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess
     cmd = [str(venv_py), str(host_script), "--port", port]
 
     env = os.environ.copy()
+    # A hidden Windows GUI child otherwise inherits a legacy console encoding.
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUNBUFFERED"] = "1"
     from .acestep_bridge import acestep_api_key
     env["ACESTEP_API_KEY"] = acestep_api_key()
     env["ACESTEP_CHECKPOINTS_DIR"] = str(home / "checkpoints")
