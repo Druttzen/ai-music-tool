@@ -83,5 +83,5 @@ def is_activity_path(path: str) -> bool:
         or path.startswith("/vocal-transform/download/")
         or path.startswith("/jobs/")
         or path.startswith("/generate/")
-        or path == "/acestep/ensure"
+        or path.startswith("/acestep/")
     )

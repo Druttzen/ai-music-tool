@@ -1,8 +1,8 @@
 """Start the external ACE-Step API when Studio asks for a full song and :8001 is down.
 
-Also restarts *our* child when the UI asks for a different DiT than the one loaded
-at ACESTEP_CONFIG_PATH (one model at a time on a 12 GB card). Never kills an ACE
-server this module did not spawn.
+Restarts the ACE process when the loaded DiT differs from the requested preset.
+That includes a server this module spawned and a listener whose command line is
+ACE-Step's API. Unrelated processes on the port are left alone.
 """
 
 from __future__ import annotations
@@ -17,20 +17,53 @@ from typing import Any
 _START_LOCK = __import__("threading").Lock()
 _CHILD: subprocess.Popen | None = None
 _CHILD_CONFIG: str = ""
+_LOG_HANDLE: Any = None
 
 TURBO_MODEL = "acestep-v15-turbo"
 QUALITY_MODEL = "acestep-v15-base"
 
 
-def _ace_home() -> Path | None:
-    candidates = [
+def _fixed_drive_roots() -> list[str]:
+    """Windows fixed-drive roots only. Skips CD/network drives that can stall on stat."""
+    if os.name != "nt":
+        return []
+    try:
+        import ctypes
+
+        kernel = ctypes.windll.kernel32
+        mask = int(kernel.GetLogicalDrives())
+        roots: list[str] = []
+        for index in range(26):
+            if not mask & (1 << index):
+                continue
+            root = f"{chr(65 + index)}:\\"
+            if int(kernel.GetDriveTypeW(root)) == 3:
+                roots.append(root)
+        return roots
+    except (AttributeError, OSError):
+        return []
+
+
+def ace_home_candidates() -> list[str]:
+    """Checkout locations, most specific first. No single machine path is required."""
+    candidates: list[str] = [
         os.environ.get("AIMC_ACESTEP_HOME", ""),
         os.environ.get("ACESTEP_HOME", ""),
-        r"F:\ACE-Step-1.5",
     ]
     repo = os.environ.get("AIMC_REPO_ROOT", "")
     if repo:
         candidates.append(str(Path(repo).parent / "ACE-Step-1.5"))
+    here = Path(__file__).resolve()
+    if len(here.parents) >= 3:
+        candidates.append(str(here.parents[2].parent / "ACE-Step-1.5"))
+    candidates.append(str(Path.home() / "ACE-Step-1.5"))
+    for root in _fixed_drive_roots():
+        candidates.append(str(Path(root) / "ACE-Step-1.5"))
+    return candidates
+
+
+def _ace_home() -> Path | None:
+    candidates = ace_home_candidates()
     for raw in candidates:
         text = str(raw or "").strip()
         if not text:
@@ -95,21 +128,42 @@ def resolve_acestep_dit_model(
     return TURBO_MODEL, f"unknown ACE model {raw!r}; using {TURBO_MODEL}"
 
 
+def cmdline_looks_like_acestep(cmdline: str) -> bool:
+    text = str(cmdline or "").lower()
+    if "acestep" not in text:
+        return False
+    return "acestep-api" in text or "acestep.api_server" in text or "api_server" in text
+
+
 def should_restart_our_acestep_child(
     *,
     reachable: bool,
     loaded_model: str,
     desired_model: str,
     we_own_child: bool,
+    listener_is_ace: bool = False,
 ) -> bool:
-    """True only when we own the ACE process and the loaded DiT differs from desired."""
-    if not reachable or not we_own_child:
+    """True when the loaded DiT differs and the listener is ours or an ACE API process."""
+    if not reachable or not (we_own_child or listener_is_ace):
         return False
     loaded = str(loaded_model or "").strip()
     desired = str(desired_model or "").strip()
     if not loaded or not desired:
         return False
     return loaded != desired
+
+
+def preset_catalog() -> dict[str, Any]:
+    """Which DiT presets exist on disk. Quality stays off when the base checkpoint is missing."""
+    home = _ace_home()
+    quality_ok = _checkpoint_exists(QUALITY_MODEL, home=home)
+    return {
+        "turbo_model": TURBO_MODEL,
+        "quality_model": QUALITY_MODEL,
+        "quality_available": quality_ok,
+        "home": str(home) if home else "",
+        "note": "" if quality_ok else f"checkpoint {QUALITY_MODEL} is not installed",
+    }
 
 
 def we_own_acestep_child() -> bool:
@@ -187,6 +241,102 @@ def _parse_loaded_model(body: Any) -> str:
     return ""
 
 
+def _listener_pids(port: str) -> list[int]:
+    """PIDs listening on ``port``. Best-effort; empty when the lookup fails."""
+    import re
+
+    pids: list[int] = []
+    try:
+        if os.name == "nt":
+            proc = subprocess.run(
+                ["netstat", "-ano", "-p", "tcp"],
+                capture_output=True,
+                text=True,
+                timeout=8,
+                check=False,
+            )
+            needle = f":{port}"
+            for line in (proc.stdout or "").splitlines():
+                if "LISTENING" not in line.upper() or needle not in line:
+                    continue
+                parts = line.split()
+                if parts and parts[-1].isdigit():
+                    pids.append(int(parts[-1]))
+        else:
+            proc = subprocess.run(
+                ["ss", "-ltnp"],
+                capture_output=True,
+                text=True,
+                timeout=8,
+                check=False,
+            )
+            for line in (proc.stdout or "").splitlines():
+                if f":{port}" not in line:
+                    continue
+                match = re.search(r"pid=(\d+)", line)
+                if match:
+                    pids.append(int(match.group(1)))
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return list(dict.fromkeys(pids))
+
+
+def _process_command_line(pid: int) -> str:
+    if pid <= 0:
+        return ""
+    try:
+        if os.name == "nt":
+            proc = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    f"(Get-CimInstance Win32_Process -Filter \"ProcessId={int(pid)}\").CommandLine",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=8,
+                check=False,
+            )
+            return (proc.stdout or "").strip()
+        proc = subprocess.run(
+            ["ps", "-p", str(int(pid)), "-o", "args="],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+        return (proc.stdout or "").strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def listener_is_acestep(port: str) -> bool:
+    for pid in _listener_pids(port):
+        if cmdline_looks_like_acestep(_process_command_line(pid)):
+            return True
+    return False
+
+
+def _stop_acestep_listeners(port: str) -> None:
+    """Stop ACE API listeners on ``port``. Other processes are left running."""
+    for pid in _listener_pids(port):
+        if not cmdline_looks_like_acestep(_process_command_line(pid)):
+            continue
+        try:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid), "/F"],
+                    capture_output=True,
+                    timeout=8,
+                    check=False,
+                )
+            else:
+                os.kill(pid, 15)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+
+
 def _stop_our_child(*, wait_sec: float = 20.0) -> None:
     global _CHILD, _CHILD_CONFIG
     child = _CHILD
@@ -212,7 +362,7 @@ def _stop_our_child(*, wait_sec: float = 20.0) -> None:
 
 
 def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess.Popen:
-    global _CHILD, _CHILD_CONFIG
+    global _CHILD, _CHILD_CONFIG, _LOG_HANDLE
     uv = "uv"
     venv_py = home / ".venv" / "Scripts" / "python.exe"
     if os.name != "nt":
@@ -251,12 +401,21 @@ def _spawn_acestep_api(home: Path, *, port: str, config_path: str) -> subprocess
     env.pop("ACESTEP_CONFIG_PATH2", None)
     env.pop("ACESTEP_CONFIG_PATH3", None)
 
+    if _LOG_HANDLE is not None:
+        try:
+            _LOG_HANDLE.close()
+        except OSError:
+            pass
+        _LOG_HANDLE = None
+    log_path = home / "acestep-api.log"
+    log_handle = open(log_path, "ab", buffering=0)
+    _LOG_HANDLE = log_handle
     _CHILD = subprocess.Popen(
         cmd,
         cwd=str(home),
         env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_handle,
+        stderr=subprocess.STDOUT,
     )
     _CHILD_CONFIG = config_path
     return _CHILD
@@ -284,14 +443,19 @@ def ensure_acestep_api(*, wait_sec: float = 90.0, model: str = "") -> str:
         reachable = acestep_reachable(timeout_sec=0.6)
         loaded = acestep_loaded_model(timeout_sec=1.0) if reachable else ""
         own = we_own_acestep_child()
+        foreign_ace = listener_is_acestep(port) if reachable and not own else False
 
         if should_restart_our_acestep_child(
             reachable=reachable,
             loaded_model=loaded or _CHILD_CONFIG,
             desired_model=desired,
             we_own_child=own,
+            listener_is_ace=foreign_ace,
         ):
-            _stop_our_child()
+            if own:
+                _stop_our_child()
+            else:
+                _stop_acestep_listeners(port)
             reachable = False
 
         if reachable:

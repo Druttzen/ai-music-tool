@@ -97,7 +97,14 @@ export function useAnalyzerGenerate({
                 durationSec,
                 melodyBlob,
                 audioAnalysis?.fileName || "melody-reference.wav",
-                options,
+                {
+                  ...options,
+                  onProgress: (progress, message) => {
+                    setStatusWithTime(
+                      `MusicGen ${Math.round((Number(progress) || 0) * 100)}% — ${message || "working"}`.slice(0, 140),
+                    );
+                  },
+                },
               );
             })()
           : await generateMusicViaSidecar(text, durationSec, {

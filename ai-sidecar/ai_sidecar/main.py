@@ -106,6 +106,12 @@ async def _lifespan(_app: FastAPI):
     from .vocal_env import load_vocal_env_file
 
     load_vocal_env_file()
+    try:
+        from .mei_cleanup import cleanup_stale_mei_dirs
+
+        cleanup_stale_mei_dirs()
+    except Exception:
+        _LOG.exception("mei cleanup failed")
     configure_idle_exit(float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "300")))
     touch_activity()
     start_idle_watchdog()
@@ -687,6 +693,52 @@ async def generate_music(body: GenerateRequest):
             "X-Job-Id": str(result.get("job_id") or ""),
         },
     )
+
+
+@app.post("/generate/melody/jobs")
+async def enqueue_generate_melody(
+    prompt: str = Form(...),
+    duration_sec: float = Form(8.0),
+    temperature: float | None = Form(None),
+    top_k: int | None = Form(None),
+    top_p: float | None = Form(None),
+    cfg_coef: float | None = Form(None),
+    seed: int | None = Form(None),
+    model: str | None = Form(None),
+    melody: UploadFile = File(...),
+):
+    """Queue melody-conditioned MusicGen. Poll GET /jobs/{id}."""
+    if not generation_available():
+        raise HTTPException(status_code=503, detail="generation deps missing — npm run sidecar:generate")
+    text = str(prompt or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="prompt is required")
+    melody_raw = await _read_upload_limited(melody, MAX_AUDIO_UPLOAD_BYTES)
+    if not melody_raw:
+        raise HTTPException(status_code=400, detail="empty melody upload")
+    try:
+        job_id = enqueue_musicgen(
+            text,
+            duration_sec=duration_sec,
+            melody_wav=melody_raw,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            cfg_coef=cfg_coef,
+            seed=seed,
+            model=model,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"job_id": job_id}
+
+
+@app.get("/acestep/presets")
+def acestep_presets():
+    """Which ACE DiT presets exist on disk (Quality is off without the base checkpoint)."""
+    from .acestep_lifecycle import preset_catalog
+
+    return preset_catalog()
 
 
 @app.post("/generate/melody")

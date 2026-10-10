@@ -726,13 +726,42 @@ export async function generateMusicViaSidecar(
   };
 }
 
-/** POST prompt + melody reference clip to /generate/melody. */
+export type AceStepPresetCatalog = {
+  turbo_model: string;
+  quality_model: string;
+  quality_available: boolean;
+  home: string;
+  note: string;
+};
+
+/** Which ACE DiT folders exist. Quality is false when the base checkpoint is missing. */
+export async function fetchAceStepPresets(): Promise<AceStepPresetCatalog | null> {
+  try {
+    const res = await fetch(`${sidecarBaseUrl()}/acestep/presets`, {
+      headers: await sidecarAuthHeaders(),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as AceStepPresetCatalog;
+  } catch {
+    return null;
+  }
+}
+
+/** Queue melody-conditioned MusicGen and poll until the wav is ready. */
 export async function generateMusicWithMelodyViaSidecar(
   prompt: string,
   durationSec: number,
   melody: Blob,
   melodyName = "melody-reference.wav",
-  options: { temperature?: number; topK?: number; topP?: number; cfgCoef?: number; seed?: number } = {},
+  options: {
+    temperature?: number;
+    topK?: number;
+    topP?: number;
+    cfgCoef?: number;
+    seed?: number;
+    model?: string;
+    onProgress?: (progress: number, message: string) => void;
+  } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
   const form = new FormData();
   form.append("prompt", prompt);
@@ -743,8 +772,9 @@ export async function generateMusicWithMelodyViaSidecar(
   if (options.topP != null) form.append("top_p", String(options.topP));
   if (options.cfgCoef != null) form.append("cfg_coef", String(options.cfgCoef));
   if (options.seed != null) form.append("seed", String(options.seed));
+  if (options.model) form.append("model", options.model);
 
-  const res = await fetch(`${sidecarBaseUrl()}/generate/melody`, {
+  const res = await fetch(`${sidecarBaseUrl()}/generate/melody/jobs`, {
     method: "POST",
     headers: await sidecarAuthHeaders(),
     body: form,
@@ -761,11 +791,14 @@ export async function generateMusicWithMelodyViaSidecar(
     throw new Error(detail || `sidecar melody generate failed (${res.status})`);
   }
 
+  const queued = (await res.json()) as { job_id?: string };
+  if (!queued.job_id) throw new Error("MusicGen melody job id missing");
+  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
   return {
-    blob: await res.blob(),
-    model: res.headers.get("X-MusicGen-Model"),
-    durationSec: Number(res.headers.get("X-MusicGen-Duration-Sec") || durationSec) || durationSec,
-    mode: res.headers.get("X-MusicGen-Mode") || "melody",
+    blob: await downloadGenerateAudio(queued.job_id),
+    model: meta.model,
+    durationSec: meta.durationSec || durationSec,
+    mode: meta.mode || "melody",
   };
 }
 
