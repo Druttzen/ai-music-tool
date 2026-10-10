@@ -94,6 +94,9 @@ def _install_fake_demucs_modules():
     sys.modules["demucs.pretrained"] = fake_pretrained
 
     fake_torch = MagicMock()
+    # SciPy checks torch.Tensor while resampling NumPy input. It must be a
+    # class rather than MagicMock's auto-created attribute on clean CI hosts.
+    fake_torch.Tensor = type("FakeTensor", (), {})
     fake_torch.from_numpy.side_effect = lambda array: array
     fake_torch.__version__ = "0.0-test"
     fake_torch.cuda.is_available.return_value = False

@@ -46,6 +46,8 @@
     {
       "id": "e2e-hist-1",
       "label": "Earlier Techno snap",
+      "time": "2026-10-10T00:00:00.000Z",
+      "prompt": "Techno, 128 BPM, female lead",
       "state": {
         "selectedGenres": ["Techno"],
         "tempo": "128 BPM",

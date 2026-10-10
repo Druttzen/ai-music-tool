@@ -10,7 +10,7 @@ import {
 const MY_TASTE_FIXTURE = "tests/fixtures/e2e-import-project-my-taste.json";
 const CHARACTER_BUNDLE = "tests/fixtures/e2e-import-project-with-character-presets.json";
 
-test.describe("Suno 5.5 Pro tools e2e", () => {
+test.describe("Suno v6 Pro tools e2e", () => {
   test.beforeEach(async ({ page }) => {
     await clearProjectStorage(page);
   });

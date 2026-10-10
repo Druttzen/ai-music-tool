@@ -36,11 +36,11 @@ test.describe("MusicGen merge e2e", () => {
       );
     });
 
-    await panel.getByRole("button", { name: "Merge into Suno v5.5 Style →" }).click();
+    await panel.getByRole("button", { name: "Merge into Suno v6 Style →" }).click();
 
     const toast = page.getByTestId("action-toast");
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText(/Audio → Suno v5\.5 Style merged/i);
+    await expect(toast).toContainText(/Audio → Suno v6 Style merged/i);
 
     await expectSunoFieldCopies(page, context, { stylePattern: /MG:melodic techno/ });
   });
