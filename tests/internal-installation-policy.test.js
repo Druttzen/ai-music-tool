@@ -28,4 +28,13 @@ describe("internal plugin and installation policy", () => {
     expect(source).not.toContain("download_and_install");
     expect(source).toContain("Uninstall Studio first");
   });
+  it("checks for cancellable running-app exit before disabling plugins", () => {
+    const source = read("src-tauri/installer/studio.nsi").split("Section Uninstall")[1];
+    expect(source.indexOf("!insertmacro CheckIfAppIsRunning")).toBeLessThan(source.indexOf('Delete "$INSTDIR\\data\\addons\\canvas\\plugin.json"'));
+  });
+  it("arms workspace reset only on completed app exit", () => {
+    const source = read("src-tauri/src/lib.rs");
+    expect(source.match(/workspace_reset::arm_reset_on_launch\(\)/g)).toHaveLength(1);
+    expect(source.slice(source.indexOf(".run(|app_handle, event|"))).toContain("workspace_reset::arm_reset_on_launch()");
+  });
 });

@@ -7,6 +7,7 @@ import { safeLocalStorage } from "../app/lib/safe-local-storage";
 
 vi.mock("../app/lib/project-workspace-reset", () => ({
   RESET_WORKSPACES_ON_EXIT_HOOK: "__testExit",
+  PROJECT_WORKSPACE_RESET_EVENT: "ai-music-project-workspace-reset",
   consumeWorkspaceResetIfPending: async () => false,
   setSkipWorkspaceAutosave: vi.fn(), shouldSkipWorkspaceAutosave: () => false,
   resetWorkspacesToDefaultOnExit: vi.fn(), clearWorkspaceSessionOnReset: vi.fn(),
@@ -54,4 +55,35 @@ it("does not overwrite the original autosave if a recovery backup cannot be stor
   await new Promise((resolve) => setTimeout(resolve, 2200));
   expect(deps.loadState).not.toHaveBeenCalled();
   expect(localStorage.getItem(STORAGE_KEY)).toBe(raw);
+});
+
+it("keeps a schema-invalid project when its quarantine backup hits quota", async () => {
+  const raw = JSON.stringify({ appVersion: APP_VERSION, idea: 123 });
+  localStorage.setItem(STORAGE_KEY, raw);
+  const originalSet = safeLocalStorage.set.bind(safeLocalStorage);
+  vi.spyOn(safeLocalStorage, "set").mockImplementation((key, value) => key.includes("_corrupt_") ? { ok: false, reason: "quota" } : originalSet(key, value));
+  renderHook(() => useProjectPersistence(deps));
+  await waitFor(() => expect(deps.setStatusWithTime).toHaveBeenCalledWith("Could not load saved data", "error"));
+  await new Promise((resolve) => setTimeout(resolve, 2200));
+  expect(deps.loadState).not.toHaveBeenCalled();
+  expect(localStorage.getItem(STORAGE_KEY)).toBe(raw);
+});
+
+it("keeps malformed JSON rather than replacing it with an empty autosave", async () => {
+  localStorage.setItem(STORAGE_KEY, "{broken-json");
+  renderHook(() => useProjectPersistence(deps));
+  await waitFor(() => expect(deps.setStatusWithTime).toHaveBeenCalledWith("Could not load saved data", "error"));
+  await new Promise((resolve) => setTimeout(resolve, 2200));
+  expect(localStorage.getItem(STORAGE_KEY)).toBe("{broken-json");
+});
+
+it("resumes autosave after the user explicitly resets a failed hydration", async () => {
+  localStorage.setItem(STORAGE_KEY, "{broken-json");
+  const view = renderHook(({ state }) => useProjectPersistence({ ...deps, currentState: state }), {
+    initialProps: { state: { idea: "Before reset" } },
+  });
+  await waitFor(() => expect(deps.setStatusWithTime).toHaveBeenCalledWith("Could not load saved data", "error"));
+  window.dispatchEvent(new CustomEvent("ai-music-project-workspace-reset", { detail: { resumeAutosave: true } }));
+  view.rerender({ state: { idea: "Fresh project" } });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(STORAGE_KEY)).idea).toBe("Fresh project"), { timeout: 3000 });
 });

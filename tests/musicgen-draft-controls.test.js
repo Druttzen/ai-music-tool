@@ -1,11 +1,14 @@
 /** @vitest-environment happy-dom */
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { MusicGenPreviewControls } from "../app/components/musicgen-preview-controls";
 import { LocalGeneratePanel } from "../app/components/local-generate-panel";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  delete window.__TAURI__;
+});
 
 it("shows the selected seed after changing a take and keeps edits on the same take", () => {
   const generate = vi.fn();
@@ -49,4 +52,17 @@ it("searches independent takes without accidentally turning on melody conditioni
   fireEvent.click(screen.getByRole("button", { name: "Explore 3 takes" }));
   expect(generate).toHaveBeenCalledWith("French house", 30, expect.objectContaining({ candidateCount: 3,
     compareReference: true, useMelodyReference: false, mergeAfterGenerate: false }));
+});
+
+it("prepares an uncached Medium model internally before enabling generation", async () => {
+  const invoke = vi.fn().mockResolvedValue("Selected model is ready");
+  window.__TAURI__ = { core: { invoke } };
+  render(createElement(MusicGenPreviewControls, {
+    available: true, onGenerate: vi.fn(), models: { "facebook/musicgen-stereo-small": true },
+  }));
+  fireEvent.change(screen.getByLabelText("Model"), { target: { value: "stereo-medium" } });
+  expect(screen.getByRole("button", { name: "Generate & play" }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Prepare stereo-medium for offline use" }));
+  await waitFor(() => expect(invoke).toHaveBeenCalledWith("prepare_musicgen_model", { modelPreset: "stereo-medium" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Generate & play" }).disabled).toBe(false));
 });

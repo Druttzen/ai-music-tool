@@ -77,7 +77,6 @@ function extractJsonResult(output) {
 }
 
 async function main() {
-  ensureIdentity();
   const branch = git(["branch", "--show-current"]);
 
   if (mode === "diagnose") {
@@ -92,6 +91,10 @@ async function main() {
     process.exit(0);
   }
 
+  if (git(["status", "--porcelain", "--untracked-files=all"])) {
+    throw new Error("Save or commit existing changes before automatic repair and publishing. No repair or push was performed.");
+  }
+  ensureIdentity();
   const fix = run(process.execPath, [path.join(__dirname, "fail-safe-bot.cjs"), "--json"], {
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -135,7 +138,12 @@ async function main() {
     process.exit(0);
   }
 
-  git(["add", "-A"]);
+  // Publish only tracked repair changes; newly created local files are not repairs.
+  git(["add", "-u"]);
+  if (!git(["diff", "--cached", "--name-only"])) {
+    process.stdout.write(`${JSON.stringify({ ok: true, changed: false, branch })}\n`);
+    process.exit(0);
+  }
   git(["commit", "-m", `fix: fail-safe auto repair (${new Date().toISOString().slice(0, 10)})`]);
   const commit = git(["rev-parse", "--short", "HEAD"]);
   const push = run("git", ["push", "origin", "HEAD"], { stdio: "inherit" });

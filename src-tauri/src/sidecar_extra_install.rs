@@ -263,6 +263,13 @@ pub fn probe_sidecar_extra_install_env(app: AppHandle) -> SidecarExtraInstallEnv
 }
 
 #[tauri::command]
+pub async fn prepare_musicgen_model(app: AppHandle, model_preset: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::sidecar_userdata::prepare_musicgen_model_in_user_venv(&app, &model_preset)
+    }).await.map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
 pub async fn install_sidecar_extra(
     app: AppHandle,
     manager: tauri::State<'_, Arc<SidecarManager>>,

@@ -6,7 +6,7 @@ Transforms selected time ranges on the vocal stem of an existing mix
 - ``rvc`` — RVC voice conversion (requires vocal-rvc extra or AIMC_RVC_API_URL)
 - ``pitch`` — pitch shift in semitones (librosa; base sidecar)
 - ``robot`` — amplitude × carrier ring-mod style (librosa; base sidecar)
-- ``formant`` — crude formant shift via pitch+time stretch (librosa; base sidecar)
+- ``formant`` — spectral-envelope shift preserving pitch and length (librosa)
 
 Returns remix WAV (new vocals + instrumental) and/or acapella WAV.
 """
@@ -148,17 +148,35 @@ def _transform_mono(
         carrier = np.sin(2.0 * np.pi * 55.0 * t).astype(np.float32)
         return (mono * carrier * 1.6).astype(np.float32)
 
-    # formant: pitch up then stretch back (shifts formants without net pitch)
-    steps = float(formant_shift if formant_shift else pitch_semitones or 2.0)
+    # Move the smooth vocal envelope, leaving harmonic frequencies and phase in place.
+    steps = float(formant_shift)
+    if not np.isfinite(steps):
+        raise ValueError("formant shift must be finite")
+    if sample_rate <= 0:
+        raise ValueError("sample rate must be positive")
     if abs(steps) < 0.01:
         return mono.copy()
-    pitched = librosa.effects.pitch_shift(mono, sr=sample_rate, n_steps=steps)
-    rate = 2.0 ** (steps / 12.0)
-    stretched = librosa.effects.time_stretch(pitched, rate=rate)
-    out = np.asarray(stretched, dtype=np.float32)
-    if out.shape[0] < mono.shape[0]:
-        out = np.pad(out, (0, mono.shape[0] - out.shape[0]))
-    return out[: mono.shape[0]]
+    if mono.size == 0:
+        return mono.copy()
+    n_fft = 2048
+    hop = n_fft // 4
+    spectrum = librosa.stft(mono, n_fft=n_fft, hop_length=hop, pad_mode="constant")
+    magnitude = np.abs(spectrum)
+    # A short cepstral lifter retains the broad formant envelope, not the harmonics.
+    log_magnitude = np.log(np.maximum(magnitude, 1e-7))
+    cepstrum = np.fft.irfft(log_magnitude, n=n_fft, axis=0)
+    cutoff = max(1, min(n_fft // 2 - 1, round(sample_rate * 0.002)))
+    cepstrum[cutoff + 1 : n_fft - cutoff] = 0
+    envelope = np.fft.rfft(cepstrum, n=n_fft, axis=0).real
+    bins = np.arange(envelope.shape[0], dtype=np.float64)
+    factor = 2.0 ** (np.clip(steps, -24.0, 24.0) / 12.0)
+    shifted = np.empty_like(envelope)
+    for frame in range(envelope.shape[1]):
+        shifted[:, frame] = np.interp(bins / factor, bins, envelope[:, frame])
+    # Bound gain to keep quiet/unvoiced bins from being excessively amplified.
+    gain = np.exp(np.clip(shifted - envelope, -np.log(8.0), np.log(8.0)))
+    out = librosa.istft(spectrum * gain, hop_length=hop, length=mono.size)
+    return np.asarray(out, dtype=np.float32)
 
 
 def transform_vocal_regions(

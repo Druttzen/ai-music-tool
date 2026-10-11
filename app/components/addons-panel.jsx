@@ -40,6 +40,7 @@ import {
   uninstallSidecarExtra,
   isSidecarExtraAllowlisted,
   normalizeSidecarExtraId,
+  sidecarExtraNpmHint,
   probeSidecarExtraInstallEnv,
   reportSidecarExtraInstallIfFailed,
   sidecarExtraInstallStatusTone,

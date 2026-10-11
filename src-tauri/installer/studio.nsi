@@ -828,9 +828,6 @@ FunctionEnd
 
 Section Uninstall
 
-  Delete "$INSTDIR\data\addons\canvas\plugin.json"
-  Delete "$INSTDIR\data\addons\acestep\plugin.json"
-  Delete "$INSTDIR\data\sidecar\installed-extras.json"
   !ifmacrodef NSIS_HOOK_PREUNINSTALL
     !insertmacro NSIS_HOOK_PREUNINSTALL
   !endif
@@ -838,6 +835,10 @@ Section Uninstall
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Delete the app directory and its content from disk
+  ; All cancellable running-app checks have completed before plugin deactivation.
+  Delete "$INSTDIR\data\addons\canvas\plugin.json"
+  Delete "$INSTDIR\data\addons\acestep\plugin.json"
+  Delete "$INSTDIR\data\sidecar\installed-extras.json"
   ; Copy main executable
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
 

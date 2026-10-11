@@ -92,7 +92,7 @@
   },
   "dependencies": {
     "lamejs": "^1.2.1",
-    "next": "16.3.4",
+    "next": "16.4.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "wavesurfer.js": "^7.12.10",
@@ -106,7 +106,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.4.0",
+    "fast-glob": "file:tools/next-eslint-glob",
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^20.10.6",
     "pdfkit": "^0.19.1",
@@ -115,6 +116,12 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.10",
+    "sharp": "^0.35.5",
+    "source-map-js": "^1.2.2",
+    "brace-expansion@^1.1.7": "^1.1.21",
+    "@next/eslint-plugin-next@16.4.0": {
+      "fast-glob": "$fast-glob"
+    }
   }
 }

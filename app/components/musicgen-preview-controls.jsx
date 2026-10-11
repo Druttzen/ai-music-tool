@@ -3,6 +3,8 @@
 import { memo, useState } from "react";
 import { useWorkspaceResetEffect } from "../hooks/use-workspace-reset-effect";
 import { MusicGenDraftTakes } from "./musicgen-draft-takes";
+import { prepareMusicGenModel } from "../lib/sidecar-extra-install-client";
+import { isTauriApp } from "../lib/dsp-bridge";
 
 /**
  * Shared MusicGen prompt + duration controls.
@@ -37,6 +39,9 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
   const [seed, setSeed] = useState(lastTake?.seed == null ? "" : String(lastTake.seed));
   const [candidateCount, setCandidateCount] = useState(3);
   const [compareReference, setCompareReference] = useState(false);
+  const [preparingModel, setPreparingModel] = useState(false);
+  const [modelSetupMessage, setModelSetupMessage] = useState("");
+  const [preparedModels, setPreparedModels] = useState({});
 
   useWorkspaceResetEffect(() => {
     setPromptOverride(null);
@@ -72,9 +77,25 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
     ...extra,
   });
 
-  const modelCached = (preset) => !models || models[`facebook/musicgen-${preset}`] === true;
+  const modelCached = (preset) => preparedModels[preset] === true || !models || models[`facebook/musicgen-${preset}`] === true;
   const selectedModel = useMelodyReference ? (modelPreset.startsWith("stereo") ? "stereo-melody" : "melody") : modelPreset;
   const selectionReady = modelCached(selectedModel);
+  const controlsBusy = busy || preparingModel;
+  const prepareSelectedModel = async () => {
+    if (controlsBusy) return;
+    const preset = selectedModel;
+    setPreparingModel(true);
+    setModelSetupMessage(`Preparing ${preset}… Download and verification may take several minutes.`);
+    try {
+      const message = await prepareMusicGenModel(preset);
+      setPreparedModels((previous) => ({ ...previous, [preset]: true }));
+      setModelSetupMessage(message);
+    } catch (error) {
+      setModelSetupMessage(error instanceof Error ? error.message : "Model setup failed");
+    } finally {
+      setPreparingModel(false);
+    }
+  };
 
   return (
     <section
@@ -87,10 +108,20 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       </div>
       <p className="text-[10px] leading-relaxed text-white/45">
         Audition the groove and instruments locally, then export your chosen WAV for Suno.
-        Stereo models keep their stereo image. Prepare models with Install or Repair setup before offline use.
+        Stereo models keep their stereo image. Select a model and prepare it here before offline use.
         MusicGen makes instrumental drafts and does not reproduce Suno vocals. CC-BY-NC weights.
       </p>
       {!selectionReady ? <p className="text-[10px] text-amber-100/80">This model is not prepared for offline use. Choose a cached model or complete setup.</p> : null}
+      {!selectionReady && available && isTauriApp() ? (
+        <div className="space-y-1">
+          <p className="text-[10px] text-white/50">Setup downloads several GB once. Medium models need more memory; 16 GB GPU is recommended for generation.</p>
+          <button type="button" disabled={controlsBusy} onClick={() => void prepareSelectedModel()}
+            className="rounded-xl border border-violet-400/35 px-3 py-2 text-xs text-violet-50 disabled:opacity-50">
+            {preparingModel ? "Preparing model…" : `Prepare ${selectedModel} for offline use`}
+          </button>
+        </div>
+      ) : null}
+      {modelSetupMessage ? <p role="status" className="text-[10px] text-white/60">{modelSetupMessage}</p> : null}
       {!available ? <p className="text-[10px] text-white/50">Setup: {installHint}</p> : null}
       <label className="block text-[10px] text-white/50">
         Prompt
@@ -105,13 +136,13 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-[10px] text-white/50">
           Temperature
-          <input type="number" min="0.1" max="2" step="0.1" value={temperature} disabled={busy}
+          <input type="number" min="0.1" max="2" step="0.1" value={temperature} disabled={controlsBusy}
             onChange={(e) => setTemperature(Number(e.target.value) || 1)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
         </label>
         <label className="block text-[10px] text-white/50">
           Guidance
-          <input type="number" min="0" max="10" step="0.5" value={cfgCoef} disabled={busy}
+          <input type="number" min="0" max="10" step="0.5" value={cfgCoef} disabled={controlsBusy}
             onChange={(e) => setCfgCoef(Number(e.target.value) || 0)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
         </label>
@@ -119,20 +150,20 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-[10px] text-white/50">
           Top-k
-          <input type="number" min="0" max="500" step="10" value={topK} disabled={busy}
+          <input type="number" min="0" max="500" step="10" value={topK} disabled={controlsBusy}
             onChange={(e) => setTopK(Number(e.target.value) || 0)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
         </label>
         <label className="block text-[10px] text-white/50">
           Top-p (0 = off)
-          <input type="number" min="0" max="1" step="0.05" value={topP} disabled={busy}
+          <input type="number" min="0" max="1" step="0.05" value={topP} disabled={controlsBusy}
             onChange={(e) => setTopP(Number(e.target.value) || 0)}
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
         </label>
       </div>
       <label className="block text-[10px] text-white/50">
         Seed (optional, reproducible)
-        <input type="number" min="0" max="2147483647" value={seed} disabled={busy}
+        <input type="number" min="0" max="2147483647" value={seed} disabled={controlsBusy}
           onChange={(e) => setSeed(e.target.value)}
           placeholder="Random"
           className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white" />
@@ -141,14 +172,14 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
         Model
         <select
           value={modelPreset}
-          disabled={busy}
+          disabled={controlsBusy}
           onChange={(e) => setModelPreset(e.target.value)}
           className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
         >
-          <option value="stereo-small" disabled={!modelCached("stereo-small")}>Stereo draft (fast)</option>
-          <option value="stereo-medium" disabled={!modelCached("stereo-medium")}>Stereo detail (slower; 16 GB GPU recommended)</option>
-          <option value="small" disabled={!modelCached("small")}>Small mono</option>
-          <option value="medium" disabled={!modelCached("medium")}>Medium mono (slower; 16 GB GPU recommended)</option>
+          <option value="stereo-small">Stereo draft (fast)</option>
+          <option value="stereo-medium">Stereo detail (slower; 16 GB GPU recommended)</option>
+          <option value="small">Small mono</option>
+          <option value="medium">Medium mono (slower; 16 GB GPU recommended)</option>
         </select>
       </label>
       <p className="text-[10px] text-white/45">
@@ -159,7 +190,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
         Duration
         <select
           value={durationSec}
-          disabled={busy}
+          disabled={controlsBusy}
           onChange={(e) => setDurationSec(Number(e.target.value))}
           className="mt-1 w-full rounded-lg border border-white/15 bg-black/35 p-1.5 text-xs text-white"
         >
@@ -174,7 +205,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
         <input
           type="checkbox"
           checked={mergeAfterGenerate}
-          disabled={busy}
+          disabled={controlsBusy}
           onChange={(e) => setMergeAfterGenerate(e.target.checked)}
         />
         Replace project style with the analyzed result
@@ -184,7 +215,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           <input
             type="checkbox"
             checked={useMelodyReference}
-            disabled={busy}
+            disabled={controlsBusy}
             onChange={(e) => setUseMelodyReference(e.target.checked)}
           />
           Condition on current track audio (melody mode)
@@ -195,7 +226,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
           <input
             type="checkbox"
             checked={useHighlightMelody}
-            disabled={busy || !useMelodyReference}
+            disabled={controlsBusy || !useMelodyReference}
             onChange={(e) => setUseHighlightMelody(e.target.checked)}
           />
           Use waveform highlight region only
@@ -204,7 +235,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={busy || !available || !selectionReady}
+          disabled={controlsBusy || !available || !selectionReady}
           onClick={(e) => {
             e.preventDefault();
             onGenerate(prompt, durationSec, { attach: true, ...genOptions() });
@@ -215,7 +246,7 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
         </button>
         <button
           type="button"
-          disabled={busy || !available || !selectionReady}
+          disabled={controlsBusy || !available || !selectionReady}
           onClick={(e) => {
             e.preventDefault();
             onGenerate(prompt, durationSec, { attach: false, download: true, ...genOptions() });
@@ -245,23 +276,23 @@ export const MusicGenPreviewControls = memo(function MusicGenPreviewControls({
       ) : null}
       <div className="rounded-xl border border-violet-400/20 p-2 space-y-2">
         <label className="block text-[10px] text-white/60">Takes to compare
-          <select value={candidateCount} disabled={busy} onChange={e => setCandidateCount(Number(e.target.value))}
+          <select value={candidateCount} disabled={controlsBusy} onChange={e => setCandidateCount(Number(e.target.value))}
             className="ml-2 rounded border border-white/20 bg-black/60 p-1 text-white">
             {[2, 3, 4].map(count => <option key={count} value={count}>{count}</option>)}
           </select>
         </label>
         {canUseMelodyReference ? <label className="flex items-center gap-2 text-[10px] text-white/60">
-          <input type="checkbox" checked={compareReference} disabled={busy} onChange={e => setCompareReference(e.target.checked)} />
+          <input type="checkbox" checked={compareReference} disabled={controlsBusy} onChange={e => setCompareReference(e.target.checked)} />
           Compare style with the current audio
         </label> : null}
         <p className="text-[10px] text-white/45">Creates separate seeds one at a time. A cached CLAP model compares prompt and reference style locally. Melody conditioning applies only when selected above. Listen to every take to judge composition and sound quality.</p>
-        <button type="button" disabled={busy || !available || !selectionReady} onClick={() => onGenerate(prompt, durationSec, {
+        <button type="button" disabled={controlsBusy || !available || !selectionReady} onClick={() => onGenerate(prompt, durationSec, {
           ...genOptions(), attach: true, candidateCount, compareReference: canUseMelodyReference && compareReference,
         })} className="rounded-xl border border-violet-400/35 px-3 py-2 text-xs text-violet-50 disabled:opacity-50">
           Explore {candidateCount} takes
         </button>
       </div>
-      <MusicGenDraftTakes search={lastTake?.search} busy={busy} onSelect={take => onGenerate(prompt, durationSec, {
+      <MusicGenDraftTakes search={lastTake?.search} busy={controlsBusy} onSelect={take => onGenerate(prompt, durationSec, {
         ...genOptions(), ...lastTake, attach: true, seed: take.seed, savedDraft: take, useMelodyReference: false,
       })} />
     </section>

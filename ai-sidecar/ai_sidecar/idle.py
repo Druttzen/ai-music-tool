@@ -5,12 +5,14 @@ from __future__ import annotations
 import os
 import threading
 import time
+from contextlib import contextmanager
 
 _IDLE_EXIT_SEC = float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "0"))
 _LAST_ACTIVITY = time.monotonic()
 _DEV_SESSION_UNTIL = 0.0
 _LOCK = threading.Lock()
 _WATCHDOG_STARTED = False
+_ACTIVE_OPERATIONS = 0
 
 # Only these routes count as tool use (/health probes do not extend the timer).
 _ACTIVITY_PATHS = frozenset({
@@ -43,6 +45,21 @@ def touch_activity() -> None:
         _LAST_ACTIVITY = time.monotonic()
 
 
+@contextmanager
+def activity_session():
+    """Keep requests, queued work and inference alive until their actual completion."""
+    global _ACTIVE_OPERATIONS, _LAST_ACTIVITY
+    with _LOCK:
+        _ACTIVE_OPERATIONS += 1
+        _LAST_ACTIVITY = time.monotonic()
+    try:
+        yield
+    finally:
+        with _LOCK:
+            _ACTIVE_OPERATIONS -= 1
+            _LAST_ACTIVITY = time.monotonic()
+
+
 def hold_dev_session(grace_sec: float = 45.0) -> None:
     """Suppress idle shutdown while a local dev watcher reports the UI is running."""
     global _DEV_SESSION_UNTIL, _LAST_ACTIVITY
@@ -69,8 +86,9 @@ def start_idle_watchdog() -> None:
             with _LOCK:
                 idle = time.monotonic() - _LAST_ACTIVITY
                 dev_hold = time.monotonic() < _DEV_SESSION_UNTIL
-            if _IDLE_EXIT_SEC > 0 and idle >= _IDLE_EXIT_SEC and not dev_hold:
-                os._exit(0)
+                # Make admission and shutdown atomic with respect to new work.
+                if _IDLE_EXIT_SEC > 0 and idle >= _IDLE_EXIT_SEC and not dev_hold and _ACTIVE_OPERATIONS == 0:
+                    os._exit(0)
 
     threading.Thread(target=_watch, daemon=True, name="sidecar-idle-watchdog").start()
 

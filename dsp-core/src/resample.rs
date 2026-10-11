@@ -15,6 +15,12 @@ pub fn resample_interleaved_to_export_rate(
     if channels == 0 {
         return Err(anyhow!("resample: channels=0"));
     }
+    if sample_rate == 0 {
+        return Err(anyhow!("resample: sample_rate=0"));
+    }
+    if samples.len() % channels as usize != 0 {
+        return Err(anyhow!("resample: incomplete interleaved frame"));
+    }
     if sample_rate == EXPORT_SAMPLE_RATE || samples.is_empty() {
         return Ok((samples.to_vec(), channels, sample_rate));
     }
@@ -37,10 +43,11 @@ pub fn resample_interleaved_to_export_rate(
 
     // Planar input buffers filled chunk-by-chunk.
     let mut waves_in: Vec<Vec<f32>> = (0..ch).map(|_| Vec::with_capacity(chunk)).collect();
-    let mut out: Vec<f32> = Vec::with_capacity(
-        ((frames_in as f64) * (EXPORT_SAMPLE_RATE as f64) / (sample_rate as f64) * 1.05) as usize
-            * ch,
-    );
+    let expected_frames = ((frames_in as u128 * EXPORT_SAMPLE_RATE as u128
+        + sample_rate as u128 / 2) / sample_rate as u128) as usize;
+    let delay = resampler.output_delay();
+    let required_frames = expected_frames + delay;
+    let mut out: Vec<f32> = Vec::with_capacity((required_frames + resampler.output_frames_max()) * ch);
 
     let mut frame = 0usize;
     while frame < frames_in {
@@ -61,13 +68,8 @@ pub fn resample_interleaved_to_export_rate(
             .context("resampling chunk")?;
 
         let frames_out = waves_out.first().map(|v| v.len()).unwrap_or(0);
-        // Drop padded silence on the last partial chunk proportionally.
-        let keep = if take < chunk {
-            ((frames_out as f64) * (take as f64) / (chunk as f64)).round() as usize
-        } else {
-            frames_out
-        };
-        for f in 0..keep {
+        // FFT blocks have variable output size. Keep all output until final trimming.
+        for f in 0..frames_out {
             for c in 0..ch {
                 out.push(waves_out[c][f]);
             }
@@ -75,19 +77,21 @@ pub fn resample_interleaved_to_export_rate(
         frame += take;
     }
 
-    // Flush remaining delay line.
+    // Flush the remaining signal and filter delay, including very short input.
     let zeros: Vec<Vec<f32>> = (0..ch).map(|_| vec![0.0; chunk]).collect();
-    if let Ok(waves_out) = resampler.process(&zeros, None) {
+    while out.len() / ch < required_frames {
+        let waves_out = resampler.process(&zeros, None).context("flushing FFT resampler")?;
         let frames_out = waves_out.first().map(|v| v.len()).unwrap_or(0);
-        // Only keep a small tail proportional to resampler latency (~chunk), not a full pad.
-        let keep = frames_out.min(chunk);
-        for f in 0..keep {
+        for f in 0..frames_out {
             for c in 0..ch {
                 out.push(waves_out[c][f]);
             }
         }
     }
 
+    let start = delay * ch;
+    out.copy_within(start..start + expected_frames * ch, 0);
+    out.truncate(expected_frames * ch);
     Ok((out, channels, EXPORT_SAMPLE_RATE))
 }
 
@@ -124,5 +128,26 @@ mod tests {
         assert_eq!(ch, 2);
         assert_eq!(sr, 48_000);
         assert_eq!(out, samples);
+    }
+
+    #[test]
+    fn exports_exact_frame_count_including_short_and_partial_chunks() {
+        for rate in [8_000u32, 22_050, 44_100, 96_000] {
+            for frames in [1usize, 17, 1024, 1025, 44_100] {
+                let samples = vec![0.25f32; frames * 2];
+                let (out, _, _) = resample_interleaved_to_export_rate(&samples, 2, rate).unwrap();
+                let expected = ((frames as u64 * 48_000 + rate as u64 / 2) / rate as u64) as usize;
+                assert_eq!(out.len(), expected * 2, "rate={rate} frames={frames}");
+            }
+        }
+    }
+
+    #[test]
+    fn compensates_filter_delay_for_an_impulse() {
+        let mut samples = vec![0.0f32; 4410];
+        samples[882] = 1.0;
+        let (out, _, _) = resample_interleaved_to_export_rate(&samples, 1, 44_100).unwrap();
+        let peak = out.iter().enumerate().max_by(|(_, a), (_, b)| a.abs().total_cmp(&b.abs())).unwrap().0;
+        assert_eq!(peak, 960);
     }
 }

@@ -25,6 +25,7 @@ import {
 } from "../lib/voice-character-preset";
 import {
   RESET_WORKSPACES_ON_EXIT_HOOK,
+  PROJECT_WORKSPACE_RESET_EVENT,
   clearWorkspaceSessionOnReset,
   consumeWorkspaceResetIfPending,
   resetWorkspacesToDefaultOnExit,
@@ -79,6 +80,8 @@ export function useProjectPersistence({
           setSkipWorkspaceAutosave(false);
           const saved = safeLocalStorage.get(STORAGE_KEY, null);
           if (saved) {
+            // Until hydration succeeds, never overwrite the only saved copy.
+            recoveryFailed = true;
             const raw = JSON.parse(saved);
             const parsed = normalizeProjectEntryCollections(raw);
             // Keep the original autosave recoverable if individual entries were
@@ -93,8 +96,13 @@ export function useProjectPersistence({
             const validation = ProjectStateSchema.partial().safeParse(parsed);
             if (!validation.success) {
               const recoveryKey = `${STORAGE_KEY}_corrupt_${Date.now()}`;
-              safeLocalStorage.set(recoveryKey, saved);
-              safeLocalStorage.remove(STORAGE_KEY);
+              const recovery = safeLocalStorage.set(recoveryKey, saved);
+              if (!recovery.ok) {
+                throw new Error("Could not preserve original project before recovery");
+              }
+              const removal = safeLocalStorage.remove(STORAGE_KEY);
+              if (!removal.ok) throw new Error("Could not clear backed-up invalid project");
+              recoveryFailed = false;
               throw new Error("Saved project failed schema validation");
             }
             let hardReset = false;
@@ -129,6 +137,7 @@ export function useProjectPersistence({
                 persistCharacterVoiceStudioSession(cvSession);
               }
             }
+            recoveryFailed = false;
           }
           const presets = safeLocalStorage.getJSON(PRESET_KEY, null);
           if (presets) setCustomPresets(presets);
@@ -145,10 +154,10 @@ export function useProjectPersistence({
             setHistory(entries);
           }
         } catch {
-          setSkipWorkspaceAutosave(false);
           setStatusWithTime("Could not load saved data", "error");
         } finally {
           hydratedRef.current = !recoveryFailed;
+          setSkipWorkspaceAutosave(recoveryFailed);
         }
       })();
     }, 0);
@@ -206,11 +215,20 @@ export function useProjectPersistence({
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    // Tauri CloseRequested evals this hook. Do not bind pagehide/beforeunload:
+    // Retain the explicit legacy reset hook. Native exit now arms a restore flag.
+    // Do not bind pagehide/beforeunload:
     // Playwright reloads and Next HMR would wipe the project as if the app exited.
     const onExit = () => resetWorkspacesToDefaultOnExit();
+    const onExplicitReset = (event) => {
+      if (!event.detail?.resumeAutosave) return;
+      hydratedRef.current = true;
+      lastAutosavePayloadRef.current = "";
+      setSkipWorkspaceAutosave(false);
+    };
     window[RESET_WORKSPACES_ON_EXIT_HOOK] = onExit;
+    window.addEventListener(PROJECT_WORKSPACE_RESET_EVENT, onExplicitReset);
     return () => {
+      window.removeEventListener(PROJECT_WORKSPACE_RESET_EVENT, onExplicitReset);
       if (window[RESET_WORKSPACES_ON_EXIT_HOOK] === onExit) {
         delete window[RESET_WORKSPACES_ON_EXIT_HOOK];
       }

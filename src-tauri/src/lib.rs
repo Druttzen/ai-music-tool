@@ -26,6 +26,7 @@ use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness, StereoPhas
 use sidecar_extra_install::{
     install_sidecar_extra, list_installed_sidecar_extras, probe_sidecar_extra_install_env,
     uninstall_sidecar_extra,
+    prepare_musicgen_model,
 };
 use sidecar_manager::{SidecarManager, SidecarStatus};
 use studio_component_update::update_studio_all;
@@ -160,16 +161,6 @@ pub fn run() {
                 Ok(())
             }
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                workspace_reset::arm_reset_on_launch();
-                if let Some(webview) = window.get_webview_window(window.label()) {
-                    let _ = webview.eval(
-                        r#"try { window.__AIMUSIC_RESET_WORKSPACES_ON_EXIT && window.__AIMUSIC_RESET_WORKSPACES_ON_EXIT(); } catch (e) {}"#,
-                    );
-                }
-            }
-        })
         .invoke_handler(tauri::generate_handler![
             measure_loudness_bytes,
             measure_stereo_phase_bytes,
@@ -185,6 +176,7 @@ pub fn run() {
             install_canvas_addon,
             uninstall_canvas_addon,
             install_sidecar_extra,
+            prepare_musicgen_model,
             uninstall_sidecar_extra,
             list_installed_sidecar_extras,
             probe_sidecar_extra_install_env,
@@ -212,6 +204,8 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if matches!(event, RunEvent::Exit) {
+                // Only a completed application exit resets the next workspace.
+                // Plugin closes and cancelled CloseRequested events must not arm it.
                 workspace_reset::arm_reset_on_launch();
                 if let Some(manager) = app_handle.try_state::<Arc<SidecarManager>>() {
                     manager.stop();

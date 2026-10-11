@@ -383,7 +383,7 @@ export function StylePromptPicker({
                         .find((s) => s.sectionId === "cat-awesomeSunoConcepts")
                         ?.items.filter((it) => {
                           if (cc0ActiveTags.size === 0) return true;
-                          return cc0ActiveTags.has(awesomeSunoConceptTags?.[it.text]);
+                          return cc0ActiveTags.has(awesomeTags?.[it.text]);
                         }) || [];
                   if (!pool.length) {
                     setStatusWithTime("No CC0 concepts match the active tags");

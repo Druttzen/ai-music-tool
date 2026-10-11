@@ -85,7 +85,6 @@ export const AceStepSongControls = memo(function AceStepSongControls({
     setQuality("turbo");
     setSeed("");
     setGuidanceScale(7);
-    setCopyStatus("");
   });
 
   const prompt = promptOverride ?? defaultPrompt ?? "";

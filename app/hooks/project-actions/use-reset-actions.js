@@ -22,7 +22,7 @@ export function useResetActions(deps) {
     resetBlank();
     resetAnalyzers();
     clearCharacterVoiceStudioSessionOnReset();
-    clearWorkspaceSessionOnReset();
+    clearWorkspaceSessionOnReset({ resumeAutosave: true });
     clearStoredCredentials();
     lastAutosavePayloadRef.current = "";
     safeLocalStorage.remove(STORAGE_KEY);

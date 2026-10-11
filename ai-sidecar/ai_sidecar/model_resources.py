@@ -9,6 +9,7 @@ from functools import wraps
 import gc
 import sys
 import threading
+from .idle import activity_session
 
 _LOCK = threading.RLock()
 _LOCAL = threading.local()
@@ -44,7 +45,7 @@ def release_models() -> None:
 
 @contextmanager
 def model_session():
-    with _LOCK:
+    with activity_session(), _LOCK:
         depth = getattr(_LOCAL, "depth", 0)
         _LOCAL.depth = depth + 1
         try:

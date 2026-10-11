@@ -174,14 +174,26 @@ def readiness(capability: str) -> dict:
             "runtimeReady": bool(configured and (cached or not offline)), "models": models}
 
 
-def provision(extra: str) -> None:
+MUSICGEN_PRESETS = frozenset({"small", "medium", "melody", "stereo-small", "stereo-medium", "stereo-melody"})
+
+
+def provision(extra: str, *, musicgen_model: str | None = None) -> None:
     """Explicit install phase; downloads are permitted only in this process."""
     os.environ["HF_HUB_OFFLINE"] = "0"
     os.environ["TRANSFORMERS_OFFLINE"] = "0"
     if extra == "generate":
         from .musicgen import _get_model, active_musicgen_model_id
-        for model in dict.fromkeys((active_musicgen_model_id(), "facebook/musicgen-stereo-small")):
+        if musicgen_model is not None and musicgen_model not in MUSICGEN_PRESETS:
+            raise ValueError("Unknown MusicGen model preset")
+        requested_models = (f"facebook/musicgen-{musicgen_model}",) if musicgen_model else (
+            active_musicgen_model_id(), "facebook/musicgen-stereo-small")
+        for model in dict.fromkeys(requested_models):
+            print(f"Preparing offline model: {model}", flush=True)
             _get_model("cpu", model)
+            if not hf_model_cached(model, musicgen=True):
+                raise RuntimeError(f"Model setup incomplete: {model}")
+        from .model_resources import release_models
+        release_models()
     elif extra == "stems":
         from demucs.pretrained import get_model
         get_model("htdemucs")
@@ -202,4 +214,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--provision", required=True)
-    provision(parser.parse_args().provision)
+    parser.add_argument("--musicgen-model", choices=sorted(MUSICGEN_PRESETS))
+    args = parser.parse_args()
+    provision(args.provision, musicgen_model=args.musicgen_model)

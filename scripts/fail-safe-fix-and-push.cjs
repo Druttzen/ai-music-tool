@@ -80,6 +80,14 @@ async function main() {
     emit({ ok: false, stage: "git", message: "Not a git repository" }, 1);
   }
 
+  if (git(["status", "--porcelain", "--untracked-files=all"])) {
+    emit({
+      ok: false,
+      stage: "worktree",
+      message: "Save or commit existing changes before automatic repair and publishing. No repair or push was performed.",
+    }, 1);
+  }
+
   const fixExit = runInherit(process.execPath, [path.join(__dirname, "fail-safe-bot.cjs")]);
   if (fixExit !== 0) {
     emit(
@@ -104,6 +112,9 @@ async function main() {
   }
 
   git(["add", "-u"]);
+  if (!git(["diff", "--cached", "--name-only"])) {
+    emit({ ok: true, stage: "done", changed: false, message: "No tracked repair changes to publish." });
+  }
 
   const current = git(["branch", "--show-current"]);
   const pushMaster = process.env.AIMC_FIX_PUSH_MASTER === "1";

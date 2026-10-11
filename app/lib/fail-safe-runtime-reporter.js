@@ -9,6 +9,7 @@
 
 import { classifyFailureText, formatAgentFixPrompt } from "./fail-safe-bot.js";
 import { safeLocalStorage } from "./safe-local-storage.js";
+import { redactRuntimeText, sanitizeRuntimeValue } from "../../lib/runtime-log-redaction.cjs";
 
 export const RUNTIME_REPORT_ENABLED_KEY = "aimc.failSafeRuntime.reportEnabled";
 export const RUNTIME_TELEMETRY_CONSENT_KEY = "aimc.failSafeRuntime.telemetryConsent";
@@ -82,14 +83,15 @@ export function runtimeFailBranchName(opts = {}) {
 }
 
 /**
- * Light redaction — strip obvious secrets from error text before queue/issue body.
+ * Remove credentials before queueing and again before delivery of older reports.
  * @param {string} text
  */
 export function redactRuntimeLog(text) {
-  return String(text || "")
-    .replace(/\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b/g, "[redacted-token]")
-    .replace(/\b(AIMC_GITHUB_TOKEN|GITHUB_TOKEN|Authorization)\s*[:=]\s*\S+/gi, "$1=[redacted]")
-    .slice(0, MAX_STACK);
+  return redactRuntimeText(text).slice(0, MAX_STACK);
+}
+
+function sanitizeRuntimeReport(value) {
+  return sanitizeRuntimeValue(value, redactRuntimeLog);
 }
 
 /**
@@ -110,7 +112,7 @@ export function formatRuntimeReportPayload(input = {}) {
   const at = input.at || Date.now();
   const message = redactRuntimeLog(input.message || "Unknown runtime error");
   const stack = redactRuntimeLog(input.stack || "");
-  const source = String(input.source || "runtime").slice(0, 64);
+  const source = redactRuntimeLog(input.source || "runtime").slice(0, 64);
   const haystack = [message, stack, source].filter(Boolean).join("\n");
   const issues = classifyFailureText(haystack);
   const fingerprint = (issues[0]?.id || message).slice(0, 48);
@@ -125,8 +127,8 @@ export function formatRuntimeReportPayload(input = {}) {
     "## Fail-Safe Runtime report",
     "",
     `Source: \`${source}\``,
-    `App version: ${input.appVersion || "(unknown)"}`,
-    `Sidecar: ${input.sidecarAiStatus || "(n/a)"}`,
+    `App version: ${redactRuntimeLog(input.appVersion || "(unknown)")}`,
+    `Sidecar: ${redactRuntimeLog(input.sidecarAiStatus || "(n/a)")}`,
     `Suggested agent branch: \`${branch}\``,
     `Captured: ${new Date(at).toISOString()}`,
     "",
@@ -175,8 +177,8 @@ export function formatRuntimeReportPayload(input = {}) {
 export function buildGitHubNewIssueUrl(payload, opts = {}) {
   const owner = opts.owner || "Druttzen";
   const repo = opts.repo || "ai-music-tool";
-  const title = encodeURIComponent(payload.issueTitle || "[fail-safe-runtime]");
-  const body = encodeURIComponent(payload.issueBody || "");
+  const title = encodeURIComponent(redactRuntimeLog(payload.issueTitle || "[fail-safe-runtime]"));
+  const body = encodeURIComponent(redactRuntimeLog(payload.issueBody || ""));
   return `https://github.com/${owner}/${repo}/issues/new?title=${title}&body=${body}`;
 }
 
@@ -218,7 +220,7 @@ export function exportTopRuntimeReportJson() {
  */
 export function getRuntimeReportQueue() {
   const list = safeLocalStorage.getJSON(RUNTIME_REPORT_QUEUE_KEY, []);
-  return Array.isArray(list) ? list : [];
+  return Array.isArray(list) ? list.map(sanitizeRuntimeReport) : [];
 }
 
 /**

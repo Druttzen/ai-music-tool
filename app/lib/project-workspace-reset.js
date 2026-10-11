@@ -11,7 +11,7 @@ import { clearCharacterVoiceStudioSessionOnReset } from "./voice-character-studi
 import { safeLocalStorage } from "./safe-local-storage";
 
 export const PROJECT_WORKSPACE_RESET_EVENT = "ai-music-project-workspace-reset";
-/** Must match src-tauri/src/lib.rs webview.eval hook. */
+/** Legacy explicit reset hook; native completed exit uses a persisted reset flag. */
 export const RESET_WORKSPACES_ON_EXIT_HOOK = "__AIMUSIC_RESET_WORKSPACES_ON_EXIT";
 
 const GUIDED_FOCUS_SHOW_ALL_KEY = "ai_music_creator_guided_show_all";
@@ -30,9 +30,9 @@ export function setSkipWorkspaceAutosave(skip) {
 
 /**
  * Clear auxiliary workspace session keys and broadcast reset to mounted panels.
- * @param {{ credentials?: boolean }} [options]
+ * @param {{ credentials?: boolean, resumeAutosave?: boolean }} [options]
  */
-export function clearWorkspaceSessionOnReset({ credentials = true } = {}) {
+export function clearWorkspaceSessionOnReset({ credentials = true, resumeAutosave = false } = {}) {
   if (credentials) clearStoredCredentials();
   safeLocalStorage.remove(MAESTRO_CHAT_STORAGE_KEY);
   safeLocalStorage.remove(VOCAL_ALIGN_PREVIEW_STORAGE_KEY);
@@ -46,7 +46,7 @@ export function clearWorkspaceSessionOnReset({ credentials = true } = {}) {
     }
   }
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(PROJECT_WORKSPACE_RESET_EVENT));
+    window.dispatchEvent(new CustomEvent(PROJECT_WORKSPACE_RESET_EVENT, { detail: { resumeAutosave } }));
   }
 }
 

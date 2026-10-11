@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import { sanitizeRuntimeValue } from "../lib/runtime-log-redaction.cjs";
 import {
   buildGitHubNewIssueUrl,
   canQueueRuntimeReports,
@@ -55,6 +56,22 @@ describe("fail-safe-runtime-reporter", () => {
     const out = redactRuntimeLog("token ghp_abcdefghijklmnopqrstuvwxyz012345 Authorization: Bearer secret");
     expect(out).toContain("[redacted-token]");
     expect(out).not.toMatch(/ghp_[A-Za-z0-9]{20,}/);
+  });
+
+  it("redacts complete Bearer headers, fine-grained PATs and API keys", () => {
+    for (const secret of ["ordinary-secret", "sk-proj-abcdefghijklmnopqrstuvwxyz", "github_pat_abcdefghijklmnopqrstuvwxyz"]) {
+      expect(redactRuntimeLog(`Authorization: Bearer ${secret}`)).not.toContain(secret);
+      expect(redactRuntimeLog(`\"Authorization\": \"Bearer ${secret}\"`)).not.toContain(secret);
+    }
+    expect(redactRuntimeLog("X-API-Key: ordinary-secret")).not.toContain("ordinary-secret");
+    expect(redactRuntimeLog("Proxy-Authorization: Basic dXNlcjpwYXNz")).not.toContain("dXNlcjpwYXNz");
+  });
+
+  it("sanitizes legacy payloads at the delivery boundary", () => {
+    const url = buildGitHubNewIssueUrl({ issueTitle: "old report", issueBody: "Authorization: Bearer ordinary-secret" });
+    expect(decodeURIComponent(url)).not.toContain("ordinary-secret");
+    expect(sanitizeRuntimeValue({ credentials: { apiKey: "ordinary-secret", github_token: "ordinary-secret" } }))
+      .toEqual({ credentials: { apiKey: "[redacted]", github_token: "[redacted]" } });
   });
 
   it("builds issue payload with labels and agent prompt", () => {

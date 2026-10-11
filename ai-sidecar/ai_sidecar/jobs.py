@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .model_resources import model_session
+from .idle import activity_session
 
 
 @dataclass
@@ -241,7 +242,7 @@ class JobManager:
         return runner, job
 
     def _execute(self, runner: RunnerFn, job: Job) -> None:
-        with self._worker_lock, model_session():
+        with activity_session(), self._worker_lock, model_session():
             with self._lock:
                 if job.cancel:
                     job.status = "cancelled"

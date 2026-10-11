@@ -52,3 +52,25 @@ def test_transform_vocal_regions_full_track_when_empty():
     out = transform_vocal_regions(mono, sr, [], mode="robot")
     assert out.shape == mono.shape
     assert not np.allclose(out, mono)
+
+
+@pytest.mark.parametrize("steps", [-12, 2, 12])
+def test_formant_preserves_pitch_length_and_non_silent_tail(steps):
+    from ai_sidecar.vocal_transform import _transform_mono
+    sr = 22050
+    t = np.arange(sr, dtype=np.float32) / sr
+    mono = (0.2 * np.sin(2 * np.pi * 220 * t)).astype(np.float32)
+    out = _transform_mono(mono, sr, mode="formant", pitch_semitones=0, formant_shift=steps)
+    assert out.shape == mono.shape
+    assert np.isfinite(out).all()
+    middle = out[sr // 4 : 3 * sr // 4]
+    spectrum = np.abs(np.fft.rfft(middle * np.hanning(middle.size)))
+    peak_hz = np.argmax(spectrum) * sr / middle.size
+    assert abs(peak_hz - 220) < 3
+    assert np.sqrt(np.mean(out[-sr // 10:] ** 2)) > 1e-4
+
+
+def test_zero_formant_shift_is_identity():
+    from ai_sidecar.vocal_transform import _transform_mono
+    mono = np.random.default_rng(4).normal(0, 0.1, 400).astype(np.float32)
+    assert np.array_equal(_transform_mono(mono, 8000, mode="formant", pitch_semitones=0, formant_shift=0), mono)

@@ -1,6 +1,8 @@
 """Tests for sidecar idle shutdown helpers."""
 
 from ai_sidecar.idle import configure_idle_exit, dev_session_active, hold_dev_session, is_activity_path, touch_activity
+from ai_sidecar import idle
+import pytest
 
 
 def test_activity_paths():
@@ -22,3 +24,14 @@ def test_configure_idle_exit_clamps_negative():
 def test_dev_session_hold():
     hold_dev_session(60.0)
     assert dev_session_active()
+
+
+def test_nested_activity_sessions_keep_work_alive_and_release_on_error():
+    original = idle._ACTIVE_OPERATIONS
+    with pytest.raises(RuntimeError):
+        with idle.activity_session():
+            assert idle._ACTIVE_OPERATIONS == original + 1
+            with idle.activity_session():
+                assert idle._ACTIVE_OPERATIONS == original + 2
+                raise RuntimeError("failed inference")
+    assert idle._ACTIVE_OPERATIONS == original

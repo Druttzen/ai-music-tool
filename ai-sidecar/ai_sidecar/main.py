@@ -95,6 +95,7 @@ from .idle import (
     is_activity_path,
     start_idle_watchdog,
     touch_activity,
+    activity_session,
 )
 
 _SIDECAR_TOKEN = os.environ.get("AIMC_SIDECAR_TOKEN", "").strip()
@@ -194,7 +195,8 @@ async def _sidecar_token_auth(request: Request, call_next):
 @app.middleware("http")
 async def _track_sidecar_activity(request: Request, call_next):
     if is_activity_path(request.url.path):
-        touch_activity()
+        with activity_session():
+            return await call_next(request)
     return await call_next(request)
 
 

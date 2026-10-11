@@ -707,6 +707,31 @@ pub fn uninstall_extra_from_user_venv(
     Ok(format!("{id} deactivated. Shared libraries and cached models were preserved."))
 }
 
+pub fn prepare_musicgen_model_in_user_venv(app: &AppHandle, preset: &str) -> Result<String, String> {
+    if !matches!(preset, "small" | "medium" | "melody" | "stereo-small" | "stereo-medium" | "stereo-melody") {
+        return Err("Unknown MusicGen model preset".into());
+    }
+    let root = user_sidecar_root(app)?;
+    let py = user_venv_python(&root)
+        .ok_or_else(|| "Install the internal MusicGen plugin before preparing models".to_string())?;
+    let pkg = ensure_user_sidecar_pkg(app)?;
+    let mut setup = Command::new(&py);
+    setup.args(["-m", "ai_sidecar.model_readiness", "--provision", "generate", "--musicgen-model", preset])
+        .current_dir(&root)
+        .env("PYTHONPATH", &pkg);
+    apply_runtime_cache_env(&mut setup, &root);
+    setup.env("HF_HUB_OFFLINE", "0").env("TRANSFORMERS_OFFLINE", "0");
+    emit_install_progress(app, "generate", "start", Some("Preparing selected MusicGen model for offline use"), None);
+    let result = run_command_streaming(setup, Duration::from_secs(60 * 60), |line| {
+        emit_install_progress(app, "generate", "log", Some(line), None);
+    })?;
+    if !result.status.success() {
+        return Err(format!("MusicGen model setup failed: {}", String::from_utf8_lossy(&result.stderr)));
+    }
+    emit_install_progress(app, "generate", "done", Some("Selected model is ready for offline use"), None);
+    Ok(format!("MusicGen {preset} prepared and verified in Studio's internal model cache"))
+}
+
 pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<String, String> {
     let root = user_sidecar_root(app)?;
     let py = bootstrap_user_venv(app)?;

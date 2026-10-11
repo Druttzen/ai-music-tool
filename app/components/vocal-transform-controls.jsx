@@ -73,7 +73,7 @@ export const VocalTransformControls = memo(function VocalTransformControls({
       </label>
       {mode === "pitch" || mode === "formant" || mode === "rvc" ? (
         <label className="block text-[10px] text-white/50">
-          Pitch (semitones)
+          {mode === "formant" ? "Formant shift (semitones; pitch preserved)" : "Pitch (semitones)"}
           <input
             type="number"
             step="1"

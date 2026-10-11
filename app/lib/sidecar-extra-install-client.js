@@ -177,6 +177,17 @@ export async function installSidecarExtra(extraId) {
   };
 }
 
+export async function prepareMusicGenModel(modelPreset) {
+  const preset = String(modelPreset || "");
+  if (!["small", "medium", "melody", "stereo-small", "stereo-medium", "stereo-melody"].includes(preset)) {
+    throw new Error("Unknown MusicGen model preset");
+  }
+  if (!isTauriApp()) throw new Error("Model setup is available in the Studio desktop app");
+  const message = await tauriInvoke("prepare_musicgen_model", { modelPreset: preset });
+  resetSidecarHealthCache();
+  return message;
+}
+
 export async function uninstallSidecarExtra(extraId) {
   const id = normalizeSidecarExtraId(extraId);
   if (!isSidecarExtraAllowlisted(id)) {

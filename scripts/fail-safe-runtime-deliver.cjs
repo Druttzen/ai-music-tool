@@ -15,10 +15,12 @@
 const { spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const { randomUUID } = require("crypto");
 const { createDraftPullRequest, createIssue } = require("./fail-safe-runtime-github.cjs");
+const { sanitizeRuntimeValue } = require("../lib/runtime-log-redaction.cjs");
 
 const root = path.join(__dirname, "..");
-const isWin = process.platform === "win32";
 const args = process.argv.slice(2).filter((a) => a !== "--");
 const wantPr = args.includes("--pr");
 const wantBranch = args.includes("--branch") || wantPr;
@@ -32,7 +34,7 @@ if (!fileArg) {
   process.exit(1);
 }
 
-const payload = JSON.parse(fs.readFileSync(path.resolve(fileArg), "utf8"));
+const payload = sanitizeRuntimeValue(JSON.parse(fs.readFileSync(path.resolve(fileArg), "utf8")));
 const title = payload.issueTitle || "[fail-safe-runtime] report";
 const body = payload.issueBody || JSON.stringify(payload, null, 2);
 const labels = Array.isArray(payload.labels) ? payload.labels : ["fail-safe-runtime", "needs-agent"];
@@ -44,7 +46,7 @@ function gh(ghArgs) {
   return spawnSync("gh", ghArgs, {
     cwd: root,
     encoding: "utf8",
-    shell: isWin,
+    shell: false,
   });
 }
 
@@ -52,12 +54,13 @@ function git(gitArgs, inherit = false) {
   return spawnSync("git", gitArgs, {
     cwd: root,
     encoding: "utf8",
-    shell: isWin,
+    shell: false,
     stdio: inherit ? "inherit" : "pipe",
   });
 }
 
 function emit(result, code = 0) {
+  result = sanitizeRuntimeValue(result);
   if (jsonOut) {
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } else {
@@ -83,22 +86,19 @@ async function createGitHubIssue() {
   }
 
   const labelArg = labels.join(",");
-  let create = gh([
-    "issue",
-    "create",
-    "--title",
-    title,
-    "--body",
-    body,
-    "--label",
-    labelArg,
-  ]);
-
-  if (create.status !== 0) {
-    create = gh(["issue", "create", "--title", title, "--body", body]);
+  const bodyFile = path.join(os.tmpdir(), `studio-runtime-issue-${randomUUID()}.md`);
+  let create;
+  fs.writeFileSync(bodyFile, body, "utf8");
+  try {
+    create = gh(["issue", "create", "--title", title, "--body-file", bodyFile, "--label", labelArg]);
     if (create.status !== 0) {
-      throw new Error(create.stderr || create.stdout || "gh issue create failed");
+      create = gh(["issue", "create", "--title", title, "--body-file", bodyFile]);
+      if (create.status !== 0) {
+        throw new Error(create.stderr || create.stdout || "gh issue create failed");
+      }
     }
+  } finally {
+    fs.unlinkSync(bodyFile);
   }
 
   const issueUrl = (create.stdout || "").trim();
@@ -111,7 +111,7 @@ function prepareBranch(issueNumber) {
   fs.writeFileSync(reportPath, `${body}\n`, "utf8");
 
   const cur = git(["branch", "--show-current"]).stdout?.trim();
-  const checkout = git(["checkout", "-B", branch], true);
+  const checkout = git(["checkout", "-b", branch], true);
   if (checkout.status !== 0) {
     throw new Error(`Could not create branch ${branch}`);
   }
@@ -159,17 +159,14 @@ async function openDraftPr(issueNumber) {
     if (list[0]?.url) return list[0].url;
   }
 
-  const create = gh([
-    "pr",
-    "create",
-    "--draft",
-    "--title",
-    prTitle,
-    "--body",
-    prBody,
-    "--head",
-    branch,
-  ]);
+  const bodyFile = path.join(os.tmpdir(), `studio-runtime-pr-${randomUUID()}.md`);
+  fs.writeFileSync(bodyFile, prBody, "utf8");
+  let create;
+  try {
+    create = gh(["pr", "create", "--draft", "--title", prTitle, "--body-file", bodyFile, "--head", branch]);
+  } finally {
+    fs.unlinkSync(bodyFile);
+  }
   if (create.status !== 0) {
     throw new Error(create.stderr || create.stdout || "gh pr create failed");
   }
@@ -178,6 +175,12 @@ async function openDraftPr(issueNumber) {
 
 async function main() {
   try {
+    if (wantBranch) {
+      const status = git(["status", "--porcelain", "--untracked-files=all"]);
+      if (status.status !== 0 || status.stdout.trim()) {
+        emit({ ok: false, stage: "worktree", message: "Save or commit existing changes before creating a report branch. No issue or push was performed." }, 1);
+      }
+    }
     const { issueUrl, issueNumber } = await createGitHubIssue();
     const result = {
       ok: true,
