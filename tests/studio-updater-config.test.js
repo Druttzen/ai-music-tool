@@ -13,6 +13,7 @@ describe("Studio updater release contract", () => {
       "https://github.com/Druttzen/ai-music-tool/releases/latest/download/latest.json",
     ]);
     expect(config.plugins.updater.windows.installMode).toBe("quiet");
+    expect(config.bundle.macOS.minimumSystemVersion).toBe("14.0");
   });
 
   it("requires signing and verifies updater assets before publishing", () => {
