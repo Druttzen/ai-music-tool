@@ -5,6 +5,7 @@ import {
   checkForDesktopUpdates,
   getDesktopUpdateRuntime,
   installDesktopUpdate,
+  installStudioAppUpdate,
   subscribeToDesktopUpdateStatus,
 } from "../lib/desktop-update-bridge";
 
@@ -167,7 +168,7 @@ export function useDesktopUpdates() {
           ? `Downloading Studio update v${check.version}…`
           : "Downloading Studio update…",
       );
-      const result = await installDesktopUpdate();
+      const result = await installStudioAppUpdate();
       if (!result?.ok) {
         showErrorBriefly(result?.error || "Update failed");
         return;
@@ -192,7 +193,7 @@ export function useDesktopUpdates() {
       // Status bar and header each own hook state. Finish events must dismiss the bar
       // here — only the instance that called updateAll schedules hideStatus otherwise.
       const finished =
-        payload.pct === 100 || /update check finished|timed out/i.test(message);
+        payload.phase === "studio-error" || payload.pct === 100 || /update check finished|timed out/i.test(message);
       if (finished) {
         setBusy(false);
         clearHideTimer();

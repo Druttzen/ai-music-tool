@@ -15,6 +15,7 @@ import {
   checkForDesktopUpdates,
   getDesktopUpdateRuntime,
   installDesktopUpdate,
+  installStudioAppUpdate,
   subscribeToDesktopUpdateStatus,
 } from "../app/lib/desktop-update-bridge.js";
 
@@ -22,6 +23,7 @@ vi.mock("../app/lib/desktop-update-bridge.js", () => ({
   getDesktopUpdateRuntime: vi.fn(() => "tauri"),
   checkForDesktopUpdates: vi.fn(async () => ({ ok: true, available: false })),
   installDesktopUpdate: vi.fn(async () => ({ ok: true, available: false, summary: "current" })),
+  installStudioAppUpdate: vi.fn(async () => ({ ok: true, available: false })),
   subscribeToDesktopUpdateStatus: vi.fn(() => () => {}),
 }));
 
@@ -33,6 +35,7 @@ describe("useDesktopUpdates", () => {
     getDesktopUpdateRuntime.mockReturnValue("tauri");
     checkForDesktopUpdates.mockResolvedValue({ ok: true, available: false });
     installDesktopUpdate.mockResolvedValue({ ok: true, available: false, summary: "current" });
+    installStudioAppUpdate.mockResolvedValue({ ok: true, available: false });
     subscribeToDesktopUpdateStatus.mockReturnValue(() => {});
   });
 
@@ -68,6 +71,7 @@ describe("useDesktopUpdates", () => {
       expect(checkForDesktopUpdates).toHaveBeenCalled();
     });
     expect(installDesktopUpdate).not.toHaveBeenCalled();
+    expect(installStudioAppUpdate).not.toHaveBeenCalled();
     expect(result.current.visible).toBe(false);
     expect(result.current.busy).toBe(false);
   });
@@ -75,6 +79,24 @@ describe("useDesktopUpdates", () => {
   it("treats the 85% Studio check as a stall", () => {
     expect(isStuckStudioUpdateProgress("Checking Studio app update…", 85)).toBe(true);
     expect(isStuckStudioUpdateProgress("Downloading Studio update…", 90)).toBe(false);
+  });
+
+  it("automatic startup updates install only Studio once across both hook instances", async () => {
+    checkForDesktopUpdates.mockResolvedValue({ ok: true, available: true, version: "0.51.0" });
+    renderHook(() => useDesktopUpdates());
+    renderHook(() => useDesktopUpdates());
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1700); });
+    expect(installStudioAppUpdate).toHaveBeenCalledTimes(1);
+    expect(installDesktopUpdate).not.toHaveBeenCalled();
+  });
+
+  it("Update all refreshes components through its own command", async () => {
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    await act(async () => { await result.current.updateAll(); });
+    expect(installDesktopUpdate).toHaveBeenCalledTimes(1);
+    expect(installStudioAppUpdate).not.toHaveBeenCalled();
   });
 
   it("exposes Update all / check controls for the header", async () => {

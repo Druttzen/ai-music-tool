@@ -24,6 +24,7 @@ function getSidecarBuildStamp(root) {
     "ai-sidecar/pyproject.toml",
     "ai-sidecar/run_sidecar.py",
     "scripts/build-sidecar-bundle.ps1",
+    "scripts/build-sidecar-bundle.sh",
   ].sort();
 
   const hash = crypto.createHash("sha256");

@@ -15,7 +15,7 @@ use crate::sidecar_extra_install::{known_extra_ids, upgrade_one_sidecar_extra};
 use crate::sidecar_manager::SidecarManager;
 use crate::sidecar_tools::refresh_sidecar_toolchain;
 use crate::sidecar_userdata::{ensure_user_sidecar_pkg, load_installed_extras};
-use crate::studio_updater::{check_studio_update, StudioUpdateCheckResult};
+use crate::studio_updater::{install_studio_update_inner, StudioUpdateCheckResult, UpdateGuard};
 
 pub const STUDIO_COMPONENT_UPDATE_PROGRESS_EVENT: &str = "studio-component-update-progress";
 
@@ -52,7 +52,7 @@ struct ProgressPayload {
     pct: Option<u32>,
 }
 
-fn emit_progress_pct(app: &AppHandle, phase: &str, item: &str, message: &str, pct: Option<u32>) {
+pub(crate) fn emit_progress_pct(app: &AppHandle, phase: &str, item: &str, message: &str, pct: Option<u32>) {
     let _ = app.emit(
         STUDIO_COMPONENT_UPDATE_PROGRESS_EVENT,
         ProgressPayload {
@@ -422,11 +422,13 @@ fn summarize(components: &[ComponentUpdateItem], studio: &StudioUpdateCheckResul
     if failed > 0 {
         parts.push(format!("{failed} component(s) need attention"));
     }
-    if studio.available {
+    if !studio.ok {
+        parts.push("Studio app update failed".to_string());
+    } else if studio.available {
         if let Some(version) = &studio.version {
-            parts.push(format!("Studio {version} available; uninstall Studio before installing"));
+            parts.push(format!("Studio {version} update installed"));
         } else {
-            parts.push("Studio update available; uninstall Studio before installing".to_string());
+            parts.push("Studio update installed".to_string());
         }
     } else {
         parts.push("Studio app is current".to_string());
@@ -439,6 +441,7 @@ pub async fn update_studio_all(
     app: AppHandle,
     manager: tauri::State<'_, Arc<SidecarManager>>,
 ) -> Result<StudioAllUpdateResult, String> {
+    let _guard = UpdateGuard::acquire()?;
     let mgr = Arc::clone(manager.inner());
     let app_for_components = app.clone();
     let components = tauri::async_runtime::spawn_blocking(move || {
@@ -454,8 +457,7 @@ pub async fn update_studio_all(
         "Checking Studio app update…",
         Some(85),
     );
-    let mut studio = check_studio_update(app.clone()).await;
-    if studio.available { studio.notes = Some("Uninstall Studio first, then install the new version. Projects and exports are preserved.".into()); }
+    let studio = install_studio_update_inner(app.clone()).await;
     emit_progress_pct(
         &app,
         "studio",
@@ -468,7 +470,7 @@ pub async fn update_studio_all(
                 .as_deref()
                 .unwrap_or("Studio update check failed")
         },
-        Some(if studio.ok { 100 } else { 85 }),
+        Some(100),
     );
     let failed = components.iter().any(|item| !item.ok);
     let summary = summarize(&components, &studio);

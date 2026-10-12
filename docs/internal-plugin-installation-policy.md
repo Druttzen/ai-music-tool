@@ -1,4 +1,4 @@
-# Internal plugins and one Windows installation (0.50.66)
+# Internal plugins and one Windows installation (0.50.67)
 
 ## Policy
 
@@ -9,13 +9,15 @@
 
 ## Windows installer
 
-Windows releases publish NSIS only. A machine registration and scans of existing NSIS/MSI registration in the 32-bit and 64-bit registry views block a second installation, including silent, same-version, downgrade and updater attempts. Exit code: **1638**. The existing version must be explicitly uninstalled first. A global installer mutex also blocks concurrent installers.
+Windows releases publish NSIS only. A machine registration and scans of existing NSIS/MSI registration in the 32-bit and 64-bit registry views block a second installation. Normal installers, including silent installers, require explicitly uninstalling the existing copy first. Exit code: **1638**. A global installer mutex blocks concurrent installers.
+
+The internal updater is a narrow exception: NSIS `/UPDATE` accepts only a newer version, exactly one matching machine registration, an existing Studio executable, and the same registered installation directory. A supplied different `/D` directory, same version, downgrade, missing registration or another user/machine registration is rejected. Updates preserve the application data folder and plugin activation markers.
 
 The release executable verifies its installation directory against the registration. Copying the executable to another directory does not create an accepted installation. Developer/debug builds are exempt.
 
-App updates inside Studio check availability; they cannot overwrite the existing installation. Internal plugins may be updated inside Studio.
+Studio downloads and verifies app packages through the Tauri updater before installation, stops its owned sidecar process, and restarts. Automatic startup updates refresh the app; **Update all** refreshes installed internal components and then checks/installs the app. These two operations share a concurrent-update guard. Update restarts do not arm the workspace reset flag.
 
-The machine installer requires normal Windows administrator confirmation. This policy cannot retroactively modify old installers/executables already downloaded before 0.50.66. Other platform packages do not yet enforce the Windows machine registration policy.
+The machine installer requires normal Windows administrator confirmation. This policy cannot retroactively modify old installers/executables. In particular 0.50.66 cannot install app updates and needs a manual migration to 0.50.67 once. Other platform packages do not enforce the Windows machine registration policy.
 
 ## Uninstall and retained data
 

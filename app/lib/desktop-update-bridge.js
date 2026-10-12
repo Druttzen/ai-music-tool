@@ -23,6 +23,11 @@ export async function installDesktopUpdate() {
   return { ok: false, available: false, error: "Updates are only available in the desktop app" };
 }
 
+export async function installStudioAppUpdate() {
+  if (getDesktopUpdateRuntime() === "tauri") return tauriInvoke("install_studio_update");
+  return { ok: false, available: false, error: "Updates are only available in the desktop app" };
+}
+
 export function subscribeToDesktopUpdateStatus(callback) {
   if (getDesktopUpdateRuntime() !== "tauri") return () => {};
   const listen = window.__TAURI__?.event?.listen;

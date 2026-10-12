@@ -129,6 +129,9 @@ impl SidecarManager {
     }
 
     pub fn ensure_started(&self) {
+        // The UI can poll while the installer is starting. Do not respawn a
+        // sidecar after the updater has shut down the owned process tree.
+        if crate::studio_updater::is_update_restart() { return; }
         let mut guard = match self.inner.lock() {
             Ok(g) => g,
             Err(_) => return,

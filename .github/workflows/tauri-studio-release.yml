@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-latest]
+        platform: [windows-latest, macos-latest, macos-15-intel, ubuntu-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -55,20 +55,33 @@ jobs:
           uploadUpdaterSignatures: true
           uploadWorkflowArtifacts: true
           retryAttempts: 2
+      - name: Native updater and component tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
+      - name: Installed Windows upgrade and duplicate installation smoke
+        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/studio-v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/test-windows-studio-upgrade.ps1
 
   publish-release:
     needs: build-and-sign
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/studio-v')
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Verify updater manifest and publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         run: |
-          assets=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name')
-          echo "$assets"
-          echo "$assets" | grep -qx 'latest.json'
-          echo "$assets" | grep -q '\.sig$'
+          mkdir -p release-assets
+          gh api "repos/$REPO/releases/tags/$TAG" > release-assets/release.json
+          gh release download "$TAG" --repo "$REPO" --dir release-assets
+          node scripts/verify-studio-release.cjs release-assets
+          gh release upload "$TAG" --repo "$REPO" release-assets/latest.json release-assets/SHA256SUMS.txt --clobber
           gh release edit "$TAG" --repo "$REPO" --draft=false --latest

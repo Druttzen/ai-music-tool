@@ -1,13 +1,40 @@
 //! Signed Tauri Studio updates from the latest GitHub release.
 
+use crate::sidecar_manager::SidecarManager;
+use crate::studio_component_update::emit_progress_pct;
 use serde::Serialize;
-use std::time::Duration;
-use tauri::AppHandle;
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    sync::Arc,
+    time::Duration,
+};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_updater::UpdaterExt;
 
 const LATEST_JSON_URL: &str =
     "https://github.com/Druttzen/ai-music-tool/releases/latest/download/latest.json";
 const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+static UPDATE_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
+static UPDATE_RESTARTING: AtomicBool = AtomicBool::new(false);
+
+/// Shared by automatic app updates and the full component update operation.
+pub(crate) struct UpdateGuard;
+impl UpdateGuard {
+    pub(crate) fn acquire() -> Result<Self, String> {
+        UPDATE_IN_PROGRESS
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map(|_| Self)
+            .map_err(|_| "A Studio update is already in progress".to_string())
+    }
+}
+impl Drop for UpdateGuard {
+    fn drop(&mut self) {
+        UPDATE_IN_PROGRESS.store(false, Ordering::SeqCst);
+    }
+}
+pub(crate) fn is_update_restart() -> bool {
+    UPDATE_RESTARTING.load(Ordering::SeqCst)
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +85,9 @@ fn parse_semver(raw: &str) -> Option<(u64, u64, u64)> {
     let major = parts.next()?.parse().ok()?;
     let minor = parts.next()?.parse().ok()?;
     let patch = parts.next()?.parse().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
     Some((major, minor, patch))
 }
 
@@ -87,8 +117,8 @@ async fn peek_latest_version() -> Result<String, String> {
         ));
     }
     let bytes = response.bytes().await.map_err(|err| err.to_string())?;
-    let json: serde_json::Value =
-        serde_json::from_slice(&bytes).map_err(|err| format!("Studio update feed was not JSON: {err}"))?;
+    let json: serde_json::Value = serde_json::from_slice(&bytes)
+        .map_err(|err| format!("Studio update feed was not JSON: {err}"))?;
     json.get("version")
         .and_then(|value| value.as_str())
         .map(normalize_studio_version)
@@ -98,8 +128,9 @@ async fn peek_latest_version() -> Result<String, String> {
 
 async fn plugin_check_timed(
     updater: tauri_plugin_updater::Updater,
+    remaining: Duration,
 ) -> Result<Option<tauri_plugin_updater::Update>, String> {
-    match tokio::time::timeout(CHECK_TIMEOUT, updater.check()).await {
+    match tokio::time::timeout(remaining, updater.check()).await {
         Ok(Ok(update)) => Ok(update),
         Ok(Err(err)) => Err(err.to_string()),
         Err(_) => Err("Studio update check timed out after 15s".to_string()),
@@ -108,6 +139,7 @@ async fn plugin_check_timed(
 
 #[tauri::command]
 pub async fn check_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
+    let check_started = std::time::Instant::now();
     let current_version = app.package_info().version.to_string();
     match peek_latest_version().await {
         Ok(latest) => {
@@ -125,7 +157,12 @@ pub async fn check_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
         Err(error) => return StudioUpdateCheckResult::error(current_version, error),
     };
 
-    match plugin_check_timed(updater).await {
+    match plugin_check_timed(
+        updater,
+        CHECK_TIMEOUT.saturating_sub(check_started.elapsed()),
+    )
+    .await
+    {
         Ok(Some(update)) => StudioUpdateCheckResult {
             ok: true,
             available: true,
@@ -141,15 +178,142 @@ pub async fn check_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
 
 #[tauri::command]
 pub async fn install_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
-    StudioUpdateCheckResult::error(
-        app.package_info().version.to_string(),
-        "Uninstall Studio first, then install the new version. Your projects and exports are preserved. Internal plugins can be updated inside Studio.",
+    let _guard = match UpdateGuard::acquire() {
+        Ok(guard) => guard,
+        Err(error) => {
+            return StudioUpdateCheckResult::error(app.package_info().version.to_string(), error)
+        }
+    };
+    install_studio_update_inner(app).await
+}
+
+pub(crate) async fn install_studio_update_inner(app: AppHandle) -> StudioUpdateCheckResult {
+    let check_started = std::time::Instant::now();
+    let current_version = app.package_info().version.to_string();
+    if let Err(error) = crate::installation_policy::enforce() {
+        return StudioUpdateCheckResult::error(current_version, error);
+    }
+    // An older feed may omit a newly supported architecture. Return "current"
+    // before Tauri attempts to select a platform from that older manifest.
+    match peek_latest_version().await {
+        Ok(latest) if !is_newer_studio_version(&current_version, &latest) => {
+            return StudioUpdateCheckResult::current(current_version);
+        }
+        Ok(_) => {}
+        Err(error) => return StudioUpdateCheckResult::error(current_version, error),
+    }
+    // Check has a short deadline; downloading a large bundle must not inherit it.
+    let exit_app = app.clone();
+    let builder = app
+        .updater_builder()
+        .configure_client(|client| {
+            client
+                .connect_timeout(Duration::from_secs(15))
+                .read_timeout(Duration::from_secs(60))
+        })
+        .on_before_exit(move || {
+            UPDATE_RESTARTING.store(true, Ordering::SeqCst);
+            if let Some(manager) = exit_app.try_state::<Arc<SidecarManager>>() {
+                manager.stop();
+            }
+        });
+    let updater = match builder.build() {
+        Ok(updater) => updater,
+        Err(error) => return StudioUpdateCheckResult::error(current_version, error),
+    };
+    let update = match plugin_check_timed(
+        updater,
+        CHECK_TIMEOUT.saturating_sub(check_started.elapsed()),
     )
+    .await
+    {
+        Ok(Some(update)) if is_newer_studio_version(&current_version, &update.version) => update,
+        Ok(_) => return StudioUpdateCheckResult::current(current_version),
+        Err(error) => return StudioUpdateCheckResult::error(current_version, error),
+    };
+    emit_progress_pct(
+        &app,
+        "studio-download",
+        "studio",
+        "Downloading signed Studio update…",
+        Some(86),
+    );
+    let mut downloaded = 0u64;
+    let mut last_pct = 86;
+    // Tauri verifies the downloaded bytes against the configured public key before
+    // returning them. Never stop the sidecar or invoke the installer on bad signatures.
+    let bytes = match update
+        .download(
+            |chunk, total| {
+                downloaded = downloaded.saturating_add(chunk as u64);
+                let pct = download_progress(downloaded, total);
+                if pct != last_pct {
+                    last_pct = pct;
+                    emit_progress_pct(
+                        &app,
+                        "studio-download",
+                        "studio",
+                        "Downloading signed Studio update…",
+                        Some(pct),
+                    );
+                }
+            },
+            || {},
+        )
+        .await
+    {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            emit_progress_pct(
+                &app,
+                "studio-error",
+                "studio",
+                &format!("Studio update failed: {error}"),
+                None,
+            );
+            return StudioUpdateCheckResult::error(current_version, error);
+        }
+    };
+    emit_progress_pct(
+        &app,
+        "studio-install",
+        "studio",
+        "Installing verified Studio update. Restarting…",
+        Some(99),
+    );
+    // Windows' updater starts NSIS with /UPDATE and /R and exits this process.
+    // NSIS permits only a newer version in the registered directory.
+    if let Err(error) = update.install(bytes) {
+        UPDATE_RESTARTING.store(false, Ordering::SeqCst);
+        emit_progress_pct(
+            &app,
+            "studio-error",
+            "studio",
+            &format!("Studio update failed: {error}"),
+            None,
+        );
+        return StudioUpdateCheckResult::error(current_version, error);
+    }
+    // macOS/Linux install in place and need an explicit application restart.
+    UPDATE_RESTARTING.store(true, Ordering::SeqCst);
+    if let Some(manager) = app.try_state::<Arc<SidecarManager>>() {
+        manager.stop();
+    }
+    app.restart();
+}
+
+fn download_progress(downloaded: u64, total: Option<u64>) -> u32 {
+    total
+        .filter(|total| *total > 0)
+        .map(|total| 86 + ((downloaded.min(total) as u128 * 12) / total as u128) as u32)
+        .unwrap_or(86)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{is_newer_studio_version, normalize_studio_version};
+    use super::{
+        download_progress, is_newer_studio_version, normalize_studio_version, UpdateGuard,
+    };
 
     #[test]
     fn same_version_is_not_an_update() {
@@ -158,5 +322,24 @@ mod tests {
         assert!(is_newer_studio_version("0.50.36", "0.50.37"));
         assert!(!is_newer_studio_version("0.50.36", "0.50.35"));
         assert_eq!(normalize_studio_version("studio-v0.50.36"), "0.50.36");
+        assert!(!is_newer_studio_version("0.50.36", "0.50.37.1"));
+        assert!(!is_newer_studio_version("0.50.36", "0.50.37-beta"));
+    }
+
+    #[test]
+    fn progress_never_claims_installation_is_complete() {
+        assert_eq!(download_progress(0, Some(100)), 86);
+        assert_eq!(download_progress(50, Some(100)), 92);
+        assert_eq!(download_progress(u64::MAX, Some(100)), 98);
+        assert_eq!(download_progress(200, Some(0)), 86);
+        assert_eq!(download_progress(200, None), 86);
+    }
+
+    #[test]
+    fn concurrent_updates_are_rejected_and_guard_is_released() {
+        let guard = UpdateGuard::acquire().unwrap();
+        assert!(UpdateGuard::acquire().is_err());
+        drop(guard);
+        assert!(UpdateGuard::acquire().is_ok());
     }
 }

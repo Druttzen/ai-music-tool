@@ -1,10 +1,25 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.50.66**
+**Version 0.50.67**
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build with native DSP export and Python sidecar integration. Electron packaging is **retired** — see [docs/desktop.md](docs/desktop.md).
 
-The product boundary is audio and music. **AI Canvas Tool** is the sole direct visual-app integration; every other AI Creator project collaborates through the portable [**Music Exchange**](docs/music-exchange.md) JSON plus an optional audio sidecar.
+The product boundary is audio and music. Canvas, MusicGen, ACE-Step and other optional plugins run inside Studio's managed sidecar environment. Canvas opens in a Studio panel; plugins do not install standalone applications. Other AI Creator projects collaborate through the portable [**Music Exchange**](docs/music-exchange.md) JSON plus an optional audio sidecar.
+
+## Current release — 0.50.67
+
+- **Internal app updates restored:** Studio checks the signed GitHub release feed, downloads and verifies the package, installs it and restarts. Automatic startup updates update Studio itself; **Update all** also refreshes installed internal plugins and tools.
+- **One Windows installation:** normal installers still require uninstalling an existing copy. An internal update can replace only an older version at the registered location. Same-version installs, downgrades, other paths and simultaneous installers are blocked. Update restarts preserve the workspace; application data and exports stay in place.
+- **Packages:** Windows x64 NSIS installer; macOS Apple Silicon and Intel DMG plus signed app archives; Linux x64 AppImage, DEB and RPM. [Download Studio releases](https://github.com/Druttzen/ai-music-tool/releases).
+- **Release checks:** all four native builds must succeed. Every updater package must match the app's signing public key and the manifest before publication. Windows CI installs the previous version, upgrades it, launches the installed app and checks data retention and duplicate-installation guards. `SHA256SUMS.txt` accompanies release assets.
+- **Migration:** 0.50.66 has app installation disabled in its updater. Install 0.50.67 manually once (uninstall the existing Windows copy first); subsequent newer signed releases can install inside Studio. Windows may request administrator confirmation. Plugin/model downloads and app updates require internet; cached local generation remains offline.
+- **Review fixes included:** project recovery, internal plugin lifecycle, native DSP corrections, log redaction, safe maintenance commands and MusicGen provisioning. Dependency audit is clean at release preparation; see [review report](docs/repository-review-fixes-2026-10-11.md).
+
+See [desktop builds and updating](docs/desktop.md) and [internal plugin installation policy](docs/internal-plugin-installation-policy.md).
+
+## Historical release highlights
+
+The entries below describe their original versions; retired Electron and standalone Canvas installation paths are retained as history.
 
 ## Highlights (v0.50.10)
 
@@ -540,7 +555,7 @@ Old installer output under `dist/` / `electron-dist*` is gitignored; safe to del
 
 ### Desktop auto-update
 
-**Tauri Studio** checks signed `studio-v*` releases through `latest.json`. Install the first updater-enabled Studio release manually; later versions update from the app header. See [docs/desktop.md](docs/desktop.md).
+**Tauri Studio 0.50.67+** checks signed `studio-v*` releases through `latest.json`, verifies the download and restarts after installation. **Check for updates** and **Update all** are in the Project status card. Older 0.50.66 installations require a manual migration once. See [docs/desktop.md](docs/desktop.md).
 
 Legacy Electron `v*` auto-update is retired with that train.
 

@@ -23,8 +23,10 @@ describe("Studio updater release contract", () => {
     expect(workflow).toContain("TAURI_SIGNING_PRIVATE_KEY");
     expect(workflow).toContain("TAURI_SIGNING_PRIVATE_KEY_PASSWORD");
     expect(workflow).toContain("uploadUpdaterJson: true");
-    expect(workflow).toContain("grep -qx 'latest.json'");
-    expect(workflow).toContain("grep -q '\\.sig$'");
+    expect(workflow).toContain("macos-15-intel");
+    expect(workflow).toContain("verify-studio-release.cjs release-assets");
+    expect(workflow).toContain("test-windows-studio-upgrade.ps1");
+    expect(workflow).toContain("--lib --locked");
     expect(workflow).toContain("--draft=false --latest");
     expect(workflow).not.toContain("PRIVATE: C:");
   });

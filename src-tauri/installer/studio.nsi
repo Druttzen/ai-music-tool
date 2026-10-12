@@ -1,5 +1,5 @@
 ; Based on Tauri CLI 2.11.5 installer.nsi (MIT/Apache-2.0).
-; Studio policy: explicit uninstall required, including silent/update installs.
+; Studio policy: one installation. /UPDATE can replace only its registered path.
 Unicode true
 ManifestDPIAware true
 ; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
@@ -478,6 +478,8 @@ FunctionEnd
 
 
 Var StudioInstallMutex
+Var StudioUpdatePath
+Var StudioUpdateRegistrationCount
 Function StudioRejectInstall
   SetErrorLevel 1638
   IfSilent studio_reject_done
@@ -495,20 +497,54 @@ FunctionEnd
     IntOp $0 $0 + 1
     ReadRegStr $2 ${ROOT} "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
     StrCmp $2 "${PRODUCTNAME}" 0 studio_scan_${ROOT}_${VIEW}
+    !if "${ROOT}" == "HKLM"
+    !if "${VIEW}" == "64"
+      ${If} $UpdateMode = 1
+      ${AndIf} $1 == "${PRODUCTNAME}"
+        IntOp $StudioUpdateRegistrationCount $StudioUpdateRegistrationCount + 1
+        Goto studio_scan_${ROOT}_${VIEW}
+      ${EndIf}
+    !endif
+    !endif
     Call StudioRejectInstall
   studio_scan_done_${ROOT}_${VIEW}:
 !macroend
 Function StudioCheckExistingInstall
   SetRegView 64
+  StrCpy $StudioUpdateRegistrationCount 0
   ReadRegStr $2 HKLM "Software\com.djmad.aimusiccreator.studio" "InstallPath"
-  ${If} $2 != ""
-    Call StudioRejectInstall
+  ${If} $UpdateMode = 1
+    ${If} $2 == ""
+      Call StudioRejectInstall
+    ${EndIf}
+    GetFullPathName $StudioUpdatePath "$2"
+    IfFileExists "$StudioUpdatePath\${MAINBINARYNAME}.exe" +2 0
+      Call StudioRejectInstall
+    ReadRegStr $3 HKLM "${UNINSTKEY}" "DisplayVersion"
+    ${If} $3 == ""
+      Call StudioRejectInstall
+    ${EndIf}
+    ${VersionCompare} "${VERSION}" "$3" $4
+    ${If} $4 != 1
+      Call StudioRejectInstall
+    ${EndIf}
+    ReadRegStr $3 HKLM "${UNINSTKEY}" "InstallLocation"
+    ${If} $3 != '$\"$StudioUpdatePath$\"'
+    ${AndIf} $3 != "$StudioUpdatePath"
+      Call StudioRejectInstall
+    ${EndIf}
+  ${ElseIf} $2 != ""
+      Call StudioRejectInstall
   ${EndIf}
   !insertmacro StudioCheckRegistry HKCU 64
   !insertmacro StudioCheckRegistry HKLM 64
   !insertmacro StudioCheckRegistry HKCU 32
   !insertmacro StudioCheckRegistry HKLM 32
   SetRegView 64
+  ${If} $UpdateMode = 1
+  ${AndIf} $StudioUpdateRegistrationCount != 1
+    Call StudioRejectInstall
+  ${EndIf}
 FunctionEnd
 
 Function .onInit
@@ -521,7 +557,6 @@ Function .onInit
   ${If} $1 = 183
     Call StudioRejectInstall
   ${EndIf}
-  Call StudioCheckExistingInstall
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1
@@ -535,6 +570,18 @@ Function .onInit
   ${GetOptions} $CMDLINE "/UPDATE" $UpdateMode
   ${IfNot} ${Errors}
     StrCpy $UpdateMode 1
+  ${EndIf}
+
+  ; Parse /UPDATE before the guard; it is never an exemption for another path.
+  Call StudioCheckExistingInstall
+  ${If} $UpdateMode = 1
+    ${If} $INSTDIR != "${PLACEHOLDER_INSTALL_DIR}"
+      GetFullPathName $3 "$INSTDIR"
+      ${If} $3 != "$StudioUpdatePath"
+        Call StudioRejectInstall
+      ${EndIf}
+    ${EndIf}
+    StrCpy $INSTDIR "$StudioUpdatePath"
   ${EndIf}
 
   !if "${DISPLAYLANGUAGESELECTOR}" == "true"
@@ -573,9 +620,16 @@ FunctionEnd
 
 Section EarlyChecks
   Call StudioCheckExistingInstall
-  ; A manually copied app in the selected folder must also be uninstalled.
-  IfFileExists "$INSTDIR\${MAINBINARYNAME}.exe" 0 +2
-    Call StudioRejectInstall
+  ${If} $UpdateMode = 1
+    GetFullPathName $3 "$INSTDIR"
+    ${If} $3 != "$StudioUpdatePath"
+      Call StudioRejectInstall
+    ${EndIf}
+  ${Else}
+    ; A manually copied app in the selected folder must also be uninstalled.
+    IfFileExists "$INSTDIR\${MAINBINARYNAME}.exe" 0 +2
+      Call StudioRejectInstall
+  ${EndIf}
   ; Abort silent installer if downgrades is disabled
   !if "${ALLOWDOWNGRADES}" == "false"
   ${If} ${Silent}

@@ -206,7 +206,9 @@ pub fn run() {
             if matches!(event, RunEvent::Exit) {
                 // Only a completed application exit resets the next workspace.
                 // Plugin closes and cancelled CloseRequested events must not arm it.
-                workspace_reset::arm_reset_on_launch();
+                if !studio_updater::is_update_restart() {
+                    workspace_reset::arm_reset_on_launch();
+                }
                 if let Some(manager) = app_handle.try_state::<Arc<SidecarManager>>() {
                     manager.stop();
                 }

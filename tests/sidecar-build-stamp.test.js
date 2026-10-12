@@ -18,6 +18,7 @@ function makeFixture() {
   fs.writeFileSync(path.join(root, "ai-sidecar", "pyproject.toml"), "[project]\nversion='1.2.3'\n");
   fs.writeFileSync(path.join(root, "ai-sidecar", "run_sidecar.py"), "from ai_sidecar import main\n");
   fs.writeFileSync(path.join(root, "scripts", "build-sidecar-bundle.ps1"), "Write-Host 'build'\n");
+  fs.writeFileSync(path.join(root, "scripts", "build-sidecar-bundle.sh"), "echo build\n");
   return root;
 }
 
@@ -43,5 +44,12 @@ describe("sidecar build stamp", () => {
     );
 
     expect(getSidecarBuildStamp(root)).not.toBe(originalStamp);
+  });
+
+  it("invalidates macOS/Linux binaries when the Unix bundle script changes", () => {
+    const root = makeFixture();
+    const before = getSidecarBuildStamp(root);
+    fs.writeFileSync(path.join(root, "scripts", "build-sidecar-bundle.sh"), "echo changed\n");
+    expect(getSidecarBuildStamp(root)).not.toBe(before);
   });
 });

@@ -5,6 +5,7 @@ import {
   checkForDesktopUpdates,
   getDesktopUpdateRuntime,
   installDesktopUpdate,
+  installStudioAppUpdate,
   subscribeToDesktopUpdateStatus,
 } from "../app/lib/desktop-update-bridge";
 
@@ -37,6 +38,8 @@ describe("desktop-update-bridge", () => {
 
     await installDesktopUpdate();
     expect(invoke).toHaveBeenCalledWith("update_studio_all");
+    await installStudioAppUpdate();
+    expect(invoke).toHaveBeenCalledWith("install_studio_update");
   });
 
   it("stays inert in the browser", async () => {
