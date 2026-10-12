@@ -80,7 +80,10 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           mkdir -p release-assets
-          gh api "repos/$REPO/releases/tags/$TAG" > release-assets/release.json
+          # The REST tag endpoint exposes published releases only. Resolve the
+          # draft through gh first, then fetch its complete asset metadata by ID.
+          release_id=$(gh release view "$TAG" --repo "$REPO" --json databaseId --jq '.databaseId')
+          gh api "repos/$REPO/releases/$release_id" > release-assets/release.json
           gh release download "$TAG" --repo "$REPO" --dir release-assets
           node scripts/verify-studio-release.cjs release-assets
           gh release upload "$TAG" --repo "$REPO" release-assets/latest.json release-assets/SHA256SUMS.txt --clobber
