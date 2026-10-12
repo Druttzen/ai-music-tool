@@ -217,11 +217,9 @@ mod tests {
 
     #[test]
     fn install_dir_from_exe_uses_parent() {
-        let exe = PathBuf::from(r"C:\Apps\AI Music Creator Studio\AI Music Creator Studio.exe");
-        assert_eq!(
-            install_dir_from_exe(&exe),
-            PathBuf::from(r"C:\Apps\AI Music Creator Studio")
-        );
+        let installation = std::env::temp_dir().join("AI Music Creator Studio");
+        let exe = installation.join("ai-music-studio");
+        assert_eq!(install_dir_from_exe(&exe), installation);
     }
 
     #[test]
@@ -251,9 +249,10 @@ mod tests {
                 PathBuf::from("/Apps/AI Music Creator Studio Data")
             );
         } else {
+            let installation = std::env::temp_dir().join("Studio");
             assert_eq!(
-                preferred_data_dir(Path::new(r"C:\Apps\Studio")),
-                PathBuf::from(r"C:\Apps\Studio\data")
+                preferred_data_dir(&installation),
+                installation.join("data")
             );
         }
     }

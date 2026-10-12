@@ -1,4 +1,4 @@
-# Internal plugins and one Windows installation (0.50.67)
+# Internal plugins and one Windows installation (0.50.68)
 
 ## Policy
 
@@ -17,7 +17,7 @@ The release executable verifies its installation directory against the registrat
 
 Studio downloads and verifies app packages through the Tauri updater before installation, stops its owned sidecar process, and restarts. Automatic startup updates refresh the app; **Update all** refreshes installed internal components and then checks/installs the app. These two operations share a concurrent-update guard. Update restarts do not arm the workspace reset flag.
 
-The machine installer requires normal Windows administrator confirmation. This policy cannot retroactively modify old installers/executables. In particular 0.50.66 cannot install app updates and needs a manual migration to 0.50.67 once. Other platform packages do not enforce the Windows machine registration policy.
+The machine installer requires normal Windows administrator confirmation. This policy cannot retroactively modify old installers/executables. In particular 0.50.66 cannot install app updates and needs a manual migration to 0.50.68 once. Other platform packages do not enforce the Windows machine registration policy.
 
 ## Uninstall and retained data
 

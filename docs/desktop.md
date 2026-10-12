@@ -25,7 +25,7 @@ Existing Electron installs stay on their last published `v*` build. Migrate to S
 
 ### Studio updates
 
-Starting with **0.50.67**, Tauri Studio checks the latest GitHub Release automatically after startup. When a newer signed `studio-v*` build exists, Studio downloads it, verifies the signature against the configured public key, installs it and restarts. A bottom-center status pill shows progress. Windows uses a quiet installer but its machine-wide installation can still require Windows administrator confirmation. Signature/download failures leave the installed version intact. Concurrent app/component updates are rejected.
+Starting with **0.50.68**, Tauri Studio checks the latest GitHub Release automatically after startup. When a newer signed `studio-v*` build exists, Studio downloads it, verifies the signature against the configured public key, installs it and restarts. A bottom-center status pill shows progress. Windows uses a quiet installer but its machine-wide installation can still require Windows administrator confirmation. Signature/download failures leave the installed version intact. Concurrent app/component updates are rejected.
 
 Automatic startup updates refresh only the Studio app. They do not upgrade optional plugin dependencies on every launch. In-place update restarts keep the workspace restoration data; they do not arm the normal close/reset flag.
 
@@ -41,7 +41,7 @@ Packages are verified with the updater public key before installation. Addon/ext
 
 Closing Studio resets project and session workspaces to defaults on the next launch (presets and API credentials are kept).
 
-**Migration from 0.50.66:** this version checks for updates but deliberately refuses app installation. Install 0.50.67 manually once; on Windows uninstall the registered old copy before running the normal installer. The uninstaller preserves cached dependencies, models, profiles and exports. Newer signed releases can subsequently update the registered copy in place.
+**Migration from 0.50.66:** this version checks for updates but deliberately refuses app installation. Install 0.50.68 manually once; on Windows uninstall the registered old copy before running the normal installer. The uninstaller preserves cached dependencies, models, profiles and exports. Newer signed releases can subsequently update the registered copy in place.
 
 | Capability | Tauri Studio |
 |------------|--------------|

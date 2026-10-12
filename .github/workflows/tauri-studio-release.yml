@@ -23,8 +23,6 @@ jobs:
           node-version: "22"
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "=2.11.5" --locked
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -34,6 +32,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libmp3lame-dev
       - run: npm ci
+      - name: Verify pinned Tauri CLI
+        run: npx tauri --version
       - run: npm run sync:version
       - run: npm run check:full
       - name: Build signed Studio bundles and updater manifest
@@ -44,7 +44,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: src-tauri
-          tauriScript: cargo tauri
+          tauriScript: npx tauri
           tagName: ${{ startsWith(github.ref, 'refs/tags/studio-v') && github.ref_name || '' }}
           releaseName: ${{ startsWith(github.ref, 'refs/tags/studio-v') && format('AI Music Creator Studio {0}', github.ref_name) || '' }}
           releaseDraft: true

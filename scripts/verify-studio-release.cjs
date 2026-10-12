@@ -89,6 +89,16 @@ function verifyStudioRelease({ manifest, assets, directory, version, pubkey, rep
   return [...verified];
 }
 
+function releaseChecksums(assets, directory) {
+  // A publication retry may already have uploaded these generated files.
+  // Never put a checksum for SHA256SUMS itself into its own replacement.
+  return assets.filter(asset => !["latest.json", "SHA256SUMS.txt"].includes(asset.name)).map(asset => {
+    const bytes = fs.readFileSync(path.join(directory, asset.name));
+    if (bytes.length !== asset.size) throw new Error(`Truncated release asset: ${asset.name}`);
+    return `${crypto.createHash("sha256").update(bytes).digest("hex")}  ${asset.name}`;
+  });
+}
+
 if (require.main === module) {
   try {
     const directory = path.resolve(process.argv[2] || "release-assets");
@@ -99,11 +109,7 @@ if (require.main === module) {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     const release = JSON.parse(fs.readFileSync(path.join(directory, "release.json"), "utf8"));
     const verified = verifyStudioRelease({ manifest, assets: release.assets, directory, version, pubkey: config.plugins.updater.pubkey });
-    const checksums = release.assets.filter(asset => asset.name !== "latest.json").map(asset => {
-      const bytes = fs.readFileSync(path.join(directory, asset.name));
-      if (bytes.length !== asset.size) throw new Error(`Truncated release asset: ${asset.name}`);
-      return `${crypto.createHash("sha256").update(bytes).digest("hex")}  ${asset.name}`;
-    });
+    const checksums = releaseChecksums(release.assets, directory);
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     checksums.push(`${crypto.createHash("sha256").update(fs.readFileSync(manifestPath)).digest("hex")}  latest.json`);
     fs.writeFileSync(path.join(directory, "SHA256SUMS.txt"), `${checksums.join("\n")}\n`);
@@ -113,4 +119,4 @@ if (require.main === module) {
     process.exitCode = 1;
   }
 }
-module.exports = { verifySignedArtifact, verifyStudioRelease };
+module.exports = { verifySignedArtifact, verifyStudioRelease, releaseChecksums };

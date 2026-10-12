@@ -4,7 +4,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-const { verifySignedArtifact, verifyStudioRelease } = createRequire(import.meta.url)("../scripts/verify-studio-release.cjs");
+const { verifySignedArtifact, verifyStudioRelease, releaseChecksums } = createRequire(import.meta.url)("../scripts/verify-studio-release.cjs");
 
 // Public interoperability vector from minisign-verify 0.2.5 (same verifier as Tauri).
 const publicKey = Buffer.from("untrusted comment: test\nRWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3\n").toString("base64");
@@ -43,6 +43,14 @@ function fixture() {
 }
 
 describe("Studio release signature and platform gate", () => {
+  it("publication retries exclude the previous manifest and checksum file", () => {
+    const data = fixture();
+    try {
+      const assets = [...data.assets, { name: "latest.json", size: 0 }, { name: "SHA256SUMS.txt", size: 0 }];
+      expect(releaseChecksums(assets, data.directory)).toHaveLength(data.assets.length);
+      expect(releaseChecksums(assets, data.directory).join("\n")).not.toContain("SHA256SUMS.txt");
+    } finally { rmSync(data.directory, { recursive: true }); }
+  });
   it("verifies the Tauri Minisign interoperability vector", () => {
     expect(() => verifySignedArtifact(Buffer.from("test"), signature, publicKey)).not.toThrow();
   });
