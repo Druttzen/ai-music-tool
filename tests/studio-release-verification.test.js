@@ -42,7 +42,60 @@ function fixture() {
   return { directory, version, assets, pubkey: publicKey, manifest: { version, platforms } };
 }
 
+function draftFixture() {
+  const data = fixture();
+  data.release = {
+    id: 77, tag_name: `studio-v${data.version}`, draft: true,
+    url: "https://api.github.com/repos/Druttzen/ai-music-tool/releases/77",
+    html_url: "https://github.com/Druttzen/ai-music-tool/releases/tag/untagged-abc123",
+  };
+  data.assets = data.assets.map(asset => ({
+    ...asset,
+    url: `https://api.github.com/repos/Druttzen/ai-music-tool/releases/assets/${asset.id}`,
+    browser_download_url: `https://github.com/Druttzen/ai-music-tool/releases/download/untagged-abc123/${asset.name}`,
+  }));
+  return data;
+}
+
 describe("Studio release signature and platform gate", () => {
+  it("verifies owned draft assets and emits final tag URLs, including retries", () => {
+    const data = draftFixture();
+    try {
+      expect(verifyStudioRelease(data)).toHaveLength(6);
+      for (const entry of Object.values(data.manifest.platforms)) {
+        expect(entry.url).toContain(`/studio-v${data.version}/`);
+        expect(entry.url).not.toContain("untagged-");
+      }
+      expect(verifyStudioRelease(data)).toHaveLength(6);
+    } finally { rmSync(data.directory, { recursive: true }); }
+  });
+  it("rejects draft metadata for a different tag, repository, ID or release page", () => {
+    const data = draftFixture();
+    try {
+      const changes = [
+        { tag_name: "studio-v0.50.68" }, { id: 78 }, { id: -1 },
+        { url: "https://api.github.com/repos/other/repo/releases/77" },
+        { html_url: "https://github.com/other/repo/releases/tag/untagged-abc123" },
+        { draft: false },
+      ];
+      for (const change of changes) {
+        expect(() => verifyStudioRelease({ ...data, release: { ...data.release, ...change } })).toThrow(/Release metadata/);
+      }
+    } finally { rmSync(data.directory, { recursive: true }); }
+  });
+  it("rejects another draft's asset URLs and foreign API asset IDs", () => {
+    const data = draftFixture();
+    try {
+      expect(() => verifyStudioRelease({ ...data, release: undefined })).toThrow(/another release/);
+      const asset = data.assets[0];
+      const original = asset.browser_download_url;
+      asset.browser_download_url = original.replace("untagged-abc123", "untagged-def456");
+      expect(() => verifyStudioRelease(data)).toThrow(/another release/);
+      asset.browser_download_url = original;
+      asset.url = "https://api.github.com/repos/other/repo/releases/assets/1";
+      expect(() => verifyStudioRelease(data)).toThrow(/Invalid release asset/);
+    } finally { rmSync(data.directory, { recursive: true }); }
+  });
   it("publication retries exclude the previous manifest and checksum file", () => {
     const data = fixture();
     try {

@@ -38,20 +38,46 @@ function verifySignedArtifact(bytes, signature, encodedPublicKey) {
   }
 }
 
-function verifyStudioRelease({ manifest, assets, directory, version, pubkey, repo = "Druttzen/ai-music-tool" }) {
+function verifyStudioRelease({ manifest, assets, directory, version, pubkey, release, repo = "Druttzen/ai-music-tool" }) {
   if (manifest.version !== version) throw new Error("Updater feed version differs from the source version");
   const tag = `studio-v${version}`;
+  const tagPage = `https://github.com/${repo}/releases/tag/`;
+  const downloadBase = `https://github.com/${repo}/releases/download/`;
+  let draftTag = null;
+  if (release) {
+    if (!Number.isSafeInteger(release.id) || release.id <= 0 || release.tag_name !== tag ||
+        release.url !== `https://api.github.com/repos/${repo}/releases/${release.id}` ||
+        typeof release.draft !== "boolean") {
+      throw new Error("Release metadata does not match the source version or repository");
+    }
+    const temporaryTag = release.draft && release.html_url?.startsWith(tagPage)
+      ? release.html_url.slice(tagPage.length) : "";
+    if (/^untagged-[a-f0-9]+$/.test(temporaryTag)) draftTag = temporaryTag;
+    if (release.html_url !== `${tagPage}${tag}` && !draftTag) {
+      throw new Error("Release metadata contains an invalid release page");
+    }
+  }
   const downloads = new Map();
   const ids = new Map();
   for (const asset of assets) {
     if (path.basename(asset.name) !== asset.name || /[\r\n]/.test(asset.name)) throw new Error("Invalid asset name");
+    const apiUrl = `https://api.github.com/repos/${repo}/releases/assets/${asset.id}`;
+    if (!Number.isSafeInteger(asset.id) || asset.id <= 0 ||
+        ((release || asset.url) && asset.url !== apiUrl)) {
+      throw new Error(`Invalid release asset ID or API URL: ${asset.name}`);
+    }
     const url = asset.browser_download_url || asset.url;
-    if (url !== `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(asset.name)}` &&
-        url !== `https://github.com/${repo}/releases/download/${tag}/${asset.name}`) {
+    const publicUrl = `${downloadBase}${tag}/${encodeURIComponent(asset.name)}`;
+    const allowed = [publicUrl, `${downloadBase}${tag}/${asset.name}`];
+    if (draftTag) allowed.push(`${downloadBase}${draftTag}/${encodeURIComponent(asset.name)}`, `${downloadBase}${draftTag}/${asset.name}`);
+    if (!allowed.includes(url)) {
       throw new Error(`Asset belongs to another release: ${asset.name}`);
     }
     downloads.set(url, asset);
-    ids.set(`https://api.github.com/repos/${repo}/releases/assets/${asset.id}`, asset);
+    // A retry may already have replaced manifest URLs before publishing the draft.
+    downloads.set(publicUrl, asset);
+    downloads.set(`${downloadBase}${tag}/${asset.name}`, asset);
+    ids.set(apiUrl, asset);
   }
   for (const pattern of REQUIRED_INSTALLERS) {
     if (!assets.some(asset => pattern.test(asset.name))) throw new Error(`Missing installer: ${pattern}`);
@@ -81,7 +107,9 @@ function verifyStudioRelease({ manifest, assets, directory, version, pubkey, rep
       verified.add(asset.name);
     }
     // Public download URLs work without a GitHub API token or API rate limit.
-    entry.url = asset.browser_download_url || asset.url;
+    // Draft browser URLs use a temporary untagged-* name that disappears on
+    // publication. Feed URLs must point at the final, validated source tag.
+    entry.url = `${downloadBase}${tag}/${encodeURIComponent(asset.name)}`;
   }
   for (const target of ["windows-x86_64", "darwin-aarch64", "darwin-x86_64", "linux-x86_64"]) {
     if (!manifest.platforms[target]) throw new Error(`Missing fallback updater target: ${target}`);
@@ -108,7 +136,7 @@ if (require.main === module) {
     const manifestPath = path.join(directory, "latest.json");
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     const release = JSON.parse(fs.readFileSync(path.join(directory, "release.json"), "utf8"));
-    const verified = verifyStudioRelease({ manifest, assets: release.assets, directory, version, pubkey: config.plugins.updater.pubkey });
+    const verified = verifyStudioRelease({ manifest, assets: release.assets, directory, version, pubkey: config.plugins.updater.pubkey, release });
     const checksums = releaseChecksums(release.assets, directory);
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     checksums.push(`${crypto.createHash("sha256").update(fs.readFileSync(manifestPath)).digest("hex")}  latest.json`);
