@@ -9,7 +9,9 @@ SHA-256-verified micromamba binary and an isolated conda-forge environment under
 `<Studio data>/tools/mfa/runtime`. It installs MFA 3.3.9 and the `english_mfa`
 acoustic model and dictionary. Models and MFA's working data stay under
 `<Studio data>/tools/mfa/models`; no global conda, PATH edit or separate installer
-is required. The plugin is activated only after both models pass inspection.
+is required. The v3.1.0 model assets are pinned and SHA-256 verified. Direct
+release downloads avoid GitHub API discovery limits and need no access token.
+The plugin is activated only after both models pass inspection.
 
 The managed environment is used through `micromamba run`, including on Windows
 where the DLL search path needs activation. Disabling the plugin preserves the

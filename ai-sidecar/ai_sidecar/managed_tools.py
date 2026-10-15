@@ -28,6 +28,10 @@ MAMBA_HASHES = {
 }
 DS_COMMIT = "323a5693245b827caba0ab1a7371fe5ca885b061"  # upstream v2.5.1
 DS_SHA256 = "2a4b6761076608568748b29c10c1b7c0d8ca8513a0e13c156240bf755922989d"
+MFA_MODELS = {
+    "acoustic": ("english_mfa.zip", "2c08bd4f82c3943dd57ac09aeac99dbce17a1e1bfe9fd932c8d95cd13d971068"),
+    "dictionary": ("english_mfa.dict", "975bf9c7791535c5aec57995e0bd2b77eb7ca364d1d974c2134e07bb0f16b079"),
+}
 SPECS = {
     "mfa": ["python=3.11", "montreal-forced-aligner=3.3.9"],
     "diffsinger": ["python=3.10", "pip", "numpy=1.26", "pyworld=0.3.4", "ffmpeg=7.1"],
@@ -223,8 +227,12 @@ def install(tool: str) -> None:
             raise RuntimeError(f"Managed {tool} installation is missing {path}")
     if tool == "mfa":
         run(command(tool, "mfa", "version"), tool=tool)
-        for kind in ("acoustic", "dictionary"):
-            run(command(tool, "mfa", "model", "download", kind, "english_mfa"), tool=tool)
+        # MFA's discovery command scans GitHub releases and can exhaust the
+        # anonymous API quota. Pinned public assets need neither discovery nor
+        # a personal access token, and the hashes also verify cached models.
+        for kind, (filename, digest) in MFA_MODELS.items():
+            download(f"https://github.com/MontrealCorpusTools/mfa-models/releases/download/{kind}-english_mfa-v3.1.0/{filename}",
+                     root / "models/pretrained_models" / kind / filename, digest)
         for kind in ("acoustic", "dictionary"):
             run(command(tool, "mfa", "model", "inspect", kind, "english_mfa"), tool=tool)
     elif tool == "diffsinger":
