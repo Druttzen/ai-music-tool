@@ -42,6 +42,12 @@ test.describe("Sidecar UI smoke", () => {
   });
 
   test("Demucs stem separation shows graceful error when stems extra is missing", async ({ page }) => {
+    // Exercise the missing-plugin response even on machines with Demucs installed.
+    await page.route("**/separate", (route) => route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Stem separation unavailable: install the stems extra" }),
+    }));
     await dismissSplash(page);
 
     const panel = analyzerPanel(page);
@@ -51,6 +57,7 @@ test.describe("Sidecar UI smoke", () => {
 
     await uploadAnalyzerAudioFixture(panel, ANALYZER_FIXTURE, FIXTURE_NAME);
 
+    await panel.getByRole("combobox", { name: "Stem separation model" }).selectOption("htdemucs");
     await panel.getByRole("button", { name: "Separate stems (Demucs)" }).click();
 
     const toast = page.getByTestId("action-toast");

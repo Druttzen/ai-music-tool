@@ -94,8 +94,8 @@ ensure_sidecar_cuda_torch() {
   fi
   local index="${AIMC_TORCH_CUDA_INDEX:-https://download.pytorch.org/whl/cu126}"
   echo "Installing CUDA torch/torchaudio from ${index} ..."
-  # Prefer CUDA wheels via extra-index so other deps still resolve from PyPI.
-  "$SIDECAR_PIP" install --upgrade torch torchaudio --extra-index-url "$index"
+  # Use the CUDA index exclusively so a newer PyPI CPU wheel cannot win.
+  "$SIDECAR_PIP" install --upgrade torch torchaudio --index-url "$index"
   if sidecar_torch_cuda_ok; then
     echo "CUDA torch OK (torch.cuda.is_available()=True)"
   else
@@ -128,5 +128,15 @@ install_sidecar_extra() {
       ensure_sidecar_cuda_torch
       ;;
   esac
+  local verify_extra
+  local verify_extras="$spec"
+  if [[ "$spec" == "all" ]]; then
+    verify_extras="stems,stems-melband,generate,classify,vision,cover,cover-ref,vocal,vocal-ml"
+  fi
+  local -a verify_parts
+  IFS=',' read -r -a verify_parts <<< "$verify_extras"
+  for verify_extra in "${verify_parts[@]}"; do
+    "$SIDECAR_VENV/bin/python" -m ai_sidecar.install_validation --verify "$verify_extra" || return 1
+  done
   echo "Done. Restart the sidecar: npm run sidecar"
 }

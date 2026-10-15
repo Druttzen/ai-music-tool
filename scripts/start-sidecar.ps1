@@ -16,6 +16,7 @@ if ($Maintainer) {
   $env:AIMC_MAINTAINER = "1"
 }
 $sidecar = Join-Path $root "ai-sidecar"
+. (Join-Path $PSScriptRoot "lib\sidecar-process.ps1")
 $venv = Join-Path $sidecar ".venv"
 $pidFile = Join-Path $sidecar ".sidecar.pid"
 $logFile = Join-Path $sidecar ".sidecar.log"
@@ -43,13 +44,7 @@ if (-not (Test-Path $venv)) {
 $existing = Get-NetTCPConnection -LocalPort 8723 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($existing) {
   $owningPid = $existing.OwningProcess
-  $cmd = ""
-  try {
-    $cmd = [string](Get-CimInstance Win32_Process -Filter "ProcessId=$owningPid" -ErrorAction SilentlyContinue).CommandLine
-  } catch {}
-  $venvPy = Join-Path $venv "Scripts\python.exe"
-  $venvNeedle = Join-Path $sidecar ".venv"
-  if ($cmd -and (($cmd -like ("*" + $venvNeedle + "*")) -or ($cmd -like ("*" + $venvPy + "*")))) {
+  if (Test-OwnedSidecarProcess -ProcessId $owningPid -SidecarDir $sidecar) {
     Write-Host "AI sidecar already running (PID $owningPid) on http://127.0.0.1:8723"
     exit 0
   }

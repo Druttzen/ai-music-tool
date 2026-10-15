@@ -205,6 +205,22 @@ def test_job_manager_serializes_inline_workers():
     assert max_active == 1
 
 
+@pytest.mark.parametrize("origin,allowed", [
+    ("http://tauri.localhost", True),
+    ("https://tauri.localhost", True),
+    ("http://localhost:3000", True),
+    ("https://untrusted.example", False),
+    ("", False),
+])
+def test_auth_rejection_is_readable_only_from_allowed_origins(monkeypatch, origin, allowed):
+    monkeypatch.setattr("ai_sidecar.main._SIDECAR_TOKEN", "test-secret")
+    res = client.post("/analyze", headers={"Origin": origin})
+    assert res.status_code == 401
+    assert res.json()["detail"] == "Invalid or missing sidecar token"
+    assert res.headers.get("access-control-allow-origin") == (origin if allowed else None)
+    assert res.headers.get("access-control-allow-private-network") == ("true" if allowed else None)
+
+
 def test_health_allows_local_dev_cors():
     res = client.get("/health", headers={"Origin": "http://localhost:3000"})
     assert res.status_code == 200

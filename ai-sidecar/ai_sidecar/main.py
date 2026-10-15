@@ -38,7 +38,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
-from .private_network_cors import EXPOSE_HEADERS, PrivateNetworkCorsMiddleware
+from .private_network_cors import EXPOSE_HEADERS, PrivateNetworkCorsMiddleware, apply_private_network_headers
 
 from .vocal_embed import (
     VocalEmbedPlanEnvelope,
@@ -188,7 +188,10 @@ async def _sidecar_token_auth(request: Request, call_next):
         return await call_next(request)
     token = request.headers.get(_SIDECAR_AUTH_HEADER)
     if token != _SIDECAR_TOKEN:
-        return JSONResponse(status_code=401, content={"detail": "Invalid or missing sidecar token"})
+        # This early return bypasses the inner CORS middleware. Keep the 401
+        # readable in Studio instead of turning it into a generic fetch failure.
+        response = JSONResponse(status_code=401, content={"detail": "Invalid or missing sidecar token"})
+        return apply_private_network_headers(response, request.headers.get("origin", ""))
     return await call_next(request)
 
 

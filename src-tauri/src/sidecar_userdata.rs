@@ -741,9 +741,8 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
     // shared environment or contact package servers just to restore activation.
     if disabled_extras(&root).iter().any(|id| id == spec) {
         let capability = match spec { "classify" => "genre", "vocal" => "vocal_ml", "vocal-rvc" => "rvc", other => other };
-        if let Some(module) = extra_probe_module(spec) {
-            let import_check = if spec == "generate" { "from audiocraft.models import MusicGen".to_string() }
-                else { format!("import importlib; importlib.import_module({module:?})") };
+        if extra_probe_module(spec).is_some() {
+            let import_check = format!("from ai_sidecar.install_validation import verify_extra; verify_extra({spec:?})");
             let code = format!("{import_check}; from ai_sidecar.model_readiness import readiness; import sys; sys.exit(0 if readiness({capability:?})['offlineReady'] else 1)");
             let mut check = Command::new(&py);
             check.args(["-c", &code]).current_dir(&root);
@@ -776,15 +775,16 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
             progress,
         )?;
         out = format!("{out}\n{ac}");
-        let mut verify = Command::new(&py);
-        verify.args(["-c", "from audiocraft.models import MusicGen"])
-            .current_dir(&root);
-        apply_runtime_cache_env(&mut verify, &root);
-        apply_create_no_window(&mut verify);
-        let result = verify.output().map_err(|e| format!("Verify MusicGen: {e}"))?;
-        if !result.status.success() {
-            return Err(format!("MusicGen import verification failed: {}", String::from_utf8_lossy(&result.stderr)));
-        }
+    }
+    let mut verify = Command::new(&py);
+    verify.args(["-m", "ai_sidecar.install_validation", "--verify", spec, "--prepare-cuda"]).current_dir(&root);
+    apply_runtime_cache_env(&mut verify, &root);
+    apply_create_no_window(&mut verify);
+    let result = run_command_streaming(verify, Duration::from_secs(20 * 60), |line| {
+        emit_install_progress(app, extra_id, "log", Some(line), None);
+    })?;
+    if !result.status.success() {
+        return Err(format!("{spec} engine verification failed: {}", String::from_utf8_lossy(&result.stderr)));
     }
     if spec == "stems-melband" {
         emit_install_progress(app, extra_id, "log", Some("Preparing verified clean vocal model for offline use (~913 MB)"), None);

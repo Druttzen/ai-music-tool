@@ -26,3 +26,11 @@ Studio’s registered files and its installation ownership record are removed by
 ## ACE-Step provisioning
 
 The source archive is pinned to official ACE-Step commit `ca1e85fe9430179831e6bc6be790c332190a3866`, SHA-256 `108e45dffc7eb62af98d781c4159aa63a2b7a241186734e3e065279da7fc198d`. Initial provisioning downloads dependencies/models inside Studio's data folder. Once cached, inference uses the local model files. An interrupted install does not write the plugin activation manifest.
+
+## Shared sidecar engine validation
+
+Before provisioning checkpoints or recording activation, shared-runtime installers import each extra's actual inference entry points in a subprocess. Finding a package or successfully completing pip is insufficient. Failed imports preserve the underlying exception and leave the addon unactivated. This check does not load models; checkpoint readiness remains a separate check.
+
+On an NVIDIA machine, the desktop installer checks CUDA in a fresh Python process after dependency installation. If unavailable, it installs binary torch/torchaudio wheels from the exclusive CUDA index and checks again. `AIMC_FORCE_CPU=1` opts out; `AIMC_TORCH_CUDA_INDEX` overrides the default cu126 index. The development scripts also use the exclusive index so a newer CPU wheel from PyPI cannot win resolution.
+
+The RVC fallback is not a compatibility guarantee. On the tested Windows Python 3.12.10 runtime, the normal resolver rejects rvc-python's faiss-cpu 1.7.3 pin, and the fallback's fairseq 0.12.2 fails importing `RVCInference` with a mutable dataclass default. Engine validation rejects this combination. Working RVC inference still requires a compatible engine/runtime and a configured voice checkpoint; these changes do not supply them.

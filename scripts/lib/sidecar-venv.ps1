@@ -204,9 +204,9 @@ function Ensure-SidecarCudaTorch {
     "https://download.pytorch.org/whl/cu126"
   }
   Write-Host "Installing CUDA torch/torchaudio from $index ..."
-  # Prefer CUDA wheels via extra-index so other deps still resolve from PyPI.
+  # Use the CUDA index exclusively so a newer PyPI CPU wheel cannot win.
   $code = Invoke-SidecarPip -Pip $Pip -ArgumentList @(
-    "install", "--upgrade", "torch", "torchaudio", "--extra-index-url", $index
+    "install", "--upgrade", "torch", "torchaudio", "--index-url", $index
   )
   if ($code -ne 0) { exit $code }
   if (Test-SidecarTorchCuda -Python $Python) {
@@ -269,9 +269,12 @@ function Install-SidecarExtra {
   }
   $pythonExe = if ($ctx.Python) { $ctx.Python } else { Join-Path $ctx.Venv "Scripts\python.exe" }
   if (-not (Test-Path $pythonExe)) { $pythonExe = Join-Path $ctx.Venv "python.exe" }
-  if ($specs -contains "generate" -or $specs -contains "all") {
-    & $pythonExe -c "from audiocraft.models import MusicGen"
-    if ($LASTEXITCODE -ne 0) { throw "MusicGen import verification failed" }
+  $verifyExtras = if ($specs -contains "all") {
+    @("stems", "stems-melband", "generate", "classify", "vision", "cover", "cover-ref", "vocal", "vocal-ml")
+  } else { $specs }
+  foreach ($verifyExtra in $verifyExtras) {
+    & $pythonExe -m ai_sidecar.install_validation --verify $verifyExtra
+    if ($LASTEXITCODE -ne 0) { throw "Engine verification failed for $verifyExtra" }
   }
   $modelExtras = @("stems", "generate", "classify", "vision", "cover", "cover-ref")
   foreach ($modelExtra in $modelExtras) {
