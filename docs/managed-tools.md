@@ -32,6 +32,8 @@ Names refer to folders under `source/checkpoints`; leave `variance_exp` empty wh
 
 The installer checks the real inference imports and both acoustic/variance command entry points. Windows/Linux use CPU PyTorch to avoid assuming a particular GPU; macOS uses the native PyTorch wheel. This is an engine compatibility check, not a completed singing synthesis test with a voice.
 
+DiffSinger's Python packages must have prebuilt wheels. Intel macOS uses Numba 0.62.1 and LibCST 1.8.6, which provide compatible wheels; the installer cannot silently fall back to compiling dependencies with external LLVM or Rust toolchains.
+
 ## Verification
 
 The `Managed platform tools` workflow installs all four tools on Windows, Linux and both macOS architectures. It exercises FFmpeg audio generation and ffprobe inspection, compiles/runs a Java source program, downloads and inspects MFA models, and imports the DiffSinger inference engine. See the specific workflow run for each platform's result; a declared matrix alone is not evidence of a successful installation.
