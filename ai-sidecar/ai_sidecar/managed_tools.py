@@ -243,7 +243,12 @@ def install(tool: str) -> None:
         # Upstream's broad pytorch-lightning dependency can otherwise upgrade
         # torch again; librosa 0.9 also still imports setuptools.pkg_resources.
         constraints = root / "compatibility-constraints.txt"
-        constraints.write_text("torch==2.2.2\nnumpy==1.26.4\npytorch-lightning==2.3.3\ntorchmetrics==1.4.3\nsetuptools==75.8.2\n", encoding="utf-8")
+        constraints.write_text(
+            "torch==2.2.2\nnumpy==1.26.4\npytorch-lightning==2.3.3\ntorchmetrics==1.4.3\nsetuptools==75.8.2\n"
+            # Newer Numba/llvmlite releases dropped Intel Mac wheels. Keep
+            # installation independent of a system LLVM compiler there.
+            "numba==0.62.1; sys_platform == 'darwin' and platform_machine == 'x86_64'\n",
+            encoding="utf-8")
         run(command(tool, "python", "-m", "pip", "install", "setuptools==75.8.2", "-c", str(constraints),
                     "-r", str(source / "requirements.txt")), tool=tool)
         run(command(tool, "python", "-c", "import torch, librosa, lightning, pyworld, parselmouth; from inference.ds_acoustic import DiffSingerAcousticInfer"), tool=tool, cwd=source)

@@ -38,7 +38,7 @@ Vocal Embed Studio shows an MFA badge:
 
 | Badge | Meaning |
 |-------|---------|
-| **ready** | Env set **and** `mfa` (or `AIMC_MFA_BIN`) found on PATH |
+| **ready** | Managed MFA installed and activated, or development env set with a discoverable MFA executable |
 | **env only** | MODEL+DICT set but binary missing |
 | **heuristic** | MFA not configured — librosa fallback |
 
