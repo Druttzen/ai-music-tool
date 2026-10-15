@@ -101,7 +101,7 @@ pub fn inventory_optional_tools(app: Option<&AppHandle>) -> Vec<ToolRefreshItem>
     let java_names = ["java.exe"];
     #[cfg(not(windows))]
     let java_names = ["java"];
-    if let Some(java) = find_named_exe(&tools.join("java"), &java_names, 4)
+    if let Some(java) = find_named_exe(&tools.join("java"), &java_names, 6)
         .or_else(|| find_named_exe(&tools, &java_names, 3))
     {
         match probe_tool_version(&java, &["-version"]) {
@@ -131,7 +131,7 @@ pub fn inventory_optional_tools(app: Option<&AppHandle>) -> Vec<ToolRefreshItem>
     let ffmpeg_names = ["ffmpeg.exe"];
     #[cfg(not(windows))]
     let ffmpeg_names = ["ffmpeg"];
-    if let Some(ff) = find_named_exe(&tools.join("ffmpeg"), &ffmpeg_names, 3)
+    if let Some(ff) = find_named_exe(&tools.join("ffmpeg"), &ffmpeg_names, 6)
         .or_else(|| find_named_exe(&tools, &ffmpeg_names, 3))
     {
         match probe_tool_version(&ff, &["-version"]) {

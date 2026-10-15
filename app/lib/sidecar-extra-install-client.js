@@ -19,6 +19,10 @@ export const SIDECAR_EXTRA_NPM = {
   vocal: "npm run sidecar:vocal",
   "vocal-ml": "npm run sidecar:vocal-ml",
   "vocal-rvc": "npm run sidecar:vocal-rvc",
+  mfa: "npm run sidecar:mfa",
+  diffsinger: "npm run sidecar:diffsinger",
+  java: "npm run sidecar:java",
+  ffmpeg: "npm run sidecar:ffmpeg",
 };
 
 /** Normalize health capability ids to install script / npm keys. */
@@ -29,6 +33,7 @@ export function normalizeSidecarExtraId(id) {
   if (raw === "genre") return "classify";
   if (raw === "cover_ref") return "cover-ref";
   if (raw === "acest") return "acestep";
+  if (raw === "mfa-align") return "mfa";
   return raw;
 }
 

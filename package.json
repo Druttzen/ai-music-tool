@@ -88,7 +88,11 @@
     "ship:tag": "node scripts/ship-tag-release.cjs",
     "build": "next build",
     "postbuild": "node scripts/verify-lazy-catalog-chunks.cjs",
-    "build:readme-pdf": "node scripts/generate-readme-pdf.cjs"
+    "build:readme-pdf": "node scripts/generate-readme-pdf.cjs",
+    "sidecar:mfa": "node scripts/install-managed-tool.cjs mfa",
+    "sidecar:diffsinger": "node scripts/install-managed-tool.cjs diffsinger",
+    "sidecar:java": "node scripts/install-managed-tool.cjs java",
+    "sidecar:ffmpeg": "node scripts/install-managed-tool.cjs ffmpeg"
   },
   "dependencies": {
     "lamejs": "^1.2.1",

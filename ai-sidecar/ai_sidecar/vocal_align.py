@@ -18,6 +18,9 @@ import numpy as np
 
 
 def mfa_configured() -> bool:
+    from .managed_tools import installed
+    if installed("mfa"):
+        return True
     model = os.environ.get("AIMC_MFA_MODEL", "").strip()
     dictionary = os.environ.get("AIMC_MFA_DICT", "").strip()
     return bool(model and dictionary)
@@ -29,6 +32,9 @@ def mfa_bin_name() -> str:
 
 def mfa_ready() -> bool:
     """Env configured and MFA executable discoverable on PATH."""
+    from .managed_tools import installed
+    if installed("mfa"):
+        return True
     if not mfa_configured():
         return False
     return bool(shutil.which(mfa_bin_name()))
@@ -125,6 +131,10 @@ def _align_with_mfa(
     mfa_bin = mfa_bin_name()
     model = os.environ.get("AIMC_MFA_MODEL", "").strip()
     dictionary = os.environ.get("AIMC_MFA_DICT", "").strip()
+    from .managed_tools import installed, command, tool_env
+    managed = installed("mfa")
+    if managed:
+        model = dictionary = "english_mfa"
     if not model or not dictionary:
         return None
 
@@ -142,8 +152,7 @@ def _align_with_mfa(
         sf.write(str(wav_path), mono.astype(np.float32), sample_rate, subtype="PCM_16")
         lab_path.write_text(transcript.strip() + "\n", encoding="utf-8")
 
-        cmd = [
-            mfa_bin,
+        cmd = (command("mfa", "mfa") if managed else [mfa_bin]) + [
             "align",
             str(wav_path.parent),
             dictionary,
@@ -153,7 +162,9 @@ def _align_with_mfa(
             "--overwrite",
         ]
         try:
-            subprocess.run(cmd, check=True, capture_output=True, timeout=300)
+            subprocess.run(cmd, check=True, capture_output=True, timeout=300,
+                           env=tool_env("mfa") if managed else None,
+                           creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
         except Exception:
             return None
 

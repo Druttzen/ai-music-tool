@@ -8,7 +8,7 @@ import re
 
 
 def addon_enabled(capability: str) -> bool:
-    aliases = {"genre": "classify", "vocal_ml": "vocal", "rvc": "vocal-rvc"}
+    aliases = {"genre": "classify", "vocal_ml": "vocal", "rvc": "vocal-rvc", "mfa-align": "mfa"}
     path = os.environ.get("AIMC_DISABLED_EXTRAS_FILE", "")
     if not path:
         return True
@@ -158,6 +158,9 @@ def readiness(capability: str) -> dict:
         configured = diffsinger_configured()
         cached = diffsinger_ready()
         offline = not bool(os.environ.get("AIMC_DIFFSINGER_URL", ""))
+    elif capability in {"java", "ffmpeg"}:
+        from .managed_tools import installed
+        cached = configured = installed(capability)
     elif capability == "acestep":
         from .internal_plugins import active_plugin
         root = active_plugin("acestep")

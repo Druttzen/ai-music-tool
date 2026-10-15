@@ -24,6 +24,10 @@ export const STUDIO_SIDECAR_PLUGIN_CATALOG = [
   { id: "vocal_ml", title: "Vocal DSP", blurb: "Scipy vocal processing extras." },
   { id: "vocal-ml", title: "Vocal ML", blurb: "Torch vocal models." },
   { id: "rvc", title: "RVC voice conversion", blurb: "Convert vocals with RVC." },
+  { id: "mfa-align", title: "Montreal Forced Aligner", blurb: "Align words with a local English acoustic model and dictionary." },
+  { id: "diffsinger", title: "DiffSinger / OpenVPI", blurb: "Local singing engine. Your voice checkpoints are required for synthesis." },
+  { id: "java", title: "Java runtime", blurb: "App-managed Java 17 for tools that need it." },
+  { id: "ffmpeg", title: "FFmpeg / FFprobe", blurb: "Local media conversion and inspection tools." },
 ];
 
 /**

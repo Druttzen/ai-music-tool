@@ -523,6 +523,10 @@ pub fn pip_extra_spec(extra_id: &str) -> Option<&'static str> {
         "vocal" | "vocal_ml" => Some("vocal"),
         "vocal-ml" => Some("vocal-ml"),
         "vocal-rvc" | "rvc" => Some("vocal-rvc"),
+        "mfa" | "mfa-align" => Some("mfa"),
+        "diffsinger" => Some("diffsinger"),
+        "java" => Some("java"),
+        "ffmpeg" => Some("ffmpeg"),
         _ => None,
     }
 }
@@ -545,6 +549,13 @@ fn set_extra_enabled(root: &Path, id: &str, enabled: bool) -> Result<(), String>
     file.write_all(&serde_json::to_vec_pretty(&disabled).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     file.as_file().sync_all().map_err(|e| e.to_string())?;
     file.persist(root.join("disabled-extras.json")).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub(crate) fn deactivate_tracked_extra(app: &AppHandle, id: &str) -> Result<(), String> {
+    let root = user_sidecar_root(app)?;
+    set_extra_enabled(&root, id, false)?;
+    remove_installed_extra(app, id);
     Ok(())
 }
 

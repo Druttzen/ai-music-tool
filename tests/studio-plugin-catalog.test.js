@@ -9,6 +9,19 @@ import {
 } from "../app/lib/studio-plugin-catalog.js";
 
 describe("studio-plugin-catalog", () => {
+  it("offers managed tools and keeps a DiffSinger engine without a voice unready", () => {
+    const rows = listStudioPluginCatalog({ capabilities: [
+      { id: "diffsinger", available: true, dependenciesInstalled: true, runtimeReady: false,
+        offlineReady: false, models: {}, install_hint: "npm run sidecar:diffsinger" },
+    ] });
+    expect(rows.find(row => row.id === "mfa-align")?.extraId).toBe("mfa");
+    for (const id of ["mfa", "diffsinger", "java", "ffmpeg"]) {
+      expect(rows.find(row => row.extraId === id)?.install_hint).toBe(`npm run sidecar:${id}`);
+    }
+    expect(rows.find(row => row.id === "diffsinger")).toMatchObject({
+      dependenciesInstalled: true, runtimeReady: false, offlineReady: false,
+    });
+  });
   it("lists every sidecar extra without waiting for /health", () => {
     const rows = listStudioPluginCatalog(null);
     expect(rows).toHaveLength(STUDIO_SIDECAR_PLUGIN_CATALOG.length);

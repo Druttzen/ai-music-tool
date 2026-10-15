@@ -31,8 +31,9 @@ Automatic startup updates refresh only the Studio app. They do not upgrade optio
 
 **Check for updates** and **Update all** remain in the Project status card. Update all refreshes:
 
-- Sidecar toolchain — re-ensure bundled embeddable CPython (stamp mismatch re-extracts), upgrade `pip` / `setuptools` / `wheel`, upgrade the base editable sidecar package, and inventory optional tools under `{install}/data/tools` (Java / FFmpeg when present; not auto-installed)
+- Sidecar toolchain — re-ensure the platform's Python runtime, upgrade `pip` / `setuptools` / `wheel`, upgrade the base editable sidecar package, and inventory optional tools in Studio's managed data folder
 - Installed sidecar plugins / extras (already installed stacks only)
+- MFA, DiffSinger, Java and FFmpeg can be installed from Plugins; Update all refreshes them after installation. They use separate environments inside the same managed data folder. DiffSinger additionally needs compatible voice checkpoints. See [managed tools](managed-tools.md).
 - Canvas addon, when it is already present
 - Usable `.zip` archives in `{install}/data/{addons,tools,archives}`
 - Then the Studio app itself, when a newer signed release exists

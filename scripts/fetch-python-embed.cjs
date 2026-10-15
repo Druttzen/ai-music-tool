@@ -112,6 +112,10 @@ async function ensureAsset(asset) {
 }
 
 async function main() {
+  if (process.platform !== "win32") {
+    console.log("fetch-python-embed — Windows-only archive skipped on this platform");
+    return;
+  }
   fs.mkdirSync(destDir, { recursive: true });
   const keep = path.join(destDir, ".gitkeep");
   if (!fs.existsSync(keep)) {

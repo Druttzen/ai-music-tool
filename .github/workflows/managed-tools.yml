@@ -1,0 +1,50 @@
+name: Managed platform tools
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, "codex/managed-platform-tools"]
+    paths:
+      - "ai-sidecar/ai_sidecar/managed_tools.py"
+      - "ai-sidecar/ai_sidecar/diffsinger_openvpi.py"
+      - "ai-sidecar/ai_sidecar/vocal_align.py"
+      - "src-tauri/src/python_embed.rs"
+      - "scripts/fetch-python-embed.cjs"
+      - "scripts/verify-managed-tools.py"
+      - ".github/workflows/managed-tools.yml"
+  pull_request:
+    paths:
+      - "ai-sidecar/ai_sidecar/managed_tools.py"
+      - "ai-sidecar/ai_sidecar/diffsinger_openvpi.py"
+      - "ai-sidecar/ai_sidecar/vocal_align.py"
+      - "src-tauri/src/python_embed.rs"
+      - "scripts/fetch-python-embed.cjs"
+      - "scripts/verify-managed-tools.py"
+      - ".github/workflows/managed-tools.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  install-and-probe:
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, macos-15-intel, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      STUDIO_DATA_DIR: ${{ github.workspace }}/.managed-tools-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e ai-sidecar pytest
+      - run: python -m pytest ai-sidecar/tests/test_managed_tools.py -q
+      - run: python -m ai_sidecar.managed_tools install ffmpeg
+      - run: python -m ai_sidecar.managed_tools install java
+      - run: python -m ai_sidecar.managed_tools install mfa
+      - run: python -m ai_sidecar.managed_tools install diffsinger
+      - name: Check tool activation, media conversion and runtime use
+        run: python scripts/verify-managed-tools.py

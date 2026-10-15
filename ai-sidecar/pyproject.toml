@@ -12,6 +12,7 @@ dependencies = [
     "soundfile>=0.12",
     "av>=10.0",  # Bundled AAC/ALAC decoder; works offline without system FFmpeg
     "pillow>=10.0",  # Internal offline Canvas rendering
+    "pyyaml>=6",  # Inspect managed DiffSinger voice configuration without loading weights
     "librosa>=0.10",
     # Numba 0.63+ / llvmlite 0.46+ publish macOS wheels only for ARM.
     # 0.62.1 has CPython 3.10-3.12 Intel wheels and constrains NumPy <2.4.

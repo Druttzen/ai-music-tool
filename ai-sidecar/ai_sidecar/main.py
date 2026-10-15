@@ -121,6 +121,8 @@ async def _lifespan(_app: FastAPI):
     load_vocal_env_file()
     from .internal_plugins import enforce_internal_integrations
     enforce_internal_integrations()
+    from .managed_tools import configure as configure_managed_tools
+    configure_managed_tools()
     from .acestep_bridge import configure_internal_acestep
     configure_internal_acestep()
     configure_idle_exit(float(os.environ.get("SIDECAR_IDLE_EXIT_SEC", "300")))

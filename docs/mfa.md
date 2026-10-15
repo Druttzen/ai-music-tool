@@ -4,13 +4,25 @@ Studio can time guide-vocal words for DiffSinger / OpenVPI `.ds` export using
 [Montreal Forced Aligner](https://montreal-forced-aligner.readthedocs.io/) when
 configured. Otherwise alignment uses a **librosa onset heuristic**.
 
-MFA is **not** a pip extra of `ai-sidecar` — install MFA separately (conda or
-pip) so the `mfa` binary is on `PATH`.
+Install **Montreal Forced Aligner** from Studio's Plugins panel. Studio uses a
+SHA-256-verified micromamba binary and an isolated conda-forge environment under
+`<Studio data>/tools/mfa/runtime`. It installs MFA 3.3.9 and the `english_mfa`
+acoustic model and dictionary. Models and MFA's working data stay under
+`<Studio data>/tools/mfa/models`; no global conda, PATH edit or separate installer
+is required. The plugin is activated only after both models pass inspection.
+
+The managed environment is used through `micromamba run`, including on Windows
+where the DLL search path needs activation. Disabling the plugin preserves the
+downloaded files and removes its activation marker.
 
 ## Setup
 
+For an unmanaged development checkout, the previous environment configuration
+still works. Packaged Studio restricts external tool paths to its managed data
+folder. The following is for development, not the managed installation above:
+
 1. Install MFA and download an acoustic model + dictionary (e.g. `english_mfa`).
-2. Copy `ai-sidecar/env.vocal.example` → `ai-sidecar/.env.vocal` and set:
+2. Set:
 
    ```bash
    AIMC_MFA_BIN=mfa

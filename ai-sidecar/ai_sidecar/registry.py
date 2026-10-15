@@ -137,6 +137,11 @@ def _probe_diffsinger() -> bool:
     return diffsinger_configured()
 
 
+def _probe_managed_tool(tool: str) -> bool:
+    from .managed_tools import installed
+    return installed(tool)
+
+
 CAPABILITIES: tuple[CapabilitySpec, ...] = (
     CapabilitySpec(
         id="stems",
@@ -179,11 +184,11 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="mfa-align",
         title="MFA vocal align",
         tasks=("vocal-align",),
-        install_hint="Install MFA + set AIMC_MFA_MODEL/DICT (docs/mfa.md)",
+        install_hint="npm run sidecar:mfa",
         license="MIT (MFA)",
         commercial_use=True,
         probe=_probe_mfa,
-        prompt_install=False,  # external MFA install, not an npm pip extra
+        prompt_install=True,
     ),
     CapabilitySpec(
         id="vocal-transform",
@@ -271,12 +276,18 @@ CAPABILITIES: tuple[CapabilitySpec, ...] = (
         id="diffsinger",
         title="DiffSinger / OpenVPI",
         tasks=("diffsinger",),
-        install_hint="Configure DiffSinger paths (see ai-sidecar README)",
+        install_hint="npm run sidecar:diffsinger",
         license="model-dependent",
         commercial_use=True,
-        probe=_probe_diffsinger,
-        prompt_install=False,  # env/config, not an npm extra
+        probe=lambda: _probe_managed_tool("diffsinger") or _probe_diffsinger(),
+        prompt_install=True,
     ),
+    CapabilitySpec(id="java", title="Java runtime", tasks=("java",),
+                   install_hint="npm run sidecar:java", license="GPL-2.0 with Classpath Exception",
+                   commercial_use=True, probe=lambda: _probe_managed_tool("java")),
+    CapabilitySpec(id="ffmpeg", title="FFmpeg / FFprobe", tasks=("media-tools",),
+                   install_hint="npm run sidecar:ffmpeg", license="GPL/LGPL (conda-forge build)",
+                   commercial_use=True, probe=lambda: _probe_managed_tool("ffmpeg")),
 )
 
 _CAPABILITY_CACHE_TTL_SEC = 5.0

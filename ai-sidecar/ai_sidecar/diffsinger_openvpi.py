@@ -22,6 +22,9 @@ _MAJOR_SCALE = (0, 2, 4, 5, 7, 9, 11)
 
 
 def openvpi_root() -> Path | None:
+    from .managed_tools import installed, tool_root
+    if installed("diffsinger"):
+        return tool_root("diffsinger") / "source"
     raw = os.environ.get("AIMC_DIFFSINGER_ROOT", "").strip()
     if not raw:
         return None
@@ -58,6 +61,29 @@ def openvpi_ready() -> bool:
     var_exp = openvpi_variance_exp()
     if var_exp and not any(p.name == var_exp or p.name.startswith(var_exp) for p in ckpt_root.iterdir() if p.is_dir()):
         return False
+    from .managed_tools import installed
+    if installed("diffsinger"):
+        import yaml
+        try:
+            selected = []
+            for exp in (ac_exp, var_exp):
+                if not exp:
+                    continue
+                folder = next(p for p in ckpt_root.iterdir() if p.is_dir() and (p.name == exp or p.name.startswith(exp)))
+                if not folder.resolve().is_relative_to(ckpt_root.resolve()):
+                    return False
+                if not (folder / "config.yaml").is_file() or not any(p.stat().st_size > 0 for p in folder.glob("*.ckpt")):
+                    return False
+                selected.append(folder)
+            config = yaml.safe_load((selected[0] / "config.yaml").read_text(encoding="utf-8"))
+            vocoder = config.get("vocoder_ckpt", "") if isinstance(config, dict) else ""
+            if not isinstance(vocoder, str) or not vocoder:
+                return False
+            vocoder_path = (root / vocoder).resolve()
+            if not vocoder_path.is_relative_to(root.resolve()) or not vocoder_path.is_file() or vocoder_path.stat().st_size == 0:
+                return False
+        except (OSError, ValueError, StopIteration, yaml.YAMLError):
+            return False
     return True
 
 
@@ -318,8 +344,9 @@ def _run_infer(
         raise RuntimeError("AIMC_DIFFSINGER_ROOT is not configured")
 
     infer_py = root / "scripts" / "infer.py"
-    cmd = [
-        _python_executable(),
+    from .managed_tools import installed, command, tool_env
+    managed = installed("diffsinger")
+    cmd = (command("diffsinger", "python") if managed else [_python_executable()]) + [
         str(infer_py),
         subcommand,
         str(ds_path),
@@ -340,9 +367,10 @@ def _run_infer(
     if key:
         cmd.extend(["--key", key])
 
-    env = os.environ.copy()
+    env = tool_env("diffsinger") if managed else os.environ.copy()
     env["PYTHONPATH"] = str(root) + os.pathsep + env.get("PYTHONPATH", "")
-    subprocess.run(cmd, cwd=str(root), env=env, check=True, timeout=900)
+    subprocess.run(cmd, cwd=str(root), env=env, check=True, timeout=900,
+                   creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
 
 
 def _find_variance_ds(work_dir: Path, stem: str) -> Path:

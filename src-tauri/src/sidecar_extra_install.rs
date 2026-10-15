@@ -49,6 +49,10 @@ fn script_stem(extra_id: &str) -> Option<&'static str> {
         "vocal" => Some("install-sidecar-vocal"),
         "vocal-ml" => Some("install-sidecar-vocal-ml"),
         "vocal-rvc" => Some("install-sidecar-vocal-rvc"),
+        "mfa" | "mfa-align" => Some("install-sidecar-mfa"),
+        "diffsinger" => Some("install-sidecar-diffsinger"),
+        "java" => Some("install-sidecar-java"),
+        "ffmpeg" => Some("install-sidecar-ffmpeg"),
         _ => None,
     }
 }
@@ -77,6 +81,7 @@ pub(crate) fn known_extra_ids() -> &'static [&'static str] {
         "vocal",
         "vocal-ml",
         "vocal-rvc",
+        "mfa", "diffsinger", "java", "ffmpeg",
     ]
 }
 
@@ -144,7 +149,16 @@ fn install_one_sidecar_extra_inner(
 
     // All plugins belong to the app-managed data root, including development.
     let _ = (stem, skip_checkout);
-    let mut result = if id == "acestep" || id == "acest" {
+    let managed_tool = ["mfa", "diffsinger", "java", "ffmpeg"].contains(&id.as_str());
+    let mut result = if managed_tool {
+        match crate::internal_plugins::run_plugin_module(app, "ai_sidecar.managed_tools", &["install", &id]) {
+            Ok(message) => SidecarExtraInstallResult {
+                ok: true, extra_id: id.clone(), mode: Some("installed".into()),
+                message: Some(message), error: None, install_hint: None,
+            },
+            Err(error) => fail(id.clone(), "install-failed", error, String::new()),
+        }
+    } else if id == "acestep" || id == "acest" {
         match crate::internal_plugins::install_acestep(app) {
             Ok(message) => SidecarExtraInstallResult {
                 ok: true, extra_id: "acestep".into(), mode: Some("installed".into()),
@@ -300,7 +314,10 @@ pub async fn uninstall_sidecar_extra(
     let mgr = Arc::clone(manager.inner());
     tauri::async_runtime::spawn_blocking(move || {
         mgr.stop();
-        let result = if id == "acestep" || id == "acest" {
+        let result = if ["mfa", "diffsinger", "java", "ffmpeg"].contains(&id.as_str()) {
+            crate::internal_plugins::run_plugin_module(&app, "ai_sidecar.managed_tools", &["deactivate", &id])
+                .and_then(|message| { crate::sidecar_userdata::deactivate_tracked_extra(&app, &id)?; Ok(message) })
+        } else if id == "acestep" || id == "acest" {
             crate::internal_plugins::uninstall_acestep(&app)
         } else {
             uninstall_extra_from_user_venv(&app, &id)

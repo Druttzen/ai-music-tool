@@ -6,6 +6,9 @@
 - Canvas uses the internal Python renderer and a Studio WebView panel. It never installs or starts AI Canvas Tool as another application. Current internal Canvas support renders artwork to a 720 × 1280 H.264 MP4 loop, 3–8 seconds. The external Canvas application's AI-video editing features are not imported.
 - External ACE-Step checkout discovery and service URLs are ignored. The internal ACE-Step process uses a private loopback port and session authentication, and closes with Studio.
 - Optional external vocal APIs and arbitrary DiffSinger command launchers are disabled in the Studio host. RVC inference uses the installed internal Python package. DiffSinger and MFA executables must belong to the managed addons/tools directories; model/audio files remain user data.
+- MFA, DiffSinger, Java and FFmpeg have managed Install actions. A pinned, SHA-256-verified micromamba binary installs separate conda-forge environments under `tools/{mfa,java,ffmpeg}/runtime` and `addons/diffsinger/runtime`. Package caches remain under `tools/.cache`; no shell profile or global PATH is changed. Updates refresh only explicitly installed components; deactivation preserves cached files.
+- DiffSinger installs upstream v2.5.1 in `addons/diffsinger/source` with its own Python 3.10, NumPy 1.26 and PyTorch 2.2.2 baseline (CPU on Windows/Linux, native PyTorch on macOS). Voice/acoustic, variance and vocoder checkpoints are separate, user-selected assets. An installed engine is not reported as ready for singing without voice configuration and checkpoints.
+- Windows embeddable Python resources are never selected by the macOS/Linux bootstrap. Those platforms create a native venv with available Python 3.10–3.12. The Windows archive download is skipped when building on another host.
 
 ## Windows installer
 

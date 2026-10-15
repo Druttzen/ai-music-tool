@@ -64,7 +64,10 @@ pub fn resolve_python_embed_dir(app: Option<&AppHandle>) -> Option<PathBuf> {
 }
 
 pub fn has_bundled_python_embed(app: Option<&AppHandle>) -> bool {
-    resolve_python_embed_dir(app).is_some()
+    // Resources may contain a Windows archive even in a macOS/Linux bundle.
+    // Do not route a fresh non-Windows install into ensure_embed_runtime's
+    // Windows-only branch instead of creating its native venv.
+    cfg!(windows) && resolve_python_embed_dir(app).is_some()
 }
 
 fn enable_import_site(runtime: &Path) -> Result<(), String> {
@@ -235,6 +238,13 @@ pub fn write_runtime_readme(runtime: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_embed_is_never_selected_on_other_platforms() {
+        if !cfg!(windows) {
+            assert!(!has_bundled_python_embed(None));
+        }
+    }
 
     #[test]
     fn resolve_user_python_prefers_runtime_over_venv() {

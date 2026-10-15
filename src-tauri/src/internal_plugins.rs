@@ -11,10 +11,17 @@ pub(crate) fn run_plugin_module(app: &AppHandle, module: &str, args: &[&str]) ->
     let mut cmd = Command::new(python);
     cmd.args(["-m", module]).args(args).env("PYTHONPATH", &pkg);
     sidecar_userdata::apply_runtime_cache_env(&mut cmd, &root);
-    let output = process_progress::run_command_streaming(cmd, Duration::from_secs(3600), |line| {
-        process_progress::emit_install_progress(app, "acestep", "log", Some(line), None);
+    let id = args.last().copied().unwrap_or("acestep");
+    let output = process_progress::run_command_streaming(cmd, Duration::from_secs(2 * 3600), |line| {
+        process_progress::emit_install_progress(app, id, "log", Some(line), None);
     })?;
-    if output.status.success() { Ok("Internal sidecar plugin ready".into()) }
+    if output.status.success() {
+          Ok(if args.first() == Some(&"deactivate") {
+              format!("Internal {id} deactivated; cached files preserved")
+          } else if id == "diffsinger" {
+            "DiffSinger engine installed. Add your acoustic, variance and vocoder voice checkpoints to enable synthesis.".into()
+        } else { format!("Internal {id} setup completed") })
+    }
     else { Err(String::from_utf8_lossy(&output.stderr).lines().rev().take(12).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")) }
 }
 
