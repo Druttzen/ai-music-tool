@@ -4,7 +4,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SIDECAR="$ROOT/ai-sidecar"
 BIN_DIR="$ROOT/src-tauri/binaries"
-VENV="$SIDECAR/.venv"
+# Freeze only the base application, never a contributor's installed AI extras.
+VENV="$SIDECAR/.build-venv"
+unset PYTHONPATH PYTHONHOME PYTHONUSERBASE || true
+export PYTHONNOUSERSITE=1
 
 TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
 BASE="ai-sidecar-${TRIPLE}"
@@ -21,10 +24,9 @@ if [[ ! -d "$VENV" ]]; then
   echo "Creating sidecar venv..."
   "$PY" -m venv "$VENV"
   "$VENV/bin/pip" install --upgrade pip
-  "$VENV/bin/pip" install -e "$SIDECAR"
 fi
 
-"$VENV/bin/pip" install pyinstaller pyinstaller-hooks-contrib "av>=10.0"
+"$VENV/bin/pip" install -e "$SIDECAR" pyinstaller pyinstaller-hooks-contrib
 rm -rf "$SIDECAR/dist" "$SIDECAR/build"
 
 echo "Building $OUT_NAME..."

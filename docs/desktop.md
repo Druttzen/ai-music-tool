@@ -79,6 +79,8 @@ npm run tauri:build
 
 ## CI & releases
 
+The frozen base sidecar is built in `ai-sidecar/.build-venv`, separate from the development/plugin `.venv`. Build scripts install the current base package there before packaging, so locally installed MusicGen, RVC or other optional stacks cannot leak into the shipped app.
+
 - `tauri-smoke` — Tauri build smoke on every push
 - `tauri-studio-release.yml` — publishes **Tauri** studio builds on `studio-v*` tags (**only ship path**)
 - `release.yml` — **retired** (fails fast if dispatched)
