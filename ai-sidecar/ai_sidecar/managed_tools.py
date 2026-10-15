@@ -148,13 +148,21 @@ def ensure_mamba() -> Path:
 
 
 def command(tool: str, *args: str) -> list[str]:
+    if tool == "java" and args and args[0] == "java":
+        args = (str(java_home() / "bin" / ("java.exe" if os.name == "nt" else "java")), *args[1:])
     return [str(mamba_path()), "--no-rc", "run", "-p", str(runtime_prefix(tool)), *map(str, args)]
+
+
+def java_home() -> Path:
+    # conda-forge's Unix JDK lives in lib/jvm; macOS packages do not
+    # necessarily provide the bin/java symlink available on Linux.
+    return runtime_prefix("java") / ("Library" if os.name == "nt" else "lib/jvm")
 
 
 def required_files(tool: str) -> list[Path]:
     prefix = runtime_prefix(tool)
     bin_dir = prefix / ("Library/bin" if os.name == "nt" else "bin")
-    names = {"java": [bin_dir / ("java.exe" if os.name == "nt" else "java")],
+    names = {"java": [java_home() / "bin" / ("java.exe" if os.name == "nt" else "java")],
              "ffmpeg": [bin_dir / (name + (".exe" if os.name == "nt" else "")) for name in ("ffmpeg", "ffprobe")],
              "mfa": [prefix / ("Scripts/mfa.exe" if os.name == "nt" else "bin/mfa")],
              "diffsinger": [prefix / ("python.exe" if os.name == "nt" else "bin/python"),
@@ -259,10 +267,11 @@ def configure() -> None:
     for tool in ("ffmpeg", "java"):
         if installed(tool):
             prefix = runtime_prefix(tool)
-            bins = ([prefix / "Library/bin", prefix / "Scripts"] if os.name == "nt" else [prefix / "bin"])
+            bins = ([java_home() / "bin"] if tool == "java" else
+                    [prefix / "Library/bin", prefix / "Scripts"] if os.name == "nt" else [prefix / "bin"])
             os.environ["PATH"] = os.pathsep.join(map(str, bins)) + os.pathsep + os.environ.get("PATH", "")
             if tool == "java":
-                os.environ["JAVA_HOME"] = str(prefix / "Library" if os.name == "nt" else prefix)
+                os.environ["JAVA_HOME"] = str(java_home())
     if installed("mfa"):
         os.environ.update({"MFA_ROOT_DIR": str(tool_root("mfa") / "models"),
                            "AIMC_MFA_MODEL": "english_mfa", "AIMC_MFA_DICT": "english_mfa"})
