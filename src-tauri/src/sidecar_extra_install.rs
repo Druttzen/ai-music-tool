@@ -139,7 +139,7 @@ fn install_one_sidecar_extra_inner(
     extra_id: &str,
     skip_checkout: bool,
 ) -> SidecarExtraInstallResult {
-    let id = extra_id.trim().to_string();
+    let id = match extra_id.trim() { "mfa-align" => "mfa", other => other }.to_string();
     let hint = npm_hint(&id);
     let Some(stem) = script_stem(&id) else {
         return fail(id, "unknown", "Unknown sidecar extra id".to_string(), hint);
@@ -258,8 +258,11 @@ fn probe_install_env(app: &AppHandle) -> SidecarExtraInstallEnv {
         return SidecarExtraInstallEnv {
             mode: "bundled-readonly".to_string(),
             writable: false,
-            message: "Bundled python-embed zip missing — run npm run fetch:python-embed before packaging, or use a checkout with Python 3.10–3.12."
-                .to_string(),
+            message: if cfg!(windows) {
+                "Bundled python-embed zip missing — run npm run fetch:python-embed before packaging, or use a checkout with Python 3.10–3.12."
+            } else {
+                "Python 3.10–3.12 is required on PATH to provision the app-managed sidecar environment."
+            }.to_string(),
         };
     }
 
@@ -301,7 +304,7 @@ pub async fn uninstall_sidecar_extra(
     manager: tauri::State<'_, Arc<SidecarManager>>,
     extra_id: String,
 ) -> Result<SidecarExtraInstallResult, String> {
-    let id = extra_id.trim().to_string();
+    let id = match extra_id.trim() { "mfa-align" => "mfa", other => other }.to_string();
     if script_stem(&id).is_none() {
         return Ok(fail(
             id,

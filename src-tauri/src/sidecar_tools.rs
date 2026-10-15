@@ -123,7 +123,7 @@ pub fn inventory_optional_tools(app: Option<&AppHandle>) -> Vec<ToolRefreshItem>
             "java",
             true,
             true,
-            "No Java toolchain under data/tools (optional — drop a JDK under tools/java)",
+            "Java is optional — install it from Plugins",
         ));
     }
 
@@ -153,7 +153,7 @@ pub fn inventory_optional_tools(app: Option<&AppHandle>) -> Vec<ToolRefreshItem>
             "ffmpeg",
             true,
             true,
-            "No FFmpeg under data/tools (optional — place ffmpeg.exe under tools/ffmpeg)",
+            "FFmpeg is optional — install it from Plugins",
         ));
     }
 

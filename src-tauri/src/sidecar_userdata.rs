@@ -347,15 +347,15 @@ pub fn bootstrap_user_venv(app: &AppHandle) -> Result<PathBuf, String> {
     let root = user_sidecar_root(app)?;
     if let Some(existing) = user_venv_python(&root) {
         let _ = ensure_user_sidecar_pkg(app)?;
-        // Existing installs predate AAC/ALAC support. Provision the decoder once
-        // during a version upgrade; cached wheels work without model downloads.
+        // Older installs may lack decoder/image support or the managed voice
+        // config reader. Provision these small base dependencies once.
         let mut check = Command::new(&existing);
-        check.args(["-c", "import av, PIL"]).current_dir(&root);
+        check.args(["-c", "import av, PIL, yaml"]).current_dir(&root);
         apply_runtime_cache_env(&mut check, &root);
         apply_create_no_window(&mut check);
         let available = check.output().map_err(|e| e.to_string())?.status.success();
         if !available {
-            run_pip(&existing, &["install", "av>=10.0", "pillow>=10.0"], &root)?;
+            run_pip(&existing, &["install", "av>=10.0", "pillow>=10.0", "pyyaml>=6"], &root)?;
         }
         return Ok(existing);
     }
