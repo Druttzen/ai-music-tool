@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDesktopHost } from "../hooks/use-desktop-host";
 import { Panel } from "./ui-blocks";
 import { GUIDED_PANEL_IDS } from "../lib/suno-guided-step-focus";
@@ -81,6 +81,8 @@ export function AddonsPanel() {
   const [extraErrors, setExtraErrors] = useState(/** @type {Record<string, string>} */ ({}));
   const [extrasLoaded, setExtrasLoaded] = useState(false);
   const [installedExtras, setInstalledExtras] = useState(() => new Set());
+  const downloadingAll = useRef(false);
+  const [downloadAllProgress, setDownloadAllProgress] = useState(null);
   const [installProgress, setInstallProgress] = useState(
     /** @type {{ extraId: string, line: string, parsedBytes: number|null }|null} */ (null),
   );
@@ -251,7 +253,8 @@ export function AddonsPanel() {
   }, [desktop, refreshCanvas, setStatusWithTime]);
 
   const onInstallExtra = useCallback(
-    async (extraId) => {
+    async (extraId, { batch = false } = {}) => {
+      if (downloadingAll.current && !batch) return false;
       let id = normalizeSidecarExtraId(extraId);
       // Stem-backed catalog rows are not their own pip extras.
       if (id === "vocal-transform") {
@@ -259,11 +262,11 @@ export function AddonsPanel() {
       }
       if (!desktop || !isSidecarExtraAllowlisted(id)) {
         setStatusWithTime("Internal plugins are installed from Studio’s desktop Plugins panel.", "info");
-        return;
+        return false;
       }
       if (installEnv?.mode === "bundled-readonly") {
         setStatusWithTime("Studio’s internal runtime is incomplete. Uninstall Studio, then reinstall it using the current installer.", "warning");
-        return;
+        return false;
       }
       setBusyKey(`extra:${id}`);
       setInstallProgress({ extraId: id, line: "", parsedBytes: null });
@@ -285,21 +288,65 @@ export function AddonsPanel() {
             [id]: formatSidecarExtraInstallStatus(result),
           }));
         }
-        await refreshSidecarCapabilities({ waitForExtraId: id });
+        await refreshSidecarCapabilities(result?.ok ? { waitForExtraId: id } : undefined);
         await refreshExtras();
         await refreshInstallEnv();
+        return result?.ok === true && tone !== "error";
       } catch (error) {
         reportSidecarExtraInstallIfFailed(`addons.install:${id}`, null, error);
         const msg = error instanceof Error ? error.message : "Could not install extra";
         setExtraErrors((prev) => ({ ...prev, [id]: msg }));
         setStatusWithTime(msg, "error");
+        return false;
       } finally {
-        setBusyKey(null);
+        if (!batch) setBusyKey(null);
         setInstallProgress(null);
       }
     },
     [desktop, installEnv, refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
   );
+
+  const missingExtras = capabilityRows.filter((row) => {
+    const id = normalizeSidecarExtraId(row.extraId || row.id);
+    return isSidecarExtraAllowlisted(id) &&
+      !sidecarExtraRowIsInstalled(installedExtras, row) &&
+      !(row.enabled !== false && (row.available || row.dependenciesInstalled));
+  });
+
+  const onDownloadAll = async () => {
+    if (busyKey || downloadingAll.current || !desktop || !extrasLoaded || !canPipInstall || bundledReadonly) return;
+    const seen = new Set();
+    const queue = missingExtras.filter((row) => {
+      const id = normalizeSidecarExtraId(row.extraId || row.id);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    if (!queue.length) return;
+    downloadingAll.current = true;
+    let completed = 0;
+    let failed = 0;
+    const total = queue.length;
+    try {
+      for (const row of queue) {
+        setDownloadAllProgress({ completed, failed, total, title: row.title, running: true });
+        const ok = await onInstallExtra(row.extraId || row.id, { batch: true });
+        completed += 1;
+        if (!ok) failed += 1;
+      }
+      setStatusWithTime(
+        failed
+          ? `Download all finished: ${completed - failed} installed, ${failed} failed. See each plugin for details and Retry.`
+          : `Download all finished: ${completed} plugins installed.`,
+        failed ? "error" : "info",
+      );
+    } finally {
+      downloadingAll.current = false;
+      setBusyKey(null);
+      setInstallProgress(null);
+      setDownloadAllProgress({ completed, failed, total, title: "", running: false });
+    }
+  };
 
   const onUninstallExtra = useCallback(
     async (extraId) => {
@@ -331,7 +378,7 @@ export function AddonsPanel() {
     [refreshExtras, refreshInstallEnv, refreshSidecarCapabilities, setStatusWithTime],
   );
 
-  const busy = busyKey !== null;
+  const busy = busyKey !== null || downloadAllProgress?.running === true;
   const bundledReadonly = installEnv?.mode === "bundled-readonly";
   const userDataBootstrap = installEnv?.mode === "user-data-bootstrap";
   const canPipInstall =
@@ -456,23 +503,53 @@ export function AddonsPanel() {
         </div>
 
         <div className="mt-4 min-w-0 space-y-2">
-          <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
             <div className="min-w-0 truncate text-[10px] font-bold uppercase tracking-wider text-white/45">
               Sidecar plugins
             </div>
-            <button
-              type="button"
-              data-testid="addons-refresh-status"
-              disabled={busy}
-              onClick={() => {
-                void refreshExtras();
-                void refreshInstallEnv();
-              }}
-              className="shrink-0 rounded-md border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/55 hover:bg-white/10 disabled:opacity-50"
-            >
-              Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                data-testid="addons-download-all"
+                disabled={busy || !desktop || !extrasLoaded || !canPipInstall || bundledReadonly || missingExtras.length === 0}
+                onClick={() => void onDownloadAll()}
+                className="shrink-0 rounded-md border border-cyan-400/40 bg-cyan-500/15 px-2 py-1 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/25 disabled:opacity-50"
+              >
+                {downloadAllProgress?.running ? "Downloading…" : "Download all"}
+              </button>
+              <button
+                type="button"
+                data-testid="addons-refresh-status"
+                disabled={busy}
+                onClick={() => {
+                  void refreshExtras();
+                  void refreshInstallEnv();
+                }}
+                className="shrink-0 rounded-md border border-white/15 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/55 hover:bg-white/10 disabled:opacity-50"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
+          <p className="break-words text-[11px] text-white/50">
+            Install all missing plugins one at a time. Downloads can be several GB. Voice models may need separate setup.
+          </p>
+          {downloadAllProgress ? (
+            <div role="status" data-testid="addons-download-all-status" className="space-y-1 text-[11px] text-cyan-100/80">
+              <p className="break-words">
+                {downloadAllProgress.running
+                  ? `${downloadAllProgress.completed} / ${downloadAllProgress.total} completed · Downloading ${downloadAllProgress.title}`
+                  : `${downloadAllProgress.completed - downloadAllProgress.failed} installed · ${downloadAllProgress.failed} failed`}
+                {downloadAllProgress.running && downloadAllProgress.failed > 0 ? ` · ${downloadAllProgress.failed} failed` : ""}
+              </p>
+              <progress
+                aria-label="Download all progress"
+                max={downloadAllProgress.total}
+                value={downloadAllProgress.completed}
+                className="h-1.5 w-full accent-cyan-400"
+              />
+            </div>
+          ) : null}
           {capabilityRows.length === 0 ? (
             <p className="break-words text-[11px] text-white/40">{extrasEmptyHint}</p>
           ) : (
