@@ -53,8 +53,24 @@ jobs:
           updaterJsonPreferNsis: true
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
-          uploadWorkflowArtifacts: true
+          # Tagged builds already store installers in Releases. Avoid a second
+          # copy in Actions storage; manual builds are retained below for 7 days.
+          uploadWorkflowArtifacts: false
           retryAttempts: 2
+      - name: Keep manual build installers for seven days
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-installers-${{ matrix.platform }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/**/*-setup.exe*
+            src-tauri/target/release/bundle/**/*.app.tar.gz*
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.AppImage*
+            src-tauri/target/release/bundle/**/*.deb*
+            src-tauri/target/release/bundle/**/*.rpm*
       - name: Native updater and component tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --lib --locked
       - name: Installed Windows upgrade and duplicate installation smoke
