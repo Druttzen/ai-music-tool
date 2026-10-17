@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /** Canvas integration install and launch helpers. */
 import { isTauriApp } from "./dsp-bridge";
 
@@ -39,22 +41,28 @@ export async function getCanvasAddonStatus() {
 }
 
 export async function installCanvasAddon() {
-  if (isTauriApp()) return tauriInvoke("install_canvas_addon");
-  return {
-    ok: false,
-    mode: "desktop-required",
-    error: CANVAS_DESKTOP_REQUIRED,
-  };
+  return runProcess("Install Canvas", async () => {
+    if (isTauriApp()) return tauriInvoke("install_canvas_addon");
+    return {
+      ok: false,
+      mode: "desktop-required",
+      error: CANVAS_DESKTOP_REQUIRED,
+    };
+  });
 }
 
 export async function launchCanvasAddon() {
-  if (isTauriApp()) return tauriInvoke("launch_canvas_addon");
-  return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
+  return runProcess("Open Canvas", async () => {
+    if (isTauriApp()) return tauriInvoke("launch_canvas_addon");
+    return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
+  });
 }
 
 export async function uninstallCanvasAddon() {
-  if (isTauriApp()) return tauriInvoke("uninstall_canvas_addon");
-  return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
+  return runProcess("Disable Canvas", async () => {
+    if (isTauriApp()) return tauriInvoke("uninstall_canvas_addon");
+    return { ok: false, error: CANVAS_DESKTOP_REQUIRED };
+  });
 }
 
 export function formatCanvasInstallStatus(result) {

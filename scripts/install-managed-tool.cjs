@@ -2,7 +2,7 @@
 const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 const tool = process.argv[2];
-if (!["mfa", "diffsinger", "java", "ffmpeg"].includes(tool)) {
+if (!["mfa", "diffsinger", "java", "ffmpeg", "vocal-rvc"].includes(tool)) {
   console.error("Unknown managed tool");
   process.exit(1);
 }

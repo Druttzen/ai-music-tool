@@ -7,5 +7,5 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Install-SidecarExtra -RepoRoot $root -ExtraSpec "all" -Label "[all] extras (~multi-GB)"
 # RVC is separate: rvc-python's faiss-cpu pin has no Python 3.12 wheel (see pyproject [all]).
-Install-SidecarExtra -RepoRoot $root -ExtraSpec "vocal-rvc" -Label "vocal-rvc (fallback-safe)"
+& (Join-Path $PSScriptRoot "install-sidecar-vocal-rvc.ps1")
 Write-Host "Optional RVC models still need configuration - see ai-sidecar README."

@@ -3,7 +3,7 @@
 import { useDesktopUpdates } from "../hooks/use-desktop-updates";
 
 export function DesktopUpdateControls() {
-  const { available, status, busy, installReady, installLabel, checkUpdates, updateAll } =
+  const { available, status, busy, installReady, installLabel, currentVersion, publishedVersion, checkUpdates, updateApp, updateAll } =
     useDesktopUpdates();
 
   if (!available) return null;
@@ -11,6 +11,7 @@ export function DesktopUpdateControls() {
   return (
     <div className="mt-3 border-t border-white/10 pt-3">
       <div className="text-xs text-white/50">Desktop updates</div>
+      {currentVersion && <p className="mt-1 text-[10px] text-white/50">Installed {currentVersion}{publishedVersion ? ` · Latest published ${publishedVersion}` : ""}</p>}
       <div className="mt-1 flex flex-wrap gap-2">
         <button
           type="button"
@@ -20,17 +21,19 @@ export function DesktopUpdateControls() {
         >
           Check for updates
         </button>
+        {installReady && <button type="button" disabled={busy} onClick={() => void updateApp()} className="rounded-xl bg-emerald-300 px-3 py-1.5 text-[11px] font-bold text-black hover:bg-emerald-200 disabled:opacity-50">Update Studio app</button>}
         {installReady ? (
           <button
             type="button"
             disabled={busy}
             onClick={() => void updateAll()}
-            className="rounded-xl bg-emerald-300 px-3 py-1.5 text-[11px] font-bold text-black hover:bg-emerald-200 disabled:opacity-50"
+            className="rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-white/10 disabled:opacity-50"
           >
             {installLabel}
           </button>
         ) : null}
       </div>
+      <p className="mt-1 text-[10px] text-white/40">Update Studio app downloads the app itself. Update all checks Studio first, then refreshes installed addons and tools.</p>
       {status ? <p className="mt-2 text-[10px] leading-relaxed text-white/45">{status}</p> : null}
     </div>
   );

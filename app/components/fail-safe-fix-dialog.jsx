@@ -128,10 +128,13 @@ export const FailSafeFixDialog = memo(function FailSafeFixDialog({
         {result?.steps?.length ? (
           <ul className="mb-3 space-y-1 rounded-xl border border-white/10 bg-black/25 p-3 text-[10px] text-white/60">
             {result.steps.map((step) => (
-              <li key={`${step.id}-${step.action}`}>
+              <li key={`${step.id}-${step.extraId || ""}-${step.action}`}>
                 <span className={step.ok ? "text-emerald-200/90" : "text-amber-100/80"}>
                   {step.ok ? "✓" : "•"} {step.detail}
                 </span>
+                {step.actionUrl?.startsWith("https://huggingface.co/") ? (
+                  <a href={step.actionUrl} target="_blank" rel="noreferrer" className="ml-2 underline text-cyan-200">Open model access</a>
+                ) : null}
               </li>
             ))}
           </ul>

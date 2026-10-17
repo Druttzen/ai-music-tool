@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Track Style-DNA — map Spotify features / MusicBrainz tags to Suno project fields.
  */
@@ -264,67 +266,69 @@ export function stripStyleDnaRuleLine(rules) {
  * @param {{ spotifyClientId?: string, spotifyClientSecret?: string }} settings
  */
 export async function searchTrackStyleDna(input, settings) {
-  const query = String(input || "").trim();
-  if (!query) throw new Error("Enter artist/title, Spotify track URL, or YouTube URL");
+  return runProcess("Search track style", async () => {
+    const query = String(input || "").trim();
+    if (!query) throw new Error("Enter artist/title, Spotify track URL, or YouTube URL");
 
-  const spotifyReady = isSpotifyStyleDnaReady(settings);
-  const spotifyId = parseSpotifyTrackUrl(query);
+    const spotifyReady = isSpotifyStyleDnaReady(settings);
+    const spotifyId = parseSpotifyTrackUrl(query);
 
-  if (spotifyId && spotifyReady) {
-    const hit = await fetchSpotifyStyleDnaHit(
-      spotifyId,
-      settings.spotifyClientId,
-      settings.spotifyClientSecret,
-    );
-    const dna = await enrichStyleDnaHit(hit, null, settings);
-    return {
-      hits: [hit],
-      mapped: [dna],
-      provider: "spotify",
-    };
-  }
-
-  const yt = parseYoutubeReference(query);
-  if (yt?.watchUrl) {
-    const bundle = await resolveYoutubeMusicDna(query, settings);
-    return {
-      hits: bundle.hits,
-      mapped: [bundle.dna],
-      provider: bundle.provider,
-      resolvedQuery: bundle.youtube.searchQuery || bundle.youtube.title,
-      youtube: bundle.youtube,
-      replication: bundle.replication,
-    };
-  }
-
-  if (spotifyReady) {
-    try {
-      const hits = await searchSpotifyStyleDnaHits(
-        query,
+    if (spotifyId && spotifyReady) {
+      const hit = await fetchSpotifyStyleDnaHit(
+        spotifyId,
         settings.spotifyClientId,
         settings.spotifyClientSecret,
       );
-      if (hits.length) {
-        const mapped = await Promise.all(
-          hits.map((hit) => enrichStyleDnaHit(hit, null, settings)),
-        );
-        return {
-          hits,
-          mapped,
-          provider: "spotify",
-        };
-      }
-    } catch {
-      /* fall through to MusicBrainz */
+      const dna = await enrichStyleDnaHit(hit, null, settings);
+      return {
+        hits: [hit],
+        mapped: [dna],
+        provider: "spotify",
+      };
     }
-  }
 
-  const mbHits = await searchMusicBrainzStyleDnaHits(query);
-  if (!mbHits.length) throw new Error("No tracks found — try a different query");
-  const mapped = await Promise.all(mbHits.map((hit) => enrichStyleDnaHit(hit, null, settings)));
-  return {
-    hits: mbHits,
-    mapped,
-    provider: "musicbrainz",
-  };
+    const yt = parseYoutubeReference(query);
+    if (yt?.watchUrl) {
+      const bundle = await resolveYoutubeMusicDna(query, settings);
+      return {
+        hits: bundle.hits,
+        mapped: [bundle.dna],
+        provider: bundle.provider,
+        resolvedQuery: bundle.youtube.searchQuery || bundle.youtube.title,
+        youtube: bundle.youtube,
+        replication: bundle.replication,
+      };
+    }
+
+    if (spotifyReady) {
+      try {
+        const hits = await searchSpotifyStyleDnaHits(
+          query,
+          settings.spotifyClientId,
+          settings.spotifyClientSecret,
+        );
+        if (hits.length) {
+          const mapped = await Promise.all(
+            hits.map((hit) => enrichStyleDnaHit(hit, null, settings)),
+          );
+          return {
+            hits,
+            mapped,
+            provider: "spotify",
+          };
+        }
+      } catch {
+        /* fall through to MusicBrainz */
+      }
+    }
+
+    const mbHits = await searchMusicBrainzStyleDnaHits(query);
+    if (!mbHits.length) throw new Error("No tracks found — try a different query");
+    const mapped = await Promise.all(mbHits.map((hit) => enrichStyleDnaHit(hit, null, settings)));
+    return {
+      hits: mbHits,
+      mapped,
+      provider: "musicbrainz",
+    };
+  });
 }

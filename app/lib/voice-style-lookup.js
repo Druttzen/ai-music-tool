@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Online artist voice-style lookup — MusicBrainz + Wikipedia (+ optional Spotify genres).
  * Fetches real public metadata; maps to Suno v6 vocal tokens via voice-style-mapper.
@@ -85,10 +87,12 @@ function uniqSources(sources) {
  * @param {number} [limit]
  */
 export async function searchArtistVoiceCandidates(query, limit = 6) {
-  const q = String(query || "").trim();
-  if (!q) return [];
-  const artists = await searchMusicBrainzArtists(q, limit);
-  return artists.map((a) => normalizeArtistVoiceProfile(a));
+  return runProcess("Search artist voices", async () => {
+    const q = String(query || "").trim();
+    if (!q) return [];
+    const artists = await searchMusicBrainzArtists(q, limit);
+    return artists.map((a) => normalizeArtistVoiceProfile(a));
+  });
 }
 
 /**
@@ -96,38 +100,40 @@ export async function searchArtistVoiceCandidates(query, limit = 6) {
  * @param {import("./style-dna-settings").DEFAULT_STYLE_DNA_SETTINGS} [styleDnaSettings]
  */
 export async function fetchArtistVoiceProfile(mbid, styleDnaSettings) {
-  const artist = await fetchMusicBrainzArtist(mbid);
-  if (!artist) return null;
+  return runProcess("Load voice profile", async () => {
+    const artist = await fetchMusicBrainzArtist(mbid);
+    if (!artist) return null;
 
-  const wiki = await fetchWikipediaSummary(artist.name);
-  /** @type {string[]} */
-  let spotifyGenres = [];
-  const sources = ["musicbrainz"];
+    const wiki = await fetchWikipediaSummary(artist.name);
+    /** @type {string[]} */
+    let spotifyGenres = [];
+    const sources = ["musicbrainz"];
 
-  if (styleDnaSettings && isSpotifyStyleDnaReady(styleDnaSettings)) {
-    try {
-      const spotifyHits = await searchSpotifyArtists(
-        artist.name,
-        styleDnaSettings.spotifyClientId,
-        styleDnaSettings.spotifyClientSecret,
-        1,
-      );
-      spotifyGenres = spotifyHits[0]?.genres || [];
-      if (spotifyGenres.length) sources.push("spotify");
-    } catch {
-      /* optional enrichment */
+    if (styleDnaSettings && isSpotifyStyleDnaReady(styleDnaSettings)) {
+      try {
+        const spotifyHits = await searchSpotifyArtists(
+          artist.name,
+          styleDnaSettings.spotifyClientId,
+          styleDnaSettings.spotifyClientSecret,
+          1,
+        );
+        spotifyGenres = spotifyHits[0]?.genres || [];
+        if (spotifyGenres.length) sources.push("spotify");
+      } catch {
+        /* optional enrichment */
+      }
     }
-  }
 
-  if (wiki) sources.push("wikipedia");
+    if (wiki) sources.push("wikipedia");
 
-  return normalizeArtistVoiceProfile(artist, {
-    spotifyGenres,
-    wikipediaTitle: wiki?.title || "",
-    wikipediaDescription: wiki?.description || "",
-    wikipediaExtract: wiki?.extract || "",
-    wikipediaUrl: wiki?.url || "",
-    sources,
+    return normalizeArtistVoiceProfile(artist, {
+      spotifyGenres,
+      wikipediaTitle: wiki?.title || "",
+      wikipediaDescription: wiki?.description || "",
+      wikipediaExtract: wiki?.extract || "",
+      wikipediaUrl: wiki?.url || "",
+      sources,
+    });
   });
 }
 

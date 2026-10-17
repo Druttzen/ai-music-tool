@@ -99,6 +99,33 @@ def melband_models_cached() -> dict[str, bool]:
 
 def demucs_cached(model: str = "htdemucs") -> bool:
     try:
+        # Demucs 4.1 loads named models from Hugging Face before its legacy
+        # Torch checkpoint cache. Inspect both layouts without loading weights.
+        import yaml
+        home = Path(os.environ.get("HF_HOME", str(Path.home() / ".cache/huggingface")))
+        roots = [home / "hub", home]
+        if os.environ.get("HF_HUB_CACHE"):
+            roots.insert(0, Path(os.environ["HF_HUB_CACHE"]))
+        repo_name = "HTDemucs" if model == "htdemucs" else "HTDemucs-" + model[len("htdemucs_"):]
+        if model == "htdemucs" or model.startswith("htdemucs_"):
+            for root in roots:
+                repo = root / ("models--adefossez--" + repo_name)
+                ref = repo / "refs/main"
+                snapshots = ([repo / "snapshots" / ref.read_text().strip()] if ref.is_file() else
+                             list((repo / "snapshots").iterdir()) if (repo / "snapshots").is_dir() else [])
+                for folder in snapshots:
+                    bag = folder / (model + ".yaml")
+                    if not bag.is_file():
+                        continue
+                    try:
+                        definition = yaml.safe_load(bag.read_text())
+                    except yaml.YAMLError:
+                        continue
+                    signatures = definition.get("models", []) if isinstance(definition, dict) else []
+                    if signatures and all(re.fullmatch(r"[0-9a-f]{8}", str(sig)) and
+                                          (folder / f"{sig}.safetensors").is_file() and
+                                          (folder / f"{sig}.safetensors").stat().st_size > 0 for sig in signatures):
+                        return True
         import importlib.util
         spec = importlib.util.find_spec("demucs")
         if not spec or not spec.origin:
@@ -205,7 +232,13 @@ def provision(extra: str, *, musicgen_model: str | None = None) -> None:
         cap = "genre" if extra == "classify" else extra
         for name in readiness(cap)["models"]:
             print(f"Preparing offline model: {name}", flush=True)
-            snapshot_download(name)
+            if cap in {"cover", "cover-ref"}:
+                # Diffusers uses component folders; original single-file Flux
+                # checkpoints in the same repo would download duplicate weights.
+                snapshot_download(name, allow_patterns=["model_index.json", "scheduler/*", "tokenizer/*", "tokenizer_2/*",
+                                                        "text_encoder/*", "text_encoder_2/*", "transformer/*", "vae/*"])
+            else:
+                snapshot_download(name)
     else:
         return
     cap = "genre" if extra == "classify" else extra

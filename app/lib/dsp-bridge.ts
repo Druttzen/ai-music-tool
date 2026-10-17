@@ -1,5 +1,7 @@
 "use client";
 
+import { runProcess } from "./process-status";
+
 /**
  * Bridge to the native Rust DSP core, exposed through Tauri commands.
  *
@@ -23,6 +25,7 @@ export interface Loudness {
 
 interface TauriGlobal {
   core: { invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T> };
+  event?: { listen: (event: string, handler: (event: {payload: {jobId: string; phase: string; completed: number | null; total: number | null}}) => void) => Promise<() => void> };
 }
 
 function tauri(): TauriGlobal | null {
@@ -40,12 +43,14 @@ export function isTauriApp(): boolean {
  * via dsp-core Symphonia decode — no browser-side decode required.
  */
 export async function measureLoudnessBytes(bytes: ArrayBuffer): Promise<Loudness> {
-  const t = tauri();
-  if (!t) {
-    throw new Error("Native DSP core is only available in the Tauri desktop build");
-  }
-  return t.core.invoke<Loudness>("measure_loudness_bytes", {
-    bytes: new Uint8Array(bytes),
+  return runProcess("Measure loudness", async () => {
+    const t = tauri();
+    if (!t) {
+      throw new Error("Native DSP core is only available in the Tauri desktop build");
+    }
+    return t.core.invoke<Loudness>("measure_loudness_bytes", {
+      bytes: new Uint8Array(bytes),
+    });
   });
 }
 
@@ -59,12 +64,14 @@ export interface StereoPhase {
 }
 
 export async function measureStereoPhaseBytes(bytes: ArrayBuffer): Promise<StereoPhase> {
-  const t = tauri();
-  if (!t) {
-    throw new Error("Native DSP core is only available in the Tauri desktop build");
-  }
-  return t.core.invoke<StereoPhase>("measure_stereo_phase_bytes", {
-    bytes: new Uint8Array(bytes),
+  return runProcess("Measure stereo phase", async () => {
+    const t = tauri();
+    if (!t) {
+      throw new Error("Native DSP core is only available in the Tauri desktop build");
+    }
+    return t.core.invoke<StereoPhase>("measure_stereo_phase_bytes", {
+      bytes: new Uint8Array(bytes),
+    });
   });
 }
 
@@ -88,18 +95,30 @@ export async function exportMasteredNative(
   format: "wav" | "wav24" | "wav32" | "flac" | "mp3" | "m4a",
   startSec?: number,
   endSec?: number,
+  onProgress?: (progress: {phase: string; pct: number | null; completed?: number | null; total?: number | null}) => void,
 ): Promise<ExportMasteredResult> {
   const t = tauri();
   if (!t) {
     throw new Error("Native export is only available in the Tauri desktop build");
   }
-  return t.core.invoke<ExportMasteredResult>("export_mastered", {
-    bytes: new Uint8Array(bytes),
-    presetId,
-    format,
-    startSec: startSec ?? null,
-    endSec: endSec ?? null,
-  });
+  const jobId = globalThis.crypto?.randomUUID?.() ?? `export-${Date.now()}-${Math.random()}`;
+  const unlisten = await t.event?.listen("studio-mastering-progress", ({ payload }) => {
+    if (payload.jobId !== jobId) return;
+    onProgress?.({ phase: payload.phase, completed: payload.completed, total: payload.total,
+      pct: payload.total && payload.completed != null ? payload.completed / payload.total * 100 : null });
+  }).catch(() => () => {});
+  try {
+    return await t.core.invoke<ExportMasteredResult>("export_mastered", {
+      bytes: new Uint8Array(bytes),
+      presetId,
+      format,
+      startSec: startSec ?? null,
+      endSec: endSec ?? null,
+      jobId,
+    });
+  } finally {
+    unlisten?.();
+  }
 }
 
 /**
@@ -107,12 +126,14 @@ export async function exportMasteredNative(
  * (Apple Lossless / CAF, some FLAC/M4A variants).
  */
 export async function decodePreviewWavNative(bytes: ArrayBuffer): Promise<Uint8Array> {
-  const t = tauri();
-  if (!t) {
-    throw new Error("Native decode is only available in the Tauri desktop build");
-  }
-  const out = await t.core.invoke<number[]>("decode_preview_wav_bytes", {
-    bytes: new Uint8Array(bytes),
+  return runProcess("Prepare audio preview", async () => {
+    const t = tauri();
+    if (!t) {
+      throw new Error("Native decode is only available in the Tauri desktop build");
+    }
+    const out = await t.core.invoke<number[]>("decode_preview_wav_bytes", {
+      bytes: new Uint8Array(bytes),
+    });
+    return new Uint8Array(out);
   });
-  return new Uint8Array(out);
 }

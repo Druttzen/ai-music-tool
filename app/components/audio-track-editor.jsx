@@ -573,12 +573,12 @@ export const AudioTrackEditor = memo(function AudioTrackEditor({
             <div className="space-y-1">
               <div className="flex justify-between text-[10px] text-white/45">
                 <span className="capitalize">{exportProgress.phase}</span>
-                <span>{Math.round(exportProgress.pct)}%</span>
+                <span>{exportProgress.pct != null ? `${Math.floor(exportProgress.pct)}% of stage` : "In progress"}</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
                 <div
-                  className="h-full bg-violet-400 transition-all duration-300"
-                  style={{ width: `${Math.min(100, exportProgress.pct)}%` }}
+                  className={`h-full bg-violet-400 transition-all duration-300 ${exportProgress.pct == null ? "animate-pulse" : ""}`}
+                  style={{ width: exportProgress.pct == null ? "33%" : `${Math.min(100, exportProgress.pct)}%` }}
                 />
               </div>
             </div>

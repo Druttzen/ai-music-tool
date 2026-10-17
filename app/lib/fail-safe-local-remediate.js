@@ -1,10 +1,14 @@
+import { runProcess } from "./process-status";
+
 /**
  * End-user Fail-Safe remediations that never touch git / GitHub.
  * Maintainer Fix & push stays a separate path.
  */
 
 import { VOCAL_ALIGN_PREVIEW_STORAGE_KEY } from "./vocal-embed-handoff.js";
-import { getActiveLocalFaults } from "./fail-safe-runtime-fault.js";
+import { getActiveLocalFaults, resolveLocalFaults } from "./fail-safe-runtime-fault.js";
+import { describeSidecarInstallFailure } from "./sidecar-install-failure.js";
+import { waitForSidecarInstallBatch } from "./sidecar-install-activity.js";
 import { clearRuntimeReportQueue } from "./fail-safe-runtime-reporter.js";
 import { collectAppSubsystemSnapshot } from "./fail-safe-app-probes.js";
 import { FAIL_SAFE_STORAGE_KEY } from "./fail-safe-bot.js";
@@ -106,118 +110,171 @@ export function verifyLocalRepair(result, report) {
  * }} [deps]
  */
 export async function remediateRuntimeIssues(issues = [], deps = {}) {
-  const waitForSidecar = deps.waitForSidecar || defaultWaitForSidecar;
-  const listStorageKeys = deps.listStorageKeys || defaultListStorageKeys;
-  const removeStorageKey = deps.removeStorageKey || defaultRemoveStorageKey;
-  const probeStorage = deps.probeStorage || defaultProbeStorage;
-  const retryUi = deps.retryUi || defaultRetryUi;
-  const clearRuntimeQueue = deps.clearRuntimeQueue || clearRuntimeReportQueue;
-
-  const steps = [];
-  const repaired = [];
-  const remaining = [];
-  const ids = [...new Set(issueIds(issues))];
-
-  for (const id of ids) {
-    if (id === "sidecar_offline" || id === "sidecar_librosa_missing") {
-      let ok = false;
-      try {
-        ok = await waitForSidecar(SIDECAR_WAIT_MS);
-        if (ok && id === "sidecar_librosa_missing") {
-          const { fetchSidecarHealth, resetSidecarHealthCache } = await import("./sidecar-bridge");
-          resetSidecarHealthCache();
-          const health = await fetchSidecarHealth();
-          ok = health?.librosa_available !== false;
-        }
-      } catch {
-        ok = false;
-      }
-      steps.push({
-        id,
-        action: id === "sidecar_librosa_missing" ? "ensure-librosa" : "ensure-sidecar",
-        ok,
-        detail: ok
-          ? id === "sidecar_librosa_missing"
-            ? "Sidecar reports librosa available again."
-            : "Sidecar is responding again."
-          : id === "sidecar_librosa_missing"
-            ? "Librosa still missing — reinstall with npm run sidecar into the Studio app data dir."
-            : "Sidecar still offline — start it with npm run sidecar, or retry Analyze in Studio.",
-      });
-      (ok ? repaired : remaining).push(id);
-      continue;
-    }
-
-    if (id === "storage_quota") {
-      const evicted = [];
-      for (const key of listStorageKeys()) {
-        if (!isSafeScratchStorageKey(key)) continue;
-        removeStorageKey(key);
-        evicted.push(key);
-      }
-      try {
-        clearRuntimeQueue();
-      } catch {
-        /* ignore */
-      }
-      const probe = probeStorage();
-      steps.push({
-        id,
-        action: "evict-scratch-storage",
-        ok: probe.ok,
-        detail: probe.ok
-          ? `Freed ${evicted.length} scratch key(s); storage accepts writes again.`
-          : "Scratch data removed, but storage is still full — export project JSON and clear history.",
-      });
-      (probe.ok ? repaired : remaining).push(id);
-      continue;
-    }
-
-    if (id === "storage_unavailable") {
-      const probe = probeStorage();
-      steps.push({
-        id,
-        action: "retry-storage",
-        ok: probe.ok,
-        detail: probe.ok
-          ? "localStorage is writable again."
-          : "localStorage is still blocked (private mode or policy).",
-      });
-      (probe.ok ? repaired : remaining).push(id);
-      continue;
-    }
-
-    if (id === "react_render") {
-      const retried = await retryUi();
-      steps.push({
-        id,
-        action: "retry-ui",
-        ok: retried,
-        detail: retried
-          ? "Retried panels rendered successfully; their faults remain in resolved history."
-          : "The panel did not recover — the fault remains active. Retry the panel or install a code fix.",
-      });
-      (retried ? repaired : remaining).push(id);
-      continue;
-    }
-
-    remaining.push(id);
-    steps.push({
-      id,
-      action: "unsupported",
-      ok: false,
-      detail: "No in-app repair for this issue — use the safe fallback or copy the fix commands.",
+  return runProcess("Auto Fail-Safe local repair", async (process) => {
+    const waitForSidecar = deps.waitForSidecar || defaultWaitForSidecar;
+    const listStorageKeys = deps.listStorageKeys || defaultListStorageKeys;
+    const removeStorageKey = deps.removeStorageKey || defaultRemoveStorageKey;
+    const probeStorage = deps.probeStorage || defaultProbeStorage;
+    const retryUi = deps.retryUi || defaultRetryUi;
+    const clearRuntimeQueue = deps.clearRuntimeQueue || clearRuntimeReportQueue;
+    const repairExtra = deps.repairExtra || (async (id) => {
+      const { installSidecarExtra, waitForSidecarExtraReady, confirmSidecarExtraInstalled, fetchSidecarHealthAfterExtraInstall } = await import("./sidecar-extra-install-client.js");
+      const existing = await fetchSidecarHealthAfterExtraInstall();
+      if (confirmSidecarExtraInstalled(id, existing)) return { ok: true };
+      const installed = await installSidecarExtra(id);
+      if (!installed?.ok) return installed;
+      const health = await waitForSidecarExtraReady(id);
+      const ok = confirmSidecarExtraInstalled(id, health);
+      return { ok: Boolean(ok), error: ok ? null : "Installation finished but the fresh engine check did not confirm readiness." };
     });
-  }
 
-  const ok = remaining.length === 0;
-  const message = ok
-    ? repaired.length
-      ? `Local repair complete (${repaired.join(", ")}).`
-      : "Nothing to repair."
-    : remaining.length === ids.length
-      ? `Local repair could not fix: ${remaining.join(", ")}.`
-      : `Repaired ${repaired.join(", ") || "none"}; still open: ${remaining.join(", ")}.`;
+    const steps = [];
+    const repaired = [];
+    const remaining = [];
+    const ids = [...new Set(issueIds(issues))];
+    if (ids.includes("sidecar_extra_install")) await waitForSidecarInstallBatch();
 
-  return { ok, message, steps, repaired, remaining };
+    for (const id of ids) {
+      process.progress({ phase: `Checking ${id.replace(/_/g, " ")}`, completed: ids.indexOf(id), total: ids.length, unit: "checks", pct: ids.indexOf(id) / ids.length * 100 });
+      if (id === "sidecar_extra_install") {
+        const failures = issues.filter((issue) => issue.id === id);
+        let allOk = true;
+        for (const issue of failures) {
+          let diagnosis = describeSidecarInstallFailure(issue.error || issue.detail);
+          let ok = false;
+          let detail = diagnosis.message;
+          if (issue.extraId && diagnosis.retryable) {
+            const { isSidecarExtraAllowlisted, normalizeSidecarExtraId } = await import("./sidecar-extra-install-client.js");
+            const extraId = normalizeSidecarExtraId(issue.extraId);
+            if (isSidecarExtraAllowlisted(extraId)) {
+              try {
+                const result = await repairExtra(extraId);
+                ok = result?.ok === true;
+                if (!ok) diagnosis = describeSidecarInstallFailure(result?.error || diagnosis.message);
+                detail = ok ? `${extraId}: installation repaired and checked against the engine.` : diagnosis.message;
+                if (ok) resolveLocalFaults((fault) => fault.source === `addons.install:${extraId}` ||
+                  (fault.source === "ui.status" && fault.message === issue.faultMessage));
+                if (ok && typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("aimc-sidecar-extras-changed", { detail: { repairedExtraId: extraId } }));
+                }
+              } catch (error) {
+                diagnosis = describeSidecarInstallFailure(error instanceof Error ? error.message : error);
+                detail = diagnosis.message;
+              }
+            }
+          } else if (!issue.extraId && diagnosis.retryable) {
+            detail = "The saved error does not identify a plugin. Retry that plugin in Sidecar to capture its name and complete error.";
+          }
+          steps.push({ id, extraId: issue.extraId, action: diagnosis.retryable ? "repair-addon" : "model-access",
+            ok, detail, actionUrl: diagnosis.actionUrl });
+          if (!ok) allOk = false;
+        }
+        if (allOk && !getActiveLocalFaults().some((fault) => fault.source.startsWith("addons.install:"))) {
+          resolveLocalFaults((fault) => fault.source === "ui.status" && /^Download all finished:/.test(fault.message));
+        }
+        (allOk ? repaired : remaining).push(id);
+        continue;
+      }
+      if (id === "sidecar_offline" || id === "sidecar_librosa_missing") {
+        let ok = false;
+        try {
+          ok = await waitForSidecar(SIDECAR_WAIT_MS);
+          if (ok && id === "sidecar_librosa_missing") {
+            const { fetchSidecarHealth, resetSidecarHealthCache } = await import("./sidecar-bridge");
+            resetSidecarHealthCache();
+            const health = await fetchSidecarHealth();
+            ok = health?.librosa_available !== false;
+          }
+        } catch {
+          ok = false;
+        }
+        steps.push({
+          id,
+          action: id === "sidecar_librosa_missing" ? "ensure-librosa" : "ensure-sidecar",
+          ok,
+          detail: ok
+            ? id === "sidecar_librosa_missing"
+              ? "Sidecar reports librosa available again."
+              : "Sidecar is responding again."
+            : id === "sidecar_librosa_missing"
+              ? "Librosa still missing — reinstall with npm run sidecar into the Studio app data dir."
+              : "Sidecar still offline — start it with npm run sidecar, or retry Analyze in Studio.",
+        });
+        (ok ? repaired : remaining).push(id);
+        continue;
+      }
+
+      if (id === "storage_quota") {
+        const evicted = [];
+        for (const key of listStorageKeys()) {
+          if (!isSafeScratchStorageKey(key)) continue;
+          removeStorageKey(key);
+          evicted.push(key);
+        }
+        try {
+          clearRuntimeQueue();
+        } catch {
+          /* ignore */
+        }
+        const probe = probeStorage();
+        steps.push({
+          id,
+          action: "evict-scratch-storage",
+          ok: probe.ok,
+          detail: probe.ok
+            ? `Freed ${evicted.length} scratch key(s); storage accepts writes again.`
+            : "Scratch data removed, but storage is still full — export project JSON and clear history.",
+        });
+        (probe.ok ? repaired : remaining).push(id);
+        continue;
+      }
+
+      if (id === "storage_unavailable") {
+        const probe = probeStorage();
+        steps.push({
+          id,
+          action: "retry-storage",
+          ok: probe.ok,
+          detail: probe.ok
+            ? "localStorage is writable again."
+            : "localStorage is still blocked (private mode or policy).",
+        });
+        (probe.ok ? repaired : remaining).push(id);
+        continue;
+      }
+
+      if (id === "react_render") {
+        const retried = await retryUi();
+        steps.push({
+          id,
+          action: "retry-ui",
+          ok: retried,
+          detail: retried
+            ? "Retried panels rendered successfully; their faults remain in resolved history."
+            : "The panel did not recover — the fault remains active. Retry the panel or install a code fix.",
+        });
+        (retried ? repaired : remaining).push(id);
+        continue;
+      }
+
+      remaining.push(id);
+      steps.push({
+        id,
+        action: "unsupported",
+        ok: false,
+        detail: "No in-app repair for this issue — use the safe fallback or copy the fix commands.",
+      });
+    }
+
+    const ok = remaining.length === 0;
+    const message = ok
+      ? repaired.length
+        ? `Local repair complete (${repaired.join(", ")}).`
+        : "Nothing to repair."
+      : remaining.length === ids.length
+        ? `Local repair could not fix: ${remaining.join(", ")}.`
+        : `Repaired ${repaired.join(", ") || "none"}; still open: ${remaining.join(", ")}.`;
+
+    return { ok, message, steps, repaired, remaining };
+  });
 }

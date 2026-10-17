@@ -17,7 +17,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-TOOL_IDS = ("mfa", "diffsinger", "java", "ffmpeg")
+TOOL_IDS = ("mfa", "diffsinger", "java", "ffmpeg", "vocal-rvc")
 OWNER = "com.djmad.aimusiccreator.studio"
 MAMBA_VERSION = "2.9.0-0"
 MAMBA_HASHES = {
@@ -37,6 +37,7 @@ SPECS = {
     "diffsinger": ["python=3.10", "pip", "numpy=1.26", "pyworld=0.3.4", "ffmpeg=7.1"],
     "java": ["openjdk=17"],
     "ffmpeg": ["ffmpeg=7.1"],
+    "vocal-rvc": ["python=3.10", "pip=24.0", "numpy=1.23.5", "pyworld=0.3.4"],
 }
 
 
@@ -68,7 +69,7 @@ def owned_path(*parts: str) -> Path:
 def tool_root(tool: str) -> Path:
     if tool not in TOOL_IDS:
         raise ValueError(f"Unknown managed tool: {tool}")
-    return owned_path("addons" if tool == "diffsinger" else "tools", tool)
+    return owned_path("addons" if tool in {"diffsinger", "vocal-rvc"} else "tools", tool)
 
 
 def runtime_prefix(tool: str) -> Path:
@@ -130,13 +131,23 @@ def tool_env(tool: str | None = None) -> dict[str, str]:
         bins = ([prefix, prefix / "Scripts", prefix / "Library" / "bin"] if os.name == "nt"
                 else [prefix / "bin"])
         env["PATH"] = os.pathsep.join(str(path) for path in bins) + os.pathsep + env.get("PATH", "")
+        if tool == "vocal-rvc":
+            # Fairseq's upstream switch disables training-only C++ extensions.
+            # HuBERT inference does not need a compiler or Python development SDK.
+            env["READTHEDOCS"] = "1"
     return env
 
 
 def run(args: list[str], *, tool: str | None = None, cwd: Path | None = None) -> None:
     print("Running: " + " ".join(str(arg) for arg in args), flush=True)
-    subprocess.run([str(arg) for arg in args], check=True, cwd=cwd or data_root(), env=tool_env(tool),
-                   timeout=45 * 60, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+    result = subprocess.run([str(arg) for arg in args], cwd=cwd or data_root(), env=tool_env(tool),
+                            capture_output=True, text=True, encoding="utf-8", errors="replace",
+                            timeout=45 * 60, creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+    output = result.stdout + result.stderr
+    if output:
+        print(output, flush=True)
+    if result.returncode:
+        raise RuntimeError(f"Managed {tool or 'tool'} command failed: {output[-4000:]}")
 
 
 def ensure_mamba() -> Path:
@@ -170,7 +181,10 @@ def required_files(tool: str) -> list[Path]:
              "ffmpeg": [bin_dir / (name + (".exe" if os.name == "nt" else "")) for name in ("ffmpeg", "ffprobe")],
              "mfa": [prefix / ("Scripts/mfa.exe" if os.name == "nt" else "bin/mfa")],
              "diffsinger": [prefix / ("python.exe" if os.name == "nt" else "bin/python"),
-                            tool_root(tool) / "source/scripts/infer.py"]}
+                            tool_root(tool) / "source/scripts/infer.py"],
+             "vocal-rvc": [prefix / ("python.exe" if os.name == "nt" else "bin/python"),
+                           *[prefix / ("Lib/site-packages" if os.name == "nt" else "lib/python3.10/site-packages") / "rvc_python" / name
+                             for name in ("infer.py", "base_model/hubert_base.pt", "base_model/rmvpe.pt", "base_model/rmvpe.onnx")]]}
     return [mamba_path(), prefix / "conda-meta/history", *names[tool]]
 
 
@@ -221,11 +235,16 @@ def install(tool: str) -> None:
          "--strict-channel-priority", *SPECS[tool]])
     # A global command on PATH must not make a broken local install pass probes.
     for path in required_files(tool):
-        if tool == "diffsinger" and path.name == "infer.py":
+        if tool == "vocal-rvc" and "rvc_python" in path.parts:
+            continue  # Engine and base encoders are prepared below.
+        if tool in {"diffsinger", "vocal-rvc"} and path.name == "infer.py":
             continue  # Source is extracted below.
         if not path.is_file():
             raise RuntimeError(f"Managed {tool} installation is missing {path}")
-    if tool == "mfa":
+    if tool == "vocal-rvc":
+        from .rvc_runtime import install_runtime
+        install_runtime()
+    elif tool == "mfa":
         run(command(tool, "mfa", "version"), tool=tool)
         # MFA's discovery command scans GitHub releases and can exhaust the
         # anonymous API quota. Pinned public assets need neither discovery nor
@@ -269,6 +288,8 @@ def install(tool: str) -> None:
             run(command(tool, "ffprobe", "-version"), tool=tool)
     manifest = {"owner": OWNER, "id": tool, "platform": platform_id(), "specs": SPECS[tool],
                 "sourceCommit": DS_COMMIT if tool == "diffsinger" else None}
+    if not all(path.is_file() for path in required_files(tool)):
+        raise RuntimeError(f"Managed {tool} verification failed: required files are missing")
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, delete=False) as out:
         json.dump(manifest, out)
         name = out.name
@@ -307,6 +328,8 @@ def configure() -> None:
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=("install", "deactivate"))

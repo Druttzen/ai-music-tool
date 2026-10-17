@@ -7,6 +7,8 @@ import { serializeAudioBuffer } from "./audio-buffer-serialize";
 import { downloadFormatBlob, normalizeStudioExportFormat } from "./audio-export-formats";
 import { isTauriApp, exportMasteredNative } from "./dsp-bridge";
 import { resolveStudioExportDirectory } from "./studio-export-destination";
+import { runProcess } from "./process-status";
+import { masteringProgress } from "./mastering-progress";
 
 let workerInstance = null;
 let exportInFlight = false;
@@ -75,6 +77,19 @@ export function buildExportFileName(baseFileName, format) {
  * @param {{ format?: string, onProgress?: (p: { phase: string, pct: number }) => void, startSec?: number, endSec?: number, outputDir?: string|null }} [opts]
  */
 export async function exportEnhancedFromBlob(blob, presetId, baseFileName, opts = {}) {
+  return runProcess(`Mastering · ${baseFileName}`, async (process) => {
+    const onProgress = opts.onProgress;
+    opts = { ...opts, onProgress: (p) => {
+      const progress = masteringProgress(p);
+      process.progress(progress);
+      onProgress?.(progress);
+    } };
+    opts.onProgress({ phase: "preparing", pct: null });
+    return exportEnhancedFromBlobImpl(blob, presetId, baseFileName, opts);
+  });
+}
+
+async function exportEnhancedFromBlobImpl(blob, presetId, baseFileName, opts) {
   const format = normalizeStudioExportFormat(opts.format);
   const nativeOnly = format === "flac" || format === "m4a";
   const outputDir = resolveStudioExportDirectory(opts);
@@ -97,6 +112,7 @@ export async function exportEnhancedFromBlob(blob, presetId, baseFileName, opts 
     // Browser: intentional fallback with formatFallback flag (WAV24 / MP3).
   }
 
+  opts.onProgress?.({ phase: "decoding", pct: null });
   const arrayBuffer = await blob.arrayBuffer();
   const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
   let sourceBuffer;
@@ -128,7 +144,7 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
   }
   exportInFlight = true;
   try {
-    opts.onProgress?.({ phase: "mastering", pct: 15 });
+    opts.onProgress?.({ phase: "preparing", pct: null });
     const bytes = await blob.arrayBuffer();
     const result = await exportMasteredNative(
       bytes,
@@ -136,8 +152,9 @@ async function exportMasteredNativePath(blob, presetId, baseFileName, format, op
       format,
       opts.startSec,
       opts.endSec,
+      opts.onProgress,
     );
-    opts.onProgress?.({ phase: "encoding", pct: 90 });
+    opts.onProgress?.({ phase: "saving", pct: null });
     const outBytes = new Uint8Array(result.wav_bytes);
     const mime =
       format === "mp3"
@@ -231,7 +248,7 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
       exportInFlight = false;
       settled = true;
       cleanup();
-      opts.onProgress?.({ phase: "preparing", pct: 8 });
+      opts.onProgress?.({ phase: "preparing", pct: null });
       exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, opts)
         .then((result) => resolve(result))
         .catch((err) =>
@@ -261,10 +278,13 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
         return;
       }
       if (msg.type === "done") {
+        if (timeoutId) clearTimeout(timeoutId);
+        opts.onProgress?.({ phase: "saving", pct: null });
         const blob = new Blob([msg.blobBuffer], { type: msg.mime });
         void downloadFormatBlob(blob, msg.fileName || fileName, {
           directory: opts.outputDir,
         }).then((saved) => {
+          opts.onProgress?.({ phase: "done", pct: 100 });
           settle(resolve, {
             format: msg.outFormat || format,
             formatFallback: !!msg.formatFallback,
@@ -279,7 +299,7 @@ export function exportEnhancedInWorker(sourceBuffer, presetId, baseFileName, opt
 
     worker.addEventListener("message", onMessage);
     worker.addEventListener("error", onWorkerError);
-    opts.onProgress?.({ phase: "preparing", pct: 5 });
+    opts.onProgress?.({ phase: "preparing", pct: null });
 
     try {
       const transfers = payload.channelData.map((ch) => ch.buffer);
@@ -303,22 +323,23 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
     const { downloadAudioBufferAsFormat } = await import("./audio-export-formats");
     const { measureIntegratedLoudness, targetLufsForPreset } = await import("./lufs-meter");
 
-    opts.onProgress?.({ phase: "preparing", pct: 10 });
-    opts.onProgress?.({ phase: "mastering", pct: 40 });
-    const enhanced = await renderEnhancedAudioBuffer(sourceBuffer, presetId);
+    opts.onProgress?.({ phase: "mastering", pct: null });
+    const enhanced = await renderEnhancedAudioBuffer(sourceBuffer, presetId, opts.onProgress);
 
     let afterLufs;
     let targetLufs = targetLufsForPreset(presetId);
     if (typeof targetLufs === "number" || presetId === "measure") {
+      opts.onProgress?.({ phase: "metering", pct: null });
       const m = await measureIntegratedLoudness(enhanced);
       afterLufs = m.integratedLUFS;
     }
 
-    opts.onProgress?.({ phase: "encoding", pct: 85 });
+    opts.onProgress?.({ phase: "encoding", pct: null });
     const format = normalizeStudioExportFormat(opts.format);
     try {
       const encoded = await downloadAudioBufferAsFormat(enhanced, format, baseFileName, {
         directory: opts.outputDir,
+        onSaving: () => opts.onProgress?.({ phase: "saving", pct: null }),
       });
       opts.onProgress?.({ phase: "done", pct: 100 });
       return {
@@ -333,6 +354,7 @@ async function exportEnhancedMainThread(sourceBuffer, presetId, baseFileName, op
       if (format !== "mp3") throw encodeErr;
       const encoded = await downloadAudioBufferAsFormat(enhanced, "wav", baseFileName, {
         directory: opts.outputDir,
+        onSaving: () => opts.onProgress?.({ phase: "saving", pct: null }),
       });
       opts.onProgress?.({ phase: "done", pct: 100 });
       return {

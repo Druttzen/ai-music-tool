@@ -134,9 +134,12 @@ def test_separate_mocked_demucs_roundtrip():
     assert dl.headers["content-type"].startswith("audio/")
 
 
-def test_health_distinguishes_demucs_dependencies_from_cached_weights():
+def test_health_distinguishes_demucs_dependencies_from_cached_weights(tmp_path, monkeypatch):
     from ai_sidecar.registry import invalidate_capability_cache
 
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "hf"))
+    monkeypatch.setenv("TORCH_HOME", str(tmp_path / "torch"))
     _install_fake_demucs_modules()
     invalidate_capability_cache()
     res = client.get("/health")

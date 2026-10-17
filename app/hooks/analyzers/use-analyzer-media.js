@@ -1,5 +1,7 @@
 "use client";
 
+import { beginProcess } from "../../lib/process-status";
+
 import { advanceAnalyzerEpoch } from "../../lib/analyzer-operation-epoch";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildAudioSunoV55Patch, buildSunoV55StyleFromAudioAnalysis } from "../../lib/audio-to-suno-style";
@@ -266,7 +268,9 @@ export function useAnalyzerMedia({
       audioBusyRef.current = epoch;
       let audioContext = null;
       setAnalyzeAudioBusy(true);
+      const process = beginProcess(`Audio analysis · ${file.name}`);
       try {
+        process.progress({ phase: "Decoding and analysing audio", pct: null });
         setStatusWithTime("Analyzing audio...");
         const arrayBuffer = await file.arrayBuffer();
         const decoded = await decodeAnalyzerAudioBuffer(arrayBuffer, file.name);
@@ -285,6 +289,7 @@ export function useAnalyzerMedia({
         if (!isCurrent()) return;
 
         let finalReport = report;
+        process.progress({ phase: "Waiting for AI analysis engine", pct: null });
         let sidecarReady = await waitForSidecar(45_000);
         let sidecarStatusMsg = null;
         let sidecarStatusType = "success";
@@ -320,6 +325,7 @@ export function useAnalyzerMedia({
         syncCacheKeysRef(finalReport);
         setAudioPreviewFromBlob(decoded.previewBlob || file);
         setAudioAnalysis(finalReport);
+        process.finish();
         setStatusWithTime(
           sidecarStatusMsg ?? getAudioAnalyzerReadyMessage(finalReport),
           sidecarStatusType,
@@ -355,6 +361,7 @@ export function useAnalyzerMedia({
             syncCacheKeysRef(finalReport);
             setAudioPreviewFromBlob(file);
             setAudioAnalysis(finalReport);
+            process.finish();
             setStatusWithTime(
               "Track report ready via librosa sidecar (browser could not decode this codec)",
               "warning",
@@ -363,6 +370,7 @@ export function useAnalyzerMedia({
           } catch (sidecarErr) {
             if (!isCurrent()) return;
             reportCaughtError("analyzers.analyzeAudioFile", sidecarErr);
+            process.finish("error", sidecarErr instanceof Error ? sidecarErr.message : "Audio analysis failed");
             const msg = sidecarErr instanceof Error ? sidecarErr.message : "Sidecar analyze failed";
             setStatusWithTime(`Audio analysis failed — ${msg.slice(0, 80)}`, "error");
             applyAnalyzerPatch({
@@ -372,6 +380,7 @@ export function useAnalyzerMedia({
           }
         }
         if (!isCurrent()) return;
+        process.finish("error", decodeErr instanceof Error ? decodeErr.message : "Audio analysis failed");
         setStatusWithTime(
           decodeErr instanceof Error ? decodeErr.message.slice(0, 100) : "Audio analysis failed",
         );
@@ -379,6 +388,7 @@ export function useAnalyzerMedia({
           notes: `Audio analysis failed. Use ${SUPPORTED_AUDIO_LABEL}. ALAC/CAF needs Studio Symphonia decode; FLAC may need the librosa sidecar in browser.`,
         });
       } finally {
+        process.finish("cancelled");
         if (audioBusyRef.current === epoch) {
           audioBusyRef.current = false;
           setAnalyzeAudioBusy(false);
@@ -494,10 +504,12 @@ export function useAnalyzerMedia({
 
     const gen = ++loudnessGenRef.current;
     let cancelled = false;
+    const process = beginProcess("Loudness and stereo measurement");
 
     (async () => {
       setAudioLoudnessBusy(true);
       try {
+        process.progress({ phase: "Loading audio for measurement", pct: null });
         const resolved = await resolveAudioCacheBlob(analysis);
         let blob = resolved?.blob;
         if (!blob && audioPreviewUrlRef.current) {
@@ -546,6 +558,7 @@ export function useAnalyzerMedia({
         }
 
         if (!stats || !phaseStats) {
+          process.progress({ phase: "Measuring loudness and stereo phase", pct: null });
           const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
           try {
             const buffer = await decodeCtx.decodeAudioData(arrayBuffer.slice(0));
@@ -567,19 +580,23 @@ export function useAnalyzerMedia({
         if (!cancelled && gen === loudnessGenRef.current) {
           setAudioLoudness(stats);
           setAudioStereoPhase(phaseStats);
+          process.finish();
         }
-      } catch {
+      } catch (error) {
+        process.finish("error", error instanceof Error ? error.message : "Measurement failed");
         if (!cancelled && gen === loudnessGenRef.current) {
           setAudioLoudness(null);
           setAudioStereoPhase(null);
         }
       } finally {
+        process.finish("cancelled");
         if (!cancelled && gen === loudnessGenRef.current) setAudioLoudnessBusy(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      process.finish("cancelled");
     };
   }, [loudnessSourceKey, audioAnalysisRef, audioPreviewUrlRef, loudnessGenRef]);
 
@@ -695,7 +712,9 @@ export function useAnalyzerMedia({
       imageBusyRef.current = true;
       cancelAnalyzerStyleMerge();
       setAnalyzeImageBusy(true);
+      const process = beginProcess(`Image analysis · ${file.name}`);
       try {
+        process.progress({ phase: "Reading image colours", pct: null });
         setStatusWithTime("Analyzing image...");
         const url = URL.createObjectURL(file);
         if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
@@ -727,6 +746,7 @@ export function useAnalyzerMedia({
         let finalReport = pixelReport;
         let sidecarStatusMsg = null;
         let sidecarStatusType = "success";
+        process.progress({ phase: "Waiting for image analysis engine", pct: null });
         const sidecarReady = await waitForSidecar(45_000);
         if (!isCurrent()) return;
         const health = sidecarReady ? await fetchSidecarHealth() : null;
@@ -751,6 +771,7 @@ export function useAnalyzerMedia({
 
         if (!isCurrent()) return;
         setImageAnalysis(finalReport);
+        process.finish();
         setStatusWithTime(
           sidecarStatusMsg ??
             (finalReport.analysisEngine === "pixel+blip"
@@ -758,10 +779,12 @@ export function useAnalyzerMedia({
               : "Image ready — add to style below when you want it in Suno fields"),
           sidecarStatusType,
         );
-      } catch {
+      } catch (error) {
+        process.finish("error", error instanceof Error ? error.message : "Image analysis failed");
         if (!isCurrent()) return;
         setStatusWithTime("Image analysis failed", "error");
       } finally {
+        process.finish("cancelled");
         if (isCurrent()) {
           imageBusyRef.current = false;
           setAnalyzeImageBusy(false);

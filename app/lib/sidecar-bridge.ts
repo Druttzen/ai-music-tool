@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Bridge to the local Python AI sidecar (FastAPI on localhost).
  *
@@ -135,17 +137,21 @@ export async function ensureManagedSidecar(timeoutMs = 30_000): Promise<boolean>
 
 /** Poll /health until available or timeout (one deadline for spawn + HTTP). */
 export async function waitForSidecar(timeoutMs = 45_000): Promise<boolean> {
-  resetSidecarHealthCache();
-  const deadline = Date.now() + timeoutMs;
-  if (isTauriApp()) {
-    const ok = await ensureManagedSidecar(remainingSidecarWaitMs(deadline));
-    if (ok) return true;
-  }
-  while (Date.now() < deadline) {
-    if (await isSidecarAvailable()) return true;
-    await new Promise((r) => setTimeout(r, 400));
-  }
-  return false;
+  return runProcess("AI engine readiness", async (process) => {
+    process.progress({ phase: "Waiting for the local AI engine", pct: null });
+    resetSidecarHealthCache();
+    const deadline = Date.now() + timeoutMs;
+    if (isTauriApp()) {
+      const ok = await ensureManagedSidecar(remainingSidecarWaitMs(deadline));
+      if (ok) return true;
+    }
+    while (Date.now() < deadline) {
+      if (await isSidecarAvailable()) return true;
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    process.finish("error", "The local AI engine did not become ready before the timeout");
+    return false;
+  });
 }
 
 /** True when the sidecar responds to GET /health (cold ML imports can take several seconds). */
@@ -202,16 +208,18 @@ export type YoutubeResolvePayload = SidecarContracts.YoutubeResolveResponse;
 
 /** Resolve YouTube metadata server-side (avoids browser CORS on oEmbed). */
 export async function resolveYoutubeViaSidecar(watchUrl: string): Promise<YoutubeResolvePayload> {
-  const res = await fetch(`${sidecarBaseUrl()}/youtube/resolve`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ url: watchUrl }),
+  return runProcess("YouTube metadata", async () => {
+    const res = await fetch(`${sidecarBaseUrl()}/youtube/resolve`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ url: watchUrl }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(formatApiError(res.status, detail, "YouTube resolve"));
+    }
+    return res.json() as Promise<YoutubeResolvePayload>;
   });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(formatApiError(res.status, detail, "YouTube resolve"));
-  }
-  return res.json() as Promise<YoutubeResolvePayload>;
 }
 
 export type SonicChordPoint = SidecarContracts.ChordPoint;
@@ -223,16 +231,18 @@ export type SonicSignaturePayload = SidecarContracts.SonicSignatureResponse;
 export type AcousticBrainzPayload = SidecarContracts.AcousticBrainzResponse;
 
 export async function fetchYoutubeSonicViaSidecar(watchUrl: string): Promise<SonicSignaturePayload> {
-  const res = await fetch(`${sidecarBaseUrl()}/youtube/sonic-signature`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ url: watchUrl }),
+  return runProcess("YouTube audio analysis", async () => {
+    const res = await fetch(`${sidecarBaseUrl()}/youtube/sonic-signature`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ url: watchUrl }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(formatApiError(res.status, detail, "YouTube sonic signature"));
+    }
+    return res.json() as Promise<SonicSignaturePayload>;
   });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(formatApiError(res.status, detail, "YouTube sonic signature"));
-  }
-  return res.json() as Promise<SonicSignaturePayload>;
 }
 
 /** POST audio to /sonic-signature for rich librosa analysis. */
@@ -240,18 +250,20 @@ export async function fetchSonicSignatureViaSidecar(
   file: Blob,
   fileName = "audio",
 ): Promise<SonicSignaturePayload> {
-  const form = new FormData();
-  form.append("file", file, fileName);
-  const res = await fetch(`${sidecarBaseUrl()}/sonic-signature`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
+  return runProcess("Sonic signature", async () => {
+    const form = new FormData();
+    form.append("file", file, fileName);
+    const res = await fetch(`${sidecarBaseUrl()}/sonic-signature`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(detail || `sonic signature failed (${res.status})`);
+    }
+    return res.json() as Promise<SonicSignaturePayload>;
   });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(detail || `sonic signature failed (${res.status})`);
-  }
-  return res.json() as Promise<SonicSignaturePayload>;
 }
 
 /** GET AcousticBrainz archive features by MusicBrainz recording MBID. */
@@ -259,20 +271,22 @@ export async function fetchAcousticBrainzViaSidecar(
   recordingMbid: string,
   timeoutMs = 8_000,
 ): Promise<AcousticBrainzPayload> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(`${sidecarBaseUrl()}/acousticbrainz/${encodeURIComponent(recordingMbid)}`, {
-      headers: await sidecarAuthHeaders(),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) {
-      throw new Error(`AcousticBrainz lookup failed (${res.status})`);
+  return runProcess("AcousticBrainz lookup", async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${sidecarBaseUrl()}/acousticbrainz/${encodeURIComponent(recordingMbid)}`, {
+        headers: await sidecarAuthHeaders(),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) {
+        throw new Error(`AcousticBrainz lookup failed (${res.status})`);
+      }
+      return res.json() as Promise<AcousticBrainzPayload>;
+    } finally {
+      clearTimeout(timer);
     }
-    return res.json() as Promise<AcousticBrainzPayload>;
-  } finally {
-    clearTimeout(timer);
-  }
+  });
 }
 
 export type SidecarStemFile = SidecarContracts.StemFile;
@@ -287,40 +301,44 @@ export async function separateStemsViaSidecar(
   fileName = "audio",
   modelName = "auto",
 ): Promise<SidecarSeparateResult> {
-  const form = new FormData();
-  form.append("file", file, fileName);
-  form.append("model_name", modelName);
+  return runProcess("Stem separation", async () => {
+    const form = new FormData();
+    form.append("file", file, fileName);
+    form.append("model_name", modelName);
 
-  const res = await fetch(`${sidecarBaseUrl()}/separate`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
+    const res = await fetch(`${sidecarBaseUrl()}/separate`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar separate failed (${res.status})`);
     }
-    throw new Error(detail || `sidecar separate failed (${res.status})`);
-  }
 
-  return res.json() as Promise<SidecarSeparateResult>;
+    return res.json() as Promise<SidecarSeparateResult>;
+  });
 }
 
 /** Download one stem WAV from the sidecar by relative download_url. */
 export async function downloadSidecarStem(relativeUrl: string, saveAs: string): Promise<void> {
-  const url = `${sidecarBaseUrl()}${relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`}`;
-  const res = await fetch(url, { headers: await sidecarAuthHeaders() });
-  if (!res.ok) {
-    throw new Error(`stem download failed (${res.status})`);
-  }
-  const blob = await res.blob();
-  const { saveOrDownloadBlob } = await import("./studio-file-save");
-  await saveOrDownloadBlob(blob, saveAs);
+  return runProcess("Save stem", async () => {
+    const url = `${sidecarBaseUrl()}${relativeUrl.startsWith("/") ? relativeUrl : `/${relativeUrl}`}`;
+    const res = await fetch(url, { headers: await sidecarAuthHeaders() });
+    if (!res.ok) {
+      throw new Error(`stem download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const { saveOrDownloadBlob } = await import("./studio-file-save");
+    await saveOrDownloadBlob(blob, saveAs);
+  });
 }
 
 export type SidecarVocalEmbedPlanResponse = SidecarContracts.VocalEmbedPlanResponse;
@@ -350,24 +368,26 @@ export async function fetchVocalEmbedModels(): Promise<SidecarVocalModelStatus |
 export async function submitVocalEmbedPlanToSidecar(
   envelope: Record<string, unknown>,
 ): Promise<SidecarVocalEmbedPlanResponse> {
-  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/plan`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify(envelope),
-  });
+  return runProcess("Vocal arrangement", async () => {
+    const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/plan`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(envelope),
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `vocal embed plan failed (${res.status})`);
     }
-    throw new Error(detail || `vocal embed plan failed (${res.status})`);
-  }
 
-  return res.json() as Promise<SidecarVocalEmbedPlanResponse>;
+    return res.json() as Promise<SidecarVocalEmbedPlanResponse>;
+  });
 }
 
 export async function synthesizeVocalEmbedViaSidecar(
@@ -377,34 +397,36 @@ export async function synthesizeVocalEmbedViaSidecar(
   guideVocal?: Blob | null,
   guideName = "guide-vocal.wav",
 ): Promise<{ blob: Blob; engine: string | null }> {
-  const form = new FormData();
-  form.append("plan_json", JSON.stringify(envelope));
-  form.append("instrumental", instrumental, instrumentalName || "instrumental.wav");
-  if (guideVocal) {
-    form.append("guide_vocal", guideVocal, guideName || "guide-vocal.wav");
-  }
-
-  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/synthesize`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
-
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+  return runProcess("Vocal synthesis", async () => {
+    const form = new FormData();
+    form.append("plan_json", JSON.stringify(envelope));
+    form.append("instrumental", instrumental, instrumentalName || "instrumental.wav");
+    if (guideVocal) {
+      form.append("guide_vocal", guideVocal, guideName || "guide-vocal.wav");
     }
-    throw new Error(detail || `vocal embed synthesis failed (${res.status})`);
-  }
 
-  return {
-    blob: await res.blob(),
-    engine: res.headers.get("X-Vocal-Embed-Engine"),
-  };
+    const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/synthesize`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
+
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `vocal embed synthesis failed (${res.status})`);
+    }
+
+    return {
+      blob: await res.blob(),
+      engine: res.headers.get("X-Vocal-Embed-Engine"),
+    };
+  });
 }
 
 /**
@@ -414,27 +436,29 @@ export async function analyzeAudioViaSidecar(
   file: Blob,
   fileName = "audio",
 ): Promise<SidecarAnalysis> {
-  const form = new FormData();
-  form.append("file", file, fileName);
+  return runProcess("AI audio analysis", async () => {
+    const form = new FormData();
+    form.append("file", file, fileName);
 
-  const res = await fetch(`${sidecarBaseUrl()}/analyze`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
+    const res = await fetch(`${sidecarBaseUrl()}/analyze`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar analyze failed (${res.status})`);
     }
-    throw new Error(detail || `sidecar analyze failed (${res.status})`);
-  }
 
-  return res.json() as Promise<SidecarAnalysis>;
+    return res.json() as Promise<SidecarAnalysis>;
+  });
 }
 
 /**
@@ -445,28 +469,30 @@ export async function analyzeImageViaSidecar(
   fileName = "image",
   opts: { caption?: boolean } = {},
 ): Promise<SidecarImageAnalysis> {
-  const form = new FormData();
-  form.append("file", file, fileName);
-  form.append("caption", opts.caption === false ? "false" : "true");
+  return runProcess("AI image analysis", async () => {
+    const form = new FormData();
+    form.append("file", file, fileName);
+    form.append("caption", opts.caption === false ? "false" : "true");
 
-  const res = await fetch(`${sidecarBaseUrl()}/analyze-image`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
+    const res = await fetch(`${sidecarBaseUrl()}/analyze-image`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar image analyze failed (${res.status})`);
     }
-    throw new Error(detail || `sidecar image analyze failed (${res.status})`);
-  }
 
-  return res.json() as Promise<SidecarImageAnalysis>;
+    return res.json() as Promise<SidecarImageAnalysis>;
+  });
 }
 
 async function readSidecarError(res: Response, fallback: string): Promise<never> {
@@ -530,12 +556,14 @@ export type AceStepPresetCatalog = SidecarContracts.AceStepPresetCatalog;
 
 /** Start the installed local ACE API through the managed sidecar. */
 export async function ensureAceStepApi(): Promise<SidecarContracts.AceStepEnsureResult> {
-  if (!(await waitForSidecar(120_000))) throw new Error("Local AI service is offline");
-  const response = await fetch(`${sidecarBaseUrl()}/acestep/ensure`, {
-    method: "POST", headers: await sidecarAuthHeaders(),
+  return runProcess("Start ACE-Step engine", async () => {
+    if (!(await waitForSidecar(120_000))) throw new Error("Local AI service is offline");
+    const response = await fetch(`${sidecarBaseUrl()}/acestep/ensure`, {
+      method: "POST", headers: await sidecarAuthHeaders(),
+    });
+    if (!response.ok) await readSidecarError(response, `ACE-Step startup failed (${response.status})`);
+    return response.json() as Promise<SidecarContracts.AceStepEnsureResult>;
   });
-  if (!response.ok) await readSidecarError(response, `ACE-Step startup failed (${response.status})`);
-  return response.json() as Promise<SidecarContracts.AceStepEnsureResult>;
 }
 
 /** Report locally installed ACE-Step checkpoints so unsupported presets stay disabled. */
@@ -568,34 +596,37 @@ export async function generateMusicDraftsViaSidecar(prompt: string, durationSec:
   onProgress?: (progress: number, message: string) => void;
   onJobStarted?: (jobId: string) => void;
 }) {
-  const form = new FormData();
-  const values = { prompt, duration_sec: durationSec, candidate_count: options.candidateCount ?? 3,
-    condition_melody: options.useMelodyReference ?? false,
-    seed: options.seed, model: options.model, temperature: options.temperature,
-    top_k: options.topK, top_p: options.topP, cfg_coef: options.cfgCoef };
-  for (const [key, value] of Object.entries(values)) if (value != null) form.append(key, String(value));
-  if (options.referenceBlob) form.append("reference", options.referenceBlob, "style-reference.wav");
-  const response = await fetch(`${sidecarBaseUrl()}/generate/drafts/jobs`, {
-    method: "POST", headers: await sidecarAuthHeaders(), body: form,
+  return runProcess("MusicGen drafts", async (process) => {
+    const form = new FormData();
+    const values = { prompt, duration_sec: durationSec, candidate_count: options.candidateCount ?? 3,
+      condition_melody: options.useMelodyReference ?? false,
+      seed: options.seed, model: options.model, temperature: options.temperature,
+      top_k: options.topK, top_p: options.topP, cfg_coef: options.cfgCoef };
+    for (const [key, value] of Object.entries(values)) if (value != null) form.append(key, String(value));
+    if (options.referenceBlob) form.append("reference", options.referenceBlob, "style-reference.wav");
+    const response = await fetch(`${sidecarBaseUrl()}/generate/drafts/jobs`, {
+      method: "POST", headers: await sidecarAuthHeaders(), body: form,
+    });
+    if (!response.ok) await readSidecarError(response, "Local draft search failed");
+    const queued = await response.json() as SidecarContracts.JobSubmission;
+    if (!queued.job_id) throw new Error("Draft search job id missing");
+    options.onJobStarted?.(queued.job_id);
+    const meta = await pollSidecarJob(queued.job_id, { onProgress: (pct, message) => { process.progress({ phase: message || "Generating", pct: pct * 100 }); options.onProgress?.(pct, message); }, timeoutMs: 60 * 60_000 });
+    process.progress({ phase: "Receiving generated audio", pct: null });
+    const searchResponse = await fetch(`${sidecarBaseUrl()}/generate/drafts/${encodeURIComponent(queued.job_id)}`, {
+      headers: await sidecarAuthHeaders(),
+    });
+    if (!searchResponse.ok) await readSidecarError(searchResponse, "Draft comparison unavailable");
+    const search = await searchResponse.json() as SidecarContracts.DraftSearchResult;
+    const candidateFiles = [];
+    for (const candidate of search.candidates) {
+      candidateFiles.push({ ...candidate, blob: await downloadGenerateAudio(queued.job_id, candidate.index) });
+    }
+    const selected = candidateFiles.find(take => take.index === search.selected_index);
+    if (!selected) throw new Error("Selected draft is missing");
+    return { blob: selected.blob, model: meta.model, durationSec: meta.durationSec ?? durationSec,
+      mode: meta.mode, search, candidateFiles };
   });
-  if (!response.ok) await readSidecarError(response, "Local draft search failed");
-  const queued = await response.json() as SidecarContracts.JobSubmission;
-  if (!queued.job_id) throw new Error("Draft search job id missing");
-  options.onJobStarted?.(queued.job_id);
-  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 60 * 60_000 });
-  const searchResponse = await fetch(`${sidecarBaseUrl()}/generate/drafts/${encodeURIComponent(queued.job_id)}`, {
-    headers: await sidecarAuthHeaders(),
-  });
-  if (!searchResponse.ok) await readSidecarError(searchResponse, "Draft comparison unavailable");
-  const search = await searchResponse.json() as SidecarContracts.DraftSearchResult;
-  const candidateFiles = [];
-  for (const candidate of search.candidates) {
-    candidateFiles.push({ ...candidate, blob: await downloadGenerateAudio(queued.job_id, candidate.index) });
-  }
-  const selected = candidateFiles.find(take => take.index === search.selected_index);
-  if (!selected) throw new Error("Selected draft is missing");
-  return { blob: selected.blob, model: meta.model, durationSec: meta.durationSec ?? durationSec,
-    mode: meta.mode, search, candidateFiles };
 }
 
 /**
@@ -615,42 +646,45 @@ export async function generateMusicViaSidecar(
     onJobStarted?: (jobId: string) => void;
   } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
-  const res = await fetch(`${sidecarBaseUrl()}/generate/jobs`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      prompt,
-      duration_sec: durationSec,
-      temperature: options.temperature,
-      top_k: options.topK,
-      top_p: options.topP,
-      cfg_coef: options.cfgCoef,
-      seed: options.seed,
-      model: options.model,
-    }),
-  });
+  return runProcess("MusicGen", async (process) => {
+    const res = await fetch(`${sidecarBaseUrl()}/generate/jobs`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        prompt,
+        duration_sec: durationSec,
+        temperature: options.temperature,
+        top_k: options.topK,
+        top_p: options.topP,
+        cfg_coef: options.cfgCoef,
+        seed: options.seed,
+        model: options.model,
+      }),
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar generate failed (${res.status})`);
     }
-    throw new Error(detail || `sidecar generate failed (${res.status})`);
-  }
 
-  const queued = (await res.json()) as SidecarContracts.JobSubmission;
-  if (!queued.job_id) throw new Error("MusicGen job id missing");
-  options.onJobStarted?.(queued.job_id);
-  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
-  return {
-    blob: await downloadGenerateAudio(queued.job_id),
-    model: meta.model,
-    durationSec: meta.durationSec || durationSec,
-    mode: meta.mode,
-  };
+    const queued = (await res.json()) as SidecarContracts.JobSubmission;
+    if (!queued.job_id) throw new Error("MusicGen job id missing");
+    options.onJobStarted?.(queued.job_id);
+    const meta = await pollSidecarJob(queued.job_id, { onProgress: (pct, message) => { process.progress({ phase: message || "Generating", pct: pct * 100 }); options.onProgress?.(pct, message); }, timeoutMs: 15 * 60_000 });
+    process.progress({ phase: "Receiving generated audio", pct: null });
+    return {
+      blob: await downloadGenerateAudio(queued.job_id),
+      model: meta.model,
+      durationSec: meta.durationSec || durationSec,
+      mode: meta.mode,
+    };
+  });
 }
 
 /** Queue prompt + melody reference clip for cancellation-aware generation. */
@@ -670,44 +704,47 @@ export async function generateMusicWithMelodyViaSidecar(
     onJobStarted?: (jobId: string) => void;
   } = {},
 ): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null }> {
-  const form = new FormData();
-  form.append("prompt", prompt);
-  form.append("duration_sec", String(durationSec));
-  form.append("melody", melody, melodyName);
-  if (options.temperature != null) form.append("temperature", String(options.temperature));
-  if (options.topK != null) form.append("top_k", String(options.topK));
-  if (options.topP != null) form.append("top_p", String(options.topP));
-  if (options.cfgCoef != null) form.append("cfg_coef", String(options.cfgCoef));
-  if (options.seed != null) form.append("seed", String(options.seed));
-  if (options.model) form.append("model", options.model);
+  return runProcess("MusicGen with melody", async (process) => {
+    const form = new FormData();
+    form.append("prompt", prompt);
+    form.append("duration_sec", String(durationSec));
+    form.append("melody", melody, melodyName);
+    if (options.temperature != null) form.append("temperature", String(options.temperature));
+    if (options.topK != null) form.append("top_k", String(options.topK));
+    if (options.topP != null) form.append("top_p", String(options.topP));
+    if (options.cfgCoef != null) form.append("cfg_coef", String(options.cfgCoef));
+    if (options.seed != null) form.append("seed", String(options.seed));
+    if (options.model) form.append("model", options.model);
 
-  const res = await fetch(`${sidecarBaseUrl()}/generate/melody/jobs`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
+    const res = await fetch(`${sidecarBaseUrl()}/generate/melody/jobs`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar melody generate failed (${res.status})`);
     }
-    throw new Error(detail || `sidecar melody generate failed (${res.status})`);
-  }
 
-  const queued = (await res.json()) as SidecarContracts.JobSubmission;
-  if (!queued.job_id) throw new Error("MusicGen melody job id missing");
-  options.onJobStarted?.(queued.job_id);
-  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 15 * 60_000 });
-  return {
-    blob: await downloadGenerateAudio(queued.job_id),
-    model: meta.model,
-    durationSec: meta.durationSec || durationSec,
-    mode: meta.mode || "melody",
-  };
+    const queued = (await res.json()) as SidecarContracts.JobSubmission;
+    if (!queued.job_id) throw new Error("MusicGen melody job id missing");
+    options.onJobStarted?.(queued.job_id);
+    const meta = await pollSidecarJob(queued.job_id, { onProgress: (pct, message) => { process.progress({ phase: message || "Generating", pct: pct * 100 }); options.onProgress?.(pct, message); }, timeoutMs: 15 * 60_000 });
+    process.progress({ phase: "Receiving generated audio", pct: null });
+    return {
+      blob: await downloadGenerateAudio(queued.job_id),
+      model: meta.model,
+      durationSec: meta.durationSec || durationSec,
+      mode: meta.mode || "melody",
+    };
+  });
 }
 
 /**
@@ -731,57 +768,60 @@ export async function generateSongViaSidecar(options: {
   onProgress?: (progress: number, message: string) => void;
   onJobStarted?: (jobId: string) => void;
 }): Promise<{ blob: Blob; model: string | null; durationSec: number | null; mode: string | null; compositionPlan: SidecarContracts.CompositionPlan | null }> {
-  const res = await fetch(`${sidecarBaseUrl()}/generate/song/jobs`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      prompt: options.prompt,
-      lyrics: options.lyrics || "",
-      duration_sec: options.durationSec ?? null,
-      vocal_language: options.vocalLanguage || "",
-      bpm: options.bpm ?? null,
-      key_scale: options.keyScale || "",
-      thinking: options.thinking !== false,
-      audio_format: options.audioFormat || "wav",
-      inference_steps: options.inferenceSteps ?? null,
-      guidance_scale: options.guidanceScale ?? null,
-      seed: options.seed ?? null,
-      model: options.model || "",
-      compose: !!options.compose,
-      instrumental: options.instrumental !== false,
-    }),
-  });
-
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
-    }
-    throw new Error(detail || `sidecar ACE-Step song generate failed (${res.status})`);
-  }
-
-  const queued = (await res.json()) as SidecarContracts.JobSubmission;
-  if (!queued.job_id) throw new Error("ACE-Step job id missing");
-  options.onJobStarted?.(queued.job_id);
-  const meta = await pollSidecarJob(queued.job_id, { onProgress: options.onProgress, timeoutMs: 35 * 60_000 });
-  let compositionPlan: SidecarContracts.CompositionPlan | null = null;
-  if (options.compose) {
-    const planResponse = await fetch(`${sidecarBaseUrl()}/generate/song/plan/${encodeURIComponent(queued.job_id)}`, {
-      headers: await sidecarAuthHeaders(),
+  return runProcess("ACE-Step song generation", async (process) => {
+    const res = await fetch(`${sidecarBaseUrl()}/generate/song/jobs`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        prompt: options.prompt,
+        lyrics: options.lyrics || "",
+        duration_sec: options.durationSec ?? null,
+        vocal_language: options.vocalLanguage || "",
+        bpm: options.bpm ?? null,
+        key_scale: options.keyScale || "",
+        thinking: options.thinking !== false,
+        audio_format: options.audioFormat || "wav",
+        inference_steps: options.inferenceSteps ?? null,
+        guidance_scale: options.guidanceScale ?? null,
+        seed: options.seed ?? null,
+        model: options.model || "",
+        compose: !!options.compose,
+        instrumental: options.instrumental !== false,
+      }),
     });
-    if (!planResponse.ok) throw new Error("The composed song's AI plan could not be retrieved");
-    compositionPlan = await planResponse.json() as SidecarContracts.CompositionPlan;
-  }
-  return {
-    blob: await downloadGenerateAudio(queued.job_id),
-    model: meta.model,
-    durationSec: meta.durationSec || options.durationSec || null,
-    mode: meta.mode || "song",
-    compositionPlan,
-  };
+
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar ACE-Step song generate failed (${res.status})`);
+    }
+
+    const queued = (await res.json()) as SidecarContracts.JobSubmission;
+    if (!queued.job_id) throw new Error("ACE-Step job id missing");
+    options.onJobStarted?.(queued.job_id);
+    const meta = await pollSidecarJob(queued.job_id, { onProgress: (pct, message) => { process.progress({ phase: message || "Generating", pct: pct * 100 }); options.onProgress?.(pct, message); }, timeoutMs: 35 * 60_000 });
+    process.progress({ phase: "Receiving generated audio", pct: null });
+    let compositionPlan: SidecarContracts.CompositionPlan | null = null;
+    if (options.compose) {
+      const planResponse = await fetch(`${sidecarBaseUrl()}/generate/song/plan/${encodeURIComponent(queued.job_id)}`, {
+        headers: await sidecarAuthHeaders(),
+      });
+      if (!planResponse.ok) throw new Error("The composed song's AI plan could not be retrieved");
+      compositionPlan = await planResponse.json() as SidecarContracts.CompositionPlan;
+    }
+    return {
+      blob: await downloadGenerateAudio(queued.job_id),
+      model: meta.model,
+      durationSec: meta.durationSec || options.durationSec || null,
+      mode: meta.mode || "song",
+      compositionPlan,
+    };
+  });
 }
 
 /**
@@ -796,49 +836,51 @@ export async function transformVocalsViaSidecar(options: {
   formantShift?: number;
   output?: "remix" | "vocals" | "both";
 }): Promise<{ remixBlob: Blob | null; vocalsBlob: Blob | null; mode: string | null; jobId: string | null }> {
-  const form = new FormData();
-  form.append("file", options.file, options.fileName || "mix.wav");
-  form.append("mode", options.mode || "pitch");
-  form.append("regions_json", JSON.stringify(options.regions || []));
-  form.append("pitch_semitones", String(options.pitchSemitones ?? 0));
-  form.append("formant_shift", String(options.formantShift ?? 0));
-  form.append("output", options.output || "both");
+  return runProcess("Vocal conversion", async () => {
+    const form = new FormData();
+    form.append("file", options.file, options.fileName || "mix.wav");
+    form.append("mode", options.mode || "pitch");
+    form.append("regions_json", JSON.stringify(options.regions || []));
+    form.append("pitch_semitones", String(options.pitchSemitones ?? 0));
+    form.append("formant_shift", String(options.formantShift ?? 0));
+    form.append("output", options.output || "both");
 
-  const res = await fetch(`${sidecarBaseUrl()}/vocal-transform`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
-
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
-    }
-    throw new Error(detail || `sidecar vocal transform failed (${res.status})`);
-  }
-
-  const mode = res.headers.get("X-Vocal-Transform-Mode");
-  const jobId = res.headers.get("X-Job-Id");
-  const hasRemix = res.headers.get("X-Vocal-Transform-Has-Remix") === "1";
-  const hasVocals = res.headers.get("X-Vocal-Transform-Has-Vocals") === "1";
-  const primary = await res.blob();
-
-  let remixBlob: Blob | null = hasRemix || (!hasVocals && primary) ? primary : null;
-  let vocalsBlob: Blob | null = hasVocals && !hasRemix ? primary : null;
-
-  const vocalsUrl = res.headers.get("X-Vocal-Transform-Vocals-Url");
-  if (hasRemix && hasVocals && vocalsUrl) {
-    const vRes = await fetch(`${sidecarBaseUrl()}${vocalsUrl}`, {
+    const res = await fetch(`${sidecarBaseUrl()}/vocal-transform`, {
+      method: "POST",
       headers: await sidecarAuthHeaders(),
+      body: form,
     });
-    if (vRes.ok) vocalsBlob = await vRes.blob();
-  }
 
-  return { remixBlob, vocalsBlob, mode, jobId };
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar vocal transform failed (${res.status})`);
+    }
+
+    const mode = res.headers.get("X-Vocal-Transform-Mode");
+    const jobId = res.headers.get("X-Job-Id");
+    const hasRemix = res.headers.get("X-Vocal-Transform-Has-Remix") === "1";
+    const hasVocals = res.headers.get("X-Vocal-Transform-Has-Vocals") === "1";
+    const primary = await res.blob();
+
+    let remixBlob: Blob | null = hasRemix || (!hasVocals && primary) ? primary : null;
+    let vocalsBlob: Blob | null = hasVocals && !hasRemix ? primary : null;
+
+    const vocalsUrl = res.headers.get("X-Vocal-Transform-Vocals-Url");
+    if (hasRemix && hasVocals && vocalsUrl) {
+      const vRes = await fetch(`${sidecarBaseUrl()}${vocalsUrl}`, {
+        headers: await sidecarAuthHeaders(),
+      });
+      if (vRes.ok) vocalsBlob = await vRes.blob();
+    }
+
+    return { remixBlob, vocalsBlob, mode, jobId };
+  });
 }
 
 /**
@@ -852,37 +894,39 @@ export async function generateCoverViaSidecar(options: {
   numInferenceSteps?: number;
   signal?: AbortSignal;
 }): Promise<{ blob: Blob; model: string | null; mode: string | null; width: number | null; height: number | null }> {
-  const res = await fetch(`${sidecarBaseUrl()}/cover`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      prompt: options.prompt,
-      width: options.width ?? 1024,
-      height: options.height ?? 1024,
-      seed: options.seed ?? null,
-      num_inference_steps: options.numInferenceSteps ?? 4,
-    }),
-    signal: options.signal,
-  });
+  return runProcess("Cover generation", async () => {
+    const res = await fetch(`${sidecarBaseUrl()}/cover`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        prompt: options.prompt,
+        width: options.width ?? 1024,
+        height: options.height ?? 1024,
+        seed: options.seed ?? null,
+        num_inference_steps: options.numInferenceSteps ?? 4,
+      }),
+      signal: options.signal,
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar cover failed (${res.status})`);
     }
-    throw new Error(detail || `sidecar cover failed (${res.status})`);
-  }
 
-  return {
-    blob: await res.blob(),
-    model: res.headers.get("X-Cover-Model"),
-    mode: res.headers.get("X-Cover-Mode"),
-    width: Number(res.headers.get("X-Cover-Width") || options.width || 1024) || null,
-    height: Number(res.headers.get("X-Cover-Height") || options.height || 1024) || null,
-  };
+    return {
+      blob: await res.blob(),
+      model: res.headers.get("X-Cover-Model"),
+      mode: res.headers.get("X-Cover-Mode"),
+      width: Number(res.headers.get("X-Cover-Width") || options.width || 1024) || null,
+      height: Number(res.headers.get("X-Cover-Height") || options.height || 1024) || null,
+    };
+  });
 }
 
 /**
@@ -906,41 +950,43 @@ export async function generateCoverRefViaSidecar(options: {
   width: number | null;
   height: number | null;
 }> {
-  const form = new FormData();
-  form.append("prompt", options.prompt);
-  form.append("strength", String(options.strength ?? 0.55));
-  form.append("width", String(options.width ?? 1024));
-  form.append("height", String(options.height ?? 1024));
-  form.append("num_inference_steps", String(options.numInferenceSteps ?? 4));
-  if (options.seed != null) form.append("seed", String(options.seed));
-  form.append("image", options.image, options.imageName || "reference.png");
+  return runProcess("Cover from reference", async () => {
+    const form = new FormData();
+    form.append("prompt", options.prompt);
+    form.append("strength", String(options.strength ?? 0.55));
+    form.append("width", String(options.width ?? 1024));
+    form.append("height", String(options.height ?? 1024));
+    form.append("num_inference_steps", String(options.numInferenceSteps ?? 4));
+    if (options.seed != null) form.append("seed", String(options.seed));
+    form.append("image", options.image, options.imageName || "reference.png");
 
-  const res = await fetch(`${sidecarBaseUrl()}/cover-ref`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-    signal: options.signal,
-  });
+    const res = await fetch(`${sidecarBaseUrl()}/cover-ref`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+      signal: options.signal,
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `sidecar cover-ref failed (${res.status})`);
     }
-    throw new Error(detail || `sidecar cover-ref failed (${res.status})`);
-  }
 
-  return {
-    blob: await res.blob(),
-    model: res.headers.get("X-Cover-Model"),
-    mode: res.headers.get("X-Cover-Mode"),
-    strength: Number(res.headers.get("X-Cover-Strength") || options.strength || 0.55) || null,
-    width: Number(res.headers.get("X-Cover-Width") || options.width || 1024) || null,
-    height: Number(res.headers.get("X-Cover-Height") || options.height || 1024) || null,
-  };
+    return {
+      blob: await res.blob(),
+      model: res.headers.get("X-Cover-Model"),
+      mode: res.headers.get("X-Cover-Mode"),
+      strength: Number(res.headers.get("X-Cover-Strength") || options.strength || 0.55) || null,
+      width: Number(res.headers.get("X-Cover-Width") || options.width || 1024) || null,
+      height: Number(res.headers.get("X-Cover-Height") || options.height || 1024) || null,
+    };
+  });
 }
 
 export type VocalAlignPreviewResponse = SidecarContracts.VocalAlignPreviewResponse;
@@ -950,28 +996,30 @@ export async function previewVocalAlignViaSidecar(
   guideVocal: Blob,
   guideName = "guide-vocal.wav",
 ): Promise<VocalAlignPreviewResponse> {
-  const form = new FormData();
-  form.append("plan_json", JSON.stringify(envelope));
-  form.append("guide_vocal", guideVocal, guideName);
+  return runProcess("Vocal alignment", async () => {
+    const form = new FormData();
+    form.append("plan_json", JSON.stringify(envelope));
+    form.append("guide_vocal", guideVocal, guideName);
 
-  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/align-preview`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
+    const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/align-preview`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
 
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `align preview failed (${res.status})`);
     }
-    throw new Error(detail || `align preview failed (${res.status})`);
-  }
 
-  return res.json() as Promise<VocalAlignPreviewResponse>;
+    return res.json() as Promise<VocalAlignPreviewResponse>;
+  });
 }
 
 export type OpenvpiDsExportResponse = SidecarContracts.OpenvpiDsExportResponse;
@@ -981,30 +1029,32 @@ export async function exportOpenvpiDsViaSidecar(
   guideVocal?: Blob | null,
   guideName = "guide-vocal.wav",
 ): Promise<OpenvpiDsExportResponse> {
-  const form = new FormData();
-  form.append("plan_json", JSON.stringify(envelope));
-  if (guideVocal) {
-    form.append("guide_vocal", guideVocal, guideName || "guide-vocal.wav");
-  }
-
-  const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/ds-export`, {
-    method: "POST",
-    headers: await sidecarAuthHeaders(),
-    body: form,
-  });
-
-  if (!res.ok) {
-    let detail = "";
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? JSON.stringify(body);
-    } catch {
-      detail = await res.text();
+  return runProcess("DiffSinger export", async () => {
+    const form = new FormData();
+    form.append("plan_json", JSON.stringify(envelope));
+    if (guideVocal) {
+      form.append("guide_vocal", guideVocal, guideName || "guide-vocal.wav");
     }
-    throw new Error(detail || `OpenVPI ds export failed (${res.status})`);
-  }
 
-  return res.json() as Promise<OpenvpiDsExportResponse>;
+    const res = await fetch(`${sidecarBaseUrl()}/vocal-embed/ds-export`, {
+      method: "POST",
+      headers: await sidecarAuthHeaders(),
+      body: form,
+    });
+
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const body = await res.json();
+        detail = body?.detail ?? JSON.stringify(body);
+      } catch {
+        detail = await res.text();
+      }
+      throw new Error(detail || `OpenVPI ds export failed (${res.status})`);
+    }
+
+    return res.json() as Promise<OpenvpiDsExportResponse>;
+  });
 }
 
 export type FailSafeFixPushResult = SidecarContracts.FixPushResponse;
@@ -1028,26 +1078,28 @@ export async function deliverRuntimeReport(options: {
   mode?: "issue" | "branch" | "pr";
   githubToken?: string;
 }): Promise<RuntimeDeliverResult> {
-  const headers = await sidecarAuthHeaders({ "Content-Type": "application/json" });
-  const res = await fetch(`${sidecarBaseUrl()}/fail-safe/runtime-deliver`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      payload: options.payload,
-      mode: options.mode || "issue",
-      github_token: options.githubToken || undefined,
-    }),
+  return runProcess("Send diagnostic report", async () => {
+    const headers = await sidecarAuthHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(`${sidecarBaseUrl()}/fail-safe/runtime-deliver`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        payload: options.payload,
+        mode: options.mode || "issue",
+        github_token: options.githubToken || undefined,
+      }),
+    });
+    let body: RuntimeDeliverResult;
+    try {
+      body = (await res.json()) as RuntimeDeliverResult;
+    } catch {
+      throw new Error(formatApiError(res.status, "", "Runtime deliver"));
+    }
+    if (!res.ok && body?.message) {
+      throw new Error(body.message);
+    }
+    return body;
   });
-  let body: RuntimeDeliverResult;
-  try {
-    body = (await res.json()) as RuntimeDeliverResult;
-  } catch {
-    throw new Error(formatApiError(res.status, "", "Runtime deliver"));
-  }
-  if (!res.ok && body?.message) {
-    throw new Error(body.message);
-  }
-  return body;
 }
 
 /** Maintainer mode: run fail-safe fix, commit, push (local git) or cloud dispatch. */
@@ -1055,23 +1107,25 @@ export async function runFailSafeFixPush(options: {
   mode?: "local" | "cloud";
   githubToken?: string;
 } = {}): Promise<FailSafeFixPushResult> {
-  const headers = await sidecarAuthHeaders({ "Content-Type": "application/json" });
-  const res = await fetch(`${sidecarBaseUrl()}/fail-safe/fix-push`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      mode: options.mode || "local",
-      github_token: options.githubToken || undefined,
-    }),
+  return runProcess("Auto Fail-Safe repair", async () => {
+    const headers = await sidecarAuthHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(`${sidecarBaseUrl()}/fail-safe/fix-push`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        mode: options.mode || "local",
+        github_token: options.githubToken || undefined,
+      }),
+    });
+    let body: FailSafeFixPushResult;
+    try {
+      body = (await res.json()) as FailSafeFixPushResult;
+    } catch {
+      throw new Error(formatApiError(res.status, "", "Fix & push"));
+    }
+    if (!res.ok && body?.message) {
+      throw new Error(body.message);
+    }
+    return body;
   });
-  let body: FailSafeFixPushResult;
-  try {
-    body = (await res.json()) as FailSafeFixPushResult;
-  } catch {
-    throw new Error(formatApiError(res.status, "", "Fix & push"));
-  }
-  if (!res.ok && body?.message) {
-    throw new Error(body.message);
-  }
-  return body;
 }

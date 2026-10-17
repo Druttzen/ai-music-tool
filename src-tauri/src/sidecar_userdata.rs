@@ -766,7 +766,20 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
         }
     }
     let progress = Some((app, extra_id));
-    let mut out = match install_sidecar_pkg_editable(&py, &root, &pkg, Some(spec), true, progress) {
+    // A failed model download must not upgrade the shared ML environment again.
+    // Verify imports and missing model state before choosing this repair path.
+    let model_capability = match spec { "classify" => "genre", other => other };
+    let repair_models_only = if matches!(spec, "generate" | "stems" | "classify" | "vision" | "cover" | "cover-ref") {
+        let code = format!("from ai_sidecar.install_validation import verify_extra; verify_extra({spec:?}); from ai_sidecar.model_readiness import readiness; import sys; sys.exit(0 if not readiness({model_capability:?})['offlineReady'] else 1)");
+        let mut check = Command::new(&py);
+        check.args(["-c", &code]).current_dir(&root);
+        apply_runtime_cache_env(&mut check, &root);
+        apply_create_no_window(&mut check);
+        check.output().is_ok_and(|out| out.status.success())
+    } else { false };
+    let mut out = if repair_models_only {
+        "Existing engine verified; repairing model files without upgrading shared packages.".to_string()
+    } else { match install_sidecar_pkg_editable(&py, &root, &pkg, Some(spec), true, progress) {
         Ok(log) => log,
         Err(err) if spec == "generate" => {
             let fallback = generate_windows_fallback(&py, &root, progress)?;
@@ -777,8 +790,8 @@ pub fn install_extra_into_user_venv(app: &AppHandle, extra_id: &str) -> Result<S
             format!("{err}\n{fallback}")
         }
         Err(err) => return Err(err),
-    };
-    if extra_id == "generate" {
+    }};
+    if extra_id == "generate" && !repair_models_only {
         let ac = run_pip_with_progress(
             &py,
             &["install", "audiocraft>=1.3", "--no-deps"],

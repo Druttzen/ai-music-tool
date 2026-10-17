@@ -1,5 +1,7 @@
 "use client";
 
+import { runProcess } from "./process-status";
+
 import { isTauriApp } from "./dsp-bridge";
 
 export interface CanvasHandoffResult {
@@ -29,20 +31,22 @@ export async function exportCanvasHandoffNative(payload: {
   motionHint?: string;
   durationSec?: number;
 }): Promise<CanvasHandoffResult> {
-  if (!isTauriApp()) {
-    throw new Error("Canvas handoff is only available in the Tauri desktop build");
-  }
-  const args: Record<string, unknown> = {
-    title: payload.title,
-    artist: payload.artist,
-    imageBytes: Array.from(new Uint8Array(payload.imageBytes)),
-    ext: payload.ext || "png",
-    motionHint: payload.motionHint,
-    durationSec: payload.durationSec ?? 8,
-  };
-  if (payload.audioBytes?.byteLength) {
-    args.audioBytes = Array.from(new Uint8Array(payload.audioBytes));
-    args.audioExt = payload.audioExt || "mp3";
-  }
-  return tauriInvoke<CanvasHandoffResult>("export_canvas_handoff", args);
+  return runProcess("Export to Canvas", async () => {
+    if (!isTauriApp()) {
+      throw new Error("Canvas handoff is only available in the Tauri desktop build");
+    }
+    const args: Record<string, unknown> = {
+      title: payload.title,
+      artist: payload.artist,
+      imageBytes: Array.from(new Uint8Array(payload.imageBytes)),
+      ext: payload.ext || "png",
+      motionHint: payload.motionHint,
+      durationSec: payload.durationSec ?? 8,
+    };
+    if (payload.audioBytes?.byteLength) {
+      args.audioBytes = Array.from(new Uint8Array(payload.audioBytes));
+      args.audioExt = payload.audioExt || "mp3";
+    }
+    return tauriInvoke<CanvasHandoffResult>("export_canvas_handoff", args);
+  });
 }

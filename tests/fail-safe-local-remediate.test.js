@@ -10,8 +10,50 @@ import {
 import { FAIL_SAFE_STORAGE_KEY } from "../app/lib/fail-safe-bot.js";
 import { VOCAL_ALIGN_PREVIEW_STORAGE_KEY } from "../app/lib/vocal-embed-handoff.js";
 import { STORAGE_KEY, HISTORY_KEY, PRESET_KEY } from "../app/lib/music-config.js";
+import { beginSidecarInstallBatch } from "../app/lib/sidecar-install-activity.js";
 
 describe("fail-safe-local-remediate", () => {
+  it("repairs named plugins sequentially and preserves failed results", async () => {
+    const repairExtra = vi.fn().mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, error: "Network unavailable" });
+    const result = await remediateRuntimeIssues([
+      { id: "sidecar_extra_install", extraId: "stems", error: "Download interrupted" },
+      { id: "sidecar_extra_install", extraId: "vision", error: "Download interrupted" },
+    ], { repairExtra });
+    expect(repairExtra.mock.calls).toEqual([["stems"], ["vision"]]);
+    expect(result.ok).toBe(false);
+    expect(result.steps.map((step) => step.ok)).toEqual([true, false]);
+    expect(result.steps[1].detail).toBe("Network unavailable");
+  });
+
+  it("waits until Download all finishes before repairing a failed addon", async () => {
+    const finish = beginSidecarInstallBatch();
+    const repairExtra = vi.fn(async () => ({ ok: true }));
+    const pending = remediateRuntimeIssues([{ id: "sidecar_extra_install", extraId: "stems" }], { repairExtra });
+    await Promise.resolve();
+    expect(repairExtra).not.toHaveBeenCalled();
+    finish();
+    expect((await pending).ok).toBe(true);
+  });
+
+  it("explains gated-model access instead of retrying unauthorized downloads", async () => {
+    const repairExtra = vi.fn();
+    const result = await remediateRuntimeIssues([{ id: "sidecar_extra_install", extraId: "cover",
+      error: "GatedRepoError: 401 Unauthorized https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/model_index.json" }], { repairExtra });
+    expect(repairExtra).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+    expect(result.steps[0].actionUrl).toBe("https://huggingface.co/black-forest-labs/FLUX.1-schnell");
+    expect(result.steps[0].detail).toContain("cannot grant account access");
+  });
+
+  it("does not guess a plugin from a batch summary or execute an unknown identifier", async () => {
+    const repairExtra = vi.fn();
+    const result = await remediateRuntimeIssues([
+      { id: "sidecar_extra_install", detail: "4 failed" },
+      { id: "sidecar_extra_install", extraId: "../../untrusted" },
+    ], { repairExtra });
+    expect(repairExtra).not.toHaveBeenCalled();
+    expect(result.ok).toBe(false);
+  });
   it("never treats project / history / presets as scratch", () => {
     expect(isSafeScratchStorageKey(STORAGE_KEY)).toBe(false);
     expect(isSafeScratchStorageKey(HISTORY_KEY)).toBe(false);

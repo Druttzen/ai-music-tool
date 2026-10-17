@@ -2,6 +2,7 @@
 
 mod app_layout;
 mod internal_plugins;
+mod model_access;
 mod installation_policy;
 mod canvas_handoff;
 mod process_progress;
@@ -22,7 +23,7 @@ use canvas_handoff::{
     canvas_preview_bytes, export_canvas_handoff, install_canvas_addon, launch_canvas_addon, suite_canvas_addon_status,
     uninstall_canvas_addon,
 };
-use dsp_core::{export_mastered_bytes, ExportMasteredResult, Loudness, StereoPhase};
+use dsp_core::{export_mastered_bytes_with_progress, ExportMasteredResult, Loudness, StereoPhase};
 use sidecar_extra_install::{
     install_sidecar_extra, list_installed_sidecar_extras, probe_sidecar_extra_install_env,
     uninstall_sidecar_extra,
@@ -32,7 +33,7 @@ use sidecar_manager::{SidecarManager, SidecarStatus};
 use studio_component_update::update_studio_all;
 use studio_exports::{get_exports_dir, pick_export_directory, save_bytes_to_exports};
 use studio_updater::{check_studio_update, install_studio_update};
-use tauri::{Manager, RunEvent};
+use tauri::{Emitter, Manager, RunEvent};
 use workspace_reset::{consume_workspace_reset_flag, workspace_reset_pending};
 
 const MAX_DSP_INPUT_BYTES: usize = 512 * 1024 * 1024;
@@ -83,27 +84,21 @@ async fn decode_preview_wav_bytes(bytes: Vec<u8>) -> Result<Vec<u8>, String> {
         .map_err(|e| e.to_string())?
 }
 
-fn export_mastered_sync(
-    bytes: Vec<u8>,
-    preset_id: String,
-    format: String,
-    start_sec: Option<f64>,
-    end_sec: Option<f64>,
-) -> Result<ExportMasteredResult, String> {
-    validate_dsp_input(&bytes)?;
-    export_mastered_bytes(bytes, &preset_id, &format, start_sec, end_sec).map_err(|e| e.to_string())
-}
-
 #[tauri::command]
 async fn export_mastered(
+    app: tauri::AppHandle,
     bytes: Vec<u8>,
     preset_id: String,
     format: String,
     start_sec: Option<f64>,
     end_sec: Option<f64>,
+    job_id: Option<String>,
 ) -> Result<ExportMasteredResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        export_mastered_sync(bytes, preset_id, format, start_sec, end_sec)
+        validate_dsp_input(&bytes)?;
+        export_mastered_bytes_with_progress(bytes, &preset_id, &format, start_sec, end_sec, |progress| {
+            let _ = app.emit("studio-mastering-progress", serde_json::json!({ "jobId": job_id, "phase": progress.phase, "completed": progress.completed, "total": progress.total }));
+        }).map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -176,6 +171,7 @@ pub fn run() {
             install_canvas_addon,
             uninstall_canvas_addon,
             install_sidecar_extra,
+            model_access::connect_huggingface,
             prepare_musicgen_model,
             uninstall_sidecar_extra,
             list_installed_sidecar_extras,

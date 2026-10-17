@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Multi-file vocal embed handoff export (no zip dependency).
  */
@@ -69,66 +71,68 @@ export async function exportVocalEmbedHandoffPack({
   alignPreview = null,
   openvpiDs = null,
 }) {
-  const stamp = Date.now();
-  const base = `vocal-embed-handoff-${stamp}`;
-  const pending = [];
-  pending.push(
-    triggerDownload(
-      new Blob([JSON.stringify(planEnvelope, null, 2)], { type: "application/json" }),
-      `${base}-plan.json`,
-    ),
-  );
-  const readme = [
-    "Vocal Embed handoff pack",
-    "========================",
-    "",
-    "Files:",
-    `- ${base}-plan.json — sidecar-ready vocal embed plan`,
-    instrumental ? `- ${base}-instrumental.wav` : "(re-export instrumental from analyzer if missing)",
-    guideVocal ? `- ${base}-guide-vocal.wav` : "(no guide vocal attached)",
-    alignPreview
-      ? `- ${base}-align-preview.json — MFA/heuristic word alignment (${alignPreview.align_method || "?"})`
-      : "(run Align preview in the app for timing JSON)",
-    openvpiDs?.segments?.length
-      ? `- ${base}-openvpi-ds.json — DiffSinger segment timing (${openvpiDs.segment_count} segments)`
-      : "(export OpenVPI .ds from Vocal Embed Studio when lyrics are ready)",
-    "",
-    "Next steps:",
-    "1. npm run sidecar (and sidecar:vocal-ml if using RVC/DiffSinger)",
-    "2. POST plan to /vocal-embed/plan or use Synthesize in the app",
-    "3. Configure MFA via ai-sidecar/.env.vocal for tighter lyric timing",
-    openvpiDs?.segments?.length
-      ? "4. Feed openvpi-ds.json into your local OpenVPI DiffSinger variance/acoustic pipeline"
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-  pending.push(triggerDownload(new Blob([readme], { type: "text/plain" }), `${base}-README.txt`));
-  if (alignPreview) {
+  return runProcess("Export vocal handoff", async () => {
+    const stamp = Date.now();
+    const base = `vocal-embed-handoff-${stamp}`;
+    const pending = [];
     pending.push(
       triggerDownload(
-        new Blob([JSON.stringify(alignPreview, null, 2)], { type: "application/json" }),
-        `${base}-align-preview.json`,
+        new Blob([JSON.stringify(planEnvelope, null, 2)], { type: "application/json" }),
+        `${base}-plan.json`,
       ),
     );
-    await new Promise((r) => setTimeout(r, 120));
-  }
-  if (openvpiDs?.segments?.length) {
-    pending.push(
-      triggerDownload(
-        new Blob([JSON.stringify(openvpiDs, null, 2)], { type: "application/json" }),
-        `${base}-openvpi-ds.json`,
-      ),
-    );
-    await new Promise((r) => setTimeout(r, 120));
-  }
-  if (instrumental) {
-    await new Promise((r) => setTimeout(r, 120));
-    pending.push(triggerDownload(instrumental, `${base}-instrumental.wav`));
-  }
-  if (guideVocal) {
-    await new Promise((r) => setTimeout(r, 120));
-    pending.push(triggerDownload(guideVocal, `${base}-guide-vocal.wav`));
-  }
-  await Promise.all(pending);
+    const readme = [
+      "Vocal Embed handoff pack",
+      "========================",
+      "",
+      "Files:",
+      `- ${base}-plan.json — sidecar-ready vocal embed plan`,
+      instrumental ? `- ${base}-instrumental.wav` : "(re-export instrumental from analyzer if missing)",
+      guideVocal ? `- ${base}-guide-vocal.wav` : "(no guide vocal attached)",
+      alignPreview
+        ? `- ${base}-align-preview.json — MFA/heuristic word alignment (${alignPreview.align_method || "?"})`
+        : "(run Align preview in the app for timing JSON)",
+      openvpiDs?.segments?.length
+        ? `- ${base}-openvpi-ds.json — DiffSinger segment timing (${openvpiDs.segment_count} segments)`
+        : "(export OpenVPI .ds from Vocal Embed Studio when lyrics are ready)",
+      "",
+      "Next steps:",
+      "1. npm run sidecar (and sidecar:vocal-ml if using RVC/DiffSinger)",
+      "2. POST plan to /vocal-embed/plan or use Synthesize in the app",
+      "3. Configure MFA via ai-sidecar/.env.vocal for tighter lyric timing",
+      openvpiDs?.segments?.length
+        ? "4. Feed openvpi-ds.json into your local OpenVPI DiffSinger variance/acoustic pipeline"
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    pending.push(triggerDownload(new Blob([readme], { type: "text/plain" }), `${base}-README.txt`));
+    if (alignPreview) {
+      pending.push(
+        triggerDownload(
+          new Blob([JSON.stringify(alignPreview, null, 2)], { type: "application/json" }),
+          `${base}-align-preview.json`,
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    if (openvpiDs?.segments?.length) {
+      pending.push(
+        triggerDownload(
+          new Blob([JSON.stringify(openvpiDs, null, 2)], { type: "application/json" }),
+          `${base}-openvpi-ds.json`,
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    if (instrumental) {
+      await new Promise((r) => setTimeout(r, 120));
+      pending.push(triggerDownload(instrumental, `${base}-instrumental.wav`));
+    }
+    if (guideVocal) {
+      await new Promise((r) => setTimeout(r, 120));
+      pending.push(triggerDownload(guideVocal, `${base}-guide-vocal.wav`));
+    }
+    await Promise.all(pending);
+  });
 }

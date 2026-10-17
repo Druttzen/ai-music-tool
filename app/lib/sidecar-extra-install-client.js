@@ -1,3 +1,5 @@
+import { runProcess, listenProcessEvent } from "./process-status";
+
 /**
  * In-app install for opt-in sidecar extras (dev / writable ai-sidecar/.venv).
  */
@@ -5,6 +7,8 @@ import { isTauriApp } from "./dsp-bridge";
 import { isDesktopAddonHost } from "./canvas-addon-client";
 import { fetchSidecarHealth, fetchSidecarHealthInventory, resetSidecarHealthCache } from "./sidecar-bridge";
 import { reportCaughtError } from "./fail-safe-runtime-capture.js";
+import { describeSidecarInstallFailure } from "./sidecar-install-failure.js";
+import { getActiveLocalFaults, resolveLocalFaults } from "./fail-safe-runtime-fault.js";
 
 /** @type {Record<string, string>} */
 export const SIDECAR_EXTRA_NPM = {
@@ -140,77 +144,122 @@ export async function listInstalledSidecarExtras() {
   return Array.isArray(result) ? result.map(normalizeSidecarExtraId) : [];
 }
 
+export async function connectHuggingFace(token) {
+  return runProcess("Connect model access", async () => {
+    if (!isTauriApp()) throw new Error("Connect model access in the Studio desktop app");
+    return tauriInvoke("connect_huggingface", { token });
+  });
+}
+
+/** Clear only this plugin's failed-install history after a fresh engine check. */
+export function confirmSidecarExtraInstalled(extraId, health) {
+  const id = normalizeSidecarExtraId(extraId);
+  const row = health?.capabilities?.find((row) => normalizeSidecarExtraId(row.extraId || row.id) === id);
+  const needsOwnVoice = ["vocal-rvc", "diffsinger"].includes(id) && row?.configured === false &&
+    !Object.keys(row?.models || {}).length;
+  if (!row || row.dependenciesInstalled === false || !(row.runtimeReady === true || (row.dependenciesInstalled === true && needsOwnVoice))) return false;
+  const messages = new Set();
+  for (const fault of getActiveLocalFaults().filter((fault) => fault.source === `addons.install:${id}`)) {
+    messages.add(fault.message);
+    const diagnosis = describeSidecarInstallFailure(fault.stack || fault.message);
+    if (diagnosis.kind === "model-access") messages.add(`${diagnosis.message} ${diagnosis.actionUrl}`);
+  }
+  resolveLocalFaults((fault) => fault.source === `addons.install:${id}` || (fault.source === "ui.status" && messages.has(fault.message)));
+  if (!getActiveLocalFaults().some((fault) => fault.source.startsWith("addons.install:"))) {
+    resolveLocalFaults((fault) => fault.source === "ui.status" && /^Download all finished:/.test(fault.message));
+  }
+  return true;
+}
+
 /**
  * @param {string} extraId
  * @returns {Promise<{ ok: boolean, extraId?: string, mode?: string, message?: string, error?: string, installHint?: string, restarted?: boolean }>}
  */
 export async function installSidecarExtra(extraId) {
-  const id = normalizeSidecarExtraId(extraId);
-  const hint = sidecarExtraNpmHint(id);
+  return runProcess(`Install addon · ${normalizeSidecarExtraId(extraId)}`, async (process) => {
+    const id = normalizeSidecarExtraId(extraId);
+    const hint = sidecarExtraNpmHint(id);
 
-  if (!isSidecarExtraAllowlisted(id)) {
-    return { ok: false, extraId: id, error: `Unknown sidecar extra: ${id}`, installHint: hint };
-  }
-
-  if (isTauriApp()) {
-    return tauriInvoke("install_sidecar_extra", { extraId: id });
-  }
-
-  // Browser / web: copy npm hint; do not pretend pip ran.
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(hint);
-      return {
-        ok: false,
-        extraId: id,
-        mode: "copied-command",
-        message: `Copied “${hint}” — run in the repo, then restart the sidecar`,
-        installHint: hint,
-      };
-    } catch {
-      /* fall through */
+    if (!isSidecarExtraAllowlisted(id)) {
+      return { ok: false, extraId: id, error: `Unknown sidecar extra: ${id}`, installHint: hint };
     }
-  }
-  return {
-    ok: false,
-    extraId: id,
-    mode: "desktop-or-cli",
-    error: isDesktopAddonHost()
-      ? "Sidecar extra install is unavailable in this shell"
-      : `Run in the repo: ${hint}`,
-    installHint: hint,
-  };
-}
 
-export async function prepareMusicGenModel(modelPreset) {
-  const preset = String(modelPreset || "");
-  if (!["small", "medium", "melody", "stereo-small", "stereo-medium", "stereo-melody"].includes(preset)) {
-    throw new Error("Unknown MusicGen model preset");
-  }
-  if (!isTauriApp()) throw new Error("Model setup is available in the Studio desktop app");
-  const message = await tauriInvoke("prepare_musicgen_model", { modelPreset: preset });
-  resetSidecarHealthCache();
-  return message;
-}
+    if (isTauriApp()) {
+      const unlisten = await listenProcessEvent(SIDECAR_INSTALL_PROGRESS_EVENT, (payload) => {
+        if ((payload.extraId || payload.extra_id) !== id) return;
+        process.progress({ phase: payload.line || payload.phase || "Installing", pct: null });
+      });
+      try {
+        return await tauriInvoke("install_sidecar_extra", { extraId: id });
+      } finally {
+        unlisten();
+      }
+    }
 
-export async function uninstallSidecarExtra(extraId) {
-  const id = normalizeSidecarExtraId(extraId);
-  if (!isSidecarExtraAllowlisted(id)) {
-    return { ok: false, extraId: id, mode: "unknown", error: `Unknown sidecar extra: ${id}` };
-  }
-  if (!isTauriApp()) {
+    // Browser / web: copy npm hint; do not pretend pip ran.
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(hint);
+        return {
+          ok: false,
+          extraId: id,
+          mode: "copied-command",
+          message: `Copied “${hint}” — run in the repo, then restart the sidecar`,
+          installHint: hint,
+        };
+      } catch {
+        /* fall through */
+      }
+    }
     return {
       ok: false,
       extraId: id,
-      mode: "desktop-only",
-      error: "Addon uninstall is available in the Studio desktop app",
+      mode: "desktop-or-cli",
+      error: isDesktopAddonHost()
+        ? "Sidecar extra install is unavailable in this shell"
+        : `Run in the repo: ${hint}`,
+      installHint: hint,
     };
-  }
-  return tauriInvoke("uninstall_sidecar_extra", { extraId: id });
+  });
+}
+
+export async function prepareMusicGenModel(modelPreset) {
+  return runProcess(`Download MusicGen · ${modelPreset}`, async () => {
+    const preset = String(modelPreset || "");
+    if (!["small", "medium", "melody", "stereo-small", "stereo-medium", "stereo-melody"].includes(preset)) {
+      throw new Error("Unknown MusicGen model preset");
+    }
+    if (!isTauriApp()) throw new Error("Model setup is available in the Studio desktop app");
+    const message = await tauriInvoke("prepare_musicgen_model", { modelPreset: preset });
+    resetSidecarHealthCache();
+    return message;
+  });
+}
+
+export async function uninstallSidecarExtra(extraId) {
+  return runProcess(`Disable addon · ${normalizeSidecarExtraId(extraId)}`, async () => {
+    const id = normalizeSidecarExtraId(extraId);
+    if (!isSidecarExtraAllowlisted(id)) {
+      return { ok: false, extraId: id, mode: "unknown", error: `Unknown sidecar extra: ${id}` };
+    }
+    if (!isTauriApp()) {
+      return {
+        ok: false,
+        extraId: id,
+        mode: "desktop-only",
+        error: "Addon uninstall is available in the Studio desktop app",
+      };
+    }
+    return tauriInvoke("uninstall_sidecar_extra", { extraId: id });
+  });
 }
 
 export function formatSidecarExtraInstallStatus(result) {
   if (!result) return "Could not install sidecar extra";
+  if (!result.ok && result.error) {
+    const diagnosis = describeSidecarInstallFailure(result.error);
+    if (diagnosis.kind === "model-access") return `${diagnosis.message} ${diagnosis.actionUrl}`;
+  }
   if (result.mode === "uninstalled") return `Disabled ${result.extraId || "extra"} — shared libraries and models preserved`;
   if (result.mode === "uninstall-failed") return result.error || "Could not uninstall sidecar extra";
   if (result.mode === "copied-command") {
@@ -328,7 +377,7 @@ export function reportSidecarExtraInstallIfFailed(source, result, thrown) {
   const tone = sidecarExtraInstallStatusTone(result);
   const shouldReport = tone === "error";
   if (!shouldReport) return { reported: false, reason: tone };
-  reportCaughtError(source, new Error(formatSidecarExtraInstallStatus(result)));
+  reportCaughtError(source, new Error(result?.error || formatSidecarExtraInstallStatus(result)));
   return { reported: true, reason: "error-result" };
 }
 

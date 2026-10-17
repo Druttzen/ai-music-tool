@@ -99,6 +99,61 @@ describe("useDesktopUpdates", () => {
     expect(installStudioAppUpdate).not.toHaveBeenCalled();
   });
 
+  it("updates Studio directly without refreshing Python or plugins", async () => {
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    installStudioAppUpdate.mockResolvedValue({ ok: true, available: false, currentVersion: "0.50.70", version: "0.50.70" });
+    await act(async () => { await result.current.updateApp(); });
+    expect(installStudioAppUpdate).toHaveBeenCalledOnce();
+    expect(installDesktopUpdate).not.toHaveBeenCalled();
+    expect(result.current.status).toMatch(/No newer published Studio version/);
+    expect(result.current.status).toContain("0.50.70");
+    expect(result.current.currentVersion).toBe("0.50.70");
+    expect(result.current.publishedVersion).toBe("0.50.70");
+  });
+
+  it("keeps an app update failure visible instead of hiding it after a few seconds", async () => {
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    installStudioAppUpdate.mockResolvedValue({ ok: false, error: "Studio update feed HTTP 403" });
+    await act(async () => { await result.current.updateApp(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(result.current.status).toContain("HTTP 403");
+    expect(result.current.busy).toBe(false);
+    expect(result.current.progressPct).toBe(null);
+  });
+
+  it("shows published and installed versions even when there is no newer release", async () => {
+    checkForDesktopUpdates.mockResolvedValue({ ok: true, available: false, currentVersion: "0.50.73", version: "0.50.70" });
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    await act(async () => { await result.current.checkUpdates(); });
+    expect(result.current.status).toContain("published 0.50.70");
+    expect(result.current.status).toContain("installed 0.50.73");
+    expect(installDesktopUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not mark a fully downloaded installer as an installed app", async () => {
+    let onProgress = () => {};
+    subscribeToDesktopUpdateStatus.mockImplementation(cb => { onProgress = cb; return () => {}; });
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    await act(async () => { onProgress({ phase: "studio-download", message: "Downloading signed Studio update…", pct: 100 }); });
+    expect(result.current.busy).toBe(true);
+    await act(async () => { onProgress({ phase: "studio-install", message: "Installing verified Studio update. Restarting…" }); });
+    expect(result.current.busy).toBe(true);
+    expect(result.current.progressPct).toBe(null);
+  });
+
+  it("preserves component error details and never claims 100% on failure", async () => {
+    const { result } = renderHook(() => useDesktopUpdates());
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    installDesktopUpdate.mockResolvedValue({ ok: false, error: "vocal-rvc: Python.h missing", summary: "1 component needs attention" });
+    await act(async () => { await result.current.updateAll(); });
+    expect(result.current.status).toBe("vocal-rvc: Python.h missing");
+    expect(result.current.progressPct).toBe(null);
+  });
+
   it("exposes Update all / check controls for the header", async () => {
     const { result } = renderHook(() => useDesktopUpdates());
     await act(async () => {

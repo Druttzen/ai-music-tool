@@ -59,11 +59,11 @@ impl StudioUpdateCheckResult {
         }
     }
 
-    fn current(current_version: String) -> Self {
+    fn current(current_version: String, published_version: String) -> Self {
         Self {
             ok: true,
             available: false,
-            version: None,
+            version: Some(published_version),
             current_version,
             notes: None,
             error: None,
@@ -119,11 +119,18 @@ async fn peek_latest_version() -> Result<String, String> {
     let bytes = response.bytes().await.map_err(|err| err.to_string())?;
     let json: serde_json::Value = serde_json::from_slice(&bytes)
         .map_err(|err| format!("Studio update feed was not JSON: {err}"))?;
-    json.get("version")
+    let version = json
+        .get("version")
         .and_then(|value| value.as_str())
         .map(normalize_studio_version)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Studio update feed missing version".to_string())
+        .ok_or_else(|| "Studio update feed missing version".to_string())?;
+    if parse_semver(&version).is_none() {
+        return Err(format!(
+            "Studio update feed contains an invalid version: {version}"
+        ));
+    }
+    Ok(version)
 }
 
 async fn plugin_check_timed(
@@ -144,7 +151,7 @@ pub async fn check_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
     match peek_latest_version().await {
         Ok(latest) => {
             if !is_newer_studio_version(&current_version, &latest) {
-                return StudioUpdateCheckResult::current(current_version);
+                return StudioUpdateCheckResult::current(current_version, latest);
             }
         }
         Err(err) => {
@@ -171,7 +178,10 @@ pub async fn check_studio_update(app: AppHandle) -> StudioUpdateCheckResult {
             notes: update.body,
             error: None,
         },
-        Ok(None) => StudioUpdateCheckResult::current(current_version),
+        Ok(None) => StudioUpdateCheckResult::error(
+            current_version,
+            "A newer Studio release is published, but no compatible signed installer was returned",
+        ),
         Err(error) => StudioUpdateCheckResult::error(current_version, error),
     }
 }
@@ -197,7 +207,7 @@ pub(crate) async fn install_studio_update_inner(app: AppHandle) -> StudioUpdateC
     // before Tauri attempts to select a platform from that older manifest.
     match peek_latest_version().await {
         Ok(latest) if !is_newer_studio_version(&current_version, &latest) => {
-            return StudioUpdateCheckResult::current(current_version);
+            return StudioUpdateCheckResult::current(current_version, latest);
         }
         Ok(_) => {}
         Err(error) => return StudioUpdateCheckResult::error(current_version, error),
@@ -228,7 +238,10 @@ pub(crate) async fn install_studio_update_inner(app: AppHandle) -> StudioUpdateC
     .await
     {
         Ok(Some(update)) if is_newer_studio_version(&current_version, &update.version) => update,
-        Ok(_) => return StudioUpdateCheckResult::current(current_version),
+        Ok(_) => return StudioUpdateCheckResult::error(
+            current_version,
+            "A newer Studio release is published, but no compatible signed installer was returned",
+        ),
         Err(error) => return StudioUpdateCheckResult::error(current_version, error),
     };
     emit_progress_pct(
@@ -236,10 +249,10 @@ pub(crate) async fn install_studio_update_inner(app: AppHandle) -> StudioUpdateC
         "studio-download",
         "studio",
         "Downloading signed Studio update…",
-        Some(86),
+        None,
     );
     let mut downloaded = 0u64;
-    let mut last_pct = 86;
+    let mut last_pct = None;
     // Tauri verifies the downloaded bytes against the configured public key before
     // returning them. Never stop the sidecar or invoke the installer on bad signatures.
     let bytes = match update
@@ -254,7 +267,7 @@ pub(crate) async fn install_studio_update_inner(app: AppHandle) -> StudioUpdateC
                         "studio-download",
                         "studio",
                         "Downloading signed Studio update…",
-                        Some(pct),
+                        pct,
                     );
                 }
             },
@@ -279,7 +292,7 @@ pub(crate) async fn install_studio_update_inner(app: AppHandle) -> StudioUpdateC
         "studio-install",
         "studio",
         "Installing verified Studio update. Restarting…",
-        Some(99),
+        None,
     );
     // Windows' updater starts NSIS with /UPDATE and /R and exits this process.
     // NSIS permits only a newer version in the registered directory.
@@ -302,11 +315,10 @@ pub(crate) async fn install_studio_update_inner(app: AppHandle) -> StudioUpdateC
     app.restart();
 }
 
-fn download_progress(downloaded: u64, total: Option<u64>) -> u32 {
+fn download_progress(downloaded: u64, total: Option<u64>) -> Option<u32> {
     total
         .filter(|total| *total > 0)
-        .map(|total| 86 + ((downloaded.min(total) as u128 * 12) / total as u128) as u32)
-        .unwrap_or(86)
+        .map(|total| ((downloaded.min(total) as u128 * 100) / total as u128) as u32)
 }
 
 #[cfg(test)]
@@ -327,12 +339,21 @@ mod tests {
     }
 
     #[test]
-    fn progress_never_claims_installation_is_complete() {
-        assert_eq!(download_progress(0, Some(100)), 86);
-        assert_eq!(download_progress(50, Some(100)), 92);
-        assert_eq!(download_progress(u64::MAX, Some(100)), 98);
-        assert_eq!(download_progress(200, Some(0)), 86);
-        assert_eq!(download_progress(200, None), 86);
+    fn progress_measures_download_bytes_and_leaves_unknown_totals_unknown() {
+        assert_eq!(download_progress(0, Some(100)), Some(0));
+        assert_eq!(download_progress(50, Some(100)), Some(50));
+        assert_eq!(download_progress(u64::MAX, Some(100)), Some(100));
+        assert_eq!(download_progress(200, Some(0)), None);
+        assert_eq!(download_progress(200, None), None);
+    }
+
+    #[test]
+    fn no_update_result_retains_both_installed_and_published_versions() {
+        let result = super::StudioUpdateCheckResult::current("0.50.73".into(), "0.50.70".into());
+        assert!(result.ok);
+        assert!(!result.available);
+        assert_eq!(result.current_version, "0.50.73");
+        assert_eq!(result.version.as_deref(), Some("0.50.70"));
     }
 
     #[test]

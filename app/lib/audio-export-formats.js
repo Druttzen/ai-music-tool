@@ -68,6 +68,7 @@ export async function audioBufferToMp3Blob(buffer) {
  * @returns {Promise<{ mode: "studio"|"browser", path?: string }>}
  */
 export function downloadFormatBlob(blob, fileName, opts) {
+  opts?.onSaving?.();
   return downloadAudioBlob(blob, fileName, opts);
 }
 

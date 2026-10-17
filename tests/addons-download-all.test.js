@@ -28,6 +28,8 @@ vi.mock("../app/lib/canvas-addon-client", () => ({
 }));
 vi.mock("../app/lib/sidecar-bridge", () => ({
   fetchSidecarHealth: async () => mocks.health,
+  fetchSidecarHealthInventory: async () => mocks.health,
+  resetSidecarHealthCache: vi.fn(),
 }));
 vi.mock("../app/lib/sidecar-extra-install-client", async (original) => ({
   ...await original(),
@@ -93,6 +95,23 @@ describe("Sidecar Download all", () => {
     fireEvent.click(await ready());
     await waitFor(() => expect(screen.getByTestId("addons-download-all-status").textContent).toBe("1 installed · 0 failed"));
     expect(mocks.install.mock.calls).toEqual([["ffmpeg"]]);
+  });
+
+  it("repairs missing downloadable models even when their libraries are already installed", async () => {
+    mocks.installed = new Set(Object.keys(SIDECAR_EXTRA_NPM));
+    const capabilities = [
+      { id: "stems", available: true, runtimeReady: false, models: { htdemucs: false } },
+      { id: "vision", available: true, runtimeReady: false, models: { blip: false, clip: false } },
+      { id: "cover", available: true, runtimeReady: false, models: { flux: false } },
+      { id: "cover-ref", available: true, runtimeReady: false, models: { flux: false } },
+      { id: "generate", available: true, runtimeReady: true, models: { small: true, medium: false } },
+      { id: "diffsinger", available: true, runtimeReady: false, models: {} },
+      { id: "rvc", available: true, runtimeReady: false, models: {} },
+    ];
+    mocks.health = { capabilities };
+    fireEvent.click(await ready());
+    await waitFor(() => expect(screen.getByTestId("addons-download-all-status").textContent).toBe("4 installed · 0 failed"));
+    expect(mocks.install.mock.calls).toEqual([["stems"], ["vision"], ["cover"], ["cover-ref"]]);
   });
 
   it("continues after returned errors and thrown errors, preserves details, and retries only missing plugins", async () => {

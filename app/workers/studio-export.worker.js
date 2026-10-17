@@ -20,21 +20,21 @@ self.onmessage = async (ev) => {
   const { id, payload, format: rawFormat } = ev.data;
   const format = normalizeStudioExportFormat(rawFormat);
   try {
-    self.postMessage({ id, type: "progress", phase: "mastering", pct: 10 });
+    self.postMessage({ id, type: "progress", phase: "preparing", pct: null });
     const length = Math.max(1, Number(payload.length) || 1);
     const sampleRate = Number(payload.sampleRate) || 44100;
     const ctx = new OfflineAudioContext(2, length, sampleRate);
     const source = deserializeAudioBuffer(ctx, payload);
-    self.postMessage({ id, type: "progress", phase: "mastering", pct: 35 });
-    const enhanced = await renderEnhancedAudioBuffer(source, ev.data.presetId);
-    self.postMessage({ id, type: "progress", phase: "metering", pct: 55 });
+    self.postMessage({ id, type: "progress", phase: "mastering", pct: null });
+    const enhanced = await renderEnhancedAudioBuffer(source, ev.data.presetId, (p) => self.postMessage({ id, type: "progress", ...p }));
+    self.postMessage({ id, type: "progress", phase: "metering", pct: null });
     let afterLufs;
     const targetLufs = targetLufsForPreset(ev.data.presetId);
     if (typeof targetLufs === "number" || ev.data.presetId === "measure") {
       const m = await measureIntegratedLoudness(enhanced);
       afterLufs = m.integratedLUFS;
     }
-    self.postMessage({ id, type: "progress", phase: "encoding", pct: 75 });
+    self.postMessage({ id, type: "progress", phase: "encoding", pct: null });
     let blob;
     let outFormat = format;
     let fileName = ev.data.fileName;

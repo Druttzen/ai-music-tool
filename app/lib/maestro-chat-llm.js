@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Optional OpenAI-compatible backend for Maestro Chat.
  * Reuses Co-Producer LLM settings (key stays in localStorage). The model gets
@@ -295,42 +297,44 @@ export function parseMaestroLlmResponse(raw, snapshot, userMessage = "") {
  * @returns {Promise<{ reply: string, patch: Record<string, unknown>|null, commands: string[] }>}
  */
 export async function sendMaestroChatToLlm(history, snapshot, settings, options = {}) {
-  const timeoutMs = options.timeoutMs ?? MAESTRO_LLM_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return runProcess("Maestro response", async () => {
+    const timeoutMs = options.timeoutMs ?? MAESTRO_LLM_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const res = await fetch(String(settings.apiUrl || DEFAULT_LLM_SETTINGS.apiUrl).trim(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${String(settings.apiKey || "").trim()}`,
-      },
-      body: JSON.stringify({
-        model: settings.model || DEFAULT_LLM_SETTINGS.model,
-        messages: buildMaestroLlmMessages(history, snapshot),
-        temperature: 0.7,
-      }),
-      signal: controller.signal,
-    });
+    try {
+      const res = await fetch(String(settings.apiUrl || DEFAULT_LLM_SETTINGS.apiUrl).trim(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${String(settings.apiKey || "").trim()}`,
+        },
+        body: JSON.stringify({
+          model: settings.model || DEFAULT_LLM_SETTINGS.model,
+          messages: buildMaestroLlmMessages(history, snapshot),
+          temperature: 0.7,
+        }),
+        signal: controller.signal,
+      });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(formatApiError(res.status, errText, "Maestro LLM request"));
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(formatApiError(res.status, errText, "Maestro LLM request"));
+      }
+
+      const data = await res.json();
+      const content = String(data?.choices?.[0]?.message?.content || "").trim();
+      if (!content) throw new Error("Maestro LLM returned an empty reply");
+      const userMessage =
+        [...history].reverse().find((turn) => turn.role === "user")?.text || "";
+      return parseMaestroLlmResponse(content, snapshot, userMessage);
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error(`Maestro LLM timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const data = await res.json();
-    const content = String(data?.choices?.[0]?.message?.content || "").trim();
-    if (!content) throw new Error("Maestro LLM returned an empty reply");
-    const userMessage =
-      [...history].reverse().find((turn) => turn.role === "user")?.text || "";
-    return parseMaestroLlmResponse(content, snapshot, userMessage);
-  } catch (err) {
-    if (err?.name === "AbortError") {
-      throw new Error(`Maestro LLM timed out after ${Math.round(timeoutMs / 1000)}s`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  });
 }

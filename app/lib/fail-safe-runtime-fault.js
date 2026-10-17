@@ -75,7 +75,7 @@ export function recordLocalFault(input = {}) {
     (item) =>
       item.sessionId === sessionId && !item.resolvedAt &&
       Math.abs((item.at || 0) - at) < DEDUPE_MS &&
-      (item.fingerprint === fingerprint || item.message === message),
+      item.fingerprint === fingerprint,
   );
   if (dup) {
     return { ok: false, reason: "duplicate" };

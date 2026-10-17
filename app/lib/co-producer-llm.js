@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Optional OpenAI-compatible LLM backend for Co-Producer lyrics.
  * API keys stay in localStorage only — never sent to this app's server.
@@ -163,67 +165,69 @@ Write ${mode === "Raw Prompt" ? "bracketed lyric direction" : `full lyrics in ${
  * @returns {Promise<{ lyrics: string, styleLabel: string, styleDirection: string, source: "llm" }>}
  */
 export async function generateLyricsWithLlm(input, settings, options = {}) {
-  const { system, user, styleLabel, styleDirection, mode, language } = buildCoProducerLlmMessages(input);
-  const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return runProcess("Generate lyrics", async () => {
+    const { system, user, styleLabel, styleDirection, mode, language } = buildCoProducerLlmMessages(input);
+    const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (options.signal) {
-    if (options.signal.aborted) {
+    if (options.signal) {
+      if (options.signal.aborted) {
+        clearTimeout(timeoutId);
+        controller.abort();
+      } else {
+        options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+      }
+    }
+
+    try {
+      const res = await fetch(String(settings.apiUrl).trim(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${String(settings.apiKey).trim()}`,
+        },
+        body: JSON.stringify({
+          model: settings.model || DEFAULT_LLM_SETTINGS.model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          temperature: 0.85,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(formatApiError(res.status, errText, "LLM request"));
+      }
+
+      const data = await res.json();
+      const lyrics = String(data?.choices?.[0]?.message?.content || "").trim();
+      if (!lyrics) throw new Error("LLM returned empty lyrics");
+
+      const header = getLanguageHeaderLine(language);
+      const voiceCtx = resolveVoiceLyricContext(input);
+      const body =
+        mode === "Raw Prompt"
+          ? lyrics
+          : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`;
+      return {
+        lyrics: prependVoiceCharacterToLyrics(body, voiceCtx),
+        styleLabel,
+        styleDirection,
+        source: "llm",
+      };
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error(`LLM request timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+      throw err;
+    } finally {
       clearTimeout(timeoutId);
-      controller.abort();
-    } else {
-      options.signal.addEventListener("abort", () => controller.abort(), { once: true });
     }
-  }
-
-  try {
-    const res = await fetch(String(settings.apiUrl).trim(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${String(settings.apiKey).trim()}`,
-      },
-      body: JSON.stringify({
-        model: settings.model || DEFAULT_LLM_SETTINGS.model,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.85,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(formatApiError(res.status, errText, "LLM request"));
-    }
-
-    const data = await res.json();
-    const lyrics = String(data?.choices?.[0]?.message?.content || "").trim();
-    if (!lyrics) throw new Error("LLM returned empty lyrics");
-
-    const header = getLanguageHeaderLine(language);
-    const voiceCtx = resolveVoiceLyricContext(input);
-    const body =
-      mode === "Raw Prompt"
-        ? lyrics
-        : `${header ? `${header}\n\n` : ""}[Style: ${styleLabel} — ${styleDirection}]\n\n${lyrics}`;
-    return {
-      lyrics: prependVoiceCharacterToLyrics(body, voiceCtx),
-      styleLabel,
-      styleDirection,
-      source: "llm",
-    };
-  } catch (err) {
-    if (err?.name === "AbortError") {
-      throw new Error(`LLM request timed out after ${Math.round(timeoutMs / 1000)}s`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  });
 }
 
 /**
@@ -262,67 +266,69 @@ Write 3 hook sketches in ${language}.`;
  * @returns {Promise<{ hooks: string, styleLabel: string, styleDirection: string, source: "llm" }>}
  */
 export async function generateHooksWithLlm(input, settings, options = {}) {
-  const { system, user, styleLabel, styleDirection } = buildCoProducerHooksLlmMessages(input);
-  const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return runProcess("Generate hooks", async () => {
+    const { system, user, styleLabel, styleDirection } = buildCoProducerHooksLlmMessages(input);
+    const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (options.signal) {
-    if (options.signal.aborted) {
+    if (options.signal) {
+      if (options.signal.aborted) {
+        clearTimeout(timeoutId);
+        controller.abort();
+      } else {
+        options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+      }
+    }
+
+    try {
+      const res = await fetch(String(settings.apiUrl).trim(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${String(settings.apiKey).trim()}`,
+        },
+        body: JSON.stringify({
+          model: settings.model || DEFAULT_LLM_SETTINGS.model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          temperature: 0.9,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(formatApiError(res.status, errText, "LLM request"));
+      }
+
+      const data = await res.json();
+      let hooks = String(data?.choices?.[0]?.message?.content || "").trim();
+      if (!hooks) throw new Error("LLM returned empty hooks");
+
+      if (!hooks.includes("HOOK IDEAS")) {
+        hooks = `${bracketizeSunoPromptLine(`HOOK IDEAS · ${styleLabel}`)}
+  ${bracketizeSunoPromptLine(`Style: ${styleDirection}`)}
+
+  ${hooks}`;
+      }
+
+      const voiceCtx = resolveVoiceLyricContext(input);
+      return {
+        hooks: prependVoiceCharacterToLyrics(hooks, voiceCtx),
+        styleLabel,
+        styleDirection,
+        source: "llm",
+      };
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error(`LLM request timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+      throw err;
+    } finally {
       clearTimeout(timeoutId);
-      controller.abort();
-    } else {
-      options.signal.addEventListener("abort", () => controller.abort(), { once: true });
     }
-  }
-
-  try {
-    const res = await fetch(String(settings.apiUrl).trim(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${String(settings.apiKey).trim()}`,
-      },
-      body: JSON.stringify({
-        model: settings.model || DEFAULT_LLM_SETTINGS.model,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.9,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(formatApiError(res.status, errText, "LLM request"));
-    }
-
-    const data = await res.json();
-    let hooks = String(data?.choices?.[0]?.message?.content || "").trim();
-    if (!hooks) throw new Error("LLM returned empty hooks");
-
-    if (!hooks.includes("HOOK IDEAS")) {
-      hooks = `${bracketizeSunoPromptLine(`HOOK IDEAS · ${styleLabel}`)}
-${bracketizeSunoPromptLine(`Style: ${styleDirection}`)}
-
-${hooks}`;
-    }
-
-    const voiceCtx = resolveVoiceLyricContext(input);
-    return {
-      hooks: prependVoiceCharacterToLyrics(hooks, voiceCtx),
-      styleLabel,
-      styleDirection,
-      source: "llm",
-    };
-  } catch (err) {
-    if (err?.name === "AbortError") {
-      throw new Error(`LLM request timed out after ${Math.round(timeoutMs / 1000)}s`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  });
 }

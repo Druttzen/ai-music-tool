@@ -97,6 +97,7 @@ export async function skipSplashIfVisible(page) {
 
 export async function selectSunoEngine(page) {
   const coPanel = coProducerPanel(page);
+  await coPanel.scrollIntoViewIfNeeded();
   await coPanel.locator("label").filter({ hasText: "Prompt Engine" }).locator("select").selectOption("Suno-like");
 }
 
@@ -130,7 +131,10 @@ export async function patchAudioAnalysisHighlight(page, { highlightStart, highli
 }
 
 export function coProducerPanel(page) {
-  return page.locator("section").filter({ hasText: "Co‑Producer AI" });
+  // The deferred placeholder uses an ASCII hyphen until the actual panel loads.
+  return page.locator("section.rounded-3xl").filter({
+    has: page.getByRole("heading", { name: /^Co[-‑]Producer AI$/ }),
+  });
 }
 
 /** Click Apply on a guided step coach improvement row by stable improvement id. */
@@ -227,7 +231,9 @@ export function promptPreviewPanel(page) {
 }
 
 export function sunoReimportPanel(page) {
-  return page.getByTestId("suno-reimport-panel");
+  return page.locator("section.rounded-3xl").filter({
+    has: page.getByRole("heading", { name: "Suno Re-import", exact: true }),
+  });
 }
 
 export function styleDnaSearchPanel(page) {
@@ -236,6 +242,7 @@ export function styleDnaSearchPanel(page) {
 
 export async function selectStandardEngine(page) {
   const coPanel = coProducerPanel(page);
+  await coPanel.scrollIntoViewIfNeeded();
   await coPanel.locator("label").filter({ hasText: "Prompt Engine" }).locator("select").selectOption("Standard");
 }
 

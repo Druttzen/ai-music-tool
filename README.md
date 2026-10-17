@@ -1,14 +1,14 @@
 # AI Music Creator — Prompt Control Room
 
-**Version 0.50.69**
+**Version 0.50.74** — published installers are listed on the [release page](https://github.com/Druttzen/ai-music-tool/releases).
 
 A Next.js app for building dense, reproducible prompts for AI music workflows (especially **Suno-like** layouts): genres, grooves, sounds, lyric direction, presets, optional reference analyzers, and export blocks that respect **Style** / **Lyrics** field limits. Ships as a static web app and a **Tauri** desktop build with native DSP export and Python sidecar integration. Electron packaging is **retired** — see [docs/desktop.md](docs/desktop.md).
 
 The product boundary is audio and music. Canvas, MusicGen, ACE-Step and other optional plugins run inside Studio's managed sidecar environment. Canvas opens in a Studio panel; plugins do not install standalone applications. Other AI Creator projects collaborate through the portable [**Music Exchange**](docs/music-exchange.md) JSON plus an optional audio sidecar.
 
-## Current release — 0.50.69
+## Desktop app and updates
 
-- **Internal app updates restored:** Studio checks the signed GitHub release feed, downloads and verifies the package, installs it and restarts. Automatic startup updates update Studio itself; **Update all** also refreshes installed internal plugins and tools.
+- **App updates:** **Update Studio app** updates only Studio. **Update all** checks Studio before refreshing installed plugins and tools. The card shows installed and published versions, and errors stay visible. Local installers do not enter the updater feed until a signed release is published. Automatic startup updates update Studio itself.
 - **One Windows installation:** normal installers still require uninstalling an existing copy. An internal update can replace only an older version at the registered location. Same-version installs, downgrades, other paths and simultaneous installers are blocked. Update restarts preserve the workspace; application data and exports stay in place.
 - **Packages:** Windows x64 NSIS installer; macOS 14+ Apple Silicon and Intel DMG plus signed app archives; Linux x64 AppImage, DEB and RPM. [Download Studio releases](https://github.com/Druttzen/ai-music-tool/releases).
 - **Release checks:** all four native builds must succeed. Every updater package must match the app's signing public key and the manifest before publication. Windows CI installs the previous version, upgrades it, launches the installed app and checks data retention and duplicate-installation guards. `SHA256SUMS.txt` accompanies release assets.

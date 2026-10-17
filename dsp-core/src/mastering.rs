@@ -13,6 +13,17 @@ use crate::resample::resample_interleaved_to_export_rate;
 pub const MAX_EXPORT_DURATION_SEC: f64 = 600.0;
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MasteringProgress {
+    pub phase: &'static str,
+    pub completed: Option<usize>,
+    pub total: Option<usize>,
+}
+
+fn report(progress: &mut impl FnMut(MasteringProgress), phase: &'static str) {
+    progress(MasteringProgress { phase, completed: None, total: None });
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ExportMasteredResult {
     pub wav_bytes: Vec<u8>,
     pub integrated_lufs: Option<f64>,
@@ -190,7 +201,7 @@ fn is_known_preset(preset_id: &str) -> bool {
     )
 }
 
-fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32, preset: &str) -> Result<()> {
+fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32, preset: &str, progress: &mut impl FnMut(MasteringProgress)) -> Result<()> {
     if channels != 2 {
         return Err(anyhow!("mastering chain requires stereo"));
     }
@@ -253,6 +264,9 @@ fn render_enhancement_chain(samples: &mut [f32], channels: u32, sample_rate: u32
 
     let frames = samples.len() / 2;
     for f in 0..frames {
+        if f % (frames / 100).max(1) == 0 {
+            progress(MasteringProgress { phase: "mastering", completed: Some(f), total: Some(frames) });
+        }
         let mut l = samples[f * 2];
         let mut r = samples[f * 2 + 1];
         l = hpf_l.process(l);
@@ -484,6 +498,17 @@ pub fn export_mastered_bytes(
     start_sec: Option<f64>,
     end_sec: Option<f64>,
 ) -> Result<ExportMasteredResult> {
+    export_mastered_bytes_with_progress(bytes, preset_id, format, start_sec, end_sec, |_| {})
+}
+
+pub fn export_mastered_bytes_with_progress(
+    bytes: Vec<u8>,
+    preset_id: &str,
+    format: &str,
+    start_sec: Option<f64>,
+    end_sec: Option<f64>,
+    mut progress: impl FnMut(MasteringProgress),
+) -> Result<ExportMasteredResult> {
     if !is_known_preset(preset_id) {
         return Err(anyhow!("unknown preset: {preset_id}"));
     }
@@ -498,6 +523,7 @@ pub fn export_mastered_bytes(
     };
     let measure_only = preset_id == "measure";
 
+    report(&mut progress, "decoding");
     let (samples, channels, sample_rate) = decode_interleaved(bytes)?;
     let (mut samples, channels) = to_stereo_interleaved(samples, channels);
 
@@ -506,6 +532,7 @@ pub fn export_mastered_bytes(
     }
 
     // Delivery path: normalize to 48 kHz before the mastering chain.
+    report(&mut progress, "resampling");
     let (mut samples, channels, sample_rate) =
         resample_interleaved_to_export_rate(&samples, channels, sample_rate)?;
 
@@ -518,12 +545,14 @@ pub fn export_mastered_bytes(
     }
 
     if !measure_only {
-        render_enhancement_chain(&mut samples, channels, sample_rate, preset_id)?;
+        report(&mut progress, "mastering");
+        render_enhancement_chain(&mut samples, channels, sample_rate, preset_id, &mut progress)?;
     }
 
     let mut integrated_lufs = None;
     let mut target_lufs = None;
 
+    report(&mut progress, "normalizing");
     if let Some(target) = loudness_target_for_preset(preset_id) {
         target_lufs = Some(target);
         integrated_lufs = Some(apply_target_integrated_lufs(
@@ -537,10 +566,12 @@ pub fn export_mastered_bytes(
         limit_true_peak(&mut samples, channels, sample_rate, TRUE_PEAK_CEILING_DBTP);
     }
 
+    report(&mut progress, "metering");
     let loudness = measure_interleaved(&samples, channels, sample_rate)?;
     if measure_only {
         integrated_lufs = Some(loudness.integrated_lufs);
     }
+    report(&mut progress, "encoding");
     let wav_bytes = if is_mp3 {
         encode_mp3(&samples, channels, sample_rate)?
     } else if is_m4a {
@@ -587,6 +618,23 @@ mod tests {
         }
         w.finalize().unwrap();
         cursor.into_inner()
+    }
+
+    #[test]
+    fn reports_real_mastering_progress_without_changing_audio() {
+        let mut events = Vec::new();
+        let actual = export_mastered_bytes_with_progress(sine_wav_bytes(), "streaming", "wav", None, None, |p| events.push(p)).unwrap();
+        let expected = export_mastered_bytes(sine_wav_bytes(), "streaming", "wav", None, None).unwrap();
+        assert_eq!(actual.wav_bytes, expected.wav_bytes);
+        let mut phases: Vec<&str> = events.iter().map(|p| p.phase).collect();
+        phases.dedup();
+        assert_eq!(phases, vec!["decoding", "resampling", "mastering", "normalizing", "metering", "encoding"]);
+        let frames: Vec<usize> = events.iter().filter_map(|p| p.completed).collect();
+        assert!(frames.len() > 10);
+        assert!(frames.windows(2).all(|w| w[0] < w[1]));
+        assert!(events.iter().filter(|p| p.completed.is_some()).all(|p| p.total == Some(48_000)));
+        // File saving belongs to the caller; the DSP must not claim the job is done.
+        assert!(events.iter().all(|p| p.phase != "done"));
     }
 
     #[test]

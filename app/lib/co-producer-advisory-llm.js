@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Optional LLM backend for Co-Producer "Improve Prompt" advisory reports.
  * Falls back to heuristic buildCoProducerAdvisoryReport in use-project-actions.
@@ -119,60 +121,62 @@ When musicGenSketch in the project brief is non-null, reference the loaded local
  * @returns {Promise<{ output: string, patch: Record<string, unknown>, source: "llm" }>}
  */
 export async function generateCoProducerAdvisoryWithLlm(input, settings, options = {}) {
-  const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return runProcess("Co-Producer advice", async () => {
+    const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const { system, user } = buildCoProducerAdvisoryLlmMessages(input);
-    const res = await fetch(String(settings.apiUrl || DEFAULT_LLM_SETTINGS.apiUrl).trim(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${String(settings.apiKey || "").trim()}`,
-      },
-      body: JSON.stringify({
-        model: settings.model || DEFAULT_LLM_SETTINGS.model,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.65,
-      }),
-      signal: controller.signal,
-    });
+    try {
+      const { system, user } = buildCoProducerAdvisoryLlmMessages(input);
+      const res = await fetch(String(settings.apiUrl || DEFAULT_LLM_SETTINGS.apiUrl).trim(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${String(settings.apiKey || "").trim()}`,
+        },
+        body: JSON.stringify({
+          model: settings.model || DEFAULT_LLM_SETTINGS.model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          temperature: 0.65,
+        }),
+        signal: controller.signal,
+      });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(formatApiError(res.status, errText, "Co-Producer LLM"));
-    }
-
-    const data = await res.json();
-    const content = String(data?.choices?.[0]?.message?.content || "").trim();
-    if (!content) throw new Error("Co-Producer LLM returned empty content");
-
-    const advisory = parseCoProducerAdvisoryLlmResponse(content);
-    let output = appendMusicGenSketchToReport(
-      advisory.output.trim(),
-      formatMusicGenSketchBrief(input.audioAnalysis),
-    );
-    if (advisory.musicGenSketch && input.musicGenAvailable && !formatMusicGenSketchBrief(input.audioAnalysis)) {
-      if (!/musicgen sketch/i.test(output)) {
-        output += `\n\nTip: Genre identity is thin — try MusicGen sketch (Co-Producer buttons or Polish analyzers) for a local reference loop before Suno.`;
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(formatApiError(res.status, errText, "Co-Producer LLM"));
       }
-    }
 
-    return {
-      output,
-      patch: coProducerAdvisoryLlmToPatch(advisory, input),
-      source: "llm",
-    };
-  } catch (err) {
-    if (err?.name === "AbortError") {
-      throw new Error(`Co-Producer LLM timed out after ${Math.round(timeoutMs / 1000)}s`);
+      const data = await res.json();
+      const content = String(data?.choices?.[0]?.message?.content || "").trim();
+      if (!content) throw new Error("Co-Producer LLM returned empty content");
+
+      const advisory = parseCoProducerAdvisoryLlmResponse(content);
+      let output = appendMusicGenSketchToReport(
+        advisory.output.trim(),
+        formatMusicGenSketchBrief(input.audioAnalysis),
+      );
+      if (advisory.musicGenSketch && input.musicGenAvailable && !formatMusicGenSketchBrief(input.audioAnalysis)) {
+        if (!/musicgen sketch/i.test(output)) {
+          output += `\n\nTip: Genre identity is thin — try MusicGen sketch (Co-Producer buttons or Polish analyzers) for a local reference loop before Suno.`;
+        }
+      }
+
+      return {
+        output,
+        patch: coProducerAdvisoryLlmToPatch(advisory, input),
+        source: "llm",
+      };
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error(`Co-Producer LLM timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  });
 }

@@ -53,7 +53,7 @@ export function ActionToast({ toast, onDismiss }) {
       aria-atomic="true"
       data-testid="action-toast"
       data-toast-type={toast.type}
-      className={`action-toast pointer-events-auto fixed bottom-6 left-1/2 z-[10000] flex max-w-[min(92vw,28rem)] -translate-x-1/2 items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl ring-2 backdrop-blur-md ${style.bg} ${style.border} ${style.ring}`}
+      className={`action-toast pointer-events-auto fixed top-6 left-1/2 z-[10000] flex w-[min(92vw,28rem)] -translate-x-1/2 items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl ring-2 backdrop-blur-md ${style.bg} ${style.border} ${style.ring}`}
     >
       <span
         className={`action-toast-icon mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black ${style.icon}`}

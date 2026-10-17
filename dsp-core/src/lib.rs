@@ -17,7 +17,7 @@ pub use loudness::{
     BROADCAST_TARGET_LUFS, EXPORT_SAMPLE_RATE, PODCAST_TARGET_LUFS, STREAMING_TARGET_LUFS,
     TRUE_PEAK_CEILING_DBTP,
 };
-pub use mastering::{export_mastered_bytes, ExportMasteredResult, MAX_EXPORT_DURATION_SEC};
+pub use mastering::{export_mastered_bytes, export_mastered_bytes_with_progress, ExportMasteredResult, MasteringProgress, MAX_EXPORT_DURATION_SEC};
 pub use phase::{measure_stereo_phase, StereoPhase};
 
 /// Loudness measurement result — mirrors JS `measureIntegratedLoudnessSync`

@@ -1,5 +1,7 @@
 "use client";
 
+import { beginProcess } from "../lib/process-status";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDesktopHost } from "../hooks/use-desktop-host";
 import { Panel } from "./ui-blocks";
@@ -35,6 +37,8 @@ import {
 } from "../lib/studio-plugin-catalog";
 import {
   formatSidecarExtraInstallStatus,
+  confirmSidecarExtraInstalled,
+  fetchSidecarHealthAfterExtraInstall,
   installSidecarExtra,
   listInstalledSidecarExtras,
   uninstallSidecarExtra,
@@ -49,6 +53,8 @@ import {
 } from "../lib/sidecar-extra-install-client";
 import { reportCaughtError, reportFailedOperation } from "../lib/fail-safe-runtime-capture";
 import { SIDECAR_EXTRAS_CHANGED_EVENT } from "../lib/sidecar-startup-install";
+import { beginSidecarInstallBatch } from "../lib/sidecar-install-activity";
+import { SidecarModelAccess } from "./sidecar-model-access";
 
 /** @param {"ok"|"info"|"warn"|"muted"|"bad"} tone */
 function statusChipClass(tone) {
@@ -157,7 +163,9 @@ export function AddonsPanel() {
   }, [sidecarAiStatus, refreshExtras]);
 
   useEffect(() => {
-    const onExtrasChanged = () => {
+    const onExtrasChanged = (event) => {
+      const repairedId = event?.detail?.repairedExtraId;
+      if (repairedId) setExtraErrors((prev) => ({ ...prev, [repairedId]: "" }));
       void refreshExtras();
       void refreshInstallEnv();
       void refreshCanvas();
@@ -289,6 +297,7 @@ export function AddonsPanel() {
           }));
         }
         await refreshSidecarCapabilities(result?.ok ? { waitForExtraId: id } : undefined);
+        if (result?.ok) confirmSidecarExtraInstalled(id, await fetchSidecarHealthAfterExtraInstall());
         await refreshExtras();
         await refreshInstallEnv();
         return result?.ok === true && tone !== "error";
@@ -308,9 +317,13 @@ export function AddonsPanel() {
 
   const missingExtras = capabilityRows.filter((row) => {
     const id = normalizeSidecarExtraId(row.extraId || row.id);
-    return isSidecarExtraAllowlisted(id) &&
-      !sidecarExtraRowIsInstalled(installedExtras, row) &&
-      !(row.enabled !== false && (row.available || row.dependenciesInstalled));
+    if (!isSidecarExtraAllowlisted(id)) return false;
+    // Shared libraries can already be installed by another plugin while the
+    // plugin's downloadable models are still missing. Custom RVC/DiffSinger
+    // voices have no downloadable model list and need separate configuration.
+    const needsModels = row.runtimeReady === false && Object.keys(row.models || {}).length > 0;
+    return needsModels || (!sidecarExtraRowIsInstalled(installedExtras, row) &&
+      !(row.enabled !== false && (row.available || row.dependenciesInstalled)));
   });
 
   const onDownloadAll = async () => {
@@ -324,11 +337,14 @@ export function AddonsPanel() {
     });
     if (!queue.length) return;
     downloadingAll.current = true;
+    const finishBatch = beginSidecarInstallBatch();
     let completed = 0;
     let failed = 0;
     const total = queue.length;
+    const process = beginProcess("Download all addons");
     try {
       for (const row of queue) {
+        process.progress({ phase: `Installing ${row.title}`, completed, total, unit: "addons checked", pct: completed / total * 100 });
         setDownloadAllProgress({ completed, failed, total, title: row.title, running: true });
         const ok = await onInstallExtra(row.extraId || row.id, { batch: true });
         completed += 1;
@@ -340,7 +356,10 @@ export function AddonsPanel() {
           : `Download all finished: ${completed} plugins installed.`,
         failed ? "error" : "info",
       );
+      process.finish(failed ? "error" : "done", failed ? `${completed - failed} installed, ${failed} failed` : "");
     } finally {
+      process.finish("error", "Download all interrupted");
+      finishBatch();
       downloadingAll.current = false;
       setBusyKey(null);
       setInstallProgress(null);
@@ -408,6 +427,7 @@ export function AddonsPanel() {
         hint="All plugins run internally inside Studio. Install or deactivate them here; no separate application is installed."
         className="max-w-full"
       >
+        {desktop ? <SidecarModelAccess /> : null}
         {desktop ? null : (
           <p className="mb-3 break-words rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-50/90">
             {CANVAS_DESKTOP_REQUIRED}. Internal plugins require the Studio desktop app.
@@ -532,7 +552,7 @@ export function AddonsPanel() {
             </div>
           </div>
           <p className="break-words text-[11px] text-white/50">
-            Install all missing plugins one at a time. Downloads can be several GB. Voice models may need separate setup.
+            Install missing plugins and repair incomplete model downloads one at a time. Downloads can be several GB. Voice models may need separate setup.
           </p>
           {downloadAllProgress ? (
             <div role="status" data-testid="addons-download-all-status" className="space-y-1 text-[11px] text-cyan-100/80">

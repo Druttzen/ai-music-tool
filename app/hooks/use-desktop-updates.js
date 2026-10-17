@@ -11,29 +11,27 @@ import {
 
 import { reportCaughtError } from "../lib/fail-safe-runtime-capture";
 
-const PHASE_PCT = {
-  sidecar: 12,
-  canvas: 28,
-  archives: 42,
-  plugins: 55,
-  plugin: 65,
-  studio: 85,
-  "studio-download": 90,
-  "studio-install": 99,
-};
-
 export const STUDIO_UPDATE_CHECK_STALL_MS = 20_000;
 
 export function isStuckStudioUpdateProgress(status, pct) {
-  return pct === 85 && /checking studio app update/i.test(String(status || ""));
+  return (pct == null || pct === 85) && /checking studio app update/i.test(String(status || ""));
 }
 
 /** Shared across hook instances (status bar + header controls). */
 let silentUpdateStarted = false;
+let updateCommandInFlight = false;
+
+function noPublishedUpdateMessage(result) {
+  const versions = result?.currentVersion && result?.version
+    ? ` (installed ${result.currentVersion}, published ${result.version})`
+    : "";
+  return `No newer published Studio version${versions}. Local installers appear here only after a signed release is published.`;
+}
 
 /** @internal vitest only */
 export function resetDesktopUpdateSilentFlagForTests() {
   silentUpdateStarted = false;
+  updateCommandInFlight = false;
 }
 
 export function useDesktopUpdates() {
@@ -43,7 +41,14 @@ export function useDesktopUpdates() {
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [progressPct, setProgressPct] = useState(null);
+  const [currentVersion, setCurrentVersion] = useState(null);
+  const [publishedVersion, setPublishedVersion] = useState(null);
   const hideTimerRef = useRef(null);
+
+  const rememberVersions = useCallback((result) => {
+    if (result?.currentVersion) setCurrentVersion(result.currentVersion);
+    if (result?.version) setPublishedVersion(result.version);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -66,16 +71,12 @@ export function useDesktopUpdates() {
     setStatus("");
   }, [clearHideTimer]);
 
-  const showErrorBriefly = useCallback(
+  const showUpdateError = useCallback(
     (message) => {
       clearHideTimer();
       setBusy(false);
       setProgressPct(null);
       setStatus(message);
-      hideTimerRef.current = setTimeout(() => {
-        setStatus("");
-        hideTimerRef.current = null;
-      }, 2800);
     },
     [clearHideTimer],
   );
@@ -86,13 +87,14 @@ export function useDesktopUpdates() {
       clearHideTimer();
       setBusy(true);
       if (!automatic) {
-        setProgressPct(5);
+        setProgressPct(null);
         setStatus("Checking for updates…");
       }
       try {
         const result = await checkForDesktopUpdates();
+        rememberVersions(result);
         if (!result?.ok) {
-          if (!automatic) showErrorBriefly(result?.error || "Update check failed");
+          if (!automatic) showUpdateError(result?.error || "Update check failed");
           else hideStatus();
           return result;
         }
@@ -105,7 +107,7 @@ export function useDesktopUpdates() {
           setProgressPct(null);
           setBusy(false);
         } else if (!automatic) {
-          setStatus("Studio is current. Update all still refreshes addons, plugins, tools, and archives.");
+          setStatus(noPublishedUpdateMessage(result));
           setBusy(false);
           setProgressPct(null);
         } else {
@@ -114,26 +116,54 @@ export function useDesktopUpdates() {
         return result;
       } catch (error) {
         if (!automatic) {
-          showErrorBriefly(error instanceof Error ? error.message : "Update check failed");
+          showUpdateError(error instanceof Error ? error.message : "Update check failed");
         } else {
           hideStatus();
         }
         return null;
       }
     },
-    [clearHideTimer, hideStatus, runtime, showErrorBriefly],
+    [clearHideTimer, hideStatus, rememberVersions, runtime, showUpdateError],
   );
 
-  const updateAll = useCallback(async () => {
-    if (!runtime) return null;
+  const updateApp = useCallback(async () => {
+    if (!runtime || updateCommandInFlight) return null;
+    updateCommandInFlight = true;
     clearHideTimer();
     setBusy(true);
-    setProgressPct(8);
-    setStatus("Updating addons, plugins, tools, archives, and Studio…");
+    setProgressPct(null);
+    setStatus("Checking for a signed Studio app update…");
+    try {
+      const result = await installStudioAppUpdate();
+      rememberVersions(result);
+      if (!result?.ok) {
+        showUpdateError(result?.error || "Studio app update failed");
+      } else {
+        setBusy(false);
+        setProgressPct(null);
+        setStatus(result.available ? "Studio installer started. Waiting for restart…" : noPublishedUpdateMessage(result));
+      }
+      return result;
+    } catch (error) {
+      showUpdateError(error instanceof Error ? error.message : "Studio app update failed");
+      return null;
+    } finally {
+      updateCommandInFlight = false;
+    }
+  }, [clearHideTimer, rememberVersions, runtime, showUpdateError]);
+
+  const updateAll = useCallback(async () => {
+    if (!runtime || updateCommandInFlight) return null;
+    updateCommandInFlight = true;
+    clearHideTimer();
+    setBusy(true);
+    setProgressPct(null);
+    setStatus("Checking Studio first, then updating addons and tools…");
     try {
       const result = await installDesktopUpdate();
+      rememberVersions(result);
       if (!result?.ok) {
-        showErrorBriefly(result?.error || "Update installation failed");
+        showUpdateError(result?.error || result?.summary || "Update installation failed");
         return result;
       }
       setStatus(
@@ -149,20 +179,28 @@ export function useDesktopUpdates() {
       }, 2200);
       return result;
     } catch (error) {
-      showErrorBriefly(error instanceof Error ? error.message : "Update installation failed");
+      showUpdateError(error instanceof Error ? error.message : "Update installation failed");
       return null;
+    } finally {
+      updateCommandInFlight = false;
     }
-  }, [clearHideTimer, hideStatus, runtime, showErrorBriefly]);
+  }, [clearHideTimer, hideStatus, rememberVersions, runtime, showUpdateError]);
 
   const runSilentUpdate = useCallback(async () => {
-    if (!runtime || silentUpdateStarted) return;
+    if (!runtime || silentUpdateStarted || updateCommandInFlight) return;
     silentUpdateStarted = true;
+    updateCommandInFlight = true;
     try {
       const check = await checkForDesktopUpdates();
-      if (!check?.ok || !check.available) return;
+      rememberVersions(check);
+      if (!check?.ok) {
+        showUpdateError(check?.error || "Could not check for a Studio app update");
+        return;
+      }
+      if (!check.available) return;
       clearHideTimer();
       setBusy(true);
-      setProgressPct(8);
+      setProgressPct(null);
       setStatus(
         check.version
           ? `Downloading Studio update v${check.version}…`
@@ -170,30 +208,36 @@ export function useDesktopUpdates() {
       );
       const result = await installStudioAppUpdate();
       if (!result?.ok) {
-        showErrorBriefly(result?.error || "Update failed");
+        showUpdateError(result?.error || "Update failed");
         return;
       }
       hideStatus();
     } catch (error) {
-      showErrorBriefly(error instanceof Error ? error.message : "Update failed");
+      showUpdateError(error instanceof Error ? error.message : "Update failed");
+    } finally {
+      updateCommandInFlight = false;
     }
-  }, [clearHideTimer, hideStatus, runtime, showErrorBriefly]);
+  }, [clearHideTimer, hideStatus, rememberVersions, runtime, showUpdateError]);
 
   useEffect(() => {
     if (!runtime) return undefined;
     const unsubscribe = subscribeToDesktopUpdateStatus((payload) => {
       if (!payload) return;
       const message = typeof payload.message === "string" ? payload.message.trim() : "";
+      if (payload.phase === "studio-error" || payload.phase === "update-error") {
+        showUpdateError(message || "Studio update failed");
+        return;
+      }
       if (message) setStatus(message);
       if (typeof payload.pct === "number" && Number.isFinite(payload.pct)) {
         setProgressPct(Math.max(0, Math.min(100, Math.round(payload.pct))));
-      } else if (payload.phase && PHASE_PCT[payload.phase] != null) {
-        setProgressPct(PHASE_PCT[payload.phase]);
+      } else {
+        setProgressPct(null);
       }
       // Status bar and header each own hook state. Finish events must dismiss the bar
       // here — only the instance that called updateAll schedules hideStatus otherwise.
       const finished =
-        payload.phase === "studio-error" || payload.pct === 100 || /update check finished|timed out/i.test(message);
+        payload.phase === "update-complete" || /update check finished/i.test(message);
       if (finished) {
         setBusy(false);
         clearHideTimer();
@@ -211,19 +255,19 @@ export function useDesktopUpdates() {
       unsubscribe();
       clearHideTimer();
     };
-  }, [clearHideTimer, hideStatus, runSilentUpdate, runtime]);
+  }, [clearHideTimer, hideStatus, runSilentUpdate, runtime, showUpdateError]);
 
   useEffect(() => {
     if (!busy || !isStuckStudioUpdateProgress(status, progressPct)) return undefined;
     const timer = setTimeout(() => {
       reportCaughtError(
         "desktop.update.studio-check",
-        new Error(status || "Studio update check stalled at 85%"),
+        new Error(status || "Studio update check stalled"),
       );
-      showErrorBriefly("Studio update check timed out — GitHub did not respond");
+      showUpdateError("Studio update check timed out — GitHub did not respond");
     }, STUDIO_UPDATE_CHECK_STALL_MS);
     return () => clearTimeout(timer);
-  }, [busy, progressPct, showErrorBriefly, status]);
+  }, [busy, progressPct, showUpdateError, status]);
 
   return {
     available: Boolean(runtime),
@@ -231,9 +275,12 @@ export function useDesktopUpdates() {
     status,
     busy,
     progressPct,
+    currentVersion,
+    publishedVersion,
     installReady: runtime === "tauri",
     installLabel: "Update all",
     checkUpdates,
+    updateApp,
     updateAll,
   };
 }

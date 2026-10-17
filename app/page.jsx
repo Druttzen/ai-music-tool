@@ -47,7 +47,7 @@ export default function Page() {
 
       <canvas ref={canvasRef} className="hidden"/>
       <div className="fixed inset-0 pointer-events-none opacity-40" style={{background:"radial-gradient(circle at 18% 0%, rgba(184,115,51,.25), transparent 34%), radial-gradient(circle at 82% 12%, rgba(34,211,238,.16), transparent 36%), linear-gradient(135deg, rgba(255,255,255,.05), transparent 35%)"}}/>
-      <div className="relative mx-auto max-w-7xl pb-12">
+      <div className="relative mx-auto max-w-7xl pb-[calc(35vh+6rem)]">
         <FailSafeErrorBoundary name="header">
           <AppHeader
             appVersion={APP_VERSION}

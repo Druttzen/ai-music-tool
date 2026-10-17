@@ -158,7 +158,15 @@ export function buildRuntimeHealthReport(input = {}) {
 
   const localFaults = appSubsystems?.localFaults;
   if (Array.isArray(localFaults) && localFaults.length) {
-    issues.push(issueFromLocalFault(localFaults[0], localFaults.length));
+    const grouped = new Map();
+    for (const fault of localFaults) {
+      const mapped = issueFromLocalFault(fault);
+      const key = `${mapped.id}:${mapped.extraId || ""}`;
+      if (!grouped.has(key)) grouped.set(key, mapped);
+    }
+    const hasNamedInstall = [...grouped.values()].some((issue) => issue.extraId);
+    issues.push(...[...grouped.values()].filter((issue) =>
+      !(hasNamedInstall && issue.id === "sidecar_extra_install" && !issue.extraId)));
   }
 
   return {
@@ -208,6 +216,9 @@ export function issueFromLocalFault(latest, count = 1) {
     return {
       ...shared,
       id: "sidecar_extra_install",
+      extraId: source.match(/(?:addons\.install:|vocal-embed\.install:)([a-z0-9-]+)$/i)?.[1],
+      error: latest?.stack || latest?.message || "",
+      faultMessage: latest?.message,
       severity: "warn",
       title: "Sidecar extra / addon install failed",
       safeFallback: "Studio still runs. Retry Install from Add-ons, or run the npm hint in a checkout.",
@@ -224,7 +235,7 @@ export function issueFromLocalFault(latest, count = 1) {
   }
   if (source === "ui.status" || source.startsWith("ui.")) {
     const title = String(latest?.message || "Studio error").slice(0, 96);
-    if (/install|uninstall|addon/i.test(title)) {
+    if (/install|uninstall|addon|model access required/i.test(title)) {
       return {
         ...shared,
         id: "sidecar_extra_install",

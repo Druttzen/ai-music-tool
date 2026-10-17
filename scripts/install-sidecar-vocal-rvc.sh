@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# Install the optional RVC vocal-rvc extra into the sidecar venv.
 set -euo pipefail
-# shellcheck source=lib/sidecar-venv.sh
-source "$(cd "$(dirname "$0")" && pwd)/lib/sidecar-venv.sh"
-install_sidecar_extra "vocal-ml" "vocal-ml extra (torch)"
-install_sidecar_extra "vocal-rvc" "vocal-rvc extra (rvc-python)"
-echo "Place RVC models per ai-sidecar README; check GET /health for vocal_rvc_available."
+: "${STUDIO_DATA_DIR:?Set STUDIO_DATA_DIR to Studio data folder}"
+export PYTHONPATH="$(cd "$(dirname "$0")/.." && pwd)/ai-sidecar"
+"$STUDIO_DATA_DIR/sidecar/.venv/bin/python" -m ai_sidecar.managed_tools install vocal-rvc

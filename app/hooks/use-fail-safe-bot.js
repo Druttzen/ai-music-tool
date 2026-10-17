@@ -1,5 +1,7 @@
 "use client";
 
+import { runProcess } from "../lib/process-status";
+
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   buildRuntimeHealthReport,
@@ -52,6 +54,7 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
   const previousSidecarRef = useRef(sidecarAiStatus);
 
   const probe = useCallback(async (reason = "manual") => {
+    return runProcess("Auto Fail-Safe scan", async () => {
     const epoch = ++probeEpochRef.current;
     setHibernating(false);
     setLastProbeReason(reason);
@@ -86,6 +89,7 @@ export function useFailSafeBot({ sidecarAiStatus, sidecarGenerateAvailable } = {
         setHibernating(true);
       }
     }
+    });
   }, [sidecarAiStatus, sidecarGenerateAvailable]);
 
   useEffect(() => {

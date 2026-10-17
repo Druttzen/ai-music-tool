@@ -4,6 +4,7 @@
  */
 
 import { isTauriApp } from "./dsp-bridge";
+import { runProcess } from "./process-status";
 
 /**
  * @returns {{ core: { invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T> } } | null}
@@ -42,6 +43,10 @@ export function triggerBrowserDownload(blob, fileName) {
  * @returns {Promise<{ mode: "studio"|"browser", path?: string }>}
  */
 export async function saveOrDownloadBlob(blob, fileName, opts = {}) {
+  return runProcess(`Save · ${fileName || "download"}`, async () => saveOrDownloadBlobImpl(blob, fileName, opts));
+}
+
+async function saveOrDownloadBlobImpl(blob, fileName, opts) {
   const name = String(fileName || "download").trim() || "download";
   const directory = String(opts.directory || "").trim();
   if (isTauriApp()) {

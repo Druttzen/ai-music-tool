@@ -1,5 +1,7 @@
 "use client";
 
+import { beginProcess } from "../lib/process-status";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatLufs } from "../lib/lufs-meter";
 import { formatCorrelation } from "../lib/stereo-phase";
@@ -217,7 +219,9 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
   const onPickReference = async (file) => {
     if (!file) return;
     setRefBusy(true);
+    const process = beginProcess(`A/B reference · ${file.name}`);
     try {
+      process.progress({ phase: "Decoding and measuring reference audio", pct: null });
       if (refUrl) URL.revokeObjectURL(refUrl);
       sourceNodesRef.current.reference = null;
       const bytes = await file.arrayBuffer();
@@ -242,7 +246,9 @@ export function PreviewMonitorStrip({ audioUrl = null, stereoPhase = null, progr
       setRefLufs(measured.integratedLUFS);
       setRefEngine(measured.engine);
       setAbMode("B");
-    } catch {
+      process.finish();
+    } catch (error) {
+      process.finish("error", error instanceof Error ? error.message : "Reference measurement failed");
       setRefLufs(null);
       setRefEngine(null);
     } finally {

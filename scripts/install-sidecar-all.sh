@@ -5,5 +5,5 @@ set -euo pipefail
 source "$(cd "$(dirname "$0")" && pwd)/lib/sidecar-venv.sh"
 install_sidecar_extra "all" "[all] extras (~multi-GB)"
 # RVC is separate: rvc-python's faiss-cpu pin has no Python 3.12 wheel (see pyproject [all]).
-install_sidecar_extra "vocal-rvc" "vocal-rvc (fallback-safe)"
+bash "$(cd "$(dirname "$0")" && pwd)/install-sidecar-vocal-rvc.sh"
 echo "Optional RVC models still need configuration - see ai-sidecar README."

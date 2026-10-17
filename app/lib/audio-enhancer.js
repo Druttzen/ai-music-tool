@@ -63,7 +63,7 @@ const MAX_EXPORT_DURATION_SEC = 600;
  * @param {string} presetId
  * @returns {Promise<AudioBuffer>}
  */
-export async function renderEnhancedAudioBuffer(buffer, presetId) {
+export async function renderEnhancedAudioBuffer(buffer, presetId, onProgress) {
   const preset = STUDIO_EXPORT_PRESETS.find((p) => p.id === presetId);
   if (!preset) throw new Error("Unknown preset");
 
@@ -92,6 +92,7 @@ export async function renderEnhancedAudioBuffer(buffer, presetId) {
 
   const rendered = await offline.startRendering();
 
+  onProgress?.({ phase: "normalizing", pct: null });
   const target = targetLufsForPreset(preset.id);
   if (typeof target === "number") {
     const { buffer: normalized } = await applyTargetIntegratedLufs(rendered, target);

@@ -149,7 +149,7 @@ fn install_one_sidecar_extra_inner(
 
     // All plugins belong to the app-managed data root, including development.
     let _ = (stem, skip_checkout);
-    let managed_tool = ["mfa", "diffsinger", "java", "ffmpeg"].contains(&id.as_str());
+    let managed_tool = ["mfa", "diffsinger", "java", "ffmpeg", "vocal-rvc"].contains(&id.as_str());
     let mut result = if managed_tool {
         match crate::internal_plugins::run_plugin_module(app, "ai_sidecar.managed_tools", &["install", &id]) {
             Ok(message) => SidecarExtraInstallResult {
@@ -317,7 +317,7 @@ pub async fn uninstall_sidecar_extra(
     let mgr = Arc::clone(manager.inner());
     tauri::async_runtime::spawn_blocking(move || {
         mgr.stop();
-        let result = if ["mfa", "diffsinger", "java", "ffmpeg"].contains(&id.as_str()) {
+        let result = if ["mfa", "diffsinger", "java", "ffmpeg", "vocal-rvc"].contains(&id.as_str()) {
             crate::internal_plugins::run_plugin_module(&app, "ai_sidecar.managed_tools", &["deactivate", &id])
                 .and_then(|message| { crate::sidecar_userdata::deactivate_tracked_extra(&app, &id)?; Ok(message) })
         } else if id == "acestep" || id == "acest" {

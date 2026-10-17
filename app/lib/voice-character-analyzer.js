@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Local vocal-trait analysis from uploaded audio (browser DSP heuristics).
  * Output is descriptive Suno prompt DNA — not voice cloning or identity matching.
@@ -338,20 +340,22 @@ export function buildAnalysisSummary(parts) {
  * @param {object} [sourceMeta]
  */
 export async function decodeAndAnalyzeVoiceFile(file, sourceMeta = {}) {
-  const arrayBuffer = await file.arrayBuffer();
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  try {
-    const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-    return analyzeVoiceCharacter(buffer, file.name, {
-      type: "file",
-      fileName: file.name,
-      ...sourceMeta,
-    });
-  } finally {
+  return runProcess("Analyse voice character", async () => {
+    const arrayBuffer = await file.arrayBuffer();
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     try {
-      await audioContext.close();
-    } catch {
-      /* ignore */
+      const buffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      return analyzeVoiceCharacter(buffer, file.name, {
+        type: "file",
+        fileName: file.name,
+        ...sourceMeta,
+      });
+    } finally {
+      try {
+        await audioContext.close();
+      } catch {
+        /* ignore */
+      }
     }
-  }
+  });
 }

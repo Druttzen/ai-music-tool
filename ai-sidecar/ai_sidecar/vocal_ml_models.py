@@ -38,10 +38,14 @@ def _env_path(name: str) -> str | None:
 
 def rvc_python_available() -> bool:
     """True when the rvc_python package is installed — does not import the engine (health must stay fast)."""
+    from .rvc_runtime import available
+    if available():
+        return True
     if "rvc_python" in sys.modules:
         return True
     try:
-        return importlib.util.find_spec("rvc_python") is not None
+        return (importlib.util.find_spec("rvc_python") is not None and
+                importlib.util.find_spec("fairseq") is not None)
     except (ImportError, ValueError, ModuleNotFoundError):
         return False
 
@@ -205,14 +209,17 @@ def _apply_rvc_pitch_params(engine: Any, pitch_semitones: float) -> None:
 
 
 def _convert_mono_with_rvc_python(mono: np.ndarray, sample_rate: int, pitch_semitones: float) -> np.ndarray:
-    engine = _get_rvc_engine()
-    _apply_rvc_pitch_params(engine, pitch_semitones)
-
     with tempfile.TemporaryDirectory(prefix="aimc-rvc-") as tmp:
         in_path = os.path.join(tmp, "in.wav")
         out_path = os.path.join(tmp, "out.wav")
         _write_mono_wav(in_path, mono, sample_rate)
-        engine.infer_file(in_path, out_path)
+        from .rvc_runtime import available, convert
+        if available():
+            convert(in_path, out_path, _rvc_model_path(), _env_path("AIMC_RVC_INDEX"), pitch_semitones)
+        else:
+            engine = _get_rvc_engine()
+            _apply_rvc_pitch_params(engine, pitch_semitones)
+            engine.infer_file(in_path, out_path)
         import librosa  # noqa: PLC0415
 
         y, _ = librosa.load(out_path, sr=sample_rate, mono=True)

@@ -1,3 +1,5 @@
+import { runProcess } from "./process-status";
+
 /**
  * Optional Co-Producer LLM refine: image/audio analysis → Suno v6 Style line.
  * Falls back to the provided heuristic when LLM is unavailable or fails.
@@ -83,66 +85,68 @@ Keep styleLine under 480 characters. No lyrics. No markdown. No explanation. Tre
  * @param {{ timeoutMs?: number, signal?: AbortSignal }} [options]
  */
 export async function refineSunoStyleWithLlm(kind, heuristic, report, settings, options = {}) {
-  if (!isCoProducerLlmReady(settings)) {
-    return { ...heuristic, source: "heuristic" };
-  }
+  return runProcess("Refine Suno style", async () => {
+    if (!isCoProducerLlmReady(settings)) {
+      return { ...heuristic, source: "heuristic" };
+    }
 
-  const { system, user } = buildSunoStyleLlmMessages(kind, heuristic, report);
-  const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const { system, user } = buildSunoStyleLlmMessages(kind, heuristic, report);
+    const timeoutMs = options.timeoutMs ?? LLM_REQUEST_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (options.signal) {
-    if (options.signal.aborted) {
+    if (options.signal) {
+      if (options.signal.aborted) {
+        clearTimeout(timeoutId);
+        controller.abort();
+      } else {
+        options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+      }
+    }
+
+    try {
+      const res = await fetch(String(settings.apiUrl).trim(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${String(settings.apiKey).trim()}`,
+        },
+        body: JSON.stringify({
+          model: settings.model || DEFAULT_LLM_SETTINGS.model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          temperature: 0.55,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(formatApiError(res.status, errText, "Style LLM request"));
+      }
+
+      const data = await res.json();
+      const content = String(data?.choices?.[0]?.message?.content || "").trim();
+      const parsed = parseSunoStyleLlmResponse(content);
+
+      return {
+        ...heuristic,
+        styleLine: parsed.styleLine.trim(),
+        negativeHints: String(parsed.negativeHints || heuristic.negativeHints || "").trim(),
+        lyricThemeHint: String(parsed.lyricThemeHint || heuristic.lyricThemeHint || "").trim(),
+        source: "llm",
+      };
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new Error(`Style LLM timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+      throw err;
+    } finally {
       clearTimeout(timeoutId);
-      controller.abort();
-    } else {
-      options.signal.addEventListener("abort", () => controller.abort(), { once: true });
     }
-  }
-
-  try {
-    const res = await fetch(String(settings.apiUrl).trim(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${String(settings.apiKey).trim()}`,
-      },
-      body: JSON.stringify({
-        model: settings.model || DEFAULT_LLM_SETTINGS.model,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.55,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(formatApiError(res.status, errText, "Style LLM request"));
-    }
-
-    const data = await res.json();
-    const content = String(data?.choices?.[0]?.message?.content || "").trim();
-    const parsed = parseSunoStyleLlmResponse(content);
-
-    return {
-      ...heuristic,
-      styleLine: parsed.styleLine.trim(),
-      negativeHints: String(parsed.negativeHints || heuristic.negativeHints || "").trim(),
-      lyricThemeHint: String(parsed.lyricThemeHint || heuristic.lyricThemeHint || "").trim(),
-      source: "llm",
-    };
-  } catch (err) {
-    if (err?.name === "AbortError") {
-      throw new Error(`Style LLM timed out after ${Math.round(timeoutMs / 1000)}s`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  });
 }
 
 /**

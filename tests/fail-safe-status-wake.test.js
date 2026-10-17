@@ -33,10 +33,11 @@ describe("fail-safe status wake", () => {
     expect(shouldRecordStatusAsFault("info", "Installing sidecar extra (stems)…")).toBe(false);
   });
 
-  it("dedupes the same toast message even when the source differs", () => {
+  it("preserves the named plugin failure even if a generic toast was already recorded", () => {
     expect(recordLocalFault({ source: "ui.status", message: "pip failed" }).ok).toBe(true);
+    expect(recordLocalFault({ source: "addons.install:stems", message: "pip failed" }).ok).toBe(true);
     expect(recordLocalFault({ source: "addons.install:stems", message: "pip failed" }).ok).toBe(false);
-    expect(getLocalFaults()).toHaveLength(1);
-    expect(getLocalFaults()[0].source).toBe("ui.status");
+    expect(getLocalFaults()).toHaveLength(2);
+    expect(getLocalFaults()[0].source).toBe("addons.install:stems");
   });
 });

@@ -29,14 +29,17 @@ Starting with **0.50.69**, Tauri Studio checks the latest GitHub Release automat
 
 Automatic startup updates refresh only the Studio app. They do not upgrade optional plugin dependencies on every launch. In-place update restarts keep the workspace restoration data; they do not arm the normal close/reset flag.
 
-**Check for updates** and **Update all** remain in the Project status card. Update all refreshes:
+The Project status card shows the installed version and the latest published version. **Check for updates** reads the signed release feed. **Update Studio app** checks and installs only the app, without Python or plugin upgrades. Errors remain visible until another action.
+
+**Update all** checks Studio first. A newer app installs and restarts before dependency maintenance; a failed app check stops the operation without changing Python or addons. When no newer published app exists, Update all refreshes:
 
 - Sidecar toolchain — re-ensure the platform's Python runtime, upgrade `pip` / `setuptools` / `wheel`, upgrade the base editable sidecar package, and inventory optional tools in Studio's managed data folder
 - Installed sidecar plugins / extras (already installed stacks only)
 - MFA, DiffSinger, Java and FFmpeg can be installed from Plugins; Update all refreshes them after installation. They use separate environments inside the same managed data folder. DiffSinger additionally needs compatible voice checkpoints. See [managed tools](managed-tools.md).
 - Canvas addon, when it is already present
 - Usable `.zip` archives in `{install}/data/{addons,tools,archives}`
-- Then the Studio app itself, when a newer signed release exists
+
+Local unsigned installers and GitHub draft releases are not available through the in-app updater. The signed `studio-v*` release must pass the release workflow and be published with `latest.json` and its matching installers/signatures. Building an installer locally does not publish an update.
 
 Packages are verified with the updater public key before installation. Addon/extra installs always target the Studio app data directory (`{install}/data` or `STUDIO_DATA_DIR`). Windows ships embeddable CPython under `resources/python-embed` and unpacks it to `{install}/data/sidecar/runtime` — no system Python on PATH is required for Windows plugin provisioning. Other platforms use the frozen sidecar for base features; optional plugin environments require an available compatible Python installation.
 

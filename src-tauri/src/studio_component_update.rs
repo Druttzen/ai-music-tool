@@ -1,4 +1,4 @@
-//! Refresh installed addons, plugins, tools, and usable archives, then Studio itself.
+//! Check Studio first; refresh installed addons, tools and archives only when no app update is pending.
 
 use std::fs;
 use std::io::{self, Write};
@@ -52,7 +52,13 @@ struct ProgressPayload {
     pct: Option<u32>,
 }
 
-pub(crate) fn emit_progress_pct(app: &AppHandle, phase: &str, item: &str, message: &str, pct: Option<u32>) {
+pub(crate) fn emit_progress_pct(
+    app: &AppHandle,
+    phase: &str,
+    item: &str,
+    message: &str,
+    pct: Option<u32>,
+) {
     let _ = app.emit(
         STUDIO_COMPONENT_UPDATE_PROGRESS_EVENT,
         ProgressPayload {
@@ -96,7 +102,10 @@ pub(crate) fn extras_from_sidecar_health(health: &serde_json::Value) -> Vec<Stri
             ids.push(extra.to_string());
         }
     }
-    if let Some(caps) = health.get("capabilities").and_then(serde_json::Value::as_array) {
+    if let Some(caps) = health
+        .get("capabilities")
+        .and_then(serde_json::Value::as_array)
+    {
         for cap in caps {
             let available = cap.get("available").and_then(serde_json::Value::as_bool) == Some(true);
             if !available {
@@ -416,8 +425,10 @@ fn summarize(components: &[ComponentUpdateItem], studio: &StudioUpdateCheckResul
         parts.push(format!(
             "Refreshed {refreshed} addon(s)/plugin(s)/archive(s)"
         ));
+    } else if components.is_empty() {
+        parts.push("Addons and tools were not changed".to_string());
     } else {
-        parts.push("Addons, plugins, tools, and archives are current".to_string());
+        parts.push("No addon or tool upgrades were applied".to_string());
     }
     if failed > 0 {
         parts.push(format!("{failed} component(s) need attention"));
@@ -426,14 +437,45 @@ fn summarize(components: &[ComponentUpdateItem], studio: &StudioUpdateCheckResul
         parts.push("Studio app update failed".to_string());
     } else if studio.available {
         if let Some(version) = &studio.version {
-            parts.push(format!("Studio {version} update installed"));
+            parts.push(format!("Studio {version} installer started"));
         } else {
-            parts.push("Studio update installed".to_string());
+            parts.push("Studio installer started".to_string());
         }
     } else {
-        parts.push("Studio app is current".to_string());
+        parts.push(format!(
+            "No newer published Studio app version (installed {}, published {})",
+            studio.current_version,
+            studio.version.as_deref().unwrap_or("unknown")
+        ));
     }
     parts.join(". ")
+}
+
+fn all_update_result(
+    components: Vec<ComponentUpdateItem>,
+    studio: StudioUpdateCheckResult,
+) -> StudioAllUpdateResult {
+    let failures: Vec<String> = components
+        .iter()
+        .filter(|item| !item.ok)
+        .map(|item| format!("{}: {}", item.id, item.message))
+        .collect();
+    let summary = summarize(&components, &studio);
+    let ok = studio.ok && failures.is_empty();
+    let error = studio
+        .error
+        .clone()
+        .or_else(|| (!failures.is_empty()).then(|| failures.join("; ")));
+    StudioAllUpdateResult {
+        ok,
+        available: studio.available,
+        version: studio.version,
+        current_version: studio.current_version,
+        notes: studio.notes,
+        error,
+        summary,
+        components,
+    }
 }
 
 #[tauri::command]
@@ -442,6 +484,34 @@ pub async fn update_studio_all(
     manager: tauri::State<'_, Arc<SidecarManager>>,
 ) -> Result<StudioAllUpdateResult, String> {
     let _guard = UpdateGuard::acquire()?;
+    // Resolve the app update before any Python/tool/plugin mutations. A newer app
+    // installs and restarts here; a feed/signature failure must not trigger pip work.
+    emit_progress_pct(
+        &app,
+        "studio-check",
+        "studio",
+        "Checking Studio app update…",
+        None,
+    );
+    let studio = install_studio_update_inner(app.clone()).await;
+    if !studio.ok || studio.available {
+        let result = all_update_result(Vec::new(), studio);
+        emit_progress_pct(
+            &app,
+            if result.ok {
+                "studio-install"
+            } else {
+                "studio-error"
+            },
+            "studio",
+            result
+                .error
+                .as_deref()
+                .unwrap_or("Studio installer started. Waiting for restart…"),
+            None,
+        );
+        return Ok(result);
+    }
     let mgr = Arc::clone(manager.inner());
     let app_for_components = app.clone();
     let components = tauri::async_runtime::spawn_blocking(move || {
@@ -450,40 +520,19 @@ pub async fn update_studio_all(
     .await
     .map_err(|err| format!("Component update task failed: {err}"))?;
 
+    let result = all_update_result(components, studio);
     emit_progress_pct(
         &app,
-        "studio",
-        "studio",
-        "Checking Studio app update…",
-        Some(85),
-    );
-    let studio = install_studio_update_inner(app.clone()).await;
-    emit_progress_pct(
-        &app,
-        "studio",
-        "studio",
-        if studio.ok {
-            "Studio app update check finished"
+        if result.ok {
+            "update-complete"
         } else {
-            studio
-                .error
-                .as_deref()
-                .unwrap_or("Studio update check failed")
+            "update-error"
         },
-        Some(100),
+        "studio",
+        &result.summary,
+        if result.ok { Some(100) } else { None },
     );
-    let failed = components.iter().any(|item| !item.ok);
-    let summary = summarize(&components, &studio);
-    Ok(StudioAllUpdateResult {
-        ok: studio.ok && !failed,
-        available: studio.available,
-        version: studio.version,
-        current_version: studio.current_version,
-        notes: studio.notes,
-        error: studio.error,
-        summary,
-        components,
-    })
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -491,6 +540,50 @@ mod tests {
     use super::*;
     use serde_json::json;
     use std::io::Write;
+
+    fn studio_result(ok: bool) -> StudioUpdateCheckResult {
+        StudioUpdateCheckResult {
+            ok,
+            available: false,
+            version: Some("0.50.70".into()),
+            current_version: "0.50.74".into(),
+            notes: None,
+            error: if ok {
+                None
+            } else {
+                Some("Studio update feed HTTP 403".into())
+            },
+        }
+    }
+
+    #[test]
+    fn app_feed_failure_does_not_claim_python_or_addons_were_updated() {
+        let result = all_update_result(Vec::new(), studio_result(false));
+        assert!(!result.ok);
+        assert!(result.components.is_empty());
+        assert_eq!(result.error.as_deref(), Some("Studio update feed HTTP 403"));
+        assert!(result.summary.contains("were not changed"));
+        assert!(!result.summary.contains("are current"));
+    }
+
+    #[test]
+    fn component_failures_retain_the_failed_component_and_original_error() {
+        let result = all_update_result(
+            vec![ComponentUpdateItem {
+                kind: "extra".into(),
+                id: "vocal-rvc".into(),
+                ok: false,
+                skipped: false,
+                message: "Python.h missing".into(),
+            }],
+            studio_result(true),
+        );
+        assert!(!result.ok);
+        assert_eq!(result.error.as_deref(), Some("vocal-rvc: Python.h missing"));
+        assert!(result
+            .summary
+            .contains("installed 0.50.74, published 0.50.70"));
+    }
 
     #[test]
     fn extras_from_sidecar_health_maps_flags_and_capabilities() {
